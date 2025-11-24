@@ -11,17 +11,16 @@ import { useCoursesQuery } from '@/hooks/useCoursesQuery'
 import { useVideosQuery } from '@/hooks/useVideosQuery'
 import { useDocumentsQuery } from '@/hooks/useDocumentsQuery'
 import type { ContentItem } from '@/data/types'
-import { 
-  contentTypeFilters, 
-  difficultyFilters, 
-  popularTags 
+import {
+  contentTypeFilters
 } from "@/data/config"
-import { 
+import {
   Crown,
   Filter,
   X,
   FileText,
-  Loader2
+  Loader2,
+  Gift
 } from "lucide-react"
 import { useCopy, getCopy } from "@/lib/copy"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
@@ -196,7 +195,7 @@ export default function ContentPage() {
   // Transform data to ContentItem format
   const contentItems = useMemo(() => {
     const allItems: ContentItem[] = []
-    
+
     // Add courses
     if (courses) {
       courses.forEach(course => {
@@ -206,7 +205,6 @@ export default function ContentPage() {
           title: course.note?.tags.find(tag => tag[0] === "name")?.[1] || `Course ${course.id}`,
           description: course.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
           category: course.price > 0 ? pricing.premium : pricing.free,
-          difficulty: 'beginner' as const,
           image: getNoteImage(course.note) ?? (course.noteId ? noteImageCache[course.noteId] : undefined),
           tags: course.note?.tags.filter(tag => tag[0] === "t") || [],
           instructor: course.userId,
@@ -220,25 +218,25 @@ export default function ContentPage() {
           topics: course.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
           additionalLinks: course.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
           noteId: course.note?.id || course.noteId,
+          purchases: course.purchases,
         }
         allItems.push(courseItem)
       })
     }
-    
+
     // Add videos
     if (videos) {
       videos.forEach(video => {
         const videoItem = {
           id: video.id,
           type: 'video' as const,
-          title: video.note?.tags.find(tag => tag[0] === "title")?.[1] || 
-                 video.note?.tags.find(tag => tag[0] === "name")?.[1] || 
+          title: video.note?.tags.find(tag => tag[0] === "title")?.[1] ||
+                 video.note?.tags.find(tag => tag[0] === "name")?.[1] ||
                  `Video ${video.id}`,
-          description: video.note?.tags.find(tag => tag[0] === "summary")?.[1] || 
-                      video.note?.tags.find(tag => tag[0] === "description")?.[1] || 
+          description: video.note?.tags.find(tag => tag[0] === "summary")?.[1] ||
+                      video.note?.tags.find(tag => tag[0] === "description")?.[1] ||
                       video.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
           category: video.price > 0 ? pricing.premium : pricing.free,
-          difficulty: 'beginner' as const,
           image: getNoteImage(video.note, video.videoId ? `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg` : undefined) ?? (video.noteId ? noteImageCache[video.noteId] : undefined),
           tags: video.note?.tags.filter(tag => tag[0] === "t") || [],
           instructor: video.userId,
@@ -252,25 +250,25 @@ export default function ContentPage() {
           topics: video.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
           additionalLinks: video.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
           noteId: video.note?.id || video.noteId,
+          purchases: video.purchases,
         }
         allItems.push(videoItem)
       })
     }
-    
+
     // Add documents
     if (documents) {
       documents.forEach(document => {
         const documentItem = {
           id: document.id,
           type: 'document' as const,
-          title: document.note?.tags.find(tag => tag[0] === "title")?.[1] || 
-                 document.note?.tags.find(tag => tag[0] === "name")?.[1] || 
+          title: document.note?.tags.find(tag => tag[0] === "title")?.[1] ||
+                 document.note?.tags.find(tag => tag[0] === "name")?.[1] ||
                  `Document ${document.id}`,
-          description: document.note?.tags.find(tag => tag[0] === "summary")?.[1] || 
-                      document.note?.tags.find(tag => tag[0] === "description")?.[1] || 
+          description: document.note?.tags.find(tag => tag[0] === "summary")?.[1] ||
+                      document.note?.tags.find(tag => tag[0] === "description")?.[1] ||
                       document.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
           category: document.price > 0 ? pricing.premium : pricing.free,
-          difficulty: 'beginner' as const,
           image: getNoteImage(document.note) ?? (document.noteId ? noteImageCache[document.noteId] : undefined),
           tags: document.note?.tags.filter(tag => tag[0] === "t") || [],
           instructor: document.userId,
@@ -284,13 +282,37 @@ export default function ContentPage() {
           topics: document.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
           additionalLinks: document.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
           noteId: document.note?.id || document.noteId,
+          purchases: document.purchases,
         }
         allItems.push(documentItem)
       })
     }
-    
+
     return allItems
   }, [courses, videos, documents, pricing.free, pricing.premium, noteImageCache])
+
+  // Extract unique tags from actual content, sorted by frequency
+  const availableTags = useMemo(() => {
+    const tagCounts = new Map<string, number>()
+    const contentTypeNames = new Set(['course', 'video', 'document', 'courses', 'videos', 'documents'])
+
+    contentItems.forEach(item => {
+      item.topics.forEach(topic => {
+        if (topic && topic.trim()) {
+          const normalizedTag = topic.toLowerCase().trim()
+          // Skip tags that match content type filters to avoid duplicates
+          if (!contentTypeNames.has(normalizedTag)) {
+            tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) || 0) + 1)
+          }
+        }
+      })
+    })
+
+    // Convert to array and sort by frequency (most common first)
+    return Array.from(tagCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag]) => tag)
+  }, [contentItems])
 
   // Filter content based on selected filters
   const filteredContent = useMemo(() => {
@@ -302,13 +324,12 @@ export default function ContentPage() {
       const itemAttributes = [
         item.type,
         item.category,
-        item.difficulty,
-        ...item.topics,
+        ...item.topics.map(t => t.toLowerCase()),
         item.isPremium ? 'premium' : 'free'
       ]
-      
-      return Array.from(selectedFilters).some(filter => 
-        itemAttributes.includes(filter)
+
+      return Array.from(selectedFilters).some(filter =>
+        itemAttributes.includes(filter.toLowerCase())
       )
     })
   }, [contentItems, selectedFilters])
@@ -426,20 +447,6 @@ export default function ContentPage() {
               ))}
             </div>
             
-            {/* Difficulty filters */}
-            <div key="difficulty-filters" className="flex flex-wrap gap-2">
-              {difficultyFilters.map(({ difficulty, label }) => (
-                <Badge
-                  key={difficulty}
-                  variant={selectedFilters.has(difficulty) ? 'default' : 'outline'}
-                  className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => toggleFilter(difficulty)}
-                >
-                  {label}
-                </Badge>
-              ))}
-            </div>
-            
             {/* Premium/Free filters */}
             <div key="premium-filters" className="flex flex-wrap gap-2">
               <Badge
@@ -448,6 +455,7 @@ export default function ContentPage() {
                 className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => toggleFilter('free')}
               >
+                <Gift className="h-3 w-3 mr-1" />
                 {pricing.free}
               </Badge>
               <Badge
@@ -461,19 +469,21 @@ export default function ContentPage() {
               </Badge>
             </div>
 
-            {/* Popular tags */}
-            <div key="popular-tags" className="flex flex-wrap gap-2">
-              {popularTags.slice(0, 8).map((tag) => (
-                <Badge
-                  key={tag}
-                  variant={selectedFilters.has(tag) ? 'default' : 'outline'}
-                  className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => toggleFilter(tag)}
-                >
-                  {tag}
-                </Badge>
-              ))}
-            </div>
+            {/* Dynamic tags from actual content */}
+            {availableTags.length > 0 && (
+              <div key="content-tags" className="flex flex-wrap gap-2">
+                {availableTags.slice(0, 12).map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant={selectedFilters.has(tag) ? 'default' : 'outline'}
+                    className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => toggleFilter(tag)}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </Section>

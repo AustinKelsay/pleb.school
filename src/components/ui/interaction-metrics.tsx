@@ -257,6 +257,10 @@ export function InteractionMetrics({
   const zapStats = zapInsights || DEFAULT_ZAP_INSIGHTS
   const zapTotalSatsDisplay = zapStats.totalSats > 0 ? zapStats.totalSats : 0
   const zapUnitLabel = zapTotalSatsDisplay === 1 ? 'sat' : 'sats'
+  const viewerHasZapped = Boolean(hasZappedWithLightning || viewerZapTotalSats > 0)
+  const zapGlowClass = viewerHasZapped
+    ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.6)]'
+    : 'text-muted-foreground group-hover:text-primary'
   const zapButtonSecondaryLabel = (() => {
     if (zapState.status === 'error') {
       return 'retry'
@@ -284,7 +288,7 @@ export function InteractionMetrics({
             type="button"
             className={`group flex items-center space-x-1.5 sm:space-x-2 transition-colors cursor-pointer bg-transparent border-0 p-0 ${compact ? '' : ''}`}
           >
-            <Zap className={`${iconSize} text-muted-foreground group-hover:text-primary transition-colors`} />
+            <Zap className={`${iconSize} transition-colors ${zapGlowClass}`} />
             <span className="inline-flex items-center justify-center font-medium text-foreground group-hover:text-primary transition-colors">
               {isLoadingZaps ? (
                 <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>

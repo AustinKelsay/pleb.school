@@ -125,11 +125,11 @@ function VideoCard({ video }: { video: VideoResourceWithNote }) {
   const contentItem = {
     id: video.id,
     type: 'video' as const,
-    title: video.note?.tags.find(tag => tag[0] === "title")?.[1] || 
-           video.note?.tags.find(tag => tag[0] === "name")?.[1] || 
+    title: video.note?.tags.find(tag => tag[0] === "title")?.[1] ||
+           video.note?.tags.find(tag => tag[0] === "name")?.[1] ||
            `Video ${video.id}`,
-    description: video.note?.tags.find(tag => tag[0] === "summary")?.[1] || 
-                video.note?.tags.find(tag => tag[0] === "description")?.[1] || 
+    description: video.note?.tags.find(tag => tag[0] === "summary")?.[1] ||
+                video.note?.tags.find(tag => tag[0] === "description")?.[1] ||
                 video.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
     category: video.price > 0 ? 'Premium' : 'Free',
     duration: '15-30 min',
@@ -151,6 +151,7 @@ function VideoCard({ video }: { video: VideoResourceWithNote }) {
     topics: video.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
     additionalLinks: video.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
     noteId: video.note?.id || video.noteId,
+    purchases: video.purchases,
   };
 
   return <ContentCard item={contentItem} variant="content" showContentTypeTags={false} />;

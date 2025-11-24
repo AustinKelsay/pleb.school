@@ -85,7 +85,9 @@ export async function GET(
 
     // Check if this is a paid resource and user has access
     const isPaid = resource.price > 0
-    const hasPurchased = resource.purchases && resource.purchases.length > 0
+    const hasPurchased = (resource.purchases || []).some(
+      (p) => p.amountPaid >= resource.price
+    )
     const isOwner = session?.user?.id === resource.userId
 
     // For paid resources, only return full data if user has access

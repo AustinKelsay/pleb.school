@@ -79,7 +79,8 @@ export async function GET(
       const hasPurchased = await prisma.purchase.findFirst({
         where: {
           userId: session.user.id,
-          resourceId: id
+          resourceId: id,
+          amountPaid: { gte: resource.price }
         }
       })
 

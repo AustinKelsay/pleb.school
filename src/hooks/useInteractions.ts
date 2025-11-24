@@ -23,6 +23,7 @@ export interface ZapReceiptSummary {
   note?: string | null;
   bolt11?: string | null;
   createdAt?: number;
+  event?: NostrEvent;
 }
 
 export interface ZapInsights {
@@ -35,6 +36,7 @@ export interface ZapInsights {
 
 const MAX_STORED_ZAPS = 200;
 const MAX_RECENT_ZAPS = 8;
+const MAX_VIEWER_ZAPS = 200;
 
 export const DEFAULT_ZAP_INSIGHTS: ZapInsights = {
   totalMsats: 0,
@@ -117,7 +119,8 @@ function summarizeZapReceipt(event: NostrEvent): ZapReceiptSummary {
     receiverPubkey,
     note,
     bolt11: bolt11Tag?.[1],
-    createdAt: event.created_at
+    createdAt: event.created_at,
+    event
   };
 }
 
@@ -147,6 +150,7 @@ export interface InteractionsQueryResult {
   userReactionEventId: string | null;
   zapInsights: ZapInsights;
   recentZaps: ZapReceiptSummary[];
+  viewerZapReceipts: ZapReceiptSummary[];
   hasZappedWithLightning: boolean;
   viewerZapTotalSats: number;
 }
@@ -191,9 +195,11 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
   const zapCountRef = useRef(0);
   const [zapInsights, setZapInsights] = useState<ZapInsights>(DEFAULT_ZAP_INSIGHTS);
   const [recentZaps, setRecentZaps] = useState<ZapReceiptSummary[]>([]);
+  const [viewerZapReceipts, setViewerZapReceipts] = useState<ZapReceiptSummary[]>([]);
   const [hasZappedWithLightning, setHasZappedWithLightning] = useState(false);
   const [viewerZapTotalSats, setViewerZapTotalSats] = useState(0);
   const currentUserPubkeyRef = useRef<string | null>(null);
+  const viewerZapReceiptsRef = useRef<ZapReceiptSummary[]>([]);
 
   const resetInteractionStorage = () => {
     zapsRef.current = [];
@@ -203,12 +209,14 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     seenLikesRef.current = new Set();
     seenCommentsRef.current = new Set();
     zapSummariesRef.current = [];
+    viewerZapReceiptsRef.current = [];
     zapSenderTotalsRef.current = new Map();
     unknownZapCountRef.current = 0;
     zapCountRef.current = 0;
     setUserReactionEventId(null);
     setZapInsights(DEFAULT_ZAP_INSIGHTS);
     setRecentZaps([]);
+    setViewerZapReceipts([]);
     setHasZappedWithLightning(false);
     setViewerZapTotalSats(0);
   };
@@ -231,6 +239,8 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     if (!currentUserPubkey) {
       setHasZappedWithLightning(false);
       setViewerZapTotalSats(0);
+      viewerZapReceiptsRef.current = [];
+      setViewerZapReceipts([]);
       return;
     }
 
@@ -361,6 +371,8 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
                     if (currentUserPubkeyRef.current && senderKey === currentUserPubkeyRef.current) {
                       setHasZappedWithLightning(true);
                       setViewerZapTotalSats((prev) => prev + (zapSummary.amountSats ?? 0));
+                      viewerZapReceiptsRef.current = [zapSummary, ...viewerZapReceiptsRef.current].slice(0, MAX_VIEWER_ZAPS);
+                      setViewerZapReceipts(viewerZapReceiptsRef.current);
                     }
                   } else {
                     // Treat zaps without a discoverable sender pubkey as
@@ -507,6 +519,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     userReactionEventId,
     zapInsights,
     recentZaps,
+    viewerZapReceipts,
     hasZappedWithLightning,
     viewerZapTotalSats
   };

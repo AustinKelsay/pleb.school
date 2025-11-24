@@ -6,6 +6,7 @@ type SnstrParsedBolt11Invoice = ReturnType<typeof snstrParseBolt11Invoice>;
 export interface ParsedBolt11Invoice {
   descriptionHash?: string;
   amountMsats?: number;
+  paymentHash?: string;
 }
 
 export function parseBolt11Invoice(bolt11: string): ParsedBolt11Invoice | null {
@@ -25,7 +26,11 @@ export function parseBolt11Invoice(bolt11: string): ParsedBolt11Invoice | null {
 
     const result: ParsedBolt11Invoice = {};
     if (decoded.descriptionHash) {
-      result.descriptionHash = decoded.descriptionHash;
+      result.descriptionHash = decoded.descriptionHash.toLowerCase();
+    }
+
+    if (decoded.paymentHash) {
+      result.paymentHash = decoded.paymentHash.toLowerCase();
     }
 
     if (decoded.amount != null) {
@@ -62,6 +67,22 @@ export function parseBolt11Invoice(bolt11: string): ParsedBolt11Invoice | null {
             if (!Number.isNaN(parsedMsats) && parsedMsats >= 0) {
               amountMsats = parsedMsats;
             }
+          }
+        }
+
+        if (Array.isArray(raw.tags)) {
+          const paymentHashTag = raw.tags.find(
+            (tag: any) => tag?.name === "payment_hash" && typeof tag.value === "string",
+          );
+          if (!result.paymentHash && paymentHashTag?.value) {
+            result.paymentHash = String(paymentHashTag.value).toLowerCase();
+          }
+
+          const descriptionHashTag = raw.tags.find(
+            (tag: any) => tag?.name === "description_hash" && typeof tag.value === "string",
+          );
+          if (!result.descriptionHash && descriptionHashTag?.value) {
+            result.descriptionHash = String(descriptionHashTag.value).toLowerCase();
           }
         }
 

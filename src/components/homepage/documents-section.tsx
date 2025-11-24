@@ -125,11 +125,11 @@ function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
   const contentItem = {
     id: document.id,
     type: 'document' as const,
-    title: document.note?.tags.find(tag => tag[0] === "title")?.[1] || 
-           document.note?.tags.find(tag => tag[0] === "name")?.[1] || 
+    title: document.note?.tags.find(tag => tag[0] === "title")?.[1] ||
+           document.note?.tags.find(tag => tag[0] === "name")?.[1] ||
            `Document ${document.id}`,
-    description: document.note?.tags.find(tag => tag[0] === "summary")?.[1] || 
-                document.note?.tags.find(tag => tag[0] === "description")?.[1] || 
+    description: document.note?.tags.find(tag => tag[0] === "summary")?.[1] ||
+                document.note?.tags.find(tag => tag[0] === "description")?.[1] ||
                 document.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
     category: document.price > 0 ? 'Premium' : 'Free',
     duration: '5-10 min read',
@@ -151,6 +151,7 @@ function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
     topics: document.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
     additionalLinks: document.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
     noteId: document.note?.id || document.noteId,
+    purchases: document.purchases,
   };
 
   return <ContentCard item={contentItem} variant="content" showContentTypeTags={false} />;

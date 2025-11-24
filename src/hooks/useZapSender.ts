@@ -7,6 +7,7 @@ import {
   fetchLnurlPayMetadata,
   getEventHash,
   getPublicKey,
+  generateKeypair,
   signEvent,
   supportsNostrZaps,
   type LnurlPayResponse,
@@ -115,6 +116,7 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
   const [zapState, setZapState] = useState<ZapState>({ status: 'idle' });
   const metadataCacheRef = useRef<Record<string, LnurlPayResponse>>({});
   const profileCacheRef = useRef<Record<string, { lightningAddress?: string; lnurl?: string }>>({});
+  const anonymousKeysRef = useRef<{ pubkey: string; privkey: string } | null>(null);
 
   const normalizedRecipientPubkey = useMemo(() => {
     return normalizeHexPubkey(zapTarget?.pubkey || eventPubkey);
@@ -149,12 +151,33 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
       const relayList = Array.from(new Set([...(relayHints || []), ...relays]));
 
       let signerPubkey = senderPubkeyHint || normalizedSessionPubkey || null;
+      let signerPrivkey: string | null = null;
 
       if (canServerSign && normalizedSessionPrivkey && !signerPubkey) {
         signerPubkey = normalizeHexPubkey(getPublicKey(normalizedSessionPrivkey));
+        signerPrivkey = normalizedSessionPrivkey;
       }
 
       const nostrExtension = typeof window !== 'undefined' ? (window as Window & { nostr?: any }).nostr : undefined;
+
+      // If no session key and no hint, allow anonymous local signing for guests.
+      if (!signerPubkey && !nostrExtension?.getPublicKey) {
+        if (!anonymousKeysRef.current) {
+          const keys = await generateKeypair();
+          if (keys?.publicKey && keys?.privateKey) {
+            const normalizedPubkey = normalizeHexPubkey(keys.publicKey);
+            const normalizedPrivkey = normalizeHexPrivkey(keys.privateKey);
+            if (normalizedPubkey && normalizedPrivkey) {
+              anonymousKeysRef.current = {
+                pubkey: normalizedPubkey,
+                privkey: normalizedPrivkey
+              };
+            }
+          }
+        }
+        signerPubkey = anonymousKeysRef.current?.pubkey || null;
+        signerPrivkey = anonymousKeysRef.current?.privkey || null;
+      }
 
       if (!signerPubkey) {
         if (!nostrExtension?.getPublicKey) {
@@ -195,6 +218,18 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
         };
       }
 
+      if (signerPrivkey) {
+        const unsignedEvent = {
+          ...zapRequestTemplate,
+          pubkey: signerPubkey,
+          created_at: zapRequestTemplate.created_at ?? Math.floor(Date.now() / 1000),
+          tags: zapRequestTemplate.tags ?? []
+        };
+        const zapId = await getEventHash(unsignedEvent);
+        const zapSig = await signEvent(zapId, signerPrivkey);
+        return { event: { ...unsignedEvent, id: zapId, sig: zapSig }, signerPubkey };
+      }
+
       if (!nostrExtension?.signEvent || !nostrExtension?.getPublicKey) {
         throw new Error('Connect a Nostr (NIP-07) extension to zap content.');
       }
@@ -227,9 +262,6 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
         }
         if (sessionStatus === 'loading') {
           throw new Error('Still loading your session. Try again in a moment.');
-        }
-        if (sessionStatus !== 'authenticated') {
-          throw new Error('Sign in with a Nostr-capable account to send zaps.');
         }
 
         const profileCacheKey = (normalizedRecipientPubkey || eventPubkey || '').toLowerCase();

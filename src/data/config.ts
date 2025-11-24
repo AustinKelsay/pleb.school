@@ -120,16 +120,5 @@ export const popularTags = [
 export const contentTypeFilters = [
   { type: 'course', icon: BookOpen, label: 'Courses' },
   { type: 'video', icon: Video, label: 'Videos' },
-  { type: 'document', icon: FileText, label: 'Documents' },
-  { type: 'guide', icon: Map, label: 'Guides' },
-  { type: 'cheatsheet', icon: Shield, label: 'Cheat Sheets' }
-]
-
-/**
- * Difficulty levels for filtering
- */
-export const difficultyFilters = [
-  { difficulty: 'beginner', label: 'Beginner' },
-  { difficulty: 'intermediate', label: 'Intermediate' },
-  { difficulty: 'advanced', label: 'Advanced' }
+  { type: 'document', icon: FileText, label: 'Documents' }
 ] 

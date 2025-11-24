@@ -121,6 +121,8 @@ export function CoursesSection() {
  */
 function CourseCard({ course }: { course: CourseWithNote }) {
   // Transform CourseWithNote into ContentCard-compatible format
+  const instructorName = course.user?.username || course.user?.displayName || course.user?.pubkey || course.userId
+
   const contentItem = {
     id: course.id,
     type: 'course' as const,
@@ -131,8 +133,8 @@ function CourseCard({ course }: { course: CourseWithNote }) {
     image: course.note?.tags.find(tag => tag[0] === "image")?.[1] || '',
     href: `/courses/${course.id}`,
     tags: course.note?.tags || [],
-    author: course.userId,  
-    instructor: course.userId,
+    author: instructorName,
+    instructor: instructorName,
     instructorPubkey: course.note?.pubkey || '',
     published: true,
     createdAt: course.createdAt,
@@ -146,6 +148,7 @@ function CourseCard({ course }: { course: CourseWithNote }) {
     topics: course.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
     additionalLinks: course.note?.tags.filter(tag => tag[0] === "l").map(tag => tag[1]) || [],
     noteId: course.note?.id || course.noteId,
+    purchases: course.purchases,
   };
 
   return <ContentCard item={contentItem} variant="content" showContentTypeTags={false} />;
