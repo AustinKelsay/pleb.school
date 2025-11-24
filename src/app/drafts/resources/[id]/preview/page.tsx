@@ -219,7 +219,6 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
   const type = draftData.type || 'document'
   const additionalLinks = draftData.additionalLinks || []
   const additionalContent = draftData.content?.trim()
-  const difficulty = 'intermediate' // Default
   const isPremium = (draftData.price ?? 0) > 0
 
   return (
@@ -245,9 +244,6 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
             </Badge>
             <Badge variant="outline" className="capitalize">
               {type}
-            </Badge>
-            <Badge variant="outline" className="capitalize">
-              {difficulty}
             </Badge>
             <DraftPreviewBadge />
             {isPremium && (

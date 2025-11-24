@@ -32,6 +32,7 @@ const payloadSchema = z.object({
   zapReceiptIds: z.array(z.string().trim().min(1)).optional(),
   invoice: z.string().trim().min(1).optional(),
   paymentPreimage: z.string().trim().min(1).optional(),
+  nostrPrice: z.number().int().nonnegative().optional(),
   // Full zap total is optional context for the caller; not persisted separately.
   zapTotalSats: z.number().int().nonnegative().optional()
 })
@@ -257,7 +258,8 @@ export async function POST(request: NextRequest) {
       return badRequest("Validation failed", parsed.error.issues)
     }
 
-    const { resourceId, courseId, amountPaid, zapReceiptId, zapReceiptIds, invoice, zapTotalSats } = parsed.data
+    const { resourceId, courseId, amountPaid, zapReceiptId, zapReceiptIds, invoice, zapTotalSats, nostrPrice } = parsed.data
+    const priceHint = Number.isFinite(nostrPrice) ? Number(nostrPrice) : 0
     const paymentType = parsed.data.paymentType ?? "zap"
     const normalizedSessionPubkey = normalizeHexPubkey(session.user.pubkey)
     const normalizedSessionPrivkey = normalizeHexPrivkey((session.user as any)?.privkey)
@@ -273,7 +275,20 @@ export async function POST(request: NextRequest) {
       return badRequest("Provide only one of resourceId or courseId")
     }
 
-    const priceResolution = await resolvePriceForContent({ resourceId, courseId })
+    const priceResolution = await resolvePriceForContent({
+      resourceId,
+      courseId,
+      nostrPriceHint: priceHint,
+      onMismatch: ({ id, type, dbPrice, nostrPrice, chosen }) => {
+        console.warn('Price mismatch detected for purchase claim', {
+          id,
+          type,
+          dbPrice,
+          nostrPrice,
+          chosen
+        });
+      }
+    })
     if (!priceResolution) {
       return NextResponse.json({ error: "Content not found" }, { status: 404 })
     }

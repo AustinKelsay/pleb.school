@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -162,6 +162,15 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     { enabled: !!resolvedCourseId }
   )
 
+  const noteATag = useMemo(() => {
+    const note = courseData?.note
+    if (!note || !note.kind || note.kind < 30000) return undefined
+    if (!note.pubkey) return undefined
+    const dTag = note.tags?.find((t: any) => Array.isArray(t) && t[0] === 'd')?.[1]
+    if (!dTag) return undefined
+    return `${note.kind}:${note.pubkey}:${dTag}`
+  }, [courseData?.note])
+
   // Get real interaction data if course has a Nostr event - call hook unconditionally at top level
   const noteId = courseData?.note?.id
   const {
@@ -177,6 +186,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     viewerZapReceipts
   } = useInteractions({
     eventId: noteId,
+    eventATag: noteATag,
     realtime: false,
     staleTime: 5 * 60 * 1000,
     enabled: Boolean(noteId)
@@ -316,8 +326,9 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   let parsedCourseNote: ReturnType<typeof parseCourseEvent> | null = null
 
   // Start with database data (minimal Course type)
-  isPremium = (courseData.price ?? 0) > 0
-  const dbPrice = courseData.price ?? 0
+  const hasDbPrice = typeof courseData.price === 'number' && !Number.isNaN(courseData.price)
+  isPremium = hasDbPrice ? (courseData.price ?? 0) > 0 : false
+  const dbPrice = hasDbPrice ? courseData.price ?? 0 : null
   let nostrPrice = 0
 
   // If we have a Nostr note, use parsed data to enhance the information
@@ -344,8 +355,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     }
   }
 
-  const derivedPrice = Math.max(serverPrice ?? 0, dbPrice ?? 0, nostrPrice ?? 0)
-  const priceSats = Number.isFinite(derivedPrice) ? derivedPrice : 0
+  const priceSats =
+    serverPrice ?? dbPrice ?? nostrPrice ?? 0
   isPremium = priceSats > 0
 
   const instructor = instructorProfile?.name || 

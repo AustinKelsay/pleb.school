@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import QRCode from "react-qr-code"
+import { ChevronDown, ChevronUp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -19,8 +20,7 @@ import { getByteLength, truncateToByteLength } from "@/lib/lightning"
 import type { LightningRecipient, ZapSendResult } from "@/types/zap"
 import type { ZapInsights, ZapReceiptSummary } from "@/hooks/useInteractions"
 import type { ZapState } from "@/hooks/useZapSender"
-
-const ZAP_ACTIVITY_PREVIEW_LENGTH = 5
+import { useSession } from "next-auth/react"
 
 interface ZapDialogProps {
   isOpen: boolean
@@ -36,6 +36,8 @@ interface ZapDialogProps {
   isZapInFlight: boolean
   minZapSats?: number | null
   maxZapSats?: number | null
+  preferAnonymousZap: boolean
+  onTogglePrivacy?: (value: boolean) => void
 }
 
 export function ZapDialog({
@@ -51,8 +53,11 @@ export function ZapDialog({
   resetZapState,
   isZapInFlight,
   minZapSats,
-  maxZapSats
+  maxZapSats,
+  preferAnonymousZap,
+  onTogglePrivacy
 }: ZapDialogProps) {
+  const { status: sessionStatus, data: session } = useSession()
   const {
     selectedZapAmount,
     customZapAmount,
@@ -103,8 +108,10 @@ export function ZapDialog({
   }
   const zapDialogStatusMessage = zapStatusMessages[zapState.status] || ""
 
-  const zapActivityPreview = recentZaps.slice(0, ZAP_ACTIVITY_PREVIEW_LENGTH)
+  const zapActivityPreview = recentZaps
   const zapStats = zapInsights
+  const isAuthed = sessionStatus === "authenticated"
+  const showPrivacyToggle = isAuthed && !session?.user?.privkey
 
   const viewerZapSummaryText = zapState.status === "success"
     ? "Zap sent! Receipts usually land within a few seconds."
@@ -198,6 +205,11 @@ export function ZapDialog({
         <DialogDescription>
           Lightning tips — also called zaps — let you support {zapTargetName}. We’ll resolve their Lightning address,
           request an invoice, and try WebLN automatically if your wallet allows it.
+          {!isAuthed && (
+            <span className="block text-xs text-muted-foreground mt-1">
+              You can tip without signing in; purchases still require an account.
+            </span>
+          )}
         </DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:h-[60vh] lg:overflow-hidden">
@@ -257,6 +269,21 @@ export function ZapDialog({
                 />
               </div>
             </div>
+
+            {showPrivacyToggle && (
+              <div className="flex items-start gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 p-3 text-xs text-muted-foreground">
+                <input
+                  id="zap-privacy-toggle"
+                  type="checkbox"
+                  checked={preferAnonymousZap}
+                  onChange={(e) => onTogglePrivacy?.(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-amber-500"
+                />
+                <label htmlFor="zap-privacy-toggle" className="leading-relaxed">
+                  Keep my zap private (sign with a fresh, anonymous key). We’ll still attach the purchase to your account.
+                </label>
+              </div>
+            )}
             {customAmountInvalid && (
               <p className="text-xs text-destructive">Enter at least {MIN_CUSTOM_ZAP} sat.</p>
             )}
@@ -276,9 +303,9 @@ export function ZapDialog({
               id="zap-note"
               value={zapNote}
               onChange={(event) => {
-                const value = event.target.value;
-                const truncated = truncateToByteLength(value, zapCommentLimitBytes);
-                setZapNote(truncated);
+                const value = event.target.value
+                const truncated = truncateToByteLength(value, zapCommentLimitBytes)
+                setZapNote(truncated)
               }}
               placeholder={`Tell ${zapTargetName} why this resonated.`}
             />
@@ -344,10 +371,10 @@ export function ZapDialog({
           )}
         </section>
 
-        <aside className="space-y-4 lg:overflow-y-auto lg:pl-2">
+        <aside className="space-y-4 lg:flex lg:flex-col lg:pl-2 lg:h-full lg:min-h-0">
           <StatGrid zapStats={zapStats} />
 
-          <div className="space-y-3 rounded-lg border p-4">
+          <div className="space-y-3 rounded-lg border p-4 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Recent supporters</p>
               <span className="text-xs text-muted-foreground">Live preview</span>
@@ -372,22 +399,102 @@ function StatGrid({ zapStats }: { zapStats: ZapInsights }) {
 }
 
 function SupporterList({ supporters }: { supporters: ZapReceiptSummary[] }) {
+  const [visibleCount, setVisibleCount] = useState(10)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
+  useEffect(() => {
+    setVisibleCount(10)
+    setIsLoadingMore(false)
+  }, [supporters.length])
+
+  const loadMore = () => {
+    if (isLoadingMore || visibleCount >= supporters.length) return
+    setIsLoadingMore(true)
+    // Small delay for a subtle animation and to avoid thrashing
+    setTimeout(() => {
+      setVisibleCount((prev) => Math.min(supporters.length, prev + 10))
+      setIsLoadingMore(false)
+    }, 120)
+  }
+
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = event.currentTarget
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 24
+    if (atBottom) {
+      loadMore()
+    } else if (isLoadingMore) {
+      // reset indicator if user scrolls away from bottom
+      setIsLoadingMore(false)
+    }
+  }
+
   if (supporters.length === 0) {
     return <p className="text-sm text-muted-foreground">No zaps yet. Be the first to zap this drop.</p>
   }
 
   return (
-    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-      {supporters.map((zap) => (
-        <div key={zap.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
-          <div>
-            <p className="font-semibold">{formatSatsDisplay(zap.amountSats)}</p>
-            <p className="text-xs text-muted-foreground">{formatShortPubkey(zap.senderPubkey)}</p>
-            {zap.note && <p className="mt-1 text-xs">{zap.note}</p>}
-          </div>
-          <span className="text-xs text-muted-foreground">{formatRelativeTimestamp(zap.createdAt)}</span>
-        </div>
+    <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-y-auto pr-1 lg:min-h-0" onScroll={handleScroll}>
+      {supporters.slice(0, visibleCount).map((zap) => (
+        <ZapItem key={zap.id} zap={zap} />
       ))}
+      {visibleCount < supporters.length && (
+        <div className="pt-2 pb-1 flex justify-center">
+          <span className="text-xs text-muted-foreground animate-pulse">
+            Loading more supporters…
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ZapItem({ zap }: { zap: ZapReceiptSummary }) {
+  const [expanded, setExpanded] = useState(false)
+  // Prefer payer pubkeys or sender; never fall back to receiver (owner) to avoid misattribution.
+  const zapPubkey = zap.payerPubkeys?.[0] || zap.senderPubkey || ""
+  const zapPubkeyLabel = zapPubkey ? formatShortPubkey(zapPubkey) : "Anonymous"
+
+  return (
+    <div className="border rounded-md overflow-hidden transition-colors hover:bg-muted/30">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex justify-between items-start text-sm p-3 text-left"
+      >
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-xs">{formatSatsDisplay(zap.amountSats)}</span>
+            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+              {zapPubkeyLabel}
+            </span>
+          </div>
+          {zap.note ? (
+            <p className="text-xs text-muted-foreground line-clamp-1">{zap.note}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground/50 italic">No note</p>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {zap.createdAt ? formatZapDate(zap.createdAt) : "—"}
+          </span>
+          {expanded ? (
+            <ChevronUp className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-3 pt-0 animate-in slide-in-from-top-2 duration-200">
+          <div className="rounded bg-muted p-2 overflow-x-auto">
+            <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-all">
+              {zap.event ? JSON.stringify(zap.event, null, 2) : JSON.stringify(zap, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -452,6 +559,17 @@ function formatRelativeTimestamp(seconds?: number | null): string {
   const days = Math.floor(hours / 24)
   if (days < 30) {
     return `${days}d ago`
+  }
+
+  return new Date(seconds * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric"
+  })
+}
+
+function formatZapDate(seconds?: number | null): string {
+  if (!seconds) {
+    return "—"
   }
 
   return new Date(seconds * 1000).toLocaleDateString("en-US", {

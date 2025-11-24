@@ -82,6 +82,12 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
     onErrorRef.current = onAutoClaimError
   }, [onAutoClaimSuccess, onAutoClaimError])
 
+  useEffect(() => {
+    // Reset auto-claim sentinel when the user identity changes (e.g., first login or account switch)
+    autoClaimedRef.current = false
+    autoClaimCooldownRef.current = 0
+  }, [sessionPubkey])
+
   const eligible = useMemo(() => {
     if (!enabled) return false
     if (alreadyPurchased) return false
@@ -100,7 +106,9 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
   const viewerReceipts = useMemo(() => {
     if (!zapReceipts || !sessionPubkey) return []
     return zapReceipts.filter((zap) => {
-      if (zap.senderPubkey?.toLowerCase() !== sessionPubkey) return false
+      const payerKeys = zap.payerPubkeys ?? (zap.senderPubkey ? [zap.senderPubkey] : [])
+      const matchesPayer = payerKeys.some((k) => k?.toLowerCase() === sessionPubkey)
+      if (!matchesPayer) return false
       if ((normalizedEventId || normalizedATag) && zap.event?.tags) {
         const eTag = zap.event.tags.find((t) => t[0] === "e")?.[1]?.toLowerCase()
         const aTag = zap.event.tags.find((t) => t[0] === "a")?.[1]
@@ -152,6 +160,7 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
         invoice: invoiceHint,
         paymentPreimage: args?.paymentPreimage,
         zapTotalSats: viewerZapTotalSats,
+        nostrPrice: priceSats,
       }
 
       const res = await fetch("/api/purchases/claim", {

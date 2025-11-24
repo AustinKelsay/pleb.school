@@ -111,6 +111,7 @@ export function InteractionMetrics({
   const [isReacting, setIsReacting] = useState(false)
   const [optimisticReaction, setOptimisticReaction] = useState(false)
   const [isZapDialogOpen, setIsZapDialogOpen] = useState(false)
+  const [preferAnonymousZap, setPreferAnonymousZap] = useState(false)
   const normalizedSessionPubkey = normalizeHexPubkey(session?.user?.pubkey)
   const normalizedSessionPrivkey = normalizeHexPrivkey(session?.user?.privkey)
   const canServerSign = Boolean(normalizedSessionPrivkey) && !isNip07User(session?.provider)
@@ -128,7 +129,8 @@ export function InteractionMetrics({
     eventKind,
     eventIdentifier,
     eventPubkey,
-    zapTarget
+    zapTarget,
+    preferAnonymousZap
   })
 
   useEffect(() => {
@@ -320,6 +322,8 @@ export function InteractionMetrics({
           isZapInFlight={isZapInFlight}
           minZapSats={minZapSats}
           maxZapSats={maxZapSats}
+          preferAnonymousZap={preferAnonymousZap}
+          onTogglePrivacy={setPreferAnonymousZap}
         />
       </Dialog>
       

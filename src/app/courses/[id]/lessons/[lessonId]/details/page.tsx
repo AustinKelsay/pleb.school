@@ -371,7 +371,6 @@ function LessonContent({
   let resourceTitle = 'Unknown Lesson'
   let resourceDescription = 'No description available'
   let resourceType = 'document'
-  const resourceDifficulty = 'intermediate' // Default
   let resourceIsPremium = false
   let resourceAuthor = 'Unknown'
   let resourceAuthorPubkey = ''
@@ -505,9 +504,6 @@ function LessonContent({
             <div className="flex items-center space-x-2">
               <Badge variant="outline" className="capitalize">
                 {resourceType}
-              </Badge>
-              <Badge variant="outline" className="capitalize">
-                {resourceDifficulty}
               </Badge>
               {resourceIsPremium && (
                 <Badge variant="outline" className="border-amber-500 text-amber-600">

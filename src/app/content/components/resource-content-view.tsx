@@ -239,11 +239,12 @@ function ContentMetadata({
   const zapsCount = interactions.zaps
   const commentsCount = commentMetrics.totalComments
   const reactionsCount = interactions.likes
-  const parsedPrice = parsedEvent.price ? Number(parsedEvent.price) : 0
-  const derivedPrice = Number.isFinite(serverPrice ?? parsedPrice)
-    ? (serverPrice ?? parsedPrice)
-    : 0
-  const priceSats = derivedPrice
+  const parsedPriceRaw = parsedEvent.price
+  const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
+  const priceSats =
+    serverPrice !== null && serverPrice !== undefined
+      ? serverPrice
+      : parsedPrice ?? 0
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const resourceIdIsUuid = uuidRegex.test(resourceKey)
 
@@ -408,6 +409,7 @@ export function ResourceContentView({
   const resolvedIdentifier = useMemo(() => resolveUniversalId(resourceId), [resourceId])
   const interactionData = useCommentThreads(event?.id, { enabled: Boolean(event?.id) })
   const { zapInsights, recentZaps, viewerZapTotalSats, viewerZapReceipts } = interactionData
+  const handleUnlock = () => setServerPurchased(true)
 
   useEffect(() => {
     let cancelled = false
@@ -599,8 +601,6 @@ export function ResourceContentView({
   const category = parsedEvent.topics?.[0] || 'general'
   const type = parsedEvent.type || 'document'
   const additionalLinks = parsedEvent.additionalLinks || []
-  const difficultyTag = event.tags?.find?.((tag) => Array.isArray(tag) && tag[0] === 'difficulty')?.[1]
-  const difficulty = difficultyTag || ''
   // Check parsedEvent.isPremium (boolean) and also check raw event tags for string 'true'
   const isPremiumFromParsed = parsedEvent.isPremium === true
   const isPremiumFromTags = event.tags?.some(
@@ -612,11 +612,12 @@ export function ResourceContentView({
     event.kind === 30402 ||
     Boolean(parsedEvent.price && parseFloat(parsedEvent.price) > 0)
   const isPremium = Boolean(derivedPremiumFlag)
-  const parsedPrice = parsedEvent.price ? Number(parsedEvent.price) : 0
-  const derivedPrice = Number.isFinite(serverPrice ?? parsedPrice)
-    ? (serverPrice ?? parsedPrice)
-    : 0
-  const priceSats = derivedPrice
+  const parsedPriceRaw = parsedEvent.price
+  const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
+  const priceSats =
+    serverPrice !== null && serverPrice !== undefined
+      ? serverPrice
+      : parsedPrice ?? 0
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const resourceIdIsUuid = uuidRegex.test(resourceId)
   const lockable = isPremium && resourceIdIsUuid && priceSats > 0
@@ -657,11 +658,6 @@ export function ResourceContentView({
               <Badge variant="outline" className="capitalize">
                 {type}
               </Badge>
-              {difficulty && (
-                <Badge variant="outline" className="capitalize">
-                  {difficulty}
-                </Badge>
-              )}
               {isPremium && (
                 <Badge variant="outline" className="border-amber-500 text-amber-600">
                   Premium
@@ -700,7 +696,7 @@ export function ResourceContentView({
             serverPrice={serverPrice}
             serverPurchased={serverPurchased}
             interactionData={interactionData}
-            onUnlock={() => setServerPurchased(true)}
+            onUnlock={handleUnlock}
           />
         </div>
       </div>
@@ -747,8 +743,7 @@ export function ResourceContentView({
               recentZaps={recentZaps}
               onPurchaseComplete={(purchase) => {
                 if ((purchase?.amountPaid ?? 0) >= priceSats) {
-                  onUnlock?.()
-                  setServerPurchased(true)
+                  handleUnlock()
                 }
               }}
             />

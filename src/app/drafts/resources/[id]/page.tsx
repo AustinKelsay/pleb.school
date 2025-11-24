@@ -270,7 +270,6 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
   const additionalLinks = draftData.additionalLinks || []
   const image = draftData.image || null
   const type = draftData.type || 'document'
-  const difficulty = 'intermediate' // Default since it's not in draft data
   const duration = type === 'video' ? '15 min' : undefined
   const author = draftData.user?.username || 
                  (draftData.user?.pubkey ? formatNpubWithEllipsis(draftData.user.pubkey) : 'Anonymous')
@@ -331,9 +330,6 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   </Badge>
                   <Badge variant="outline" className="capitalize">
                     {type}
-                  </Badge>
-                  <Badge variant="outline" className="capitalize">
-                    {difficulty}
                   </Badge>
                   <DraftBadge variant="outline" />
                 </div>
@@ -489,10 +485,6 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   <div>
                     <h4 className="font-semibold mb-2">Category</h4>
                     <p className="text-sm text-muted-foreground capitalize">{topics[0] || 'general'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Difficulty</h4>
-                    <p className="text-sm text-muted-foreground capitalize">{difficulty}</p>
                   </div>
                   {duration && (
                     <div>

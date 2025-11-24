@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import React from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -128,6 +128,13 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const [serverPurchased, setServerPurchased] = useState<boolean>(false)
   const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(true)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
+
+  const eventATag = useMemo(() => {
+    if (!event || !event.kind || event.kind < 30000) return undefined
+    const identifier = extractNoteId(event)
+    if (!identifier) return undefined
+    return `${event.kind}:${event.pubkey}:${identifier}`
+  }, [event])
   
   // Get real interaction data from Nostr - call hook unconditionally at top level
   const {
@@ -143,6 +150,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     viewerZapReceipts
   } = useInteractions({
     eventId: event?.id,
+    eventATag,
     realtime: false,
     staleTime: 5 * 60 * 1000 // Use staleTime instead of cacheDuration
   })
@@ -334,7 +342,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                  parsedEvent.author || 
                  formatNpubWithEllipsis(event.pubkey)
   const type = parsedEvent.type || 'document'
-  const difficulty = 'intermediate' // Default since it's not in parseEvent
   // Views are tracked via /api/views and Vercel KV
   const trimmedDuration = parsedEvent.duration?.trim()
   const duration = type === 'video' ? (trimmedDuration ? trimmedDuration : undefined) : undefined
@@ -359,9 +366,12 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const zapsCount = interactions.zaps
   const commentsCount = interactions.comments
   const reactionsCount = interactions.likes
-  const parsedPrice = parsedEvent.price ? Number(parsedEvent.price) : 0
-  const derivedPrice = Number.isFinite(serverPrice ?? parsedPrice) ? (serverPrice ?? parsedPrice) : 0
-  const priceSats = derivedPrice
+  const parsedPriceRaw = parsedEvent.price
+  const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
+  const priceSats =
+    serverPrice !== null && serverPrice !== undefined
+      ? serverPrice
+      : parsedPrice ?? 0
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const resourceIdIsUuid = uuidRegex.test(resourceId)
   const canPurchase = resourceIdIsUuid && isPaidResource && priceSats > 0
@@ -440,9 +450,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   </Badge>
                   <Badge variant="outline" className="capitalize">
                     {type}
-                  </Badge>
-                  <Badge variant="outline" className="capitalize">
-                    {difficulty}
                   </Badge>
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">{title}</h1>
@@ -643,10 +650,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   <div>
                     <h4 className="font-semibold mb-2">Category</h4>
                     <p className="text-sm text-muted-foreground capitalize">{topics[0] || 'general'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Difficulty</h4>
-                    <p className="text-sm text-muted-foreground capitalize">{difficulty}</p>
                   </div>
                   {duration && (
                     <div>

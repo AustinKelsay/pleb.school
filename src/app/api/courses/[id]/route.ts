@@ -64,13 +64,16 @@ export async function GET(
 
     const price = course.price ?? 0
     const hasPurchased = purchases.some((p) => p.amountPaid >= price)
+    const isOwner = session?.user?.id && course.userId && session.user.id === course.userId
+    const requiresPurchase = price > 0 && !hasPurchased && !isOwner
 
     return NextResponse.json({ 
       course: {
         ...course,
         lessons: lessonsWithResources,
         purchases,
-        hasPurchased
+        hasPurchased,
+        requiresPurchase
       }
     });
   } catch (error) {

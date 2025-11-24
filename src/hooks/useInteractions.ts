@@ -19,6 +19,7 @@ export interface ZapReceiptSummary {
   amountMsats: number | null;
   amountSats: number | null;
   senderPubkey: string | null;
+  payerPubkeys?: string[] | null;
   receiverPubkey: string | null;
   note?: string | null;
   bolt11?: string | null;
@@ -35,7 +36,7 @@ export interface ZapInsights {
 }
 
 const MAX_STORED_ZAPS = 200;
-const MAX_RECENT_ZAPS = 8;
+const MAX_RECENT_ZAPS = 200;
 const MAX_VIEWER_ZAPS = 200;
 
 export const DEFAULT_ZAP_INSIGHTS: ZapInsights = {
@@ -51,9 +52,14 @@ function summarizeZapReceipt(event: NostrEvent): ZapReceiptSummary {
   const bolt11Tag = event.tags.find((tag) => tag[0] === 'bolt11');
   const descriptionTag = event.tags.find((tag) => tag[0] === 'description');
   const receiverTag = event.tags.find((tag) => tag[0] === 'p');
+  const payerTags: string[] = event.tags
+    .filter((t) => Array.isArray(t) && t[0] === 'P' && t[1])
+    .map((t) => String(t[1]).toLowerCase());
 
   let amountMsats: number | null = null;
   let amountSats: number | null = null;
+  let invoiceMsats: number | null = null;
+  let requestedMsats: number | null = null;
   if (amountTag?.[1]) {
     const parsed = Number(amountTag[1]);
     if (!Number.isNaN(parsed) && parsed >= 0) {
@@ -62,13 +68,12 @@ function summarizeZapReceipt(event: NostrEvent): ZapReceiptSummary {
     }
   }
 
-  // Fallback: derive amount from the invoice if the zap receipt does not include an amount tag.
-  if (amountMsats == null && bolt11Tag?.[1]) {
+  // Derive amount from the invoice too; later we'll take the max to avoid under-counts.
+  if (bolt11Tag?.[1]) {
     const parsedInvoice = parseBolt11Invoice(bolt11Tag[1]);
-    const invoiceMsats = parsedInvoice?.amountMsats;
-    if (typeof invoiceMsats === 'number' && !Number.isNaN(invoiceMsats) && invoiceMsats >= 0) {
-      amountMsats = invoiceMsats;
-      amountSats = Math.max(0, Math.floor(invoiceMsats / 1000));
+    const parsedMsats = parsedInvoice?.amountMsats;
+    if (typeof parsedMsats === 'number' && !Number.isNaN(parsedMsats) && parsedMsats >= 0) {
+      invoiceMsats = parsedMsats;
     } else if (!parsedInvoice) {
       // Helpful for debugging providers whose invoices we can't parse.
       console.debug('summarizeZapReceipt: unable to parse bolt11 invoice for amount', {
@@ -77,8 +82,7 @@ function summarizeZapReceipt(event: NostrEvent): ZapReceiptSummary {
     }
   }
 
-  // Final safety: if we somehow have sats but not msats, backfill msats
-  // so aggregate stats stay consistent.
+  // Final safety: if we somehow have sats but not msats, backfill msats so aggregate stats stay consistent.
   if (amountMsats == null && typeof amountSats === 'number') {
     amountMsats = amountSats * 1000;
   }
@@ -95,6 +99,20 @@ function summarizeZapReceipt(event: NostrEvent): ZapReceiptSummary {
         const parsedDescription = JSON.parse(trimmedDescription);
         if (parsedDescription?.pubkey) {
           senderPubkey = String(parsedDescription.pubkey).toLowerCase();
+          payerTags.push(String(parsedDescription.pubkey).toLowerCase());
+        }
+        if (Array.isArray(parsedDescription?.tags)) {
+          parsedDescription.tags.forEach((t: any) => {
+            if (Array.isArray(t) && typeof t[0] === 'string' && t[0] === 'P' && t[1]) {
+              payerTags.push(String(t[1]).toLowerCase());
+            }
+            if (Array.isArray(t) && t[0] === 'amount' && t[1]) {
+              const candidate = Number(t[1]);
+              if (Number.isFinite(candidate) && candidate >= 0) {
+                requestedMsats = candidate;
+              }
+            }
+          });
         }
         if (typeof parsedDescription?.content === 'string' && parsedDescription.content.trim().length > 0) {
           note = parsedDescription.content.trim();
@@ -109,13 +127,33 @@ function summarizeZapReceipt(event: NostrEvent): ZapReceiptSummary {
     }
   }
 
+  // Prefer the largest of request amount, invoice amount, and amount tag to avoid undercounting.
+  const amountCandidates = [amountMsats, invoiceMsats, requestedMsats].filter(
+    (v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0
+  );
+  if (amountCandidates.length > 0) {
+    amountMsats = Math.max(...amountCandidates);
+  }
+
+  // Final safety: if we somehow have sats but not msats, backfill msats so aggregate stats stay consistent.
+  if (amountMsats == null && typeof amountSats === 'number') {
+    amountMsats = amountSats * 1000;
+  }
+
+  // Normalize sats from the resolved msats value
+  if (amountMsats != null) {
+    amountSats = Math.max(0, Math.floor(amountMsats / 1000));
+  }
+
   const receiverPubkey = receiverTag?.[1] ? receiverTag[1].toLowerCase() : null;
+  const payerPubkeys = payerTags.length > 0 ? Array.from(new Set(payerTags)) : senderPubkey ? [senderPubkey] : null;
 
   return {
     id: event.id,
     amountMsats,
     amountSats,
     senderPubkey,
+    payerPubkeys,
     receiverPubkey,
     note,
     bolt11: bolt11Tag?.[1],
@@ -126,6 +164,7 @@ function summarizeZapReceipt(event: NostrEvent): ZapReceiptSummary {
 
 export interface UseInteractionsOptions {
   eventId?: string;
+  eventATag?: string;
   realtime?: boolean;
   staleTime?: number;
   enabled?: boolean; // Allow manual control
@@ -156,7 +195,7 @@ export interface InteractionsQueryResult {
 }
 
 export function useInteractions(options: UseInteractionsOptions): InteractionsQueryResult {
-  const { eventId, elementRef, enabled: manualEnabled = true, currentUserPubkey: explicitPubkey } = options;
+  const { eventId, eventATag, elementRef, enabled: manualEnabled = true, currentUserPubkey: explicitPubkey } = options;
   const { subscribe } = useSnstrContext();
   const { data: session } = useSession();
   const normalizedSessionPubkey = session?.user?.pubkey?.toLowerCase();
@@ -247,7 +286,15 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     let viewerZapTotal = 0;
     let viewerHasZapped = false;
     for (const zap of zapSummariesRef.current) {
-      if (zap.senderPubkey && zap.senderPubkey === currentUserPubkey) {
+      const payerKeys = Array.from(
+        new Set(
+          [
+            ...(zap.senderPubkey ? [zap.senderPubkey] : []),
+            ...(zap.payerPubkeys ?? [])
+          ].filter(Boolean)
+        )
+      );
+      if (payerKeys.some((k) => k === currentUserPubkey)) {
         viewerHasZapped = true;
         viewerZapTotal += zap.amountSats ?? 0;
       }
@@ -283,8 +330,9 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
 
   // Main subscription effect
   useEffect(() => {
-    // Only subscribe if enabled, visible, and has valid eventId
-    const shouldSubscribe = manualEnabled && isVisible && eventId && eventId.length === 64;
+    // Only subscribe if enabled, visible, and has valid eventId/aTag
+    const hasTarget = Boolean((eventId && eventId.length === 64) || eventATag)
+    const shouldSubscribe = manualEnabled && isVisible && hasTarget;
     
     if (!shouldSubscribe) {
       // Clean up existing subscription if conditions change
@@ -297,7 +345,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
         timeoutRef.current = null;
       }
 
-      if (!eventId || eventId.length !== 64) {
+      if (!hasTarget) {
         resetInteractionStorage();
         setInteractions({ zaps: 0, likes: 0, comments: 0, replies: 0, threadComments: 0 });
         setIsLoading(false);
@@ -340,10 +388,32 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     };
 
     const setupSubscription = async () => {
+      if (!eventId && !eventATag) {
+        setIsLoading(false);
+        setIsLoadingZaps(false);
+        setIsLoadingLikes(false);
+        setIsLoadingComments(false);
+        return;
+      }
+
+      const filters: Array<Record<string, any>> = [];
+      const kinds = [9735, 7, 1];
+      // Do not time-box or hard-cap results; we need full zap history for purchase eligibility.
+      const baseFilter = { kinds };
+      if (eventId) {
+        filters.push({ ...baseFilter, '#e': [eventId] });
+      }
+      if (eventATag) {
+        filters.push({ ...baseFilter, '#a': [eventATag] });
+      }
+      if (filters.length === 0) {
+        filters.push(baseFilter);
+      }
+
       try {
         // Subscribe to all interaction types with a single subscription
         const subscription = await subscribe(
-          [{ kinds: [9735, 7, 1], '#e': [eventId] }],
+          filters,
           (event: NostrEvent) => {
             // Route events to appropriate arrays based on kind
             const eventIdKey = event.id;
@@ -354,21 +424,44 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
                   zapsRef.current.push(event);
                   setIsLoadingZaps(false);
                   const zapSummary = summarizeZapReceipt(event);
-                  const allZaps = [zapSummary, ...zapSummariesRef.current].slice(0, MAX_STORED_ZAPS);
+                  const allZaps = [zapSummary, ...zapSummariesRef.current]
+                    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+                    .slice(0, MAX_STORED_ZAPS);
                   zapSummariesRef.current = allZaps;
                   setRecentZaps(allZaps.slice(0, MAX_RECENT_ZAPS));
 
-                  if (zapSummary.senderPubkey) {
-                    const senderKey = zapSummary.senderPubkey;
-                    const existingTotals =
-                      zapSenderTotalsRef.current.get(senderKey) || { totalMsats: 0, lastZapAt: 0 };
+                  // Merge sender + payer keys, but dedupe to avoid double counting.
+                  const payerKeys = (() => {
+                    const payers = (zapSummary.payerPubkeys ?? []).filter(Boolean);
+                    if (payers.length === 0 && zapSummary.senderPubkey) {
+                      return [zapSummary.senderPubkey];
+                    }
+
+                    // If privacy mode adds both the anon signer and the real payer,
+                    // drop the signer when another payer key is present to avoid double counting.
+                    if (payers.length > 1 && zapSummary.senderPubkey) {
+                      const withoutSigner = payers.filter((k) => k !== zapSummary.senderPubkey);
+                      if (withoutSigner.length > 0) {
+                        return Array.from(new Set(withoutSigner));
+                      }
+                    }
+
+                    return Array.from(new Set(payers.length > 0 ? payers : zapSummary.senderPubkey ? [zapSummary.senderPubkey] : []));
+                  })();
+                  const normalizedCurrent = currentUserPubkeyRef.current;
+
+                  if (payerKeys.length > 0) {
                     const msatsContribution = zapSummary.amountMsats ?? 0;
-                    zapSenderTotalsRef.current.set(senderKey, {
-                      totalMsats: existingTotals.totalMsats + msatsContribution,
-                      lastZapAt: Math.max(existingTotals.lastZapAt, zapSummary.createdAt ?? 0)
+                    payerKeys.forEach((senderKey) => {
+                      const existingTotals =
+                        zapSenderTotalsRef.current.get(senderKey) || { totalMsats: 0, lastZapAt: 0 };
+                      zapSenderTotalsRef.current.set(senderKey, {
+                        totalMsats: existingTotals.totalMsats + msatsContribution,
+                        lastZapAt: Math.max(existingTotals.lastZapAt, zapSummary.createdAt ?? 0)
+                      });
                     });
 
-                    if (currentUserPubkeyRef.current && senderKey === currentUserPubkeyRef.current) {
+                    if (normalizedCurrent && payerKeys.includes(normalizedCurrent)) {
                       setHasZappedWithLightning(true);
                       setViewerZapTotalSats((prev) => prev + (zapSummary.amountSats ?? 0));
                       viewerZapReceiptsRef.current = [zapSummary, ...viewerZapReceiptsRef.current].slice(0, MAX_VIEWER_ZAPS);
@@ -477,7 +570,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
         timeoutRef.current = null;
       }
     };
-  }, [eventId, subscribe, manualEnabled, isVisible, currentUserPubkey]);
+  }, [eventId, eventATag, subscribe, manualEnabled, isVisible, currentUserPubkey]);
 
   const getDirectReplies = () => {
     return interactions.replies;
