@@ -289,6 +289,7 @@ export function PurchaseDialog({
           amountPaidOverride: resolvedAmount,
           paymentType: "zap",
           paymentPreimage: result.paymentPreimage,
+          zapRequestJson: zapState.zapRequest
         })
 
         if (!claimed) {
@@ -336,6 +337,7 @@ export function PurchaseDialog({
     claimPurchase,
     onPurchaseComplete,
     priceSats,
+    zapState.zapRequest,
     preferAnonymousZap
   ])
 
@@ -400,7 +402,8 @@ export function PurchaseDialog({
         invoice: zapState.invoice!,
         amountPaidOverride: resolvedAmount, // Best guess
         paymentType: "zap",
-        paymentPreimage: zapState.paymentPreimage
+        paymentPreimage: zapState.paymentPreimage,
+        zapRequestJson: zapState.zapRequest
       })
 
       if (!claimed) {
@@ -423,12 +426,15 @@ export function PurchaseDialog({
     } else {
       toast({ title: "WebLN failed", description: "Please pay manually.", variant: "destructive" })
     }
-  }, [retryWeblnPayment, toast, claimPurchase, zapState.invoice, zapState.paymentPreimage, resolvedAmount, onPurchaseComplete, priceSats])
+  }, [retryWeblnPayment, toast, claimPurchase, zapState.invoice, zapState.paymentPreimage, zapState.zapRequest, resolvedAmount, onPurchaseComplete, priceSats])
 
   // Derived UI States
-  const unlockedByZap = eligible && isAuthed && !alreadyPurchased && !purchase
+  const purchasePaidSats = purchase?.amountPaid ?? 0
+  const hasRecordedPurchase = Boolean(purchase)
+  const ownedPurchase = alreadyPurchased || purchasePaidSats >= priceSats
+  const unlockedByZap = eligible && isAuthed && !ownedPurchase && !hasRecordedPurchase
   const awaitingUnlock = unlockedByZap && purchaseStatus === "pending"
-  const showAlreadyOwned = alreadyPurchased || Boolean(purchase)
+  const showAlreadyOwned = ownedPurchase
   const canClaimFree = eligible && isAuthed && !showAlreadyOwned && remainingPrice <= 0
   const isProcessing = isZapInFlight || purchaseStatus === "pending"
   

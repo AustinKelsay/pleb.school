@@ -14,6 +14,9 @@ type ClaimArgs = {
   paymentType?: "zap" | "manual" | "comped" | "refund"
   amountPaidOverride?: number
   paymentPreimage?: string
+  zapRequestJson?: any
+  zapReceiptEvents?: any[]
+  relayHints?: string[]
 }
 
 type Status = "idle" | "pending" | "success" | "error"
@@ -143,6 +146,8 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
 
       const fallbackReceipt = viewerReceipts[0]
       const receiptIds = args?.zapReceiptIds ?? viewerReceipts.map((r) => r.id).filter(Boolean)
+      const receiptEvents = args?.zapReceiptEvents
+        ?? viewerReceipts.map((r) => r.event).filter(Boolean)
       const hasSingleReceipt = (receiptIds?.length ?? 0) <= 1
 
       // Avoid sending an invoice hint when multiple zap receipts are involved; each zap has its own invoice.
@@ -161,6 +166,9 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
         paymentPreimage: args?.paymentPreimage,
         zapTotalSats: viewerZapTotalSats,
         nostrPrice: priceSats,
+        zapReceiptJson: receiptEvents && receiptEvents.length > 0 ? receiptEvents : undefined,
+        zapRequestJson: args?.zapRequestJson,
+        relayHints: args?.relayHints,
       }
 
       const res = await fetch("/api/purchases/claim", {

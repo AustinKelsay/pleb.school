@@ -17,9 +17,10 @@ import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { resolvePriceForContent } from "@/lib/pricing"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
-import { parseBolt11Invoice } from "@/lib/bolt11"
+import { parseBolt11Invoice, type ParsedBolt11Invoice } from "@/lib/bolt11"
 import { normalizeHexPubkey, normalizeHexPrivkey } from "@/lib/nostr-keys"
 import { isAdmin } from "@/lib/admin-utils"
+import { DEFAULT_RELAYS, getRelays, sanitizeRelayHints } from "@/lib/nostr-relays"
 
 const paymentTypeEnum = z.enum(["zap", "manual", "comped", "refund"])
 
@@ -30,9 +31,12 @@ const payloadSchema = z.object({
   paymentType: paymentTypeEnum.optional(),
   zapReceiptId: z.string().trim().min(1).optional(),
   zapReceiptIds: z.array(z.string().trim().min(1)).optional(),
+  zapReceiptJson: z.union([z.any(), z.array(z.any())]).optional(),
+  zapRequestJson: z.any().optional(),
   invoice: z.string().trim().min(1).optional(),
   paymentPreimage: z.string().trim().min(1).optional(),
   nostrPrice: z.number().int().nonnegative().optional(),
+  relayHints: z.array(z.string().trim().min(1)).optional(),
   // Full zap total is optional context for the caller; not persisted separately.
   zapTotalSats: z.number().int().nonnegative().optional()
 })
@@ -52,6 +56,8 @@ type ZapValidationContext = {
   expectedEventId?: string | null
   sessionPubkey?: string | null
   allowedPayerPubkeys: string[]
+  relayHints?: string[]
+  zapReceiptEvent?: NostrEvent
 }
 
 type ZapValidationResult = {
@@ -60,6 +66,22 @@ type ZapValidationResult = {
   zapReceiptId: string
   zapReceipt: NostrEvent
   zapRequest: NostrEvent
+}
+
+type StoredReceipt = NostrEvent
+
+function isNostrEventLike(value: unknown): value is NostrEvent {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.pubkey === "string" &&
+    typeof candidate.sig === "string" &&
+    typeof candidate.kind === "number" &&
+    typeof candidate.content === "string" &&
+    typeof candidate.created_at === "number" &&
+    Array.isArray(candidate.tags)
+  )
 }
 
 function findTag(event: NostrEvent, name: string): string | null {
@@ -72,9 +94,15 @@ function normalizeMaybeHex(value?: string | null): string | null {
   return value ? value.trim().toLowerCase() : null
 }
 
-function collectUsedReceiptIds(purchase: { zapReceiptId?: string | null; zapReceiptJson?: any }): Set<string> {
+function collectUsedReceiptIds(purchase: { invoice?: string | null; zapReceiptId?: string | null; zapReceiptJson?: any }): Set<string> {
   const ids = new Set<string>()
   if (purchase.zapReceiptId) ids.add(purchase.zapReceiptId.toLowerCase())
+  if (purchase?.invoice) {
+    const parsed = parseBolt11Invoice(purchase.invoice)
+    if (parsed?.paymentHash) {
+      ids.add(`invoice-fallback:${parsed.paymentHash}`)
+    }
+  }
   const receipts = purchase.zapReceiptJson
   if (Array.isArray(receipts)) {
     receipts.forEach((r) => {
@@ -86,14 +114,9 @@ function collectUsedReceiptIds(purchase: { zapReceiptId?: string | null; zapRece
   return ids
 }
 
-function mergeReceipts(existing: any, incoming?: NostrEvent | NostrEvent[]): any {
-  const list: any[] = []
-  if (Array.isArray(existing)) {
-    list.push(...existing)
-  } else if (existing) {
-    list.push(existing)
-  }
-  const incomingList = Array.isArray(incoming) ? incoming : incoming ? [incoming] : []
+function mergeReceipts(existing: unknown, incoming?: StoredReceipt | StoredReceipt[]): StoredReceipt[] | undefined {
+  const list = toReceiptList(existing)
+  const incomingList = toReceiptList(incoming)
   incomingList.forEach((inc) => {
     const incomingId = inc?.id ? String(inc.id).toLowerCase() : null
     const already = incomingId
@@ -104,10 +127,52 @@ function mergeReceipts(existing: any, incoming?: NostrEvent | NostrEvent[]): any
   return list.length === 0 ? undefined : list
 }
 
-async function validateZapProof(context: ZapValidationContext): Promise<ZapValidationResult> {
-  const { zapReceiptId, invoiceHint, expectedRecipientPubkey, expectedEventId, sessionPubkey, allowedPayerPubkeys } = context
+function toReceiptList(input: unknown): NostrEvent[] {
+  if (!input) return []
+  if (Array.isArray(input)) {
+    return input.filter(isNostrEventLike)
+  }
+  if (isNostrEventLike(input)) {
+    return [input]
+  }
+  return []
+}
 
-  const zapReceipt = await NostrFetchService.fetchEventById(zapReceiptId)
+async function validateZapProof(context: ZapValidationContext): Promise<ZapValidationResult> {
+  const {
+    zapReceiptId,
+    invoiceHint,
+    expectedRecipientPubkey,
+    expectedEventId,
+    sessionPubkey,
+    allowedPayerPubkeys,
+    relayHints,
+    zapReceiptEvent
+  } = context
+
+  const relayList = Array.from(new Set([
+    ...(relayHints ?? []),
+    ...DEFAULT_RELAYS,
+    ...getRelays("content"),
+    ...getRelays("zapThreads")
+  ]))
+
+  const zapReceipt =
+    zapReceiptEvent ??
+    (await (async () => {
+      // Simple retry to account for receipts that hit relays a few seconds late or only on hinted relays.
+      const attempts = 6
+      const delayMs = 800
+      for (let i = 0; i < attempts; i++) {
+        const found = await NostrFetchService.fetchEventById(zapReceiptId, undefined, relayList)
+        if (found) return found
+        if (i < attempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+        }
+      }
+      return null
+    })())
+
   if (!zapReceipt) {
     throw new Error("Zap receipt not found on relays. Wait a moment and try again.")
   }
@@ -258,7 +323,21 @@ export async function POST(request: NextRequest) {
       return badRequest("Validation failed", parsed.error.issues)
     }
 
-    const { resourceId, courseId, amountPaid, zapReceiptId, zapReceiptIds, invoice, zapTotalSats, nostrPrice } = parsed.data
+    const {
+      resourceId,
+      courseId,
+      amountPaid,
+      zapReceiptId,
+      zapReceiptIds,
+      zapReceiptJson,
+      zapRequestJson,
+      invoice,
+      paymentPreimage,
+      zapTotalSats,
+      nostrPrice,
+      relayHints: rawRelayHints
+    } = parsed.data
+    const relayHints = sanitizeRelayHints(rawRelayHints)
     const priceHint = Number.isFinite(nostrPrice) ? Number(nostrPrice) : 0
     const paymentType = parsed.data.paymentType ?? "zap"
     const normalizedSessionPubkey = normalizeHexPubkey(session.user.pubkey)
@@ -314,36 +393,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let verifiedAmountSats: number
+    let verifiedAmountSats = 0
     let verifiedInvoice: string | undefined
     let verifiedZapReceiptId: string | undefined
     let resolvedPaymentType = paymentType
-    let requestZapProof: { zapReceiptJson?: NostrEvent | NostrEvent[]; zapRequestJson?: NostrEvent } | undefined
-    let validatedReceipts: Array<{ id: string; amountSats: number; zapReceipt: NostrEvent }> = []
+    let requestZapProof: { zapReceiptJson?: StoredReceipt | StoredReceipt[]; zapRequestJson?: NostrEvent } | undefined
+    let validatedReceipts: Array<{ id: string; amountSats: number; zapReceipt?: StoredReceipt }> = []
 
-    // Normalize list of receipt IDs
+    // Normalize list of receipt IDs and inline receipts (to handle off-relay / delayed receipts)
     const submittedReceipts = [
       ...(zapReceiptIds ?? []),
       ...(zapReceiptId ? [zapReceiptId] : [])
     ].map((id) => id.trim()).filter(Boolean)
+    const inlineReceiptEvents = toReceiptList(zapReceiptJson)
 
     if (paymentType === "zap") {
-      if (submittedReceipts.length === 0) {
-        return badRequest("Provide at least one zapReceiptId to claim a zap purchase.")
+      // Validate inline receipts first (no relay fetch required)
+      const proofs: ZapValidationResult[] = []
+      if (inlineReceiptEvents.length > 0) {
+        for (const receipt of inlineReceiptEvents) {
+          const receiptId = receipt?.id ? String(receipt.id) : ""
+          if (!receiptId) continue
+          try {
+            const proof = await validateZapProof({
+              zapReceiptId: receiptId,
+              zapReceiptEvent: receipt as NostrEvent,
+              invoiceHint: invoice,
+              expectedRecipientPubkey: priceResolution.ownerPubkey,
+              expectedEventId: priceResolution.noteId,
+              sessionPubkey: normalizedSessionPubkey,
+              allowedPayerPubkeys,
+              relayHints
+            })
+            proofs.push(proof)
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Unable to verify zap receipt."
+            return badRequest(message)
+          }
+        }
       }
 
+      // Then validate any receipt IDs (will fetch from relays, including hints)
       const distinctReceipts = Array.from(new Set(submittedReceipts))
-      const proofs: ZapValidationResult[] = []
-
       for (const receiptId of distinctReceipts) {
         try {
+          const already = proofs.some((p) => p.zapReceiptId.toLowerCase() === receiptId.toLowerCase())
+          if (already) continue
           const proof = await validateZapProof({
             zapReceiptId: receiptId,
             invoiceHint: invoice,
             expectedRecipientPubkey: priceResolution.ownerPubkey,
             expectedEventId: priceResolution.noteId,
             sessionPubkey: normalizedSessionPubkey,
-            allowedPayerPubkeys
+            allowedPayerPubkeys,
+            relayHints
           })
           proofs.push(proof)
         } catch (err) {
@@ -352,19 +455,23 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Aggregate newly verified zaps
-      verifiedAmountSats = proofs.reduce((sum, p) => sum + p.amountSats, 0)
-      verifiedInvoice = proofs[0]?.invoice
-      verifiedZapReceiptId = proofs[0]?.zapReceiptId
-      resolvedPaymentType = "zap"
-      validatedReceipts = proofs.map((p) => ({
-        id: p.zapReceiptId,
-        amountSats: p.amountSats,
-        zapReceipt: p.zapReceipt
-      }))
-      requestZapProof = {
-        zapReceiptJson: proofs.map((p) => p.zapReceipt),
-        zapRequestJson: proofs[0]?.zapRequest // representative request (all tied to same content)
+      if (proofs.length === 0) {
+        return badRequest("Zap receipt not yet available. Retry after the receipt is published.")
+      } else if (proofs.length > 0) {
+        // Aggregate newly verified zaps
+        verifiedAmountSats = proofs.reduce((sum, p) => sum + p.amountSats, 0)
+        verifiedInvoice = proofs[0]?.invoice
+        verifiedZapReceiptId = proofs[0]?.zapReceiptId
+        resolvedPaymentType = "zap"
+        validatedReceipts = proofs.map((p) => ({
+          id: p.zapReceiptId,
+          amountSats: p.amountSats,
+          zapReceipt: p.zapReceipt
+        }))
+        requestZapProof = {
+          zapReceiptJson: proofs.map((p) => p.zapReceipt),
+          zapRequestJson: (zapRequestJson as NostrEvent) ?? proofs[0]?.zapRequest // representative request
+        }
       }
     } else {
       const userIsAdmin = await isAdmin(session)
@@ -430,11 +537,11 @@ export async function POST(request: NextRequest) {
 
     if (existingPurchase) {
       const usedReceipts = collectUsedReceiptIds(existingPurchase)
-      const incomingReceipts = Array.isArray(requestZapProof?.zapReceiptJson)
-        ? requestZapProof?.zapReceiptJson
-        : requestZapProof?.zapReceiptJson
-          ? [requestZapProof.zapReceiptJson]
-          : []
+      const incomingReceipts = requestZapProof?.zapReceiptJson
+        ? (Array.isArray(requestZapProof.zapReceiptJson)
+            ? requestZapProof.zapReceiptJson
+            : [requestZapProof.zapReceiptJson])
+        : []
 
       const newReceipts = incomingReceipts.filter(
         (r: any) => r?.id && !usedReceipts.has(String(r.id).toLowerCase())
@@ -449,7 +556,7 @@ export async function POST(request: NextRequest) {
 
       const amountToAdd =
         resolvedPaymentType === "zap"
-          ? (newReceipts.length > 0 ? newAmount : 0)
+          ? (requestZapProof?.zapReceiptJson ? (newReceipts.length > 0 ? newAmount : 0) : verifiedAmountSats)
           : verifiedAmountSats
 
       if (amountToAdd <= 0) {
@@ -471,6 +578,10 @@ export async function POST(request: NextRequest) {
       ) as Prisma.InputJsonValue | undefined
 
       const updatedAmount = existingPurchase.amountPaid + amountToAdd
+      const mergedZapReceipts = mergeReceipts(
+        existingPurchase.zapReceiptJson,
+        requestZapProof?.zapReceiptJson
+      ) as Prisma.InputJsonValue | undefined
       await prisma.purchase.updateMany({
         where: {
           userId: session.user.id,
@@ -483,7 +594,7 @@ export async function POST(request: NextRequest) {
           zapReceiptId: existingPurchase.zapReceiptId ?? verifiedZapReceiptId,
           invoice: verifiedInvoice ?? existingPurchase.invoice,
           // Persist the exact artifacts we validated to avoid future relay fetches.
-          zapReceiptJson: mergeReceipts(existingPurchase.zapReceiptJson, requestZapProof?.zapReceiptJson),
+          zapReceiptJson: mergedZapReceipts,
           zapRequestJson: zapRequestJsonInput
         }
       })
