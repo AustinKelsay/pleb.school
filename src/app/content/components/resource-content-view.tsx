@@ -23,6 +23,7 @@ import { preserveLineBreaks } from '@/lib/text-utils'
 import type { NostrEvent } from 'snstr'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { useSession } from 'next-auth/react'
+import { formatLinkLabel } from '@/lib/link-label'
 import {
   ArrowLeft,
   BookOpen,
@@ -789,7 +790,7 @@ export function ResourceContentView({
                 <Button key={index} variant="outline" className="justify-start" asChild>
                   <a href={link} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />
-                    Resource {index + 1}
+                    {formatLinkLabel(link)}
                   </a>
                 </Button>
               ))}

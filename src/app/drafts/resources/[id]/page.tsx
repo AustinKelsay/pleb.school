@@ -29,6 +29,7 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react'
+import { formatLinkLabel } from '@/lib/link-label'
 
 interface ResourceDraftPageProps {
   params: Promise<{
@@ -385,21 +386,21 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   <h4 className="font-semibold">Additional Resources</h4>
                   <div className="space-y-2">
                     {additionalLinks.map((link: string, index: number) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                        asChild
-                      >
-                        <a href={link} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Resource {index + 1}
-                        </a>
-                      </Button>
-                    ))}
-                  </div>
+                    <Button
+                      key={index}
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start"
+                      asChild
+                    >
+                      <a href={link} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        {formatLinkLabel(link)}
+                      </a>
+                    </Button>
+                  ))}
                 </div>
+              </div>
               )}
             </div>
 

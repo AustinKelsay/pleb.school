@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import { 
   X, 
   AlertCircle, 
@@ -61,6 +62,7 @@ export default function CreateCourseDraftForm() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [courseDraftId, setCourseDraftId] = useState<string | null>(null)
   const [courseDraftData, setCourseDraftData] = useState<CourseDraftType | null>(null)
+  const [isPaidCourse, setIsPaidCourse] = useState(false)
   
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -73,10 +75,44 @@ export default function CreateCourseDraftForm() {
   
   // Lessons state
   const [lessons, setLessons] = useState<LessonData[]>([])
-  
+  const [hiddenLessons, setHiddenLessons] = useState<LessonData[]>([])
+  const lessonsRef = useRef<LessonData[]>([])
+  const hiddenLessonsRef = useRef<LessonData[]>([])
+  const lastPaidPriceRef = useRef<number>(100)
+
   // Temporary input states
   const [currentTopic, setCurrentTopic] = useState('')
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({})
+
+  const matchesPriceFor = useCallback((price: number | undefined, paid: boolean) => {
+    const sats = typeof price === 'number' && !Number.isNaN(price) ? price : 0
+    return paid ? sats > 0 : sats <= 0
+  }, [])
+
+  const matchesPriceFilter = useCallback((price?: number) => {
+    return matchesPriceFor(price, isPaidCourse)
+  }, [matchesPriceFor, isPaidCourse])
+
+  const partitionLessons = useCallback((list: LessonData[], paid: boolean) => {
+    const visible: LessonData[] = []
+    const hidden: LessonData[] = []
+    list.forEach((lesson) => {
+      if (matchesPriceFor(lesson.price, paid)) {
+        visible.push(lesson)
+      } else {
+        hidden.push(lesson)
+      }
+    })
+    return { visible, hidden }
+  }, [matchesPriceFor])
+
+  useEffect(() => {
+    lessonsRef.current = lessons
+  }, [lessons])
+
+  useEffect(() => {
+    hiddenLessonsRef.current = hiddenLessons
+  }, [hiddenLessons])
 
   const resourceIds = useMemo(() => {
     const ids = new Set<string>()
@@ -120,6 +156,23 @@ export default function CreateCourseDraftForm() {
     }
   }, [])
 
+  const handlePaidToggle = (checked: boolean) => {
+    setIsPaidCourse(checked)
+    const combined = [...lessons, ...hiddenLessons]
+    const { visible, hidden } = partitionLessons(combined, checked)
+    setLessons(visible)
+    setHiddenLessons(hidden)
+    setFormData((prev) => {
+      if (!checked && prev.price > 0) {
+        lastPaidPriceRef.current = prev.price
+      }
+      const nextPrice = checked
+        ? (prev.price > 0 ? prev.price : lastPaidPriceRef.current)
+        : 0
+      return { ...prev, price: nextPrice }
+    })
+  }
+
   // Load draft data if editing
   useEffect(() => {
     const loadDraft = async () => {
@@ -144,14 +197,24 @@ export default function CreateCourseDraftForm() {
           price: draft.price || 0,
           topics: draft.topics || [],
         })
+        const paid = (draft.price ?? 0) > 0
+        if (paid && typeof draft.price === 'number' && draft.price > 0) {
+          lastPaidPriceRef.current = draft.price
+        }
+        setIsPaidCourse(paid)
         
-        // Load lessons
+        // Load lessons and partition by pricing mode so we can restore on toggle
         const draftLessons: DraftLessonType[] = draft.draftLessons || []
         if (draftLessons.length > 0) {
           const loadedLessons: LessonData[] = draftLessons.map((lesson: DraftLessonType) =>
             createLessonData(draft, lesson)
           )
-          setLessons(loadedLessons)
+          const { visible, hidden } = partitionLessons(loadedLessons, paid)
+          setLessons(visible)
+          setHiddenLessons(hidden)
+        } else {
+          setLessons([])
+          setHiddenLessons([])
         }
       } catch (err) {
         console.error('Error loading draft:', err)
@@ -163,64 +226,76 @@ export default function CreateCourseDraftForm() {
         setIsLoading(false)
       }
     }
-    
     loadDraft()
-  }, [draftId, createLessonData])
+  }, [draftId, createLessonData, partitionLessons])
 
   useEffect(() => {
     if (!courseDraftData) {
       return
     }
 
-    setLessons(prevLessons => {
-      const draftLessons = courseDraftData.draftLessons || []
-      if (draftLessons.length === 0) {
-        return prevLessons
+    const draftLessons = courseDraftData.draftLessons || []
+    // Only clear when the server draft actually has zero lessons AND we haven't staged any local ones.
+    if (draftLessons.length === 0) {
+      if (!lessonsRef.current.length && !hiddenLessonsRef.current.length) {
+        setLessons([])
+        setHiddenLessons([])
       }
+      return
+    }
 
-      const updatedMap = new Map(
-        draftLessons.map(draftLesson => [
-          draftLesson.id,
-          createLessonData(courseDraftData, draftLesson, resourceNotes),
-        ])
-      )
+    const resolvedLessons = draftLessons.map(draftLesson =>
+      createLessonData(courseDraftData, draftLesson, resourceNotes)
+    )
 
-      let hasChanges = false
+    const combined = [...lessonsRef.current, ...hiddenLessonsRef.current]
+    const resolvedMap = new Map(resolvedLessons.map((l) => [l.id, l]))
 
-      const mergedLessons = prevLessons.map(existingLesson => {
-        const update = updatedMap.get(existingLesson.id)
-        if (!update) {
-          return existingLesson
-        }
+    const merged: LessonData[] = []
 
-        updatedMap.delete(existingLesson.id)
-
+    combined.forEach((existing) => {
+      const update = resolvedMap.get(existing.id)
+      if (update) {
+        resolvedMap.delete(existing.id)
         const shouldReplace =
-          existingLesson.title !== update.title ||
-          existingLesson.summary !== update.summary ||
-          existingLesson.contentType !== update.contentType ||
-          (existingLesson.price ?? 0) !== (update.price ?? 0) ||
-          existingLesson.image !== update.image ||
-          existingLesson.type !== update.type ||
-          existingLesson.resourceId !== update.resourceId ||
-          existingLesson.draftId !== update.draftId
+          existing.title !== update.title ||
+          existing.summary !== update.summary ||
+          existing.contentType !== update.contentType ||
+          (existing.price ?? 0) !== (update.price ?? 0) ||
+          existing.image !== update.image ||
+          existing.type !== update.type ||
+          existing.resourceId !== update.resourceId ||
+          existing.draftId !== update.draftId
 
-        if (shouldReplace) {
-          hasChanges = true
-          return { ...existingLesson, ...update }
-        }
-
-        return existingLesson
-      })
-
-      if (updatedMap.size > 0) {
-        hasChanges = true
-        mergedLessons.push(...updatedMap.values())
+        merged.push(shouldReplace ? { ...existing, ...update } : existing)
+      } else {
+        merged.push(existing)
       }
-
-      return hasChanges ? mergedLessons : prevLessons
     })
-  }, [courseDraftData, resourceNotes, createLessonData])
+
+    resolvedMap.forEach((lesson) => {
+      merged.push(lesson)
+    })
+
+    const { visible, hidden } = partitionLessons(merged, isPaidCourse)
+
+    const sameVisible =
+      visible.length === lessonsRef.current.length &&
+      visible.every((l, idx) => l === lessonsRef.current[idx])
+
+    const sameHidden =
+      hidden.length === hiddenLessonsRef.current.length &&
+      hidden.every((l, idx) => l === hiddenLessonsRef.current[idx])
+
+    if (!sameVisible) {
+      lessonsRef.current = visible
+      setLessons(visible)
+    }
+    if (!sameHidden) {
+      hiddenLessonsRef.current = hidden
+      setHiddenLessons(hidden)
+    }
+  }, [courseDraftData, resourceNotes, createLessonData, partitionLessons, isPaidCourse])
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof FormData, string>> = {}
@@ -243,6 +318,9 @@ export default function CreateCourseDraftForm() {
     
     if (formData.price < 0) {
       newErrors.price = 'Price must be 0 or greater'
+    }
+    if (isPaidCourse && formData.price <= 0) {
+      newErrors.price = 'Paid courses must have a price above 0 sats'
     }
     
     if (formData.topics.length === 0) {
@@ -281,11 +359,16 @@ export default function CreateCourseDraftForm() {
   }
 
   const handleAddLessons = (selectedLessons: LessonData[]) => {
-    setLessons([...lessons, ...selectedLessons])
+    const filtered = selectedLessons.filter((lesson) => matchesPriceFilter(lesson.price))
+    setLessons([...lessons, ...filtered])
   }
 
   const removeLesson = (index: number) => {
+    const target = lessons[index]
     setLessons(lessons.filter((_, i) => i !== index))
+    if (target) {
+      setHiddenLessons((prev) => prev.filter((lesson) => lesson.id !== target.id))
+    }
   }
 
   const moveLessonUp = (index: number) => {
@@ -321,12 +404,17 @@ export default function CreateCourseDraftForm() {
       const courseUrl = draftId ? `/api/drafts/courses/${draftId}` : '/api/drafts/courses'
       const courseMethod = draftId ? 'PUT' : 'POST'
       
+      const coursePayload = {
+        ...formData,
+        price: isPaidCourse ? formData.price : 0
+      }
+
       const courseResponse = await fetch(courseUrl, {
         method: courseMethod,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(coursePayload),
       })
 
       if (!courseResponse.ok) {
@@ -406,11 +494,11 @@ export default function CreateCourseDraftForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {message && (
-        <Alert className={message.type === 'error' ? 'border-destructive' : 'border-green-500'}>
+        <Alert className={message.type === 'error' ? 'border-destructive' : 'border-success/30'}>
           {message.type === 'error' ? (
             <AlertCircle className="h-4 w-4 text-destructive" />
           ) : (
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CheckCircle className="h-4 w-4 text-success" />
           )}
           <AlertDescription>{message.text}</AlertDescription>
         </Alert>
@@ -425,6 +513,20 @@ export default function CreateCourseDraftForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
+            <div>
+              <p className="text-sm font-medium">Course pricing mode</p>
+              <p className="text-xs text-muted-foreground">
+                Free courses can only include free lessons; paid courses only include paid lessons.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Free</span>
+              <Switch checked={isPaidCourse} onCheckedChange={handlePaidToggle} />
+              <span className="text-xs font-semibold text-primary">Paid</span>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
@@ -467,12 +569,16 @@ export default function CreateCourseDraftForm() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Course Lessons</CardTitle>
-          <CardDescription>
+        <CardDescription>
             Add and organize lessons for your course
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <LessonSelector onAddLessons={handleAddLessons} existingLessons={lessons} />
+          <LessonSelector
+            onAddLessons={handleAddLessons}
+            existingLessons={[...lessons, ...hiddenLessons]}
+            priceFilter={isPaidCourse ? 'paid' : 'free'}
+          />
           
           {lessons.length > 0 && (
             <div className="space-y-2">
@@ -489,7 +595,7 @@ export default function CreateCourseDraftForm() {
                     </div>
                     
                     {/* Lesson Image */}
-                    <div className="relative w-24 h-16 bg-muted rounded-md flex-shrink-0 overflow-hidden">
+                    <div className="relative w-24 h-16 bg-muted rounded-md shrink-0 overflow-hidden">
                       {lesson.image ? (
                         <OptimizedImage
                           src={lesson.image}
@@ -529,9 +635,11 @@ export default function CreateCourseDraftForm() {
                           </Badge>
                         )}
                         {lesson.price !== undefined && lesson.price > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            <DollarSign className="h-3 w-3 mr-0.5" />
-                            {lesson.price.toLocaleString()}
+                          <Badge
+                            variant="secondary"
+                            className="text-xs bg-primary/10 text-primary border border-primary/30"
+                          >
+                            {lesson.price.toLocaleString()} sats
                           </Badge>
                         )}
                       </div>
@@ -619,13 +727,15 @@ export default function CreateCourseDraftForm() {
                 min="0"
                 placeholder="0"
                 value={formData.price}
+                disabled={!isPaidCourse}
                 onChange={(e) => {
+                  if (!isPaidCourse) return
                   setFormData(prev => ({ ...prev, price: parseInt(e.target.value) || 0 }))
                   setErrors(prev => ({ ...prev, price: undefined }))
                 }}
                 className={errors.price ? 'border-destructive' : ''}
               />
-              {formData.price > 0 && (
+              {isPaidCourse && formData.price > 0 && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
                   <Badge variant="secondary" className="text-xs">
                     Premium
@@ -634,7 +744,9 @@ export default function CreateCourseDraftForm() {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Set to 0 for free courses. Individual lessons may have their own pricing.
+              {isPaidCourse
+                ? 'Set the course price in sats.'
+                : 'Free courses save at 0 sats. Switch to paid to set or edit a price.'}
             </p>
             {errors.price && <p className="text-sm text-destructive">{errors.price}</p>}
           </div>

@@ -13,6 +13,7 @@ import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { ZapThreads } from '@/components/ui/zap-threads'
 import { InteractionMetrics } from '@/components/ui/interaction-metrics'
+import { formatLinkLabel } from '@/lib/link-label'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, useLessonQuery } from '@/hooks/useLessonsQuery'
 import { 
@@ -637,7 +638,7 @@ function LessonContent({
                 >
                   <a href={link} target="_blank" rel="noopener noreferrer">
                     <FileText className="h-4 w-4 mr-2" />
-                    Resource {index + 1}
+                    {formatLinkLabel(link)}
                   </a>
                 </Button>
               ))}

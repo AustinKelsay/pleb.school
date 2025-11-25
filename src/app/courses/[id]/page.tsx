@@ -20,6 +20,7 @@ import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { useInteractions } from '@/hooks/useInteractions'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import { resolveUniversalId } from '@/lib/universal-router'
+import { formatLinkLabel } from '@/lib/link-label'
 import { 
   Clock, 
   BookOpen, 
@@ -528,7 +529,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                       >
                         <a href={link} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4 mr-2" />
-                          Resource {index + 1}
+                          {formatLinkLabel(link)}
                         </a>
                       </Button>
                     ))}

@@ -57,18 +57,18 @@ export function PurchaseActions({
   return (
     <div className="flex flex-col gap-3">
       {hasAccess ? (
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800">
-          <ShieldCheck className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
-          <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+        <div className="flex items-center gap-2 rounded-md border border-success/20 bg-success/10 px-3 py-2">
+          <ShieldCheck className="h-4 w-4 text-success" />
+          <span className="text-sm font-medium text-success-foreground">
             You have access to this content
           </span>
         </div>
       ) : (
         <>
           {viewerZapTotalSats > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-              <Zap className="h-4 w-4 text-blue-700 dark:text-blue-300" />
-              <span className="text-sm text-blue-800 dark:text-blue-200">
+            <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-3 py-2">
+              <Zap className="h-4 w-4 text-primary" />
+              <span className="text-sm text-primary">
                 You&apos;ve sent {viewerZapTotalSats.toLocaleString()} sats • {remainingPrice.toLocaleString()} more needed
               </span>
             </div>

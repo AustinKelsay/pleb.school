@@ -30,6 +30,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
+import { formatLinkLabel } from '@/lib/link-label'
 
 interface ResourceDraftPreviewPageProps {
   params: Promise<{
@@ -316,7 +317,7 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
                 >
                   <a href={link} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />
-                    Resource {index + 1}
+                    {formatLinkLabel(link)}
                   </a>
                 </Button>
               ))}
