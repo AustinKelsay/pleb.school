@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react"
 import QRCode from "react-qr-code"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Copy, 
+  ExternalLink, 
+  Loader2, 
+  QrCode,
+  ShieldCheck,
+  Zap 
+} from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,13 +24,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useZapFormState, MIN_CUSTOM_ZAP, QUICK_ZAP_AMOUNTS } from "@/hooks/useZapFormState"
 import { getByteLength, truncateToByteLength } from "@/lib/lightning"
+import { cn } from "@/lib/utils"
 import type { LightningRecipient, ZapSendResult } from "@/types/zap"
 import type { ZapInsights, ZapReceiptSummary } from "@/hooks/useInteractions"
 import type { ZapState } from "@/hooks/useZapSender"
-import { useSession } from "next-auth/react"
 
 interface ZapDialogProps {
   isOpen: boolean
@@ -38,6 +49,29 @@ interface ZapDialogProps {
   maxZapSats?: number | null
   preferAnonymousZap: boolean
   onTogglePrivacy?: (value: boolean) => void
+}
+
+// Shared formatters
+function formatSats(value?: number | null): string {
+  if (value == null) return "—"
+  return value.toLocaleString()
+}
+
+function formatShortPubkey(pubkey?: string | null): string {
+  if (!pubkey || pubkey.length < 12) return pubkey || "anon"
+  return `${pubkey.slice(0, 6)}…${pubkey.slice(-4)}`
+}
+
+function formatRelativeTime(seconds?: number | null): string {
+  if (!seconds) return "—"
+  const diffMs = Math.max(0, Date.now() - seconds * 1000)
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return "now"
+  if (mins < 60) return `${mins}m`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  return days < 30 ? `${days}d` : new Date(seconds * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 export function ZapDialog({
@@ -71,76 +105,39 @@ export function ZapDialog({
     resetForm
   } = useZapFormState()
   const { toast } = useToast()
-  const [showInvoiceQr, setShowInvoiceQr] = useState(false)
+  const [showQr, setShowQr] = useState(false)
 
-  const zapCommentLimitBytes = zapState.metadata?.commentAllowed ?? 280
-  const zapNoteBytesRemaining = Math.max(0, zapCommentLimitBytes - getByteLength(zapNote))
-
-  const zapTargetName = zapTarget?.name || "this creator"
-  const zapLightningIdentifier =
-    zapTarget?.lightningAddress ||
-    zapTarget?.lnurl ||
-    zapState.lnurlDetails?.identifier ||
-    zapState.lnurlDetails?.endpointUrl ||
-    ""
-  const zapTargetHasLightning = Boolean(zapLightningIdentifier)
-
-  const belowMinAmount = typeof minZapSats === "number" ? resolvedZapAmount < minZapSats : false
-  const aboveMaxAmount = typeof maxZapSats === "number" ? resolvedZapAmount > maxZapSats : false
-  const amountOutOfRange = belowMinAmount || aboveMaxAmount
-  const zapActionUnavailable =
-    customAmountInvalid ||
-    resolvedZapAmount < MIN_CUSTOM_ZAP ||
-    amountOutOfRange
-  const zapCtaDisabled = zapActionUnavailable || isZapInFlight
-  const lightningAddressDisplay = zapLightningIdentifier || "Creator has not linked a lightning address yet."
-
-  const zapStatusMessages: Record<string, string> = {
-    resolving: "Resolving lightning address…",
-    signing: "Creating zap request…",
-    "requesting-invoice": "Waiting for the wallet invoice…",
-    paying: "Attempting WebLN payment…",
-    "invoice-ready": zapState.weblnError
-      ? "Invoice ready. Pay manually or retry WebLN."
-      : "Invoice ready. Open your Lightning wallet to finish.",
-    success: "Zap paid! Receipt will appear once the relay publishes it.",
-    error: zapState.error || "Zap failed. Adjust the amount or try again."
-  }
-  const zapDialogStatusMessage = zapStatusMessages[zapState.status] || ""
-
-  const zapActivityPreview = recentZaps
-  const zapStats = zapInsights
+  const zapCommentLimit = zapState.metadata?.commentAllowed ?? 280
+  const bytesRemaining = Math.max(0, zapCommentLimit - getByteLength(zapNote))
+  const targetName = zapTarget?.name || "this creator"
+  const lightningId = zapTarget?.lightningAddress || zapTarget?.lnurl || zapState.lnurlDetails?.identifier || ""
   const isAuthed = sessionStatus === "authenticated"
   const showPrivacyToggle = isAuthed && !session?.user?.privkey
 
-  const viewerZapSummaryText = zapState.status === "success"
-    ? "Zap sent! Receipts usually land within a few seconds."
-    : hasZappedWithLightning
-      ? `You have tipped ${formatSatsDisplay(viewerZapTotalSats)} so far.`
-      : "You have not zapped this content yet."
-
-  const zapCommentLimitLabel = zapState.metadata?.commentAllowed
-    ? `wallet allows up to ${zapState.metadata.commentAllowed}`
-    : "wallet default is 280"
+  const belowMin = typeof minZapSats === "number" && resolvedZapAmount < minZapSats
+  const aboveMax = typeof maxZapSats === "number" && resolvedZapAmount > maxZapSats
+  const invalidAmount = customAmountInvalid || resolvedZapAmount < MIN_CUSTOM_ZAP || belowMin || aboveMax
+  const ctaDisabled = invalidAmount || isZapInFlight
 
   useEffect(() => {
     if (!isOpen) {
       resetForm()
       resetZapState()
+      setShowQr(false)
     }
   }, [isOpen, resetForm, resetZapState])
 
   useEffect(() => {
-    setShowInvoiceQr(Boolean(zapState.invoice))
+    if (zapState.invoice) setShowQr(true)
   }, [zapState.invoice])
 
-  const handleSendZap = useCallback(async () => {
-    if (zapActionUnavailable) {
+  const handleSend = useCallback(async () => {
+    if (invalidAmount) {
       toast({
-        title: "Adjust zap amount",
-        description: amountOutOfRange
-          ? `Pick an amount between ${minZapSats?.toLocaleString() ?? "—"} and ${maxZapSats?.toLocaleString() ?? "—"} sats.`
-          : `Enter at least ${MIN_CUSTOM_ZAP} sat to send a zap.`,
+        title: "Invalid amount",
+        description: belowMin || aboveMax
+          ? `Choose between ${minZapSats?.toLocaleString() ?? 1}–${maxZapSats?.toLocaleString() ?? "∞"} sats`
+          : `Minimum ${MIN_CUSTOM_ZAP} sat`,
         variant: "destructive"
       })
       return
@@ -149,237 +146,233 @@ export function ZapDialog({
     try {
       const result = await sendZap({ amountSats: resolvedZapAmount, note: zapNote })
       toast({
-        title: result.paid ? "Zap sent ⚡️" : "Invoice ready",
-        description: result.paid
-          ? "Thanks for supporting the creator!"
-          : "Copy the invoice below or open it in your Lightning wallet to finish."
+        title: result.paid ? "Zap sent ⚡" : "Invoice ready",
+        description: result.paid ? "Thanks for the support!" : "Pay with your Lightning wallet"
       })
     } catch (error) {
-      const description = error instanceof Error ? error.message : "Unable to send zap."
-      toast({ title: "Zap failed", description, variant: "destructive" })
-    }
-  }, [amountOutOfRange, maxZapSats, minZapSats, resolvedZapAmount, sendZap, toast, zapActionUnavailable, zapNote])
-
-  const handleCopyInvoice = useCallback(async () => {
-    if (!zapState.invoice) {
-      return
-    }
-    if (typeof navigator === "undefined" || !navigator.clipboard) {
       toast({
-        title: "Clipboard unavailable",
-        description: "Copy the invoice manually from the text block below.",
+        title: "Zap failed",
+        description: error instanceof Error ? error.message : "Try again",
         variant: "destructive"
       })
-      return
     }
+  }, [invalidAmount, belowMin, aboveMax, minZapSats, maxZapSats, resolvedZapAmount, sendZap, zapNote, toast])
+
+  const handleCopy = useCallback(async () => {
+    if (!zapState.invoice) return
     try {
       await navigator.clipboard.writeText(zapState.invoice)
-      toast({ title: "Invoice copied", description: "Paste into any Lightning wallet to pay." })
-    } catch (error) {
-      toast({
-        title: "Unable to copy invoice",
-        description: error instanceof Error ? error.message : "Clipboard access denied.",
-        variant: "destructive"
-      })
+      toast({ title: "Copied!" })
+    } catch {
+      toast({ title: "Copy failed", variant: "destructive" })
     }
-  }, [toast, zapState.invoice])
+  }, [zapState.invoice, toast])
 
-  const handleRetryWebln = useCallback(async () => {
+  const handleRetry = useCallback(async () => {
     const paid = await retryWeblnPayment()
     toast({
-      title: paid ? "Zap paid via WebLN" : "WebLN payment failed",
-      description: paid
-        ? "Thanks for the zap!"
-        : "Copy the invoice below or open it in your wallet to finish.",
+      title: paid ? "Zap paid!" : "WebLN failed",
+      description: paid ? "Thanks!" : "Pay manually below",
       variant: paid ? "default" : "destructive"
     })
   }, [retryWeblnPayment, toast])
 
+  // Status indicator
+  const statusConfig: Record<string, { text: string; loading: boolean; error?: boolean }> = {
+    resolving: { text: "Resolving…", loading: true },
+    signing: { text: "Signing…", loading: true },
+    "requesting-invoice": { text: "Getting invoice…", loading: true },
+    paying: { text: "Paying…", loading: true },
+    "invoice-ready": { text: zapState.weblnError ? "WebLN failed" : "Ready to pay", loading: false },
+    success: { text: "Sent!", loading: false },
+    error: { text: zapState.error || "Failed", loading: false, error: true }
+  }
+  const status = statusConfig[zapState.status]
+
   return (
-    <DialogContent
-      className="max-w-3xl sm:max-w-4xl lg:max-w-5xl lg:max-h-[85vh]"
-      onOpenAutoFocus={(event) => event.preventDefault()}
-    >
+    <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
       <DialogHeader>
-        <DialogTitle>Send a zap</DialogTitle>
+        <DialogTitle className="flex items-center gap-2">
+          <Zap className="h-5 w-5 text-amber-500" />
+          Send a zap
+        </DialogTitle>
         <DialogDescription>
-          Lightning tips — also called zaps — let you support {zapTargetName}. We’ll resolve their Lightning address,
-          request an invoice, and try WebLN automatically if your wallet allows it.
-          {!isAuthed && (
-            <span className="block text-xs text-muted-foreground mt-1">
-              You can tip without signing in; purchases still require an account.
-            </span>
-          )}
+          Support {targetName} with a Lightning tip
+          {!isAuthed && <span className="text-xs opacity-70"> • Sign in to save purchases</span>}
         </DialogDescription>
       </DialogHeader>
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:h-[60vh] lg:overflow-hidden">
-        <section className="space-y-4 lg:overflow-y-auto lg:pr-2">
-          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-            {viewerZapSummaryText}
-          </div>
 
-          {zapDialogStatusMessage && (
-            <div
-              className={
-                zapState.status === "error"
-                  ? "rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive"
-                  : "rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground"
-              }
-            >
-              {zapDialogStatusMessage}
+      <div className="grid gap-4 lg:grid-cols-[1fr_200px]">
+        {/* Main column */}
+        <div className="space-y-4">
+          {/* Status bar */}
+          {status && zapState.status !== "idle" && (
+            <div className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+              status.error ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+            )}>
+              {status.loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {status.text}
             </div>
           )}
 
-          {zapState.weblnError && (
-            <p className="text-xs text-destructive">WebLN error: {zapState.weblnError}</p>
-          )}
-
-          <div className="space-y-3 rounded-lg border p-4">
+          {/* Amount selection */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Choose an amount</Label>
-              <span className="text-xs text-muted-foreground">Selected: {formatSatsDisplay(resolvedZapAmount)}</span>
+              <Label className="text-sm font-medium">Amount</Label>
+              <span className="text-sm font-semibold text-primary">{formatSats(resolvedZapAmount)} sats</span>
             </div>
+            
             <div className="flex flex-wrap gap-2">
-              {QUICK_ZAP_AMOUNTS.map((amount) => (
+              {QUICK_ZAP_AMOUNTS.map((amt) => (
                 <button
-                  key={amount}
-                  type="button"
-                  onClick={() => handleSelectQuickAmount(amount)}
-                  className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
-                    selectedZapAmount === amount && !hasCustomAmount
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-foreground hover:border-primary"
-                  }`}
+                  key={amt}
+                  onClick={() => handleSelectQuickAmount(amt)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-sm font-medium transition-all",
+                    selectedZapAmount === amt && !hasCustomAmount
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted hover:bg-muted/80 text-foreground"
+                  )}
                 >
-                  {amount.toLocaleString()} sats
+                  {amt >= 1000 ? `${amt / 1000}k` : amt}
                 </button>
               ))}
-              <div className="flex flex-col">
-                <Label htmlFor="custom-zap" className="text-xs text-muted-foreground">
-                  Custom
-                </Label>
-                <Input
-                  id="custom-zap"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="420"
-                  value={customZapAmount}
-                  onChange={(event) => handleCustomAmountChange(event.target.value)}
-                  className="h-9 w-28"
-                />
-              </div>
+              <Input
+                inputMode="numeric"
+                placeholder="Custom"
+                value={customZapAmount}
+                onChange={(e) => handleCustomAmountChange(e.target.value)}
+                className="h-8 w-20 text-sm"
+              />
             </div>
 
-            {showPrivacyToggle && (
-              <div className="flex items-start gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 p-3 text-xs text-muted-foreground">
-                <input
-                  id="zap-privacy-toggle"
-                  type="checkbox"
-                  checked={preferAnonymousZap}
-                  onChange={(e) => onTogglePrivacy?.(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-amber-500"
-                />
-                <label htmlFor="zap-privacy-toggle" className="leading-relaxed">
-                  Keep my zap private (sign with a fresh, anonymous key). We’ll still attach the purchase to your account.
-                </label>
-              </div>
-            )}
-            {customAmountInvalid && (
-              <p className="text-xs text-destructive">Enter at least {MIN_CUSTOM_ZAP} sat.</p>
-            )}
             {(minZapSats || maxZapSats) && (
               <p className="text-xs text-muted-foreground">
-                Range: {minZapSats?.toLocaleString() ?? "—"} – {maxZapSats?.toLocaleString() ?? "—"} sats
+                Range: {minZapSats?.toLocaleString() ?? 1}–{maxZapSats?.toLocaleString() ?? "∞"} sats
               </p>
-            )}
-            {amountOutOfRange && (
-              <p className="text-xs text-destructive">Choose an amount within the allowed range.</p>
             )}
           </div>
 
-          <div className="space-y-2 rounded-lg border p-4">
-            <Label htmlFor="zap-note">Add a note (optional)</Label>
+          {/* Note */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="zap-note" className="text-sm">Note (optional)</Label>
+              <span className="text-xs text-muted-foreground">{bytesRemaining} left</span>
+            </div>
             <Textarea
               id="zap-note"
               value={zapNote}
-              onChange={(event) => {
-                const value = event.target.value
-                const truncated = truncateToByteLength(value, zapCommentLimitBytes)
-                setZapNote(truncated)
-              }}
-              placeholder={`Tell ${zapTargetName} why this resonated.`}
+              onChange={(e) => setZapNote(truncateToByteLength(e.target.value, zapCommentLimit))}
+              placeholder={`Message for ${targetName}…`}
+              className="h-16 resize-none text-sm"
             />
-            <p className="text-xs text-muted-foreground">
-              {zapNoteBytesRemaining} bytes left ({zapCommentLimitLabel})
-            </p>
           </div>
 
-          <div className="space-y-2 rounded-lg border p-4 text-sm">
-            <p className="font-medium text-foreground">Lightning address</p>
-            <p className="break-all text-muted-foreground">{lightningAddressDisplay}</p>
-            {zapTarget?.pubkey && (
-              <p className="text-xs text-muted-foreground">Pubkey: {formatShortPubkey(zapTarget.pubkey)}</p>
-            )}
-            {!zapTargetHasLightning && (
-              <p className="text-xs text-destructive">Ask the author to add a Lightning address to their profile.</p>
-            )}
-          </div>
+          {/* Privacy toggle */}
+          {showPrivacyToggle && (
+            <label className="flex items-start gap-2 rounded-lg border border-dashed p-3 text-xs text-muted-foreground cursor-pointer hover:bg-muted/30">
+              <input
+                type="checkbox"
+                checked={preferAnonymousZap}
+                onChange={(e) => onTogglePrivacy?.(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-primary"
+              />
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>Private zap (anonymous signature)</span>
+              </div>
+            </label>
+          )}
 
-          <Button className="w-full" size="lg" onClick={handleSendZap} disabled={zapCtaDisabled}>
-            {isZapInFlight ? "Sending zap…" : `Send ${resolvedZapAmount.toLocaleString()} sats`}
-          </Button>
-
-          {zapState.invoice && (
-            <div className="space-y-3 rounded-lg border p-4">
+          {/* Invoice section */}
+          {zapState.invoice ? (
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Invoice</Label>
-                {zapState.paid && <span className="text-xs text-success">paid</span>}
+                <span className="text-sm font-medium">Invoice</span>
+                {zapState.paid && <Badge variant="default" className="text-xs">Paid</Badge>}
               </div>
-              <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs">
-                {zapState.invoice}
-              </pre>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={handleCopyInvoice}>
-                  Copy invoice
-                </Button>
-                <Button variant="outline" asChild>
-                  <a href={`lightning:${zapState.invoice}`}>
-                    Open wallet
-                  </a>
-                </Button>
-                {zapState.status === "invoice-ready" && (
-                  <Button variant="ghost" onClick={handleRetryWebln} disabled={isZapInFlight}>
-                    Retry WebLN
-                  </Button>
-                )}
-                <Button variant="outline" onClick={() => setShowInvoiceQr((prev) => !prev)}>
-                  {showInvoiceQr ? "Hide QR" : "Show QR"}
-                </Button>
-              </div>
-              {showInvoiceQr && (
-                <div className="flex items-center justify-center rounded-md border bg-background p-4">
-                  <QRCode
-                    value={zapState.invoice}
-                    size={192}
-                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                    fgColor="hsl(var(--foreground))"
-                    bgColor="#ffffff"
-                  />
+              
+              {showQr && (
+                <div className="flex justify-center rounded-md bg-white p-3">
+                  <QRCode value={zapState.invoice} size={160} />
                 </div>
               )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={handleCopy}>
+                  <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <a href={`lightning:${zapState.invoice}`}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Wallet
+                  </a>
+                </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowQr(!showQr)}>
+                    <QrCode className="h-3.5 w-3.5 mr-1.5" /> {showQr ? "Hide" : "QR"}
+                  </Button>
+                  {zapState.status === "invoice-ready" && (
+                    <Button size="sm" variant="ghost" onClick={handleRetry} disabled={isZapInFlight}>
+                      Retry WebLN
+                    </Button>
+                  )}
+                </div>
+
+              {/* Manual fallback so users can always copy the invoice */}
+              <div className="rounded-md border border-dashed border-border/70 bg-background/60 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                  BOLT11 invoice
+                </p>
+                <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap break-all rounded bg-muted/50 p-2 text-xs font-mono">
+                  {zapState.invoice}
+                </pre>
+              </div>
             </div>
+          ) : (
+            <Button className="w-full" size="lg" onClick={handleSend} disabled={ctaDisabled}>
+              {isZapInFlight ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Zap {formatSats(resolvedZapAmount)} sats
+                </>
+              )}
+            </Button>
           )}
-        </section>
 
-        <aside className="space-y-4 lg:flex lg:flex-col lg:pl-2 lg:h-full lg:min-h-0">
-          <StatGrid zapStats={zapStats} />
+          {/* Lightning address info (if already known) */}
+          {lightningId && (
+            <p className="text-xs text-muted-foreground truncate">
+              ⚡ {lightningId}
+            </p>
+          )}
+        </div>
 
-          <div className="space-y-3 rounded-lg border p-4 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Recent supporters</p>
-              <span className="text-xs text-muted-foreground">Live preview</span>
+        {/* Stats sidebar */}
+        <aside className="space-y-3 lg:border-l lg:pl-4">
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
+            <StatBox label="Total" value={`${formatSats(zapInsights.totalSats)}`} />
+            <StatBox label="Zappers" value={formatSats(zapInsights.uniqueSenders)} />
+            <StatBox label="Average" value={`${formatSats(zapInsights.averageSats)}`} />
+            <StatBox label="Your zaps" value={hasZappedWithLightning ? formatSats(viewerZapTotalSats) : "—"} />
+          </div>
+
+          {/* Recent zaps */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recent</p>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {recentZaps.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No zaps yet</p>
+              ) : (
+                recentZaps.slice(0, 8).map((zap) => (
+                  <ZapRow key={zap.id} zap={zap} />
+                ))
+              )}
             </div>
-            <SupporterList supporters={zapActivityPreview} />
           </div>
         </aside>
       </div>
@@ -387,193 +380,44 @@ export function ZapDialog({
   )
 }
 
-function StatGrid({ zapStats }: { zapStats: ZapInsights }) {
+function StatBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-2 gap-3 text-sm">
-      <StatCard label="Total sats" value={formatNumberDisplay(zapStats.totalSats)} />
-      <StatCard label="Supporters" value={formatNumberDisplay(zapStats.uniqueSenders)} />
-      <StatCard label="Avg. zap" value={formatSatsDisplay(zapStats.averageSats)} />
-      <StatCard label="Last zap" value={formatRelativeTimestamp(zapStats.lastZapAt)} />
+    <div className="rounded-lg bg-muted/50 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold">{value}</p>
     </div>
   )
 }
 
-function SupporterList({ supporters }: { supporters: ZapReceiptSummary[] }) {
-  const [visibleCount, setVisibleCount] = useState(10)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-
-  useEffect(() => {
-    setVisibleCount(10)
-    setIsLoadingMore(false)
-  }, [supporters.length])
-
-  const loadMore = () => {
-    if (isLoadingMore || visibleCount >= supporters.length) return
-    setIsLoadingMore(true)
-    // Small delay for a subtle animation and to avoid thrashing
-    setTimeout(() => {
-      setVisibleCount((prev) => Math.min(supporters.length, prev + 10))
-      setIsLoadingMore(false)
-    }, 120)
-  }
-
-  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = event.currentTarget
-    const atBottom = scrollTop + clientHeight >= scrollHeight - 24
-    if (atBottom) {
-      loadMore()
-    } else if (isLoadingMore) {
-      // reset indicator if user scrolls away from bottom
-      setIsLoadingMore(false)
-    }
-  }
-
-  if (supporters.length === 0) {
-    return <p className="text-sm text-muted-foreground">No zaps yet. Be the first to zap this drop.</p>
-  }
-
-  return (
-    <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-y-auto pr-1 lg:min-h-0" onScroll={handleScroll}>
-      {supporters.slice(0, visibleCount).map((zap) => (
-        <ZapItem key={zap.id} zap={zap} />
-      ))}
-      {visibleCount < supporters.length && (
-        <div className="pt-2 pb-1 flex justify-center">
-          <span className="text-xs text-muted-foreground animate-pulse">
-            Loading more supporters…
-          </span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ZapItem({ zap }: { zap: ZapReceiptSummary }) {
+function ZapRow({ zap }: { zap: ZapReceiptSummary }) {
   const [expanded, setExpanded] = useState(false)
-  // Prefer payer pubkeys or sender; never fall back to receiver (owner) to avoid misattribution.
-  const zapPubkey = zap.payerPubkeys?.[0] || zap.senderPubkey || ""
-  const zapPubkeyLabel = zapPubkey ? formatShortPubkey(zapPubkey) : "Anonymous"
-
+  const pubkey = zap.payerPubkeys?.[0] || zap.senderPubkey || ""
+  
   return (
-    <div className="border rounded-md overflow-hidden transition-colors hover:bg-muted/30">
+    <div className="rounded border bg-card/50">
       <button
-        type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex justify-between items-start text-sm p-3 text-left"
+        className="flex w-full items-center justify-between p-2 text-left"
       >
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-xs">{formatSatsDisplay(zap.amountSats)}</span>
-            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-              {zapPubkeyLabel}
-            </span>
-          </div>
-          {zap.note ? (
-            <p className="text-xs text-muted-foreground line-clamp-1">{zap.note}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground/50 italic">No note</p>
-          )}
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {zap.createdAt ? formatZapDate(zap.createdAt) : "—"}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-semibold text-primary">{formatSats(zap.amountSats)}</span>
+          <span className="text-[10px] text-muted-foreground truncate">
+            {pubkey ? formatShortPubkey(pubkey) : "anon"}
           </span>
-          {expanded ? (
-            <ChevronUp className="h-3 w-3 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] text-muted-foreground">{formatRelativeTime(zap.createdAt)}</span>
+          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </div>
       </button>
-
       {expanded && (
-        <div className="px-3 pb-3 pt-0 animate-in slide-in-from-top-2 duration-200">
-          <div className="rounded bg-muted p-2 overflow-x-auto">
-            <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-all">
-              {zap.event ? JSON.stringify(zap.event, null, 2) : JSON.stringify(zap, null, 2)}
-            </pre>
-          </div>
+        <div className="border-t px-2 py-1.5">
+          {zap.note && <p className="text-xs text-muted-foreground mb-1">{zap.note}</p>}
+          <pre className="text-[9px] font-mono text-muted-foreground/70 whitespace-pre-wrap break-all max-h-24 overflow-auto">
+            {JSON.stringify(zap.event || zap, null, 2)}
+          </pre>
         </div>
       )}
     </div>
   )
-}
-
-interface StatCardProps {
-  label: string
-  value: string
-}
-
-function StatCard({ label, value }: StatCardProps) {
-  return (
-    <div className="rounded-lg border bg-card/50 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-base font-semibold text-foreground">{value}</p>
-    </div>
-  )
-}
-
-function formatNumberDisplay(value?: number | null): string {
-  if (value === null || value === undefined) {
-    return "—"
-  }
-  return value.toLocaleString()
-}
-
-function formatSatsDisplay(value?: number | null): string {
-  if (value === null || value === undefined) {
-    return "—"
-  }
-  return `${value.toLocaleString()} sats`
-}
-
-function formatShortPubkey(pubkey?: string | null): string {
-  if (!pubkey || pubkey.length < 12) {
-    return pubkey || "unknown zapper"
-  }
-  return `${pubkey.slice(0, 6)}…${pubkey.slice(-4)}`
-}
-
-function formatRelativeTimestamp(seconds?: number | null): string {
-  if (!seconds) {
-    return "—"
-  }
-
-  const now = Date.now()
-  const diffMs = now - seconds * 1000
-  const safeDiff = Math.max(diffMs, 0)
-  const minutes = Math.floor(safeDiff / 60000)
-
-  if (minutes < 1) {
-    return "just now"
-  }
-  if (minutes < 60) {
-    return `${minutes}m ago`
-  }
-
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) {
-    return `${hours}h ago`
-  }
-
-  const days = Math.floor(hours / 24)
-  if (days < 30) {
-    return `${days}d ago`
-  }
-
-  return new Date(seconds * 1000).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric"
-  })
-}
-
-function formatZapDate(seconds?: number | null): string {
-  if (!seconds) {
-    return "—"
-  }
-
-  return new Date(seconds * 1000).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric"
-  })
 }

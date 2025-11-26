@@ -1,4 +1,3 @@
-import { isIP } from "node:net"
 import nostrConfig from "../../config/nostr.json"
 
 export type RelaySet = 'default' | 'content' | 'profile' | 'zapThreads'
@@ -9,6 +8,29 @@ type NostrRelayConfig = {
 
 function unique(list: string[]): string[] {
   return Array.from(new Set(list))
+}
+
+/**
+ * Browser-compatible IP address detection
+ * Returns 0 for non-IP, 4 for IPv4, 6 for IPv6
+ */
+function isIP(host: string): number {
+  // IPv4 pattern
+  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/
+  if (ipv4Pattern.test(host)) {
+    const parts = host.split('.').map(Number)
+    if (parts.every(part => part >= 0 && part <= 255)) {
+      return 4
+    }
+  }
+  
+  // IPv6 pattern (simplified check)
+  const ipv6Pattern = /^([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}$/i
+  if (ipv6Pattern.test(host) || host === '::1') {
+    return 6
+  }
+  
+  return 0
 }
 
 const relayConfig = (nostrConfig as unknown as NostrRelayConfig).relays || {}

@@ -2,7 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import QRCode from "react-qr-code"
-import { ShieldCheck, Loader2, Copy, ExternalLink, ChevronDown, ChevronUp } from "lucide-react"
+import { 
+  Check,
+  ChevronDown, 
+  ChevronUp, 
+  Copy, 
+  ExternalLink, 
+  Loader2, 
+  Lock,
+  QrCode,
+  ShieldCheck, 
+  Unlock,
+  Zap 
+} from "lucide-react"
 import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
@@ -16,130 +28,60 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { getByteLength, truncateToByteLength } from "@/lib/lightning"
+import { cn } from "@/lib/utils"
 import type { LightningRecipient, ZapSendResult } from "@/types/zap"
 import type { ZapInsights, ZapReceiptSummary } from "@/hooks/useInteractions"
 import type { Purchase } from "@prisma/client"
 import { useZapSender } from "@/hooks/useZapSender"
 import { usePurchaseEligibility } from "@/hooks/usePurchaseEligibility"
-import { cn } from "@/lib/utils"
 
-const MIN_CUSTOM_ZAP = 1
+const MIN_ZAP = 1
 
 interface PurchaseDialogProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
-  
-  // Purchase details
   priceSats: number
   resourceId?: string
   courseId?: string
   title: string
-  
-  // Nostr event details for zap
   eventId?: string
   eventKind?: number
   eventIdentifier?: string
   eventPubkey?: string
   zapTarget?: LightningRecipient
-  
-  // Viewer state
   viewerZapTotalSats: number
   alreadyPurchased?: boolean
   viewerZapReceipts?: ZapReceiptSummary[]
-  
-  // Optional stats for right column
   zapInsights?: ZapInsights
   recentZaps?: ZapReceiptSummary[]
   onPurchaseComplete?: (purchase: Purchase) => void
 }
 
-/**
- * Formats a pubkey for display, showing first 6 and last 4 characters.
- */
+// Shared formatters
+function formatSats(value?: number | null): string {
+  if (value == null) return "—"
+  return value.toLocaleString()
+}
+
 function formatShortPubkey(pubkey?: string | null): string {
-  if (!pubkey || pubkey.length < 12) {
-    return pubkey || "unknown zapper"
-  }
+  if (!pubkey || pubkey.length < 12) return pubkey || "anon"
   return `${pubkey.slice(0, 6)}…${pubkey.slice(-4)}`
 }
 
-/**
- * Formats sats amount for display with locale formatting.
- */
-function formatSatsDisplay(value?: number | null): string {
-  if (value === null || value === undefined) {
-    return "—"
-  }
-  return `${value.toLocaleString()} sats`
-}
-
-/**
- * Formats a unix timestamp to a short date string.
- */
-function formatZapDate(seconds?: number | null): string {
-  if (!seconds) {
-    return "—"
-  }
-  return new Date(seconds * 1000).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric"
-  })
-}
-
-/**
- * Individual zap receipt item with expandable raw event details.
- */
-function ZapItem({ zap }: { zap: ZapReceiptSummary }) {
-  const [expanded, setExpanded] = useState(false)
-  // Prefer payer pubkeys or sender; never fall back to receiver (owner) to avoid misattribution.
-  const zapPubkey = zap.payerPubkeys?.[0] || zap.senderPubkey || ""
-  const zapPubkeyLabel = zapPubkey ? formatShortPubkey(zapPubkey) : "Anonymous"
-
-  return (
-    <div className="border rounded-md overflow-hidden transition-colors hover:bg-muted/30">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex justify-between items-start text-sm p-3 text-left"
-      >
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-xs">{formatSatsDisplay(zap.amountSats)}</span>
-            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-              {zapPubkeyLabel}
-            </span>
-          </div>
-          {zap.note ? (
-            <p className="text-xs text-muted-foreground line-clamp-1">{zap.note}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground/50 italic">No note</p>
-          )}
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {zap.createdAt ? formatZapDate(zap.createdAt) : "—"}
-          </span>
-          {expanded ? (
-            <ChevronUp className="h-3 w-3 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          )}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="px-3 pb-3 pt-0 animate-in slide-in-from-top-2 duration-200">
-          <div className="rounded bg-muted p-2 overflow-x-auto">
-            <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-all">
-              {zap.event ? JSON.stringify(zap.event, null, 2) : JSON.stringify(zap, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+function formatRelativeTime(seconds?: number | null): string {
+  if (!seconds) return "—"
+  const diffMs = Math.max(0, Date.now() - seconds * 1000)
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return "now"
+  if (mins < 60) return `${mins}m`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  return days < 30 ? `${days}d` : new Date(seconds * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 export function PurchaseDialog({
@@ -164,27 +106,34 @@ export function PurchaseDialog({
   const { status: sessionStatus } = useSession()
   const { toast } = useToast()
   const isAuthed = sessionStatus === "authenticated"
-  const [preferAnonymousZap, setPreferAnonymousZap] = useState(false)
-  const [anonRetryOffered, setAnonRetryOffered] = useState(false)
+  
+  const [preferAnonymous, setPreferAnonymous] = useState(false)
+  const [showQr, setShowQr] = useState(false)
 
-  // Zap Sender State
+  // Zap sender
   const { sendZap, zapState, resetZapState, isZapInFlight, retryWeblnPayment } = useZapSender({
     eventId,
     eventKind,
     eventIdentifier,
     eventPubkey,
     zapTarget,
-    preferAnonymousZap,
+    preferAnonymousZap: preferAnonymous,
   })
 
-  // Purchase Eligibility State
-  const { eligible, status: purchaseStatus, purchase, claimPurchase, error: purchaseError } = usePurchaseEligibility({
+  // Purchase eligibility
+  const { 
+    eligible, 
+    status: purchaseStatus, 
+    purchase, 
+    claimPurchase, 
+    error: purchaseError 
+  } = usePurchaseEligibility({
     resourceId,
     courseId,
     priceSats,
     viewerZapTotalSats,
     alreadyPurchased,
-    autoClaim: true, // Auto-claim if eligible
+    autoClaim: true,
     zapReceipts: viewerZapReceipts ?? recentZaps,
     eventId,
     eventKind,
@@ -193,94 +142,63 @@ export function PurchaseDialog({
     onAutoClaimSuccess: (claimed) => {
       const unlocked = (claimed.amountPaid ?? 0) >= priceSats
       toast({
-        title: unlocked ? "Content unlocked!" : "Payment recorded",
+        title: unlocked ? "Unlocked! 🎉" : "Payment recorded",
         description: unlocked
-          ? `Your zaps (${claimed.amountPaid.toLocaleString()} sats) unlocked this content.`
-          : `We recorded ${claimed.amountPaid.toLocaleString()} sats. Keep zapping to unlock.`,
+          ? "Your zaps unlocked this content"
+          : `${claimed.amountPaid.toLocaleString()} sats recorded`,
       })
-      if (onPurchaseComplete) {
-        onPurchaseComplete(claimed)
-      }
-      // Close dialog after a brief delay to let user see the success message
-      setTimeout(() => {
-        onOpenChange(false)
-      }, 1500)
+      onPurchaseComplete?.(claimed)
+      setTimeout(() => onOpenChange(false), 1200)
     },
     onAutoClaimError: (error) => {
-      toast({
-        title: "Auto-claim failed",
-        description: error,
-        variant: "destructive"
-      })
+      toast({ title: "Claim failed", description: error, variant: "destructive" })
     }
   })
 
-  // Local Form State
-  // Default amount is the price. If user has paid some, maybe price - paid? 
-  // But simplest is just default to price.
-  const remainingPrice = Math.max(0, priceSats - viewerZapTotalSats)
-  const defaultAmount = remainingPrice > 0 ? remainingPrice : priceSats
-  
-  const [amount, setAmount] = useState<string>(defaultAmount.toString())
+  // Form state (authoritative balance from server when available)
+  const paidSatsServer = purchase?.amountPaid ?? 0
+  // If server already shows full payment, trust it. Otherwise allow viewer zap totals to cover the gap.
+  const paidBasis = (purchase && paidSatsServer >= priceSats)
+    ? paidSatsServer
+    : Math.max(paidSatsServer, viewerZapTotalSats)
+  const remaining = Math.max(0, priceSats - paidBasis)
+  const defaultAmount = remaining > 0 ? remaining : priceSats
+  const [amount, setAmount] = useState(defaultAmount.toString())
   const [note, setNote] = useState("")
-  const [showInvoiceQr, setShowInvoiceQr] = useState(false)
 
-  // Reset form when dialog opens
+  const resolvedAmount = parseInt(amount.replace(/\D/g, ""), 10) || 0
+  const isValid = resolvedAmount >= MIN_ZAP
+
+  // Reset on open
   useEffect(() => {
     if (isOpen) {
       setAmount(defaultAmount.toString())
       setNote("")
-      setShowInvoiceQr(false)
-      setAnonRetryOffered(false)
+      setShowQr(false)
       resetZapState()
     }
   }, [isOpen, defaultAmount, resetZapState])
 
-  // Auto-show QR when invoice arrives
   useEffect(() => {
-    setShowInvoiceQr(Boolean(zapState.invoice))
+    if (zapState.invoice) setShowQr(true)
   }, [zapState.invoice])
 
-  // Handle Purchase/Zap
-  const resolvedAmount = parseInt(amount.replace(/[^0-9]/g, ""), 10) || 0
-  // Allow incremental zaps; only enforce minimum zap size.
-  const isValidAmount = resolvedAmount >= MIN_CUSTOM_ZAP
-
-  const handlePurchase = useCallback(async (opts?: { forceAnonymous?: boolean }) => {
-    const nextPrivacy = opts?.forceAnonymous ? true : preferAnonymousZap
-    if (opts?.forceAnonymous) {
-      setPreferAnonymousZap(true)
-    }
-
+  // Handlers
+  const handlePurchase = useCallback(async () => {
     if (!isAuthed) {
-      toast({
-        title: "Sign in required",
-        description: "Sign in to record your purchase. You can still tip via the Zap dialog when logged out.",
-        variant: "destructive"
-      })
+      toast({ title: "Sign in required", variant: "destructive" })
       return
     }
-
-    if (!isValidAmount) {
-       toast({
-        title: "Invalid amount",
-        description: `Please enter at least ${Math.max(MIN_CUSTOM_ZAP, remainingPrice).toLocaleString()} sats.`,
-        variant: "destructive"
-      })
+    if (!isValid) {
+      toast({ title: "Invalid amount", description: `Minimum ${remaining || MIN_ZAP} sats`, variant: "destructive" })
       return
     }
 
     try {
-      setAnonRetryOffered(false)
-
-      const result = await sendZap({ amountSats: resolvedAmount, note, preferAnonymous: nextPrivacy })
-      
+      const result = await sendZap({ amountSats: resolvedAmount, note, preferAnonymous })
       toast({
-        title: result.paid ? "Payment successful" : "Invoice ready",
-        description: result.paid
-          ? "We’re recording your purchase..."
-          : "Pay the invoice to unlock this content.",
-        variant: result.paid ? "default" : "default"
+        title: result.paid ? "Payment sent" : "Invoice ready",
+        description: result.paid ? "Recording purchase…" : "Pay to unlock"
       })
 
       if (result.paid) {
@@ -291,247 +209,164 @@ export function PurchaseDialog({
           paymentPreimage: result.paymentPreimage,
           zapRequestJson: zapState.zapRequest
         })
-
-        if (!claimed) {
-          toast({
-            title: "Waiting for receipt",
-            description: "We’ll unlock automatically once your zap receipt arrives.",
-          })
-        } else {
+        if (claimed) {
           const unlocked = (claimed.amountPaid ?? 0) >= priceSats
           toast({
-            title: unlocked ? "Content unlocked!" : "Payment recorded",
-            description: unlocked
-              ? "Purchase saved. Enjoy your content!"
-              : `Recorded ${claimed.amountPaid.toLocaleString()} sats. Keep zapping to unlock.`,
+            title: unlocked ? "Unlocked!" : "Recorded",
+            description: unlocked ? "Enjoy!" : `${claimed.amountPaid} sats saved`
           })
-          if (onPurchaseComplete) {
-            onPurchaseComplete(claimed)
-          }
+          onPurchaseComplete?.(claimed)
+        } else {
+          toast({ title: "Waiting for receipt", description: "Will unlock when confirmed" })
         }
-        // Don't reset state immediately so user sees success message
       }
-    } catch (error) {
-      const description = error instanceof Error ? error.message : "Unable to send payment."
-      const userDeclined = typeof description === "string" && /declin|denied|reject/i.test(description)
-
-      if (userDeclined && !preferAnonymousZap) {
-        setAnonRetryOffered(true)
-        toast({
-          title: "Signature declined",
-          description: "Your NIP-07 wallet declined to sign. Retry anonymously or enable privacy.",
-          variant: "destructive"
-        })
-      } else {
-        toast({ title: "Payment failed", description, variant: "destructive" })
-      }
-    }
-  }, [
-    isAuthed,
-    isValidAmount,
-    remainingPrice,
-    sendZap,
-    resolvedAmount,
-    note,
-    toast,
-    claimPurchase,
-    onPurchaseComplete,
-    priceSats,
-    zapState.zapRequest,
-    preferAnonymousZap
-  ])
-
-  const handleClaimWithoutZap = useCallback(async () => {
-    try {
-      if (!isAuthed) {
-        toast({
-          title: "Sign in required",
-          description: "Sign in so we can attach your past zaps to this purchase.",
-          variant: "destructive"
-        })
-        return
-      }
-
-      const claimed = await claimPurchase()
-      if (claimed) {
-        toast({
-          title: "Purchase recorded",
-          description: "You’ve already paid enough via zaps — unlocking now."
-        })
-        if (onPurchaseComplete) {
-          onPurchaseComplete(claimed)
-        }
-      } else {
-        toast({
-          title: "Claim not recorded",
-          description: "We could not verify a matching zap receipt yet. Try again after your zap is confirmed.",
-          variant: "destructive"
-        })
-      }
-    } catch (err) {
-      const desc = err instanceof Error ? err.message : "Could not record purchase"
-      toast({ title: "Claim failed", description: desc, variant: "destructive" })
-    }
-  }, [claimPurchase, toast, isAuthed, onPurchaseComplete])
-
-  const handleCopyInvoice = useCallback(async () => {
-    if (!zapState.invoice) return
-    try {
-      await navigator.clipboard.writeText(zapState.invoice)
-      toast({ title: "Invoice copied", description: "Paste into any Lightning wallet." })
     } catch (error) {
       toast({
-        title: "Clipboard error",
-        description: "Could not copy invoice.",
+        title: "Failed",
+        description: error instanceof Error ? error.message : "Try again",
         variant: "destructive"
       })
     }
+  }, [isAuthed, isValid, remaining, sendZap, resolvedAmount, note, preferAnonymous, claimPurchase, zapState.zapRequest, priceSats, onPurchaseComplete, toast])
+
+  const handleClaimExisting = useCallback(async () => {
+    if (!isAuthed) {
+      toast({ title: "Sign in first", variant: "destructive" })
+      return
+    }
+    const claimed = await claimPurchase()
+    if (claimed) {
+      toast({ title: "Unlocked!", description: "Past zaps verified" })
+      onPurchaseComplete?.(claimed)
+    } else {
+      toast({ title: "No receipts found", variant: "destructive" })
+    }
+  }, [claimPurchase, isAuthed, onPurchaseComplete, toast])
+
+  const handleCopy = useCallback(async () => {
+    if (!zapState.invoice) return
+    try {
+      await navigator.clipboard.writeText(zapState.invoice)
+      toast({ title: "Copied!" })
+    } catch {
+      toast({ title: "Copy failed", variant: "destructive" })
+    }
   }, [zapState.invoice, toast])
 
-  const handleRetryWebln = useCallback(async () => {
+  const handleRetry = useCallback(async () => {
     const paid = await retryWeblnPayment()
     if (paid) {
-      toast({ title: "Paid via WebLN", description: "Recording purchase..." })
-      // The usePurchaseEligibility hook should pick up the zap if we claimed? 
-      // Actually retryWeblnPayment just pays. We need to claim.
-      // But useZapSender doesn't return the result from retryWeblnPayment in a way that gives us the invoice easily 
-      // unless we use zapState.invoice.
-      
-      // If paid, we should try to claim.
+      toast({ title: "Paid!" })
       const claimed = await claimPurchase({
         invoice: zapState.invoice!,
-        amountPaidOverride: resolvedAmount, // Best guess
+        amountPaidOverride: resolvedAmount,
         paymentType: "zap",
         paymentPreimage: zapState.paymentPreimage,
         zapRequestJson: zapState.zapRequest
       })
-
-      if (!claimed) {
-        toast({
-          title: "Waiting for receipt",
-          description: "We’ll unlock automatically once your zap receipt arrives."
-        })
-      } else {
-        const unlocked = (claimed.amountPaid ?? 0) >= priceSats
-        toast({
-          title: unlocked ? "Content unlocked!" : "Payment recorded",
-          description: unlocked
-            ? "Purchase saved. Enjoy your content!"
-            : `Recorded ${claimed.amountPaid.toLocaleString()} sats. Keep zapping to unlock.`,
-        })
-        if (onPurchaseComplete) {
-          onPurchaseComplete(claimed)
-        }
-      }
+      if (claimed) onPurchaseComplete?.(claimed)
     } else {
-      toast({ title: "WebLN failed", description: "Please pay manually.", variant: "destructive" })
+      toast({ title: "Failed", variant: "destructive" })
     }
-  }, [retryWeblnPayment, toast, claimPurchase, zapState.invoice, zapState.paymentPreimage, zapState.zapRequest, resolvedAmount, onPurchaseComplete, priceSats])
+  }, [
+    retryWeblnPayment,
+    claimPurchase,
+    zapState.invoice,
+    zapState.paymentPreimage,
+    zapState.zapRequest,
+    resolvedAmount,
+    onPurchaseComplete,
+    toast
+  ])
 
-  // Derived UI States
-  const purchasePaidSats = purchase?.amountPaid ?? 0
-  const hasRecordedPurchase = Boolean(purchase)
-  const ownedPurchase = alreadyPurchased || purchasePaidSats >= priceSats
-  const unlockedByZap = eligible && isAuthed && !ownedPurchase && !hasRecordedPurchase
-  const awaitingUnlock = unlockedByZap && purchaseStatus === "pending"
-  const showAlreadyOwned = ownedPurchase
-  const canClaimFree = eligible && isAuthed && !showAlreadyOwned && remainingPrice <= 0
+  // Derived states
+  const paidSats = paidSatsServer
+  const isOwned = alreadyPurchased || paidSats >= priceSats
+  const progress = Math.min(100, Math.round((paidSats / priceSats) * 100))
+  // Allow manual claim once viewer zaps reach price, even if server purchase is still partial.
+  const canClaimFree = eligible && isAuthed && !isOwned && viewerZapTotalSats >= priceSats
   const isProcessing = isZapInFlight || purchaseStatus === "pending"
-  
-  const zapCommentLimitBytes = zapState.metadata?.commentAllowed ?? 280
-  const zapNoteBytesRemaining = Math.max(0, zapCommentLimitBytes - getByteLength(note))
+  const hasStats = Boolean(zapInsights && recentZaps)
 
-  const zapTargetName = zapTarget?.name || "this creator"
-  const lightningAddressDisplay = 
-    zapTarget?.lightningAddress || 
-    zapTarget?.lnurl || 
-    zapState.lnurlDetails?.identifier || 
-    "No lightning address"
+  const zapCommentLimit = zapState.metadata?.commentAllowed ?? 280
+  const bytesLeft = Math.max(0, zapCommentLimit - getByteLength(note))
 
-  // Status Message
-  const statusMessage = useMemo(() => {
+  // Status message
+  const statusMsg = useMemo(() => {
     if (zapState.error) return zapState.error
     if (purchaseError) return purchaseError
-    if (zapState.status === "resolving") return "Resolving lightning address..."
-    if (zapState.status === "signing") return "Creating zap request..."
-    if (zapState.status === "requesting-invoice") return "Requesting invoice..."
-    if (zapState.status === "paying") return "Paying via WebLN..."
-    if (purchaseStatus === "pending") return "Verifying purchase..."
+    if (zapState.status === "resolving") return "Resolving…"
+    if (zapState.status === "signing") return "Signing…"
+    if (zapState.status === "requesting-invoice") return "Getting invoice…"
+    if (zapState.status === "paying") return "Paying…"
+    if (purchaseStatus === "pending") return "Verifying…"
     return ""
   }, [zapState.status, zapState.error, purchaseStatus, purchaseError])
-
-  // Show auto-claim status when eligible and claiming
-  const showAutoClaimStatus = eligible && purchaseStatus === "pending"
-
-  // Layout logic: Single column if no stats, Two column if stats available
-  const hasStats = Boolean(zapInsights && recentZaps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn(
-          "lg:max-h-[85vh]",
-          hasStats ? "max-w-3xl sm:max-w-4xl lg:max-w-5xl" : "max-w-md sm:max-w-lg"
-        )}
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        className={cn("max-w-lg", hasStats && "lg:max-w-3xl")}
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Unlock content</DialogTitle>
-          <DialogDescription>
-            Support {zapTargetName} with a zap to unlock <strong>{title}</strong>.
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            {isOwned ? <Unlock className="h-5 w-5 text-primary" /> : <Lock className="h-5 w-5" />}
+            {isOwned ? "Content Unlocked" : "Unlock Content"}
+          </DialogTitle>
+          <DialogDescription className="line-clamp-1">{title}</DialogDescription>
         </DialogHeader>
 
-        <div className={cn(
-          "flex flex-col gap-4",
-          hasStats && "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:h-[60vh] lg:overflow-hidden"
-        )}>
-          {/* LEFT COLUMN: Action */}
-          <section className="space-y-4 lg:overflow-y-auto lg:pr-2">
-            {/* Auto-claim Status Banner */}
-            {showAutoClaimStatus && (
-              <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 px-3 py-2 text-sm flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
-                <span className="text-blue-800 dark:text-blue-200">
-                  Claiming your purchase...
-                </span>
+        <div className={cn("grid gap-4", hasStats && "lg:grid-cols-[1fr_220px]")}>
+          {/* Main content */}
+          <div className="space-y-4">
+            {/* Status bar */}
+            {statusMsg && (
+              <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {statusMsg}
               </div>
             )}
 
-            {/* Status Banner */}
-            {statusMessage && !showAutoClaimStatus && (
-              <div className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {statusMessage}
-              </div>
-            )}
-            
-            {showAlreadyOwned ? (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-success/20 bg-success/10 p-8 text-center">
-                <ShieldCheck className="h-12 w-12 text-success mb-2" />
-                <h3 className="text-lg font-semibold text-success-foreground">
-                  Content Unlocked
-                </h3>
-                <p className="text-sm text-success-foreground/80">
-                  You have full access to this content.
+            {/* Already owned */}
+            {isOwned ? (
+              <div className="flex flex-col items-center justify-center rounded-xl bg-primary/5 border border-primary/20 p-8 text-center">
+                <div className="rounded-full bg-primary/10 p-3 mb-3">
+                  <Check className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold">You own this</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Paid {formatSats(paidSats)} sats
                 </p>
-                <Button className="mt-4" onClick={() => onOpenChange(false)}>Close</Button>
-              </div>
-            ) : awaitingUnlock ? (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 p-6 text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-300 mb-3" />
-                <h3 className="text-lg font-semibold">Syncing your zap</h3>
-                <p className="text-sm text-muted-foreground max-w-md">
-                  We’re syncing the purchase record now. If it doesn’t unlock soon, try claiming again below.
-                </p>
+                <Button className="mt-4" onClick={() => onOpenChange(false)}>
+                  Close
+                </Button>
               </div>
             ) : (
               <>
-                {/* Amount & Note Inputs */}
-                <div className="space-y-4 rounded-lg border p-4">
+                {/* Progress */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium">
+                      {formatSats(paidSats)} / {formatSats(priceSats)} sats
+                    </span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                  {remaining > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {formatSats(remaining)} sats remaining to unlock
+                    </p>
+                  )}
+                </div>
+
+                {/* Amount input */}
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="amount">Amount (sats)</Label>
-                    <span className="text-xs text-muted-foreground">Price: {priceSats.toLocaleString()} sats</span>
+                    <Label htmlFor="amount" className="text-sm">Amount</Label>
+                    <span className="text-xs text-muted-foreground">
+                      Price: {formatSats(priceSats)} sats
+                    </span>
                   </div>
                   <div className="flex gap-2">
                     <Input
@@ -540,141 +375,158 @@ export function PurchaseDialog({
                       onChange={(e) => setAmount(e.target.value)}
                       disabled={isProcessing || Boolean(zapState.invoice)}
                       className="text-lg font-medium"
+                      inputMode="numeric"
                     />
+                    {remaining > 0 && resolvedAmount !== remaining && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAmount(remaining.toString())}
+                        disabled={isProcessing || Boolean(zapState.invoice)}
+                      >
+                        Exact
+                      </Button>
+                    )}
                   </div>
-                  
-                  {remainingPrice > 0 && resolvedAmount < remainingPrice && (
-                    <p className="text-xs text-destructive">
-                      Minimum {remainingPrice.toLocaleString()} sats required to unlock.
-                    </p>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="note">Note (optional)</Label>
-                    <Textarea
-                      id="note"
-                      placeholder="Add a message..."
-                      value={note}
-                      onChange={(e) => setNote(truncateToByteLength(e.target.value, zapCommentLimitBytes))}
-                      disabled={isProcessing || Boolean(zapState.invoice)}
-                      className="resize-none h-20"
-                    />
-                    <p className="text-xs text-muted-foreground text-right">
-                      {zapNoteBytesRemaining} bytes left
-                    </p>
-                  </div>
-
-                  {isAuthed && (
-                    <div className="flex items-start gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 p-3 text-xs text-muted-foreground">
-                      <input
-                        id="purchase-privacy-toggle"
-                        type="checkbox"
-                        checked={preferAnonymousZap}
-                        onChange={(e) => setPreferAnonymousZap(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 accent-amber-500"
-                      />
-                      <label htmlFor="purchase-privacy-toggle" className="leading-relaxed">
-                        Keep my zap private (sign with a fresh, anonymous key). We’ll still attach the purchase to your account.
-                      </label>
-                    </div>
-                  )}
                 </div>
 
-                {/* Invoice Display */}
+                {/* Note */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="note" className="text-sm">Note (optional)</Label>
+                    <span className="text-xs text-muted-foreground">{bytesLeft} left</span>
+                  </div>
+                  <Textarea
+                    id="note"
+                    value={note}
+                    onChange={(e) => setNote(truncateToByteLength(e.target.value, zapCommentLimit))}
+                    placeholder="Add a message…"
+                    disabled={isProcessing || Boolean(zapState.invoice)}
+                    className="h-16 resize-none text-sm"
+                  />
+                </div>
+
+                {/* Privacy toggle */}
+                {isAuthed && (
+                  <label className="flex items-center gap-2 rounded-lg border border-dashed p-3 text-xs text-muted-foreground cursor-pointer hover:bg-muted/30">
+                    <input
+                      type="checkbox"
+                      checked={preferAnonymous}
+                      onChange={(e) => setPreferAnonymous(e.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span>Private zap (anonymous signature)</span>
+                  </label>
+                )}
+
+                {/* Invoice section */}
                 {zapState.invoice ? (
-                   <div className="space-y-3 rounded-lg border p-4">
+                  <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Invoice Ready</Label>
-                      {zapState.paid && <span className="text-xs text-success font-medium">Paid</span>}
+                      <span className="text-sm font-medium">Invoice</span>
+                      {zapState.paid && <Badge className="text-xs">Paid</Badge>}
                     </div>
-                    
-                    {showInvoiceQr && (
-                      <div className="flex justify-center p-4 bg-white rounded-md">
-                        <QRCode value={zapState.invoice} size={192} />
+
+                    {showQr && (
+                      <div className="flex justify-center rounded-md bg-white p-3">
+                        <QRCode value={zapState.invoice} size={160} />
                       </div>
                     )}
 
-                    <div className="rounded-md bg-muted p-3">
-                      <p className="break-all text-xs font-mono text-muted-foreground line-clamp-3">
-                        {zapState.invoice}
-                      </p>
-                    </div>
-
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="secondary" size="sm" onClick={handleCopyInvoice}>
-                        <Copy className="h-4 w-4 mr-2" /> Copy
+                      <Button size="sm" variant="secondary" onClick={handleCopy}>
+                        <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy
                       </Button>
-                      <Button variant="outline" size="sm" asChild>
+                      <Button size="sm" variant="outline" asChild>
                         <a href={`lightning:${zapState.invoice}`}>
-                          <ExternalLink className="h-4 w-4 mr-2" /> Wallet
+                          <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Wallet
                         </a>
                       </Button>
-                       {!zapState.paid && (
-                        <Button variant="ghost" size="sm" onClick={handleRetryWebln} disabled={isProcessing}>
-                          Retry WebLN
+                      <Button size="sm" variant="ghost" onClick={() => setShowQr(!showQr)}>
+                        <QrCode className="h-3.5 w-3.5 mr-1.5" /> {showQr ? "Hide" : "QR"}
+                      </Button>
+                      {!zapState.paid && (
+                        <Button size="sm" variant="ghost" onClick={handleRetry} disabled={isProcessing}>
+                          Retry
                         </Button>
                       )}
                     </div>
+
+                    {/* Manual fallback so users can always copy the invoice */}
+                    <div className="rounded-md border border-dashed border-border/70 bg-background/60 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        BOLT11 invoice
+                      </p>
+                      <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap break-all rounded bg-muted/50 p-2 text-xs font-mono">
+                        {zapState.invoice}
+                      </pre>
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="space-y-2">
                     {canClaimFree && (
-                       <Button 
-                        variant="secondary" 
-                        className="w-full" 
-                        onClick={handleClaimWithoutZap}
+                      <Button
+                        variant="secondary"
+                        className="w-full"
+                        onClick={handleClaimExisting}
                         disabled={isProcessing}
                       >
+                        <Unlock className="h-4 w-4 mr-2" />
                         Unlock with past zaps
                       </Button>
                     )}
-                    <Button 
-                      className="w-full" 
-                      size="lg" 
-                      onClick={() => handlePurchase()}
-                      disabled={isProcessing || !isValidAmount}
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={handlePurchase}
+                      disabled={isProcessing || !isValid}
                     >
-                      {isProcessing ? "Processing..." : `Purchase for ${resolvedAmount.toLocaleString()} sats`}
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processing…
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4 mr-2" />
+                          Pay {formatSats(resolvedAmount)} sats
+                        </>
+                      )}
                     </Button>
-                    {anonRetryOffered && !preferAnonymousZap && !isProcessing && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="self-start"
-                        onClick={async () => {
-                          setAnonRetryOffered(false)
-                          await handlePurchase({ forceAnonymous: true })
-                        }}
-                      >
-                        Retry anonymously
-                      </Button>
-                    )}
                     {!isAuthed && (
-                       <p className="text-xs text-center text-muted-foreground mt-2">
-                         Sign in first so we can unlock this purchase for your account.
-                       </p>
+                      <p className="text-xs text-center text-muted-foreground">
+                        Sign in to save your purchase
+                      </p>
                     )}
                   </div>
                 )}
               </>
             )}
-          </section>
+          </div>
 
-          {/* RIGHT COLUMN: Stats (Optional) */}
+          {/* Stats sidebar */}
           {hasStats && zapInsights && recentZaps && (
-            <aside className="space-y-4 lg:flex lg:flex-col lg:pl-2 lg:h-full lg:min-h-0">
-              <div className="grid grid-cols-2 gap-3 text-sm shrink-0">
-                <div className="rounded-lg border bg-card/50 p-3">
-                  <p className="text-xs text-muted-foreground">Total sats</p>
-                  <p className="text-base font-semibold text-foreground">{zapInsights.totalSats.toLocaleString()}</p>
-                </div>
-                <div className="rounded-lg border bg-card/50 p-3">
-                  <p className="text-xs text-muted-foreground">Supporters</p>
-                  <p className="text-base font-semibold text-foreground">{zapInsights.uniqueSenders.toLocaleString()}</p>
-                </div>
+            <aside className="space-y-3 lg:border-l lg:pl-4">
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
+                <StatBox label="Total" value={formatSats(zapInsights.totalSats)} />
+                <StatBox label="Supporters" value={formatSats(zapInsights.uniqueSenders)} />
               </div>
 
-              <RecentSupportersList supporters={recentZaps} />
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Recent supporters
+                </p>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {recentZaps.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Be the first!</p>
+                  ) : (
+                    recentZaps.slice(0, 10).map((zap) => (
+                      <ZapRow key={zap.id} zap={zap} />
+                    ))
+                  )}
+                </div>
+              </div>
             </aside>
           )}
         </div>
@@ -683,57 +535,42 @@ export function PurchaseDialog({
   )
 }
 
-/**
- * Scrollable list of recent zap supporters with infinite scroll loading.
- */
-function RecentSupportersList({ supporters }: { supporters: ZapReceiptSummary[] }) {
-  const [visibleCount, setVisibleCount] = useState(10)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
+function StatBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-muted/50 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold">{value}</p>
+    </div>
+  )
+}
 
-  useEffect(() => {
-    setVisibleCount(10)
-    setIsLoadingMore(false)
-  }, [supporters.length])
-
-  const loadMore = () => {
-    if (isLoadingMore || visibleCount >= supporters.length) return
-    setIsLoadingMore(true)
-    setTimeout(() => {
-      setVisibleCount((prev) => Math.min(supporters.length, prev + 10))
-      setIsLoadingMore(false)
-    }, 120)
-  }
-
-  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = event.currentTarget
-    const atBottom = scrollTop + clientHeight >= scrollHeight - 24
-    if (atBottom) {
-      loadMore()
-    } else if (isLoadingMore) {
-      setIsLoadingMore(false)
-    }
-  }
+function ZapRow({ zap }: { zap: ZapReceiptSummary }) {
+  const [expanded, setExpanded] = useState(false)
+  const pubkey = zap.payerPubkeys?.[0] || zap.senderPubkey || ""
 
   return (
-    <div className="space-y-3 rounded-lg border p-4 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
-      <div className="flex items-center justify-between shrink-0">
-        <p className="text-sm font-medium">Recent supporters</p>
-        <span className="text-xs text-muted-foreground">Live preview</span>
-      </div>
-      {supporters.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No zaps yet. Be the first to support this content!</p>
-      ) : (
-        <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-y-auto pr-1 lg:min-h-0" onScroll={handleScroll}>
-          {supporters.slice(0, visibleCount).map((zap) => (
-            <ZapItem key={zap.id} zap={zap} />
-          ))}
-          {visibleCount < supporters.length && (
-            <div className="pt-2 pb-1 flex justify-center">
-              <span className="text-xs text-muted-foreground animate-pulse">
-                Loading more supporters…
-              </span>
-            </div>
-          )}
+    <div className="rounded border bg-card/50">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between p-2 text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-semibold text-primary">{formatSats(zap.amountSats)}</span>
+          <span className="text-[10px] text-muted-foreground truncate">
+            {pubkey ? formatShortPubkey(pubkey) : "anon"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] text-muted-foreground">{formatRelativeTime(zap.createdAt)}</span>
+          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </div>
+      </button>
+      {expanded && (
+        <div className="border-t px-2 py-1.5">
+          {zap.note && <p className="text-xs text-muted-foreground mb-1">{zap.note}</p>}
+          <pre className="text-[9px] font-mono text-muted-foreground/70 whitespace-pre-wrap break-all max-h-24 overflow-auto">
+            {JSON.stringify(zap.event || zap, null, 2)}
+          </pre>
         </div>
       )}
     </div>

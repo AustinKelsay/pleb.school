@@ -17,7 +17,7 @@ import { EnhancedProfileDisplay } from './components/enhanced-profile-display'
 import { SimpleSettings } from './components/simple-settings'
 import { AdminContentManager } from './components/admin-content-manager'
 import { PurchaseActivityTab } from './components/purchase-activity'
-import { AdminPurchaseAnalytics } from './components/admin-purchase-analytics'
+import { AdminAnalyticsTabs } from './components/admin-purchase-analytics'
 import { MainLayout } from '@/components/layout'
 import { Container } from '@/components/layout/container'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -128,7 +128,7 @@ export default async function ProfilePage() {
 
                 {adminInfo.permissions.viewAnalytics && (
                   <TabsContent value="analytics" className="space-y-6">
-                    <AdminPurchaseAnalytics />
+                    <AdminAnalyticsTabs />
                   </TabsContent>
                 )}
               </>

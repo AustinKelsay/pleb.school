@@ -17,6 +17,14 @@ export type ReceiptSummary = {
   raw?: any
 }
 
+export type UserSummary = {
+  id: string
+  username?: string | null
+  email?: string | null
+  avatar?: string | null
+  pubkey?: string | null
+}
+
 export type PurchaseListItem = {
   id: string
   userId: string
@@ -46,18 +54,18 @@ export type PurchaseListItem = {
   thumbnail?: string | null
   lessonCount?: number | null
   creatorId?: string | null
+  // Creator/publisher info
+  creator?: UserSummary | null
+  // Zap provenance
+  zapSignerPubkey?: string | null
+  isPrivacyZap?: boolean
   // Enriched data from Nostr notes (added client-side)
   title?: string
   description?: string
   image?: string
   topics?: string[]
-  user?: {
-    id: string
-    username?: string | null
-    email?: string | null
-    avatar?: string | null
-    pubkey?: string | null
-  }
+  // Buyer info (for admin views)
+  user?: UserSummary
 }
 
 export type PurchaseStats = {

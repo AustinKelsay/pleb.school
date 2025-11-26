@@ -25,6 +25,7 @@ const lessonInclude = {
           id: true,
           username: true,
           pubkey: true,
+          lud16: true,
         }
       }
     }

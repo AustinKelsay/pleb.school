@@ -222,6 +222,7 @@ function LessonMetadata({
   const lessonEventKind = lessonNote?.kind
   const lessonEventPubkey = lessonNote?.pubkey
   const lessonEventIdentifier = parsedLessonEvent?.d
+  const lightningAddress = (lesson.resource as any)?.user?.lud16 || undefined
   const {
     interactions,
     isLoadingZaps,
@@ -292,6 +293,7 @@ function LessonMetadata({
         viewerZapTotalSats={viewerZapTotalSats}
         zapTarget={{
           pubkey: lessonEventPubkey || instructorPubkey,
+          lightningAddress,
           name: instructorName
         }}
         compact
@@ -380,13 +382,15 @@ function LessonContent({
   let resourceAdditionalLinks: string[] = []
   let resourceVideoUrl: string | undefined = lesson.resource.videoUrl || undefined
 
-  let courseTitle = 'Unknown Course'
-  let courseCategory = 'general'
-  let courseInstructorPubkey = ''
+let courseTitle = 'Unknown Course'
+let courseCategory = 'general'
+let courseInstructorPubkey = ''
 
   // Start with database data
   resourceIsPremium = (lesson.resource.price ?? 0) > 0
   resourceAuthorPubkey = lesson.resource.userId
+  const resourceUser = (lesson.resource as any)?.user
+  const resourceAuthorLightning = resourceUser?.lud16 || undefined
 
   // Parse resource Nostr data if available
   if (lesson.resource.note) {

@@ -50,6 +50,7 @@ export async function GET(
             id: true,
             username: true,
             pubkey: true,
+            lud16: true,
           }
         },
         lessons: {

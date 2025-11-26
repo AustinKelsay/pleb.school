@@ -40,6 +40,27 @@ function toReceiptArray(raw: unknown): any[] {
   return []
 }
 
+function extractZapRequestInfo(zapRequestJson: unknown): {
+  signerPubkey?: string
+  targetEventId?: string
+  targetATag?: string
+} {
+  if (!zapRequestJson || typeof zapRequestJson !== "object") return {}
+  
+  const event = zapRequestJson as any
+  const signerPubkey = typeof event.pubkey === "string" ? event.pubkey : undefined
+  
+  const tags: any[] = Array.isArray(event.tags) ? event.tags : []
+  const eTag = tags.find((t) => Array.isArray(t) && t[0] === "e")
+  const aTag = tags.find((t) => Array.isArray(t) && t[0] === "a")
+  
+  return {
+    signerPubkey,
+    targetEventId: eTag?.[1] ?? undefined,
+    targetATag: aTag?.[1] ?? undefined
+  }
+}
+
 function summarizeReceipt(event: any): ReceiptSummary {
   const id = typeof event?.id === "string" ? event.id : "unknown"
   const tags: any[] = Array.isArray(event?.tags) ? event.tags : []
@@ -178,7 +199,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-  const includeBase = {
+  // User select shape; only admins get creator emails
+  const userSelect = {
+    id: true,
+    username: true,
+    pubkey: true,
+    avatar: true,
+    ...(scope === "all" ? { email: true } : {})
+  }
+
+  // Include creator user only for admins to avoid leaking contact info.
+  const include: Prisma.PurchaseInclude = {
     resource: {
       select: {
         id: true,
@@ -188,7 +219,8 @@ export async function GET(request: NextRequest) {
         videoUrl: true,
         userId: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        ...(scope === "all" ? { user: { select: userSelect } } : {})
       }
     },
     course: {
@@ -201,25 +233,13 @@ export async function GET(request: NextRequest) {
         updatedAt: true,
         _count: {
           select: { lessons: true }
-        }
+        },
+        ...(scope === "all" ? { user: { select: userSelect } } : {})
       }
-    }
-  } satisfies Prisma.PurchaseInclude
-
-  const include: Prisma.PurchaseInclude = scope === "all"
-    ? {
-        ...includeBase,
-        user: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            pubkey: true,
-            avatar: true
-          }
-        }
-      }
-    : includeBase
+    },
+    // Buyer information (needed for privacy-zap detection); email only for admins.
+    user: { select: userSelect }
+  }
 
     const where = scope === "mine" ? { userId: session.user.id } : undefined
 
@@ -265,10 +285,23 @@ export async function GET(request: NextRequest) {
     const lessonCount = (purchase.course as any)?._count?.lessons ?? null
     const creatorId = purchase.course?.userId ?? purchase.resource?.userId ?? null
 
+    // Creator info (the content publisher)
+    const creatorUser = (purchase.course as any)?.user ?? (purchase.resource as any)?.user ?? null
+    const creator = creatorUser ? {
+      id: creatorUser.id,
+      username: creatorUser.username ?? null,
+      email: creatorUser.email ?? null,
+      avatar: creatorUser.avatar ?? null,
+      pubkey: creatorUser.pubkey ?? null
+    } : null
+
     // Generate thumbnail for videos from YouTube
     const thumbnail = videoId
       ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
       : null
+
+    // Extract zap request info (signer pubkey for privacy mode debugging)
+    const zapRequestInfo = extractZapRequestInfo(purchase.zapRequestJson)
 
     const receipts = toReceiptArray(purchase.zapReceiptJson).map(summarizeReceipt)
     const receiptCount = receipts.length || (purchase.zapReceiptId ? 1 : 0)
@@ -290,6 +323,12 @@ export async function GET(request: NextRequest) {
       purchase.paymentType
     )
 
+    // Check if this is a privacy-mode zap (signer pubkey differs from buyer pubkey)
+    const buyerPubkey = (purchase as any).user?.pubkey ?? null
+    const isPrivacyZap = zapRequestInfo.signerPubkey && 
+      buyerPubkey && 
+      zapRequestInfo.signerPubkey !== buyerPubkey
+
     return {
       ...purchase,
       contentType,
@@ -302,11 +341,15 @@ export async function GET(request: NextRequest) {
       thumbnail,
       lessonCount,
       creatorId,
+      creator,
       receiptCount,
       receiptsTotalSats: receiptsTotal,
       receipts,
       status,
-      lifeCycle
+      lifeCycle,
+      // Zap request provenance
+      zapSignerPubkey: zapRequestInfo.signerPubkey ?? null,
+      isPrivacyZap: isPrivacyZap ?? false
     }
   }
 
