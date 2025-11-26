@@ -43,7 +43,17 @@ export async function GET(
       select: { 
         id: true,
         userId: true,
-        price: true 
+        price: true,
+        noteId: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            pubkey: true,
+            lud16: true,
+          }
+        }
       }
     })
 
@@ -77,32 +87,40 @@ export async function GET(
     const isOwner = session?.user?.id === resource.userId
     const isPaidResource = resource.price > 0
 
-    // If it's a paid resource and user is not the owner, check purchases
-    if (isPaidResource && !isOwner && session?.user?.id) {
-      const hasPurchasedResource = await prisma.purchase.findFirst({
-        where: {
+    if (isPaidResource && !isOwner) {
+      let hasAccess = false
+
+      if (session?.user?.id) {
+        const hasPurchasedResource = await prisma.purchase.findFirst({
+          where: {
+            userId: session.user.id,
+            resourceId: id,
+            amountPaid: { gte: resource.price }
+          }
+        })
+
+        const courseAccess = await checkCourseUnlockViaLessons({
           userId: session.user.id,
           resourceId: id,
-          amountPaid: { gte: resource.price }
-        }
-      })
+          lessons
+        })
 
-      const courseAccess = await checkCourseUnlockViaLessons({
-        userId: session.user.id,
-        resourceId: id,
-        lessons
-      })
-      const hasPurchasedCourse = courseAccess.unlockedViaCourse
+        hasAccess = Boolean(hasPurchasedResource) || courseAccess.unlockedViaCourse
+      }
 
-      if (!hasPurchasedResource && !hasPurchasedCourse) {
-        // Return limited information for unpurchased paid resources
+      if (!hasAccess) {
         return NextResponse.json({
           success: true,
           data: {
-            resourceId: id,
-            lessonCount: lessons.length,
+            id: resource.id,
+            price: resource.price,
+            noteId: resource.noteId,
+            createdAt: resource.createdAt,
+            user: resource.user,
             isPaid: true,
             requiresPurchase: true,
+            unlockedViaCourse: false,
+            unlockingCourseId: null,
           }
         })
       }
