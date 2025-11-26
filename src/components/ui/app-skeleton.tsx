@@ -3,7 +3,7 @@ import { Section } from "@/components/layout/section"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
-function StatSkeleton() {
+const StatSkeleton = () => {
   return (
     <Card className="flex flex-col items-center text-center p-4 gap-2 bg-card/80 backdrop-blur-sm">
       <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -17,7 +17,7 @@ function StatSkeleton() {
   )
 }
 
-export function LandingPageSkeleton() {
+export const LandingPageSkeleton = () => {
   return (
     <MainLayout>
       <Section spacing="xl" className="bg-gradient-to-b from-background to-muted/50">
@@ -100,7 +100,7 @@ export function LandingPageSkeleton() {
   )
 }
 
-export function InfoPageSkeleton() {
+export const InfoPageSkeleton = () => {
   return (
     <MainLayout>
       <Section spacing="xl">
@@ -128,7 +128,7 @@ export function InfoPageSkeleton() {
   )
 }
 
-export function SearchPageSkeleton() {
+export const SearchPageSkeleton = () => {
   return (
     <MainLayout>
       <Section spacing="lg">
@@ -169,7 +169,7 @@ export function SearchPageSkeleton() {
   )
 }
 
-export function CourseDetailPageSkeleton() {
+export const CourseDetailPageSkeleton = () => {
   return (
     <MainLayout>
       <Section spacing="lg">
@@ -224,7 +224,7 @@ export function CourseDetailPageSkeleton() {
   )
 }
 
-export function AuthCardSkeleton() {
+export const AuthCardSkeleton = () => {
   return (
     <MainLayout>
       <Section spacing="lg">
@@ -247,7 +247,7 @@ export function AuthCardSkeleton() {
   )
 }
 
-export function FormCardSkeleton() {
+export const FormCardSkeleton = () => {
   return (
     <MainLayout>
       <Section spacing="lg">
@@ -268,7 +268,7 @@ export function FormCardSkeleton() {
   )
 }
 
-export function CreatePageSkeleton() {
+export const CreatePageSkeleton = () => {
   return (
     <MainLayout>
       <Section spacing="lg" className="border-b">

@@ -61,18 +61,22 @@ export function AdminPurchaseAnalytics() {
   const { data, isLoading, isError, error, refetch } = usePurchasesQuery({ scope: "all" })
   const stats = data?.stats ?? null
 
+  const metricsContent = isLoading ? (
+    <AnalyticsMetricsSkeleton />
+  ) : stats ? (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <MetricCard icon={Wallet} label="Revenue" value={formatSatsValue(stats.totalRevenueSats)} />
+      <MetricCard icon={Zap} label="Purchases" value={stats.totalPurchases.toLocaleString()} />
+      <MetricCard icon={Users} label="Buyers" value={stats.buyers.toLocaleString()} />
+      <MetricCard icon={BarChart3} label="Avg ticket" value={formatSatsValue(stats.averageTicketSats)} />
+    </div>
+  ) : (
+    <MetricsEmptyState />
+  )
+
   return (
     <div className="space-y-4">
-      {stats ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard icon={Wallet} label="Revenue" value={formatSatsValue(stats.totalRevenueSats)} />
-          <MetricCard icon={Zap} label="Purchases" value={stats.totalPurchases.toLocaleString()} />
-          <MetricCard icon={Users} label="Buyers" value={stats.buyers.toLocaleString()} />
-          <MetricCard icon={BarChart3} label="Avg ticket" value={formatSatsValue(stats.averageTicketSats)} />
-        </div>
-      ) : (
-        <AnalyticsMetricsSkeleton />
-      )}
+      {metricsContent}
 
       <PurchaseList
         scope="all"
@@ -112,6 +116,18 @@ function MetricCard({ icon: Icon, label, value }: MetricProps) {
     </Card>
   )
 }
+
+const MetricsEmptyState = () => (
+  <Alert className="border-dashed bg-muted/40">
+    <div className="flex items-start gap-3">
+      <BarChart3 className="h-5 w-5 text-primary mt-0.5" />
+      <div>
+        <AlertTitle>No analytics yet</AlertTitle>
+        <AlertDescription>Metrics will appear after purchases are recorded.</AlertDescription>
+      </div>
+    </div>
+  </Alert>
+)
 
 function PlaceholderPanel({
   icon: Icon,
