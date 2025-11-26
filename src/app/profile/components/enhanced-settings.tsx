@@ -12,7 +12,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
-import { Skeleton } from '@/components/ui/skeleton'
 import { 
   Save, 
   Loader2, 
@@ -36,6 +35,7 @@ import { updateBasicProfile, updateEnhancedProfile, updateAccountPreferences, ty
 import { prepareSignedNostrProfile } from '@/lib/nostr-profile-signing'
 import type { AggregatedProfile } from '@/lib/profile-aggregator'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
+import { ProfileSettingsSkeleton } from '@/app/profile/components/profile-skeletons'
 
 interface EnhancedSettingsProps {
   session: Session
@@ -525,13 +525,7 @@ export function EnhancedSettings({ session }: EnhancedSettingsProps) {
   }
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    )
+    return <ProfileSettingsSkeleton />
   }
 
   return (

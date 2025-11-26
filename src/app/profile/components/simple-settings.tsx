@@ -24,6 +24,7 @@ import { updateBasicProfile, updateEnhancedProfile, type BasicProfileData, type 
 import { useToast } from '@/hooks/use-toast'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { prepareSignedNostrProfile } from '@/lib/nostr-profile-signing'
+import { ProfileSettingsSkeleton } from '@/app/profile/components/profile-skeletons'
 
 interface SimpleSettingsProps {
   session: Session
@@ -46,6 +47,7 @@ export function SimpleSettings({ session }: SimpleSettingsProps) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
   const [isLoading, setIsLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
 
   const defaultProfileSource = user.privkey ? 'oauth' : 'nostr'
   const defaultPrimaryProvider = session.provider || ''
@@ -169,6 +171,7 @@ export function SimpleSettings({ session }: SimpleSettingsProps) {
       }
 
       if (errors.length > 0) setInitialLoadError(errors.join(' · '))
+      setInitialLoading(false)
     }
 
     fetchData()
@@ -415,6 +418,10 @@ export function SimpleSettings({ session }: SimpleSettingsProps) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (initialLoading) {
+    return <ProfileSettingsSkeleton />
   }
 
   return (

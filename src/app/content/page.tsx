@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Section } from "@/components/layout/section"
 import { ContentCard } from "@/components/ui/content-card"
+import { ContentPageSkeleton } from "@/components/ui/content-skeleton"
 
 import { useCoursesQuery } from '@/hooks/useCoursesQuery'
 import { useVideosQuery } from '@/hooks/useVideosQuery'
@@ -19,7 +20,6 @@ import {
   Filter,
   X,
   FileText,
-  Loader2,
   Gift
 } from "lucide-react"
 import { useCopy, getCopy } from "@/lib/copy"
@@ -87,7 +87,7 @@ async function fetchEventForIdentifier(
 }
 
 export default function ContentPage() {
-  const { contentLibrary, loading: loadingCopy, pricing } = useCopy()
+  const { contentLibrary, pricing } = useCopy()
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set(['all']))
   const [noteImageCache, setNoteImageCache] = useState<Record<string, string>>({})
   const attemptedNoteIds = useRef<Set<string>>(new Set())
@@ -338,12 +338,9 @@ export default function ContentPage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">{getCopy('loading.content')}</p>
-          </div>
-        </div>
+        <Section spacing="lg">
+          <ContentPageSkeleton />
+        </Section>
       </MainLayout>
     )
   }
@@ -371,21 +368,6 @@ export default function ContentPage() {
 
   const clearAllFilters = () => {
     setSelectedFilters(new Set(['all']))
-  }
-
-  if (loading) {
-    return (
-      <MainLayout>
-        <Section spacing="lg">
-          <div className="flex items-center justify-center min-h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">{getCopy('loading.content')}</p>
-            </div>
-          </div>
-        </Section>
-      </MainLayout>
-    )
   }
 
   return (
