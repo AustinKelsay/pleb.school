@@ -150,9 +150,8 @@ function buildTrace(
     })
   }
 
-  // Last updated - only show if the DB record was updated significantly after the unlock
-  const effectiveUnlockTime = Math.max(updatedAt.getTime(), latestReceiptMs)
-  if (updatedAt.getTime() - createdAt.getTime() > 1000 && updatedAt.getTime() > effectiveUnlockTime) {
+  // Last updated - only show if the DB record was updated significantly after creation
+  if (updatedAt.getTime() - createdAt.getTime() > 1000) {
     steps.push({
       label: "Last updated",
       detail: `Record updated after unlock`,
