@@ -7,36 +7,33 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Section } from '@/components/layout/section'
-import { getEstimatedReadingTime, formatContentForDisplay, extractVideoBodyMarkdown } from '@/lib/content-utils'
+import { formatContentForDisplay, extractVideoBodyMarkdown } from '@/lib/content-utils'
 import { parseCourseEvent, parseEvent } from '@/data/types'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { ZapThreads } from '@/components/ui/zap-threads'
-import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { formatLinkLabel } from '@/lib/link-label'
+import { ResourceMetadataHero } from '@/app/content/components/resource-content-view'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, useLessonQuery } from '@/hooks/useLessonsQuery'
 import { 
   ArrowLeft, 
   ArrowRight, 
-  Clock, 
   User, 
-  Calendar, 
-  PlayCircle, 
   BookOpen, 
-  Video, 
   FileText,
   RotateCcw,
-  Eye
+  Maximize2,
+  Minimize2,
+  ExternalLink,
 } from 'lucide-react'
 import Link from 'next/link'
 import { LessonWithResource } from '@/hooks/useLessonsQuery'
 import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
-import { useInteractions } from '@/hooks/useInteractions'
 import { encodePublicKey } from 'snstr'
 import { resolveUniversalId } from '@/lib/universal-router'
 import { getRelays } from '@/lib/nostr-relays'
-import { ViewsText } from '@/components/ui/views-text'
+import { useCommentThreads } from '@/hooks/useCommentThreads'
 
 function resolveLessonVideoUrl(
   parsedVideoUrl: string | undefined,
@@ -188,121 +185,6 @@ function InstructorDisplay({ instructorPubkey, fallbackName }: { instructorPubke
 }
 
 /**
- * Lesson metadata component
- */
-function LessonMetadata({ 
-  instructorPubkey, 
-  instructorName,
-  content, 
-  lesson,
-  duration
-}: { 
-  instructorPubkey: string
-  instructorName: string
-  content: { content: string; isMarkdown?: boolean }
-  lesson: LessonWithResource
-  duration?: string
-}) {
-  const readingTime = content?.isMarkdown ? getEstimatedReadingTime(content.content) : null
-  const lessonNote = lesson.resource?.note
-  const parsedLessonEvent = React.useMemo(() => {
-    if (!lessonNote) {
-      return null
-    }
-    try {
-      return parseEvent(lessonNote)
-    } catch (error) {
-      console.error('Error parsing lesson note:', error)
-      return null
-    }
-  }, [lessonNote])
-  
-  // Get real interaction data for the lesson resource if available
-  const lessonEventId = lessonNote?.id
-  const lessonEventKind = lessonNote?.kind
-  const lessonEventPubkey = lessonNote?.pubkey
-  const lessonEventIdentifier = parsedLessonEvent?.d
-  const lightningAddress = (lesson.resource as any)?.user?.lud16 || undefined
-  const {
-    interactions,
-    isLoadingZaps,
-    isLoadingLikes,
-    isLoadingComments,
-    hasReacted,
-    zapInsights,
-    recentZaps,
-    hasZappedWithLightning,
-    viewerZapTotalSats
-  } = useInteractions({
-    eventId: lessonEventId,
-    realtime: false,
-    staleTime: 5 * 60 * 1000,
-    enabled: Boolean(lessonEventId)
-  })
-
-  
-  // Use only real interaction data - no fallbacks
-  const zapsCount = interactions.zaps
-  const commentsCount = interactions.comments
-  const likesCount = interactions.likes
-  
-  return (
-    <div className="flex items-center flex-wrap gap-4 sm:gap-6 text-sm text-muted-foreground">
-      <InstructorDisplay instructorPubkey={instructorPubkey} fallbackName={instructorName} />
-      
-      <div className="flex items-center space-x-1">
-        <Calendar className="h-4 w-4" />
-        <span>Lesson {lesson.index + 1}</span>
-      </div>
-      
-      {readingTime && (
-        <div className="flex items-center space-x-1">
-          <Clock className="h-4 w-4" />
-          <span>{readingTime} min read</span>
-        </div>
-      )}
-      
-      {duration && (
-        <div className="flex items-center space-x-1">
-          <PlayCircle className="h-4 w-4" />
-          <span>{duration}</span>
-        </div>
-      )}
-
-      <div className="flex items-center space-x-1">
-        <Eye className="h-4 w-4" />
-        <ViewsText ns="lesson" id={lesson.id} notation="compact" />
-      </div>
-      
-      {/* Engagement metrics */}
-      <InteractionMetrics
-        zapsCount={zapsCount}
-        commentsCount={commentsCount}
-        likesCount={likesCount}
-        isLoadingZaps={isLoadingZaps}
-        isLoadingComments={isLoadingComments}
-        isLoadingLikes={isLoadingLikes}
-        hasReacted={hasReacted}
-        eventId={lessonEventId}
-        eventKind={lessonEventKind}
-        eventPubkey={lessonEventPubkey}
-        eventIdentifier={lessonEventIdentifier}
-        zapInsights={zapInsights}
-        recentZaps={recentZaps}
-        hasZappedWithLightning={hasZappedWithLightning}
-        viewerZapTotalSats={viewerZapTotalSats}
-        zapTarget={{
-          pubkey: lessonEventPubkey || instructorPubkey,
-          lightningAddress,
-          name: instructorName
-        }}
-        compact
-      />
-    </div>
-  )
-}
-
-/**
  * Lesson content component
  */
 function LessonContent({ 
@@ -331,8 +213,13 @@ function LessonContent({
   }, [lessonDisplays, resolvedLessonId])
 
   const lesson = lessonData ?? fallbackLesson
+  const resourceNote = lesson?.resource?.note || null
 
   const loading = lessonLoading || courseLoading || lessonsDataLoading
+
+  const interactionData = useCommentThreads(resourceNote?.id, { enabled: Boolean(resourceNote?.id) })
+  const resourcePurchased = true // course lessons are considered unlocked once inside the course
+  const [isFullWidth, setIsFullWidth] = useState(false)
 
   if (!resolvedCourse || !resolvedLesson) {
     return (
@@ -372,13 +259,9 @@ function LessonContent({
 
   // Parse data from database and Nostr notes
   let resourceTitle = 'Unknown Lesson'
-  let resourceDescription = 'No description available'
-  let resourceType = 'document'
+  let resourceType: string = 'document'
   let resourceIsPremium = false
-  let resourceAuthor = 'Unknown'
-  let resourceAuthorPubkey = ''
   let resourceImage = ''
-  let resourceTopics: string[] = []
   let resourceAdditionalLinks: string[] = []
   let resourceVideoUrl: string | undefined = lesson.resource.videoUrl || undefined
 
@@ -388,22 +271,18 @@ let courseInstructorPubkey = ''
 
   // Start with database data
   resourceIsPremium = (lesson.resource.price ?? 0) > 0
-  resourceAuthorPubkey = lesson.resource.userId
-  const resourceUser = (lesson.resource as any)?.user
-  const resourceAuthorLightning = resourceUser?.lud16 || undefined
+  const resourceId = lesson.resource.id
+
+  let parsedResource: ReturnType<typeof parseEvent> | null = null
 
   // Parse resource Nostr data if available
-  if (lesson.resource.note) {
+  if (resourceNote) {
     try {
-      const parsedResource = parseEvent(lesson.resource.note)
+      parsedResource = parseEvent(resourceNote)
       resourceTitle = parsedResource.title || resourceTitle
-      resourceDescription = parsedResource.summary || resourceDescription
       resourceType = parsedResource.type || resourceType
       resourceIsPremium = parsedResource.isPremium || resourceIsPremium
-      resourceAuthor = parsedResource.author || resourceAuthor
-      resourceAuthorPubkey = parsedResource.authorPubkey || resourceAuthorPubkey
       resourceImage = parsedResource.image || resourceImage
-      resourceTopics = parsedResource.topics || resourceTopics
       resourceAdditionalLinks = parsedResource.additionalLinks || resourceAdditionalLinks
       resourceVideoUrl = parsedResource.videoUrl || resourceVideoUrl
     } catch (error) {
@@ -457,22 +336,77 @@ let courseInstructorPubkey = ''
     l.id === lesson.id || l.resource?.id === resolvedLessonId
   )
   const safeLessonIndex = currentLessonIndex >= 0 ? currentLessonIndex : 0
-  
-  const getContentTypeIcon = (type: string) => {
-    switch (type) {
-      case 'video':
-        return <Video className="h-4 w-4" />
-      case 'guide':
-        return <BookOpen className="h-4 w-4" />
-      case 'tutorial':
-        return <PlayCircle className="h-4 w-4" />
-      default:
-        return <FileText className="h-4 w-4" />
-    }
-  }
+  const prevLesson = safeLessonIndex > 0 ? lessonDisplays[safeLessonIndex - 1] : null
+  const nextLesson = safeLessonIndex < lessonDisplays.length - 1 ? lessonDisplays[safeLessonIndex + 1] : null
+  const nostrUrl = resourceNote?.id ? `https://nostr.band/${resourceNote.id}` : null
 
+  const heroNavCtas = (
+    <div className="flex items-center gap-2 flex-wrap justify-end">
+      {prevLesson && (
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/courses/${resolvedCourseId}/lessons/${prevLesson.id}/details`}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Previous
+          </Link>
+        </Button>
+      )}
+      <Button variant="outline" size="sm" asChild>
+        <Link href={`/courses/${resolvedCourseId}`}>
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Course
+        </Link>
+      </Button>
+      <div className="px-3 py-1 rounded-full bg-background/70 text-sm font-medium text-foreground/80">
+        Lesson {safeLessonIndex + 1} of {Math.max(lessonDisplays.length, 1)}
+      </div>
+      {nextLesson && (
+        <Button size="sm" className="bg-primary text-primary-foreground" asChild>
+          <Link href={`/courses/${resolvedCourseId}/lessons/${nextLesson.id}/details`}>
+            Next
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </Link>
+        </Button>
+      )}
+    </div>
+  )
+
+  const heroBottomCta = nostrUrl ? (
+    <Button variant="outline" size="sm" className="flex items-center" asChild>
+      <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
+        <ExternalLink className="h-4 w-4 mr-2" />
+        Open on Nostr
+      </a>
+    </Button>
+  ) : null
+  
   return (
     <div className="space-y-6">
+      {parsedResource && resourceNote ? (
+        <ResourceMetadataHero
+          event={resourceNote}
+          parsedEvent={parsedResource}
+          resourceId={resourceId}
+          serverPrice={lesson.resource.price ?? null}
+          serverPurchased={resourcePurchased}
+          interactionData={interactionData}
+          showBackLink
+          backHref={`/courses/${resolvedCourseId}`}
+          isPremium={resourceIsPremium}
+          hidePrimaryCta
+          rightCtas={heroNavCtas}
+          bottomRightCta={heroBottomCta}
+        />
+      ) : (
+        <Card>
+          <CardContent className="py-4 flex justify-end">
+            <div className="flex flex-col gap-2 items-end">
+              {heroNavCtas}
+              {heroBottomCta}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Course Context & Lesson Header */}
       <div className="space-y-4">
         {/* Course Context - Compact */}
@@ -499,61 +433,27 @@ let courseInstructorPubkey = ''
           </div>
         </div>
 
-        {/* Lesson Title & Badges */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {getContentTypeIcon(resourceType)}
-              <h1 className="text-2xl sm:text-3xl font-bold">{resourceTitle}</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Badge variant="outline" className="capitalize">
-                {resourceType}
-              </Badge>
-              {resourceIsPremium && (
-                <Badge variant="outline" className="border-amber-500 text-amber-600">
-                  Premium
-                </Badge>
-              )}
-            </div>
-          </div>
-          
-          <LessonMetadata 
-            instructorPubkey={resourceAuthorPubkey} 
-            instructorName={resourceAuthor}
-            content={content} 
-            lesson={lesson}
-            duration="30 min"
-          />
-        </div>
       </div>
 
-      {/* Navigation & Progress - Compact */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4">
-              <LessonNavigation 
-                courseId={resolvedCourseId} 
-                currentLessonIndex={safeLessonIndex} 
-                lessons={lessonDisplays}
-              />
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-muted-foreground">
-                Lesson {safeLessonIndex + 1} of {lessonDisplays.length}
-              </div>
-              <div className="w-32">
-                <Progress value={((safeLessonIndex + 1) / Math.max(lessonDisplays.length, 1)) * 100} className="h-2" />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => setIsFullWidth(prev => !prev)}>
+          {isFullWidth ? (
+            <>
+              <Minimize2 className="h-4 w-4 mr-2" />
+              Exit Full Width
+            </>
+          ) : (
+            <>
+              <Maximize2 className="h-4 w-4 mr-2" />
+              Full Width
+            </>
+          )}
+        </Button>
+      </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3 space-y-6">
+      <div className={`grid grid-cols-1 lg:grid-cols-4 gap-6 transition-all duration-300 ease-out`}>
+        <div className={`${isFullWidth ? 'lg:col-span-4' : 'lg:col-span-3'} space-y-6 transition-all duration-300 ease-out`}>
           {content.type === 'video' && content.hasVideo ? (
             <>
               <VideoPlayer
@@ -574,11 +474,11 @@ let courseInstructorPubkey = ''
         </div>
         
         {/* Lesson Sidebar */}
-        <div className="space-y-4">
+        <div className={`${isFullWidth ? 'lg:max-h-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden lg:scale-95' : 'space-y-4 lg:opacity-100 lg:scale-100 lg:max-h-[2000px]'} transition-all duration-300 ease-out`}>
           {/* Course Lessons */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Course Lessons</CardTitle>
+              <CardTitle className="text-base font-semibold">Course Lessons</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -619,11 +519,39 @@ let courseInstructorPubkey = ''
               </div>
             </CardContent>
           </Card>
+
+          {!isFullWidth && content.additionalLinks && content.additionalLinks.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2 text-base font-semibold">
+                  <BookOpen className="h-5 w-5" />
+                  <span>Additional Resources</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-3">
+                  {content.additionalLinks.map((link, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      className="justify-start"
+                      asChild
+                    >
+                      <a href={link} target="_blank" rel="noopener noreferrer">
+                        <FileText className="h-4 w-4 mr-2" />
+                        {formatLinkLabel(link)}
+                      </a>
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
-      
+
       {/* Additional Resources */}
-      {content.additionalLinks && content.additionalLinks.length > 0 && (
+      {isFullWidth && content.additionalLinks && content.additionalLinks.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">

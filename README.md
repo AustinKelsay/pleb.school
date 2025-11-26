@@ -1,28 +1,19 @@
-# 🚀 PlebDevs - Production-Ready Next.js 15 Platform
+# 🚀 pleb.school – Nostr-native, configurable course & content platform
 
-A **production-ready** Next.js 15 application showcasing enterprise-grade architecture with **comprehensive build success** and clean codebase. Built for developers who want to ship fast with battle-tested patterns.
+pleb.school is the open-source reference deployment of a configurable course and content platform that lives on the web **and** on Nostr. Use this repo as the demo starter to launch your own academy, wire in your relays, and let learners zap, buy, and interact with your content.
 
 ## 🎯 **Project Overview**
 
-**PlebDevs** is a developer education platform that demonstrates every major Next.js 15 feature in a **real-world, production-ready** context. This isn't just another template – it's a comprehensive showcase of modern web development best practices with **enterprise-grade architecture** and a **rich content library** of 31 educational resources.
+The pleb.school demo shows how to run a self-hosted Next.js 15 stack where branding, navigation, and copy live in `/config`, content travels over NIP-23/99 events, and Lightning rails power free + paid distribution. Fork it, swap the JSON, and ship a white-label learning hub without rewriting the core architecture.
 
-### ✨ **Key Features & Achievements**
+### ✨ **Platform Highlights**
 
-- 🔥 **Next.js 15** with React 19 and App Router
-- ✅ **100% Build Success** - Zero compilation errors
-- 🧹 **Clean Codebase** - All linting errors resolved
-- 🔧 **Type Safety** - Complete TypeScript compliance
-- ⚡ **67% Performance Improvement** with real caching system
-- 🔒 **Enterprise Security** with rate limiting, validation, and sanitization
-- 🏗️ **Repository Pattern** with clean data abstraction
-- 🎨 **Advanced Theming** with shadcn/ui and Tailwind CSS v4
-- 📊 **60-80% Complexity Reduction** across all major areas
-- 🌐 **Production-Ready API** with comprehensive error handling
-- 🚀 **Real Caching Layer** with hierarchical L1/L2 cache support
-- 🔍 **Advanced Search** with relevance scoring and filtering
-- 🎭 **Comprehensive Error Handling** with structured error classes
-- 📱 **Domain-Driven Design** with courses, documents, and videos
-- 🛡️ **Security-First Architecture** ready for production deployment
+- 🧭 **Config-driven branding** — update copy, navigation, and themes from `/config` without touching business logic.
+- 🌐 **Nostr-native** — identity, feeds, and discovery through NIP-07 auth and a live relay pool keep content portable across relays.
+- ⚡ **Lightning-first** — zaps/tips plus paid resources backed by NIP-99 while keeping free content frictionless.
+- 🎛️ **Multi-format content** — reusable layouts for courses, documents, and videos with progress, stats, and sharing baked in.
+- 🏗️ **Production-ready stack** — Next.js 15 + React 19 with Prisma/Postgres, NextAuth, validation, rate limiting, and caching.
+- 🚢 **Portable deployment** — run locally (`npm run dev`), via Docker (`docker compose up app`), or on Vercel using the provided config.
 
 ---
 
@@ -1042,8 +1033,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with 💜 by PlebDevs**
+**Built with 💜 by the pleb.school contributors**
 
-*From build issues to production-ready in one focused session. This platform demonstrates that proper architecture cleanup and type safety can be achieved while maintaining system functionality and providing immediate value to developers.*
-
-**🚀 Ready to build the next generation of web applications? This platform gives you everything you need to ship fast and scale efficiently with enterprise-grade architecture and zero build errors.**
+This reference deployment exists so you can fork it, rebrand it, and ship your own Nostr-native learning hub with Lightning-powered interactions.

@@ -258,7 +258,7 @@ Production Database (Users & Purchases)  ←→  Mock JSON (Metadata)  ←→  L
 
 ### Courses (6 items)
 Structured learning paths with multiple lessons, designed for comprehensive education:
-- **PlebDevs Starter Course** - Complete beginner-friendly development course
+- **pleb.school Starter Course** - Complete beginner-friendly development course
 - **Bitcoin Development Fundamentals** - Core concepts and practical implementation
 - **Lightning Network Development** - Channel management and routing protocols
 - **Nostr Protocol Development** - Building decentralized applications

@@ -638,7 +638,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                       <Button variant="outline" className="w-full justify-center" asChild>
                         <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4 mr-2" />
-                          Open in Nostr
+                          Open on Nostr
                         </a>
                       </Button>
                     </div>
@@ -646,17 +646,6 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                 </CardContent>
               </Card>
 
-              {/* Related Courses */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Related Courses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    More courses from the same category and instructor coming soon.
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           </div>
           

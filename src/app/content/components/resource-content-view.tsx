@@ -166,6 +166,7 @@ interface ContentMetadataProps {
   serverPurchased: boolean
   interactionData: CommentThreadsQueryResult
   onUnlock?: () => void
+  hidePrimaryCta?: boolean
 }
 
 function ContentMetadata({
@@ -175,7 +176,8 @@ function ContentMetadata({
   serverPrice,
   serverPurchased,
   interactionData,
-  onUnlock
+  onUnlock,
+  hidePrimaryCta = false
 }: ContentMetadataProps) {
   const { fetchProfile, normalizeKind0 } = useNostr()
   const [authorProfile, setAuthorProfile] = useState<NormalizedProfile | null>(null)
@@ -328,51 +330,177 @@ function ContentMetadata({
       />
 
       {/* Primary CTA as a single button: Purchase if locked, Watch if unlocked */}
-      <div className="mt-4">
-        {hasAccess ? (
-          <Button className="w-full sm:w-auto" size="lg" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            Watch Now
-          </Button>
-        ) : canPurchase ? (
-          <>
+      {!hidePrimaryCta && (
+        <div className="mt-4">
+          {hasAccess ? (
             <Button
               className="w-full sm:w-auto"
               size="lg"
-              onClick={() => setShowPurchaseDialog(true)}
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             >
-              Purchase for {priceSats.toLocaleString()} sats
+              {parsedEvent.type === 'video' ? 'Watch Now' : 'Read Now'}
             </Button>
-            <PurchaseDialog
-              isOpen={showPurchaseDialog}
-              onOpenChange={setShowPurchaseDialog}
-              title={parsedEvent.title || "Content"}
-              priceSats={priceSats}
-              resourceId={resourceKey}
-              eventId={event.id}
-              eventKind={event.kind}
-              eventIdentifier={parsedEvent.d}
-              eventPubkey={event.pubkey}
-              zapTarget={{
-                pubkey: event.pubkey,
-                lightningAddress: authorProfile?.lud16 || undefined,
-                name: parsedEvent.author || undefined
-              }}
-              viewerZapTotalSats={viewerZapTotalSats}
-              alreadyPurchased={serverPurchased}
-              zapInsights={zapInsights}
-              recentZaps={recentZaps}
-              viewerZapReceipts={viewerZapReceipts}
-              onPurchaseComplete={(purchase) => {
-                if ((purchase?.amountPaid ?? 0) >= priceSats) {
-                  onUnlock?.()
-                }
-              }}
-            />
-          </>
-        ) : (
-          <Badge variant="outline" className="px-3 py-1 text-amber-600 border-amber-400 bg-amber-50">
-            Purchase not available for this identifier
-          </Badge>
+          ) : canPurchase ? (
+            <>
+              <Button
+                className="w-full sm:w-auto"
+                size="lg"
+                onClick={() => setShowPurchaseDialog(true)}
+              >
+                Purchase for {priceSats.toLocaleString()} sats
+              </Button>
+              <PurchaseDialog
+                isOpen={showPurchaseDialog}
+                onOpenChange={setShowPurchaseDialog}
+                title={parsedEvent.title || "Content"}
+                priceSats={priceSats}
+                resourceId={resourceKey}
+                eventId={event.id}
+                eventKind={event.kind}
+                eventIdentifier={parsedEvent.d}
+                eventPubkey={event.pubkey}
+                zapTarget={{
+                  pubkey: event.pubkey,
+                  lightningAddress: authorProfile?.lud16 || undefined,
+                  name: parsedEvent.author || undefined
+                }}
+                viewerZapTotalSats={viewerZapTotalSats}
+                alreadyPurchased={serverPurchased}
+                zapInsights={zapInsights}
+                recentZaps={recentZaps}
+                viewerZapReceipts={viewerZapReceipts}
+                onPurchaseComplete={(purchase) => {
+                  if ((purchase?.amountPaid ?? 0) >= priceSats) {
+                    onUnlock?.()
+                  }
+                }}
+              />
+            </>
+          ) : (
+            <Badge variant="outline" className="px-3 py-1 text-amber-600 border-amber-400 bg-amber-50">
+              Purchase not available for this identifier
+            </Badge>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface ResourceMetadataHeroProps {
+  event: NostrEvent
+  parsedEvent: ReturnType<typeof parseEvent>
+  resourceId: string
+  serverPrice: number | null
+  serverPurchased: boolean
+  interactionData: CommentThreadsQueryResult
+  onUnlock?: () => void
+  showBackLink?: boolean
+  backHref?: string
+  isPremium: boolean
+  hidePrimaryCta?: boolean
+  rightCtas?: React.ReactNode
+  bottomRightCta?: React.ReactNode
+}
+
+export function ResourceMetadataHero({
+  event,
+  parsedEvent,
+  resourceId,
+  serverPrice,
+  serverPurchased,
+  interactionData,
+  onUnlock,
+  showBackLink,
+  backHref,
+  isPremium,
+  hidePrimaryCta = false,
+  rightCtas,
+  bottomRightCta
+}: ResourceMetadataHeroProps) {
+  const rawSummary = parsedEvent.summary?.trim() || ''
+  const formattedSummary = preserveLineBreaks(rawSummary)
+  const category = parsedEvent.topics?.[0] || 'general'
+  const type = parsedEvent.type || 'document'
+  const heroImage = parsedEvent.image && parsedEvent.image !== '/placeholder.svg' ? parsedEvent.image : null
+  const heroImageClassName = 'opacity-55 scale-100'
+  const heroGradientClassName = 'from-background/80 via-background/65 to-background'
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border bg-card">
+      {heroImage && (
+        <>
+          <OptimizedImage
+            src={heroImage}
+            alt={parsedEvent.title || 'Resource artwork'}
+            fill
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${heroImageClassName}`}
+            sizes="(max-width: 768px) 100vw, 80vw"
+            priority={false}
+          />
+          <div className={`absolute inset-0 bg-gradient-to-b ${heroGradientClassName}`} />
+        </>
+      )}
+
+      <div className="relative z-10 p-6 sm:p-8 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center flex-wrap gap-2">
+            <Badge variant="secondary" className="capitalize">
+              {category}
+            </Badge>
+            <Badge variant="outline" className="capitalize">
+              {type}
+            </Badge>
+            {isPremium && (
+              <Badge variant="outline" className="border-amber-500 text-amber-600">
+                Premium
+              </Badge>
+            )}
+          </div>
+
+          {(rightCtas || (showBackLink && backHref)) && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto justify-end">
+              {rightCtas ? rightCtas : (
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
+                  <Link href={backHref!}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Overview
+                  </Link>
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">
+            {parsedEvent.title || 'Unknown Resource'}
+          </h1>
+          {rawSummary && (
+            <p
+              className="text-base text-muted-foreground/90 max-w-3xl"
+              style={formattedSummary.style}
+            >
+              {formattedSummary.content}
+            </p>
+          )}
+        </div>
+
+          <ContentMetadata
+            event={event}
+            parsedEvent={parsedEvent}
+            resourceKey={resourceId}
+            serverPrice={serverPrice}
+            serverPurchased={serverPurchased}
+            interactionData={interactionData}
+            onUnlock={onUnlock}
+            hidePrimaryCta={hidePrimaryCta}
+          />
+
+        {bottomRightCta && (
+          <div className="flex justify-end">
+            {bottomRightCta}
+          </div>
         )}
       </div>
     </div>
@@ -384,6 +512,8 @@ export interface ResourceContentViewProps {
   initialEvent?: NostrEvent | null
   showBackLink?: boolean
   backHref?: string
+  showHero?: boolean
+  showAdditionalLinks?: boolean
   onMissingResource?: () => void
 }
 
@@ -396,6 +526,8 @@ export function ResourceContentView({
   initialEvent,
   showBackLink = false,
   backHref = `/content/${resourceId}`,
+  showHero = true,
+  showAdditionalLinks = true,
   onMissingResource
 }: ResourceContentViewProps) {
   const { fetchSingleEvent, fetchProfile, normalizeKind0 } = useNostr()
@@ -614,8 +746,6 @@ export function ResourceContentView({
 
   const parsedEvent = parseEvent(event)
   const title = parsedEvent.title || 'Unknown Resource'
-  const rawSummary = parsedEvent.summary?.trim() || ''
-  const category = parsedEvent.topics?.[0] || 'general'
   const type = parsedEvent.type || 'document'
   const additionalLinks = parsedEvent.additionalLinks || []
   // Check parsedEvent.isPremium (boolean) and also check raw event tags for string 'true'
@@ -643,80 +773,24 @@ export function ResourceContentView({
   const videoUrl = resolveVideoPlaybackUrl(parsedEvent.videoUrl, event.content, type)
   const videoBodyMarkdown = type === 'video' ? extractVideoBodyMarkdown(event.content) : ''
 
-  const heroImage = parsedEvent.image && parsedEvent.image !== '/placeholder.svg' ? parsedEvent.image : null
-  const formattedSummary = preserveLineBreaks(rawSummary)
-  const heroImageClassName = 'opacity-55 scale-100'
-  const heroGradientClassName = 'from-background/80 via-background/65 to-background'
   const locked = lockable && !serverPurchased
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl border bg-card">
-        {heroImage && (
-          // Show the preview artwork behind the metadata so readers no longer land on a blank wall.
-          <>
-            <OptimizedImage
-              src={heroImage}
-              alt={title}
-              fill
-              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${heroImageClassName}`}
-              sizes="(max-width: 768px) 100vw, 80vw"
-              priority={false}
-            />
-            <div className={`absolute inset-0 bg-gradient-to-b ${heroGradientClassName}`} />
-          </>
-        )}
-        <div className="relative z-10 p-6 sm:p-8 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center flex-wrap gap-2">
-              <Badge variant="secondary" className="capitalize">
-                {category}
-              </Badge>
-              <Badge variant="outline" className="capitalize">
-                {type}
-              </Badge>
-              {isPremium && (
-                <Badge variant="outline" className="border-amber-500 text-amber-600">
-                  Premium
-                </Badge>
-              )}
-            </div>
-
-            {showBackLink && (
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
-                  <Link href={backHref}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Overview
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">{title}</h1>
-            {rawSummary && (
-              <p
-                className="text-base text-muted-foreground/90 max-w-3xl"
-                style={formattedSummary.style}
-              >
-                {formattedSummary.content}
-              </p>
-            )}
-          </div>
-
-          <ContentMetadata 
-            event={event} 
-            parsedEvent={parsedEvent} 
-            resourceKey={resourceId}
-            serverPrice={serverPrice}
-            serverPurchased={serverPurchased}
-            interactionData={interactionData}
-            onUnlock={handleUnlock}
-          />
-        </div>
-      </div>
+      {showHero && (
+        <ResourceMetadataHero
+          event={event}
+          parsedEvent={parsedEvent}
+          resourceId={resourceId}
+          serverPrice={serverPrice}
+          serverPurchased={serverPurchased}
+          interactionData={interactionData}
+          onUnlock={handleUnlock}
+          showBackLink={showBackLink}
+          backHref={backHref}
+          isPremium={isPremium}
+        />
+      )}
 
       <div className="space-y-6">
         {locked ? (
@@ -792,7 +866,7 @@ export function ResourceContentView({
         )}
       </div>
 
-      {additionalLinks && additionalLinks.length > 0 && (
+      {showAdditionalLinks && additionalLinks && additionalLinks.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">

@@ -27,7 +27,9 @@ import {
   BookOpen,
   Video,
   Tag,
-  Loader2
+  Loader2,
+  Maximize2,
+  Minimize2
 } from 'lucide-react'
 import type { NostrEvent } from 'snstr'
 import { getRelays } from '@/lib/nostr-relays'
@@ -37,6 +39,7 @@ import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { useSession } from 'next-auth/react'
+import { formatLinkLabel } from '@/lib/link-label'
 
 interface ResourcePageProps {
   params: Promise<{
@@ -128,6 +131,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const [serverPurchased, setServerPurchased] = useState<boolean>(false)
   const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(true)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
+  const [isFullWidth, setIsFullWidth] = useState(false)
 
   const eventATag = useMemo(() => {
     if (!event || !event.kind || event.kind < 30000) return undefined
@@ -622,18 +626,40 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           </div>
 
           {/* Resource Content - Conditionally render preview or full content */}
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setIsFullWidth(prev => !prev)}>
+              {isFullWidth ? (
+                <>
+                  <Minimize2 className="h-4 w-4 mr-2" />
+                  Exit Full Width
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-4 w-4 mr-2" />
+                  Full Width
+                </>
+              )}
+            </Button>
+          </div>
+
+          <div className={`grid grid-cols-1 gap-8 transition-all duration-300 ease-out ${isFullWidth ? 'lg:grid-cols-1' : 'lg:grid-cols-3'}`}>
+            <div className={`${isFullWidth ? 'lg:col-span-3' : 'lg:col-span-2'} transition-all duration-300 ease-out`}>
               {requiresPreviewGate ? (
                 <Suspense fallback={<ResourceContentSkeleton />}>
                   <ResourceOverview resourceId={resourceId} />
                 </Suspense>
               ) : (
-                <ResourceContentView resourceId={resourceId} initialEvent={event} showBackLink={false} />
+                <ResourceContentView 
+                  resourceId={resourceId} 
+                  initialEvent={event} 
+                  showBackLink={false}
+                  showHero={false}
+                  showAdditionalLinks={isFullWidth}
+                />
               )}
             </div>
 
-            <div className="space-y-6">
+            <div className={`${isFullWidth ? 'lg:max-h-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden lg:scale-95' : 'space-y-6 lg:opacity-100 lg:scale-100 lg:max-h-[2000px]'} transition-all duration-300 ease-out`}>
               <Card>
                 <CardHeader>
                   <CardTitle>About this {type}</CardTitle>
@@ -674,13 +700,36 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                       <Button variant="outline" className="w-full justify-center" asChild>
                         <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4 mr-2" />
-                          Open in Nostr
+                          Open on Nostr
                         </a>
                       </Button>
                     </div>
                   )}
                 </CardContent>
               </Card>
+
+              {!isFullWidth && additionalLinks && additionalLinks.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <ExternalLink className="h-5 w-5" />
+                      <span>Additional Resources</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-3">
+                      {additionalLinks.map((link, index) => (
+                        <Button key={index} variant="outline" className="justify-start" asChild>
+                          <a href={link} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            {formatLinkLabel(link)}
+                          </a>
+                        </Button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
           

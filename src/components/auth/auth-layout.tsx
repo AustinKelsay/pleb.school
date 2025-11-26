@@ -6,6 +6,7 @@
  */
 
 import { ReactNode } from 'react'
+import { copyConfig } from '@/lib/copy'
 
 interface AuthLayoutProps {
   children: ReactNode
@@ -39,7 +40,7 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
           
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-primary">
-              PlebDevs
+              {copyConfig.site.brandName ?? 'pleb.school'}
             </h1>
             <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground">
               {title}
