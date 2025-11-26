@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { checkCourseUnlockViaLessons } from '@/lib/course-access'
+
+export const dynamic = 'force-dynamic'
 
 // Validation schemas
 const paramsSchema = z.object({
@@ -90,9 +93,16 @@ export async function GET(
       (p) => p.amountPaid >= resource.price
     )
     const isOwner = session?.user?.id === resource.userId
+    // Compute course-based unlock using shared helper
+    const courseAccess = await checkCourseUnlockViaLessons({
+      userId: session?.user?.id,
+      resourceId: id,
+      lessons: resource.lessons
+    })
+    const { unlockedViaCourse, unlockingCourseId, lessonsWithCourse } = courseAccess
 
     // For paid resources, only return full data if user has access
-    if (isPaid && !hasPurchased && !isOwner) {
+    if (isPaid && !hasPurchased && !isOwner && !unlockedViaCourse) {
       // Return limited information for unpurchased paid resources
       return NextResponse.json({
         success: true,
@@ -104,13 +114,20 @@ export async function GET(
           user: resource.user,
           isPaid: true,
           requiresPurchase: true,
+          unlockedViaCourse: false,
+          unlockingCourseId: null,
         }
       })
     }
 
     return NextResponse.json({
       success: true,
-      data: resource
+      data: {
+        ...resource,
+        lessons: lessonsWithCourse,
+        unlockedViaCourse,
+        unlockingCourseId
+      }
     })
   } catch (error) {
     console.error('Failed to fetch resource:', error)

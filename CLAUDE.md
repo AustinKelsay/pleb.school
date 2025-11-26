@@ -39,12 +39,7 @@ When making changes to this codebase:
 2. **Check build success**: Run `npm run build` to ensure no compilation errors
 3. **Database Adapter Pattern**: Use adapters for all data access - never access data directly
 4. **Type Safety**: Maintain strict TypeScript compliance with runtime Zod validation
-5. **Caching**: All adapter methods include built-in caching for performance
-6. **Database Changes**: Use `npx prisma generate` after schema changes, `npx prisma db push` for development
-
-**Note**: The current branch may have pending linting errors. Check for:
-- Missing imports (especially for UI icons like `ShieldCheck` from `lucide-react`)
-- Variable declarations that should use `const` instead of `let`
+5. **Database Changes**: Use `npx prisma generate` after schema changes, `npx prisma db push` for development
 
 ## ESLint Configuration
 

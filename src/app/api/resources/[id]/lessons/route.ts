@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { checkCourseUnlockViaLessons } from '@/lib/course-access'
+
+export const dynamic = 'force-dynamic'
 
 // Validation schemas
 const paramsSchema = z.object({
@@ -76,7 +79,7 @@ export async function GET(
 
     // If it's a paid resource and user is not the owner, check purchases
     if (isPaidResource && !isOwner && session?.user?.id) {
-      const hasPurchased = await prisma.purchase.findFirst({
+      const hasPurchasedResource = await prisma.purchase.findFirst({
         where: {
           userId: session.user.id,
           resourceId: id,
@@ -84,7 +87,14 @@ export async function GET(
         }
       })
 
-      if (!hasPurchased) {
+      const courseAccess = await checkCourseUnlockViaLessons({
+        userId: session.user.id,
+        resourceId: id,
+        lessons
+      })
+      const hasPurchasedCourse = courseAccess.unlockedViaCourse
+
+      if (!hasPurchasedResource && !hasPurchasedCourse) {
         // Return limited information for unpurchased paid resources
         return NextResponse.json({
           success: true,

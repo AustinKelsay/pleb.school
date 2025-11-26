@@ -374,6 +374,8 @@ interface ResourceMetadataHeroProps {
   resourceId: string
   serverPrice: number | null
   serverPurchased: boolean
+  unlockedViaCourse?: boolean
+  unlockingCourseId?: string | null
   interactionData: CommentThreadsQueryResult
   onUnlock?: () => void
   showBackLink?: boolean
@@ -390,6 +392,8 @@ export function ResourceMetadataHero({
   resourceId,
   serverPrice,
   serverPurchased,
+  unlockedViaCourse = false,
+  unlockingCourseId = null,
   interactionData,
   onUnlock,
   showBackLink,
@@ -435,6 +439,11 @@ export function ResourceMetadataHero({
             {isPremium && (
               <Badge variant="outline" className="border-amber-500 text-amber-600">
                 Premium
+              </Badge>
+            )}
+            {unlockedViaCourse && (
+              <Badge variant="outline" className="border-success/60 text-success bg-success/10">
+                Access via course
               </Badge>
             )}
           </div>
@@ -518,6 +527,8 @@ export function ResourceContentView({
   const [error, setError] = useState<string | null>(null)
   const [serverPrice, setServerPrice] = useState<number | null>(null)
   const [serverPurchased, setServerPurchased] = useState<boolean>(false)
+  const [unlockedViaCourse, setUnlockedViaCourse] = useState<boolean>(false)
+  const [unlockingCourseId, setUnlockingCourseId] = useState<string | null>(null)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [authorProfile, setAuthorProfile] = useState<NormalizedProfile | null>(null)
   const resolvedIdentifier = useMemo(() => resolveUniversalId(resourceId), [resourceId])
@@ -651,7 +662,10 @@ export function ResourceContentView({
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       if (!uuidRegex.test(resourceId)) return
       try {
-        const res = await fetch(`/api/resources/${resourceId}`, { signal: controller.signal })
+        const res = await fetch(`/api/resources/${resourceId}`, {
+          signal: controller.signal,
+          credentials: 'include',
+        })
         if (!res.ok || controller.signal.aborted) return
 
         const body = await res.json()
@@ -661,13 +675,32 @@ export function ResourceContentView({
         if (!controller.signal.aborted && typeof data?.price === 'number') {
           setServerPrice(data.price)
         }
-        if (
-          !controller.signal.aborted &&
-          Array.isArray(data?.purchases) &&
-          typeof data?.price === 'number'
-        ) {
-          const paid = data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
-          setServerPurchased(paid)
+        if (!controller.signal.aborted) {
+          const unlockedByPurchase =
+            Array.isArray(data?.purchases) && typeof data?.price === 'number'
+              ? data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
+              : false
+          const unlockedByCourse = data?.unlockedViaCourse === true
+          const fromCourseId =
+            data?.unlockingCourseId ||
+            (Array.isArray(data?.lessons)
+              ? data.lessons
+                  .map((lesson: any) => lesson.course?.id || lesson.courseId)
+                  .find((id: string | undefined) => Boolean(id))
+              : null)
+          setUnlockedViaCourse(unlockedByCourse)
+          if (fromCourseId) {
+            setUnlockingCourseId(fromCourseId)
+          }
+          if (unlockedByCourse && Array.isArray(data?.lessons)) {
+            const firstCourseId = data.lessons
+              .map((lesson: any) => lesson.course?.id || lesson.courseId)
+              .find((id: string | undefined) => Boolean(id))
+            if (firstCourseId) {
+              setUnlockingCourseId(firstCourseId)
+            }
+          }
+          setServerPurchased(unlockedByPurchase || unlockedByCourse)
         }
       } catch (err) {
         if ((err as any)?.name === 'AbortError' || controller.signal.aborted) {
@@ -755,6 +788,15 @@ export function ResourceContentView({
   const videoBodyMarkdown = type === 'video' ? extractVideoBodyMarkdown(event.content) : ''
 
   const locked = lockable && !serverPurchased
+  const courseCta = unlockedViaCourse && unlockingCourseId ? (
+    <div className="flex flex-wrap gap-2 justify-end">
+      <Button variant="outline" size="sm" asChild>
+        <Link href={`/courses/${unlockingCourseId}`}>
+          Go to course
+        </Link>
+      </Button>
+    </div>
+  ) : null
 
   return (
     <div className="space-y-6">
@@ -765,13 +807,18 @@ export function ResourceContentView({
           resourceId={resourceId}
           serverPrice={serverPrice}
           serverPurchased={serverPurchased}
+          unlockedViaCourse={unlockedViaCourse}
+          unlockingCourseId={unlockingCourseId}
           interactionData={interactionData}
           onUnlock={handleUnlock}
           showBackLink={showBackLink}
           backHref={backHref}
           isPremium={isPremium}
+          rightCtas={courseCta || undefined}
         />
       )}
+
+      {courseCta && !showHero && courseCta}
 
       <div className="space-y-6">
         {locked ? (

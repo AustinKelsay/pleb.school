@@ -36,6 +36,7 @@ Example (dark + clean‑slate):
 
 ### 📝 `content.json` — Content Display
 Homepage sections (courses, videos, documents), filters (price/category/sort), pagination and search options, and global labels (categories, sort/price labels).
+- `contentPage.includeLessonResources.{videos,documents}` lets you keep lesson-linked resources discoverable on `/content` while leaving homepage carousels untouched. Defaults to `true` for both so lessons don't disappear from the library once added to a course.
 
 ### 🔤 `copy.json` — Site Copy & Text
 All user‑facing strings for navigation, homepage, about page, content pages, error/empty states, cards, and lessons.

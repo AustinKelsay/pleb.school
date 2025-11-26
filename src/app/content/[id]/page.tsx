@@ -35,7 +35,6 @@ import type { NostrEvent } from 'snstr'
 import { getRelays } from '@/lib/nostr-relays'
 import { ViewsText } from '@/components/ui/views-text'
 import { ResourceContentView } from '@/app/content/components/resource-content-view'
-import { ResourceOverviewCardSkeleton, ResourcePageSkeleton } from '@/app/content/components/resource-skeletons'
 import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
@@ -56,6 +55,28 @@ function formatNpubWithEllipsis(pubkey: string): string {
     // Fallback to hex format if encoding fails
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
+}
+
+/**
+ * Loading component for resource content
+ */
+function ResourceContentSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Card className="animate-pulse">
+        <CardHeader>
+          <div className="h-6 bg-muted rounded w-3/4"></div>
+          <div className="h-4 bg-muted rounded w-1/2"></div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <div className="h-4 bg-muted rounded"></div>
+            <div className="h-4 bg-muted rounded w-2/3"></div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
 
 /**
@@ -108,6 +129,8 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const [idResult, setIdResult] = useState<UniversalIdResult | null>(null)
   const [serverPrice, setServerPrice] = useState<number | null>(null)
   const [serverPurchased, setServerPurchased] = useState<boolean>(false)
+  const [unlockedViaCourse, setUnlockedViaCourse] = useState<boolean>(false)
+  const [unlockingCourseId, setUnlockingCourseId] = useState<string | null>(null)
   const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(true)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [isFullWidth, setIsFullWidth] = useState(false)
@@ -257,18 +280,31 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
 
       setIsPurchaseStatusLoading(true)
       try {
-        const res = await fetch(`/api/resources/${resourceId}`)
+        const res = await fetch(`/api/resources/${resourceId}`, {
+          credentials: 'include',
+        })
         if (!res.ok) return
         const body = await res.json()
         const data = body?.data
         if (typeof data?.price === 'number' && !isCancelled) {
           setServerPrice(data.price)
         }
-        if (Array.isArray(data?.purchases) && typeof data?.price === 'number' && !isCancelled) {
-          const paid = data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
-          setServerPurchased(paid)
-        } else if (!isCancelled) {
-          setServerPurchased(false)
+        if (!isCancelled) {
+          const unlockedByPurchase =
+            Array.isArray(data?.purchases) && typeof data?.price === 'number'
+              ? data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
+              : false
+          const unlockedByCourse = data?.unlockedViaCourse === true
+          setServerPurchased(unlockedByPurchase || unlockedByCourse)
+          setUnlockedViaCourse(unlockedByCourse)
+          if (unlockedByCourse && Array.isArray(data?.lessons)) {
+            const firstCourseId = data.lessons
+              .map((lesson: any) => lesson.course?.id || lesson.courseId)
+              .find((id: string | undefined) => Boolean(id))
+            if (firstCourseId) {
+              setUnlockingCourseId(firstCourseId)
+            }
+          }
         }
       } catch (err) {
         console.error('Failed to fetch resource meta', err)
@@ -292,7 +328,19 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <ResourcePageSkeleton />
+          <div className="space-y-8">
+            <div className="animate-pulse">
+              <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
+              <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded w-2/3"></div>
+                </div>
+                <div className="aspect-video bg-muted rounded-lg"></div>
+              </div>
+            </div>
+          </div>
         </Section>
       </MainLayout>
     )
@@ -346,6 +394,18 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const resourceIdIsUuid = uuidRegex.test(resourceId)
   const canPurchase = resourceIdIsUuid && isPaidResource && priceSats > 0
+  const courseAccessCta = unlockedViaCourse && unlockingCourseId ? (
+    <div className="flex flex-wrap gap-2 items-center">
+      <Badge variant="outline" className="border-success/60 text-success bg-success/10">
+        Access via course
+      </Badge>
+      <Button variant="outline" size="sm" asChild>
+        <Link href={`/courses/${unlockingCourseId}`}>
+          Go to course
+        </Link>
+      </Button>
+    </div>
+  ) : null
 
   const formatDate = (timestamp: number): string => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
@@ -502,15 +562,17 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                         </Badge>
                       )}
                     </>
-                  )}
-                </div>
               )}
+            </div>
+          )}
 
-              {canPurchase && (
-                <PurchaseDialog
-                  isOpen={showPurchaseDialog}
-                  onOpenChange={setShowPurchaseDialog}
-                  title={title}
+          {requiresPreviewGate && serverPurchased && courseAccessCta}
+
+          {canPurchase && (
+            <PurchaseDialog
+              isOpen={showPurchaseDialog}
+              onOpenChange={setShowPurchaseDialog}
+              title={title}
                   priceSats={priceSats}
                   resourceId={resourceId}
                   eventId={event.id}
@@ -612,7 +674,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           <div className={`grid grid-cols-1 gap-8 transition-all duration-300 ease-out ${isFullWidth ? 'lg:grid-cols-1' : 'lg:grid-cols-3'}`}>
             <div className={`${isFullWidth ? 'lg:col-span-3' : 'lg:col-span-2'} transition-all duration-300 ease-out`}>
               {requiresPreviewGate ? (
-                <Suspense fallback={<ResourceOverviewCardSkeleton />}>
+                <Suspense fallback={<ResourceContentSkeleton />}>
                   <ResourceOverview resourceId={resourceId} />
                 </Suspense>
               ) : (
@@ -621,7 +683,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   initialEvent={event} 
                   showBackLink={false}
                   showHero={false}
-                  showAdditionalLinks={isFullWidth}
+                  showAdditionalLinks={false}
                 />
               )}
             </div>
@@ -674,19 +736,23 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   )}
                 </CardContent>
               </Card>
-
               {!isFullWidth && additionalLinks && additionalLinks.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
-                      <ExternalLink className="h-5 w-5" />
+                      <BookOpen className="h-5 w-5" />
                       <span>Additional Resources</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                       {additionalLinks.map((link, index) => (
-                        <Button key={index} variant="outline" className="justify-start" asChild>
+                        <Button
+                          key={index}
+                          variant="outline"
+                          className="justify-start"
+                          asChild
+                        >
                           <a href={link} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="h-4 w-4 mr-2" />
                             {formatLinkLabel(link)}
@@ -699,6 +765,35 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
               )}
             </div>
           </div>
+          
+          {/* Additional Resources - single display in full-width mode */}
+          {isFullWidth && additionalLinks && additionalLinks.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BookOpen className="h-5 w-5" />
+                  <span>Additional Resources</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {additionalLinks.map((link, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      className="justify-start"
+                      asChild
+                    >
+                      <a href={link} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        {formatLinkLabel(link)}
+                      </a>
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
           
           {/* Comments Section - Only show for preview-gated content since ResourceContentView includes its own comments */}
           {requiresPreviewGate && (

@@ -28,6 +28,7 @@ import { getNoteImage } from "@/lib/note-image"
 import { Prefix, type NostrEvent, type RelayPool } from "snstr"
 import { isNip19String, tryDecodeNip19Entity } from "@/lib/nip19-utils"
 import { getRelays } from "@/lib/nostr-relays"
+import { useContentConfig } from "@/hooks/useContentConfig"
 
 const HEX_EVENT_ID_REGEX = /^[0-9a-f]{64}$/i
 
@@ -88,6 +89,10 @@ async function fetchEventForIdentifier(
 
 export default function ContentPage() {
   const { contentLibrary, pricing } = useCopy()
+  const contentConfig = useContentConfig()
+  const includeLessonResources = contentConfig?.contentPage?.includeLessonResources
+  const includeLessonVideos = includeLessonResources?.videos ?? true
+  const includeLessonDocuments = includeLessonResources?.documents ?? true
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set(['all']))
   const [noteImageCache, setNoteImageCache] = useState<Record<string, string>>({})
   const attemptedNoteIds = useRef<Set<string>>(new Set())
@@ -95,8 +100,10 @@ export default function ContentPage() {
   
   // Fetch data from all hooks
   const { courses, isLoading: coursesLoading } = useCoursesQuery()
-  const { videos, isLoading: videosLoading } = useVideosQuery()
-  const { documents, isLoading: documentsLoading } = useDocumentsQuery()
+  // Include lesson-linked resources by default so they still appear in the content library,
+  // even though other surfaces (e.g. homepage carousels) purposely hide them. Config can override.
+  const { videos, isLoading: videosLoading } = useVideosQuery({ includeLessonResources: includeLessonVideos })
+  const { documents, isLoading: documentsLoading } = useDocumentsQuery({ includeLessonResources: includeLessonDocuments })
   
   // Combine loading states
   const loading = coursesLoading || videosLoading || documentsLoading
