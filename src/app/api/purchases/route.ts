@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission } from "@/lib/admin-utils"
 import { parseBolt11Invoice } from "@/lib/bolt11"
-import type { Prisma } from "@prisma/client"
+import { Prisma } from "@prisma/client"
 import type { TraceStep, ReceiptSummary } from "@/types/purchases"
 
 type Scope = "mine" | "all"
@@ -183,47 +183,47 @@ export async function GET(request: NextRequest) {
       }
     }
 
-  // User select shape; only admins get creator emails
-  const userSelect = {
-    id: true,
-    username: true,
-    pubkey: true,
-    avatar: true,
-    ...(scope === "all" ? { email: true } : {})
-  }
+    // User select shape; only admins get creator emails
+    const userSelect = {
+      id: true,
+      username: true,
+      pubkey: true,
+      avatar: true,
+      ...(scope === "all" ? { email: true } : {})
+    }
 
-  // Include creator user only for admins to avoid leaking contact info.
-  const include: Prisma.PurchaseInclude = {
-    resource: {
-      select: {
-        id: true,
-        noteId: true,
-        price: true,
-        videoId: true,
-        videoUrl: true,
-        userId: true,
-        createdAt: true,
-        updatedAt: true,
-        ...(scope === "all" ? { user: { select: userSelect } } : {})
-      }
-    },
-    course: {
-      select: {
-        id: true,
-        noteId: true,
-        price: true,
-        userId: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: { lessons: true }
-        },
-        ...(scope === "all" ? { user: { select: userSelect } } : {})
-      }
-    },
-    // Buyer information (needed for privacy-zap detection); email only for admins.
-    user: { select: userSelect }
-  }
+    // Include creator user only for admins to avoid leaking contact info.
+    const include: Prisma.PurchaseInclude = {
+      resource: {
+        select: {
+          id: true,
+          noteId: true,
+          price: true,
+          videoId: true,
+          videoUrl: true,
+          userId: true,
+          createdAt: true,
+          updatedAt: true,
+          ...(scope === "all" ? { user: { select: userSelect } } : {})
+        }
+      },
+      course: {
+        select: {
+          id: true,
+          noteId: true,
+          price: true,
+          userId: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: {
+            select: { lessons: true }
+          },
+          ...(scope === "all" ? { user: { select: userSelect } } : {})
+        }
+      },
+      // Buyer information (needed for privacy-zap detection); email only for admins.
+      user: { select: userSelect }
+    }
 
     const where = scope === "mine" ? { userId: session.user.id } : undefined
 
@@ -234,149 +234,183 @@ export async function GET(request: NextRequest) {
       take: limit
     })
 
-    // Fetch a lightweight set for platform stats (no limit).
-    const purchasesForStats = await prisma.purchase.findMany({
-      where,
-      select: {
-        id: true,
-        userId: true,
-        amountPaid: true,
-        paymentType: true,
-        course: {
-          select: { price: true }
-        },
-        resource: {
-          select: { price: true }
-        }
-      },
-      orderBy: { createdAt: "desc" }
-    })
+    // Fetch aggregated platform stats server-side to avoid pulling every purchase into memory.
+    const statsQuery = scope === "mine"
+      ? prisma.$queryRaw<
+          {
+            totalPurchases: bigint
+            totalRevenueSats: bigint
+            unlockedCount: bigint
+            partialCount: bigint
+            refundCount: bigint
+            buyers: bigint
+          }[]
+        >`
+          SELECT
+            COUNT(*)::bigint AS "totalPurchases",
+            COALESCE(SUM(p."amountPaid"), 0)::bigint AS "totalRevenueSats",
+            COALESCE(SUM(CASE WHEN p."paymentType" = 'refund' THEN 1 ELSE 0 END), 0)::bigint AS "refundCount",
+            COALESCE(SUM(
+              CASE
+                WHEN p."paymentType" <> 'refund' AND p."amountPaid" >= COALESCE(c.price, r.price, 0) THEN 1
+                ELSE 0
+              END
+            ), 0)::bigint AS "unlockedCount",
+            COALESCE(SUM(
+              CASE
+                WHEN p."paymentType" <> 'refund' AND p."amountPaid" < COALESCE(c.price, r.price, 0) THEN 1
+                ELSE 0
+              END
+            ), 0)::bigint AS "partialCount",
+            COUNT(DISTINCT p."userId")::bigint AS "buyers"
+          FROM "Purchase" p
+          LEFT JOIN "Course" c ON p."courseId" = c.id
+          LEFT JOIN "Resource" r ON p."resourceId" = r.id
+          WHERE p."userId" = ${session.user.id}
+        `
+      : prisma.$queryRaw<
+          {
+            totalPurchases: bigint
+            totalRevenueSats: bigint
+            unlockedCount: bigint
+            partialCount: bigint
+            refundCount: bigint
+            buyers: bigint
+          }[]
+        >`
+          SELECT
+            COUNT(*)::bigint AS "totalPurchases",
+            COALESCE(SUM(p."amountPaid"), 0)::bigint AS "totalRevenueSats",
+            COALESCE(SUM(CASE WHEN p."paymentType" = 'refund' THEN 1 ELSE 0 END), 0)::bigint AS "refundCount",
+            COALESCE(SUM(
+              CASE
+                WHEN p."paymentType" <> 'refund' AND p."amountPaid" >= COALESCE(c.price, r.price, 0) THEN 1
+                ELSE 0
+              END
+            ), 0)::bigint AS "unlockedCount",
+            COALESCE(SUM(
+              CASE
+                WHEN p."paymentType" <> 'refund' AND p."amountPaid" < COALESCE(c.price, r.price, 0) THEN 1
+                ELSE 0
+              END
+            ), 0)::bigint AS "partialCount",
+            COUNT(DISTINCT p."userId")::bigint AS "buyers"
+          FROM "Purchase" p
+          LEFT JOIN "Course" c ON p."courseId" = c.id
+          LEFT JOIN "Resource" r ON p."resourceId" = r.id
+        `
 
-  const toMeta = (purchase: typeof purchases[number]) => {
-    const contentType = purchase.courseId ? "course" : "resource"
-    const priceSats = purchase.course?.price ?? purchase.resource?.price ?? 0
-    const href = purchase.courseId
-      ? `/courses/${purchase.courseId}`
-      : purchase.resourceId
-        ? `/content/${purchase.resourceId}`
-        : undefined
-
-    // Content metadata for display
-    const contentId = purchase.courseId ?? purchase.resourceId ?? null
-    const noteId = purchase.course?.noteId ?? purchase.resource?.noteId ?? null
-    const videoId = purchase.resource?.videoId ?? null
-    const videoUrl = purchase.resource?.videoUrl ?? null
-    const lessonCount = (purchase.course as any)?._count?.lessons ?? null
-    const creatorId = purchase.course?.userId ?? purchase.resource?.userId ?? null
-
-    // Creator info (the content publisher)
-    const creatorUser = (purchase.course as any)?.user ?? (purchase.resource as any)?.user ?? null
-    const creator = creatorUser ? {
-      id: creatorUser.id,
-      username: creatorUser.username ?? null,
-      email: creatorUser.email ?? null,
-      avatar: creatorUser.avatar ?? null,
-      pubkey: creatorUser.pubkey ?? null
-    } : null
-
-    // Generate thumbnail for videos from YouTube
-    const thumbnail = videoId
-      ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-      : null
-
-    // Extract zap request info (signer pubkey for privacy mode debugging)
-    const zapRequestInfo = extractZapRequestInfo(purchase.zapRequestJson)
-
-    const receipts = toReceiptArray(purchase.zapReceiptJson).map(summarizeReceipt)
-    const receiptCount = receipts.length || (purchase.zapReceiptId ? 1 : 0)
-    const receiptsTotal = receipts.reduce((sum, r) => sum + (r.amountSats ?? 0), 0)
-
-    const status = purchase.paymentType === "refund"
-      ? "refunded"
-      : purchase.amountPaid >= priceSats
-        ? "unlocked"
-        : "partial"
-
-    const lifeCycle = buildTrace(
-      purchase.createdAt,
-      purchase.updatedAt,
-      status,
-      priceSats,
-      purchase.amountPaid,
-      receipts,
-      purchase.paymentType
-    )
-
-    // Check if this is a privacy-mode zap (signer pubkey differs from buyer pubkey)
-    const buyerPubkey = (purchase as any).user?.pubkey ?? null
-    const isPrivacyZap = zapRequestInfo.signerPubkey && 
-      buyerPubkey && 
-      zapRequestInfo.signerPubkey !== buyerPubkey
-
-    return {
-      ...purchase,
-      contentType,
-      priceSats,
-      href,
-      contentId,
-      noteId,
-      videoId,
-      videoUrl,
-      thumbnail,
-      lessonCount,
-      creatorId,
-      creator,
-      receiptCount,
-      receiptsTotalSats: receiptsTotal,
-      receipts,
-      status,
-      lifeCycle,
-      // Zap request provenance
-      zapSignerPubkey: zapRequestInfo.signerPubkey ?? null,
-      isPrivacyZap: isPrivacyZap ?? false
+    const statsRow = (await statsQuery)[0] ?? {
+      totalPurchases: 0n,
+      totalRevenueSats: 0n,
+      unlockedCount: 0n,
+      partialCount: 0n,
+      refundCount: 0n,
+      buyers: 0n
     }
-  }
+
+    const toMeta = (purchase: typeof purchases[number]) => {
+      const contentType = purchase.courseId ? "course" : "resource"
+      const priceSats = purchase.course?.price ?? purchase.resource?.price ?? 0
+      const href = purchase.courseId
+        ? `/courses/${purchase.courseId}`
+        : purchase.resourceId
+          ? `/content/${purchase.resourceId}`
+          : undefined
+
+      // Content metadata for display
+      const contentId = purchase.courseId ?? purchase.resourceId ?? null
+      const noteId = purchase.course?.noteId ?? purchase.resource?.noteId ?? null
+      const videoId = purchase.resource?.videoId ?? null
+      const videoUrl = purchase.resource?.videoUrl ?? null
+      const lessonCount = (purchase.course as any)?._count?.lessons ?? null
+      const creatorId = purchase.course?.userId ?? purchase.resource?.userId ?? null
+
+      // Creator info (the content publisher)
+      const creatorUser = (purchase.course as any)?.user ?? (purchase.resource as any)?.user ?? null
+      const creator = creatorUser ? {
+        id: creatorUser.id,
+        username: creatorUser.username ?? null,
+        email: creatorUser.email ?? null,
+        avatar: creatorUser.avatar ?? null,
+        pubkey: creatorUser.pubkey ?? null
+      } : null
+
+      // Generate thumbnail for videos from YouTube
+      const thumbnail = videoId
+        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        : null
+
+      // Extract zap request info (signer pubkey for privacy mode debugging)
+      const zapRequestInfo = extractZapRequestInfo(purchase.zapRequestJson)
+
+      const receipts = toReceiptArray(purchase.zapReceiptJson).map(summarizeReceipt)
+      const receiptCount = receipts.length || (purchase.zapReceiptId ? 1 : 0)
+      const receiptsTotal = receipts.reduce((sum, r) => sum + (r.amountSats ?? 0), 0)
+
+      const status = purchase.paymentType === "refund"
+        ? "refunded"
+        : purchase.amountPaid >= priceSats
+          ? "unlocked"
+          : "partial"
+
+      const lifeCycle = buildTrace(
+        purchase.createdAt,
+        purchase.updatedAt,
+        status,
+        priceSats,
+        purchase.amountPaid,
+        receipts,
+        purchase.paymentType
+      )
+
+      // Check if this is a privacy-mode zap (signer pubkey differs from buyer pubkey)
+      const buyerPubkey = (purchase as any).user?.pubkey ?? null
+      const isPrivacyZap = zapRequestInfo.signerPubkey && 
+        buyerPubkey && 
+        zapRequestInfo.signerPubkey !== buyerPubkey
+
+      return {
+        ...purchase,
+        contentType,
+        priceSats,
+        href,
+        contentId,
+        noteId,
+        videoId,
+        videoUrl,
+        thumbnail,
+        lessonCount,
+        creatorId,
+        creator,
+        receiptCount,
+        receiptsTotalSats: receiptsTotal,
+        receipts,
+        status,
+        lifeCycle,
+        // Zap request provenance
+        zapSignerPubkey: zapRequestInfo.signerPubkey ?? null,
+        isPrivacyZap: isPrivacyZap ?? false
+      }
+    }
 
     const purchasesWithMeta = purchases.map(toMeta)
 
-    const statsTotals = purchasesForStats.reduce(
-      (acc, purchase) => {
-        const priceSats = purchase.course?.price ?? purchase.resource?.price ?? 0
-        const isRefund = purchase.paymentType === "refund"
-        const status = isRefund
-          ? "refunded"
-          : purchase.amountPaid >= priceSats
-            ? "unlocked"
-            : "partial"
-
-        acc.totalPurchases += 1
-        acc.totalRevenueSats += purchase.amountPaid ?? 0
-        if (status === "unlocked") acc.unlockedCount += 1
-        if (status === "partial") acc.partialCount += 1
-        if (isRefund) acc.refundCount += 1
-        acc.buyerIds.add(purchase.userId)
-        return acc
-      },
-      {
-        totalPurchases: 0,
-        totalRevenueSats: 0,
-        unlockedCount: 0,
-        partialCount: 0,
-        refundCount: 0,
-        buyerIds: new Set<string>()
-      }
-    )
+    const totalPurchases = Number(statsRow.totalPurchases ?? 0n)
+    const totalRevenueSats = Number(statsRow.totalRevenueSats ?? 0n)
+    const unlockedCount = Number(statsRow.unlockedCount ?? 0n)
+    const partialCount = Number(statsRow.partialCount ?? 0n)
+    const refundCount = Number(statsRow.refundCount ?? 0n)
+    const buyers = Number(statsRow.buyers ?? 0n)
 
     const stats = {
-      totalPurchases: statsTotals.totalPurchases,
-      totalRevenueSats: statsTotals.totalRevenueSats,
-      unlockedCount: statsTotals.unlockedCount,
-      partialCount: statsTotals.partialCount,
-      refundCount: statsTotals.refundCount,
-      buyers: statsTotals.buyerIds.size,
-      averageTicketSats: statsTotals.totalPurchases
-        ? Math.floor(statsTotals.totalRevenueSats / statsTotals.totalPurchases)
-        : 0
+      totalPurchases,
+      totalRevenueSats,
+      unlockedCount,
+      partialCount,
+      refundCount,
+      buyers,
+      averageTicketSats: totalPurchases ? Math.floor(totalRevenueSats / totalPurchases) : 0
     }
 
     return NextResponse.json({
