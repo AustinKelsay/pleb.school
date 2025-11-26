@@ -48,30 +48,11 @@ import {
   type ResolveDraftLessonResult,
   type ResolvedDraftLesson,
 } from '@/lib/drafts/lesson-resolution'
+import { DraftLessonSkeleton } from '@/components/ui/app-skeleton-client'
 
 interface LessonDraftPreviewPageClientProps {
   courseId: string
   lessonId: string
-}
-
-function LessonContentSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4" />
-          <div className="h-4 bg-muted rounded w-1/2" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="h-4 bg-muted rounded" />
-            <div className="h-4 bg-muted rounded w-4/5" />
-            <div className="h-32 bg-muted rounded" />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
 }
 
 function DraftLessonNavigation({
@@ -179,7 +160,7 @@ function DraftLessonContent({
   isResourceLoading: boolean
 }) {
   if (isResourceLoading) {
-    return <LessonContentSkeleton />
+    return <DraftLessonSkeleton />
   }
 
   if (!lessonData) {
@@ -466,7 +447,7 @@ export function LessonDraftPreviewPageClient({
     return (
       <MainLayout>
         <Section spacing="lg">
-          <LessonContentSkeleton />
+          <DraftLessonSkeleton />
         </Section>
       </MainLayout>
     )

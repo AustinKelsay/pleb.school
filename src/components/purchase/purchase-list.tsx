@@ -101,6 +101,46 @@ function getContentIcon(contentType: string, videoId?: string | null) {
   return FileText
 }
 
+function PurchaseSummarySkeleton() {
+  return (
+    <div className="grid gap-3 rounded-xl border border-border/70 bg-card/60 p-4 sm:grid-cols-3 lg:grid-cols-6">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PurchaseRowSkeleton({ showUser }: { showUser?: boolean }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/70 p-4 sm:flex-row sm:items-center">
+      <Skeleton className="h-16 w-full rounded-lg sm:h-16 sm:w-28" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-2/3" />
+        <div className="flex flex-wrap gap-2">
+          <Skeleton className="h-6 w-16 rounded-full" />
+          <Skeleton className="h-6 w-20 rounded-full" />
+          <Skeleton className="h-6 w-14 rounded-full" />
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-16" />
+          {showUser && <Skeleton className="h-4 w-24" />}
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 sm:items-end">
+        <Skeleton className="h-6 w-24 rounded-md" />
+        <Skeleton className="h-8 w-28 rounded-md" />
+      </div>
+    </div>
+  )
+}
+
 function SummaryStrip({ stats }: { stats: PurchaseStats | null }) {
   if (!stats) return null
 
@@ -806,10 +846,10 @@ export function PurchaseList(props: PurchaseListProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        {showSummary && <Skeleton className="h-16 w-full" />}
+      <div className="space-y-4">
+        {showSummary && <PurchaseSummarySkeleton />}
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-28 w-full" />
+          <PurchaseRowSkeleton key={i} showUser={showUser} />
         ))}
       </div>
     )

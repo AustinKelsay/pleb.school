@@ -31,6 +31,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatLinkLabel } from '@/lib/link-label'
+import { DraftContentSkeleton } from '@/components/ui/app-skeleton-client'
 
 interface ResourceDraftPreviewPageProps {
   params: Promise<{
@@ -68,29 +69,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
     // Fallback to hex format if encoding fails
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
-}
-
-/**
- * Loading component for content
- */
-function ContentSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="h-4 bg-muted rounded"></div>
-            <div className="h-4 bg-muted rounded w-4/5"></div>
-            <div className="h-4 bg-muted rounded w-3/5"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
 }
 
 /**
@@ -194,7 +172,7 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
   }, [resourceId])
 
   if (loading) {
-    return <ContentSkeleton />
+    return <DraftContentSkeleton />
   }
 
   if (error) {
@@ -384,7 +362,7 @@ function ResourceDraftPreviewContent({ resourceId }: { resourceId: string }) {
           </div>
 
           {/* Content */}
-          <Suspense fallback={<ContentSkeleton />}>
+          <Suspense fallback={<DraftContentSkeleton />}>
             <ResourceDraftContent resourceId={resourceId} />
           </Suspense>
         </div>

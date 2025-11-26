@@ -5,11 +5,11 @@ import type { ComponentType } from "react"
 import { Activity, BarChart3, MessageSquare, Users, Wallet, Zap } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { PurchaseList } from "@/components/purchase/purchase-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { usePurchasesQuery } from "@/hooks/usePurchasesQuery"
+import { AnalyticsMetricsSkeleton } from "@/app/profile/components/profile-skeletons"
 
 export function AdminAnalyticsTabs() {
   const [tab, setTab] = useState<"purchases" | "comments" | "interactions">("purchases")
@@ -63,18 +63,16 @@ export function AdminPurchaseAnalytics() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats ? (
-          <>
-            <MetricCard icon={Wallet} label="Revenue" value={formatSatsValue(stats.totalRevenueSats)} />
-            <MetricCard icon={Zap} label="Purchases" value={stats.totalPurchases.toLocaleString()} />
-            <MetricCard icon={Users} label="Buyers" value={stats.buyers.toLocaleString()} />
-            <MetricCard icon={BarChart3} label="Avg ticket" value={formatSatsValue(stats.averageTicketSats)} />
-          </>
-        ) : (
-          [0, 1, 2, 3].map((idx) => <Skeleton key={idx} className="h-24 w-full" />)
-        )}
-      </div>
+      {stats ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard icon={Wallet} label="Revenue" value={formatSatsValue(stats.totalRevenueSats)} />
+          <MetricCard icon={Zap} label="Purchases" value={stats.totalPurchases.toLocaleString()} />
+          <MetricCard icon={Users} label="Buyers" value={stats.buyers.toLocaleString()} />
+          <MetricCard icon={BarChart3} label="Avg ticket" value={formatSatsValue(stats.averageTicketSats)} />
+        </div>
+      ) : (
+        <AnalyticsMetricsSkeleton />
+      )}
 
       <PurchaseList
         scope="all"

@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { dispatchProfileUpdatedEvent } from '@/lib/profile-events'
+import { LinkedAccountsSkeleton } from '@/app/profile/components/profile-skeletons'
 
 interface LinkedAccount {
   provider: string
@@ -283,13 +284,7 @@ export function LinkedAccountsManager() {
   }, [providerToUnlink])
 
   if (loading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </CardContent>
-      </Card>
-    )
+    return <LinkedAccountsSkeleton />
   }
 
   return (
