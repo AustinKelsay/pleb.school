@@ -35,6 +35,7 @@ import type { NostrEvent } from 'snstr'
 import { getRelays } from '@/lib/nostr-relays'
 import { ViewsText } from '@/components/ui/views-text'
 import { ResourceContentView } from '@/app/content/components/resource-content-view'
+import { ResourceOverviewCardSkeleton, ResourcePageSkeleton } from '@/app/content/components/resource-skeletons'
 import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
@@ -55,28 +56,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
     // Fallback to hex format if encoding fails
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
-}
-
-/**
- * Loading component for resource content
- */
-function ResourceContentSkeleton() {
-  return (
-    <div className="space-y-4">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4"></div>
-          <div className="h-4 bg-muted rounded w-1/2"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="h-4 bg-muted rounded"></div>
-            <div className="h-4 bg-muted rounded w-2/3"></div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
 }
 
 /**
@@ -313,19 +292,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="space-y-8">
-            <div className="animate-pulse">
-              <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-              <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                <div className="space-y-4">
-                  <div className="h-4 bg-muted rounded"></div>
-                  <div className="h-4 bg-muted rounded w-2/3"></div>
-                </div>
-                <div className="aspect-video bg-muted rounded-lg"></div>
-              </div>
-            </div>
-          </div>
+          <ResourcePageSkeleton />
         </Section>
       </MainLayout>
     )
@@ -645,7 +612,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           <div className={`grid grid-cols-1 gap-8 transition-all duration-300 ease-out ${isFullWidth ? 'lg:grid-cols-1' : 'lg:grid-cols-3'}`}>
             <div className={`${isFullWidth ? 'lg:col-span-3' : 'lg:col-span-2'} transition-all duration-300 ease-out`}>
               {requiresPreviewGate ? (
-                <Suspense fallback={<ResourceContentSkeleton />}>
+                <Suspense fallback={<ResourceOverviewCardSkeleton />}>
                   <ResourceOverview resourceId={resourceId} />
                 </Suspense>
               ) : (

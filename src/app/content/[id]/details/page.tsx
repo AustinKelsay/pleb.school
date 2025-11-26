@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Section } from '@/components/layout/section'
 import { ArrowLeft, FileText } from 'lucide-react'
-import { ContentSkeleton, ResourceContentView } from '@/app/content/components/resource-content-view'
+import { ResourceContentView } from '@/app/content/components/resource-content-view'
+import { ResourceContentViewSkeleton } from '@/app/content/components/resource-skeletons'
 
 interface ResourceDetailsPageProps {
   params: Promise<{
@@ -39,7 +40,7 @@ function ResourceDetailsContent({ resourceId }: { resourceId: string }) {
             </div>
           </div>
 
-          <Suspense fallback={<ContentSkeleton />}>
+          <Suspense fallback={<ResourceContentViewSkeleton />}>
             <ResourceContentView
               resourceId={resourceId}
               onMissingResource={handleMissingResource}

@@ -18,6 +18,7 @@ import { useCommentThreads, type CommentThreadsQueryResult } from '@/hooks/useCo
 import { extractVideoBodyMarkdown } from '@/lib/content-utils'
 import { getRelays } from '@/lib/nostr-relays'
 import { ViewsText } from '@/components/ui/views-text'
+import { ResourceContentViewSkeleton } from '@/app/content/components/resource-skeletons'
 import { resolveUniversalId } from '@/lib/universal-router'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import type { NostrEvent } from 'snstr'
@@ -68,26 +69,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
   } catch {
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`
   }
-}
-
-export function ContentSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="h-4 bg-muted rounded"></div>
-            <div className="h-4 bg-muted rounded w-4/5"></div>
-            <div className="h-4 bg-muted rounded w-3/5"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
 }
 
 function humanizeSeconds(totalSeconds: number): string | null {
@@ -717,7 +698,7 @@ export function ResourceContentView({
   }, [shouldSignalMissingResource, onMissingResource])
 
   if (loading) {
-    return <ContentSkeleton />
+    return <ResourceContentViewSkeleton />
   }
 
   if (isMissingResource && onMissingResource) {

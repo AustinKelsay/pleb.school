@@ -1,3 +1,5 @@
+import { Skeleton } from "@/components/ui/skeleton"
+
 /**
  * Reusable skeleton components for consistent loading states
  * Supports different layouts and content types
@@ -139,16 +141,35 @@ export function CoursePageSkeleton() {
 // Loading skeleton for content page
 export function ContentPageSkeleton() {
   return (
-    <div className="space-y-8">
-      {/* Filter bar skeleton */}
-      <div className="animate-pulse flex space-x-4">
-        <div className="bg-gray-200 dark:bg-gray-700 h-10 rounded w-32" />
-        <div className="bg-gray-200 dark:bg-gray-700 h-10 rounded w-32" />
-        <div className="bg-gray-200 dark:bg-gray-700 h-10 rounded w-40" />
+    <div className="space-y-10">
+      <div className="space-y-3">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-2/3" />
       </div>
-      
-      {/* Content grid skeleton */}
-      <ContentSkeleton variant="grid" count={9} />
+
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4 rounded-full" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-20 rounded-full" />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <ContentCardSkeleton key={i} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -156,76 +177,57 @@ export function ContentPageSkeleton() {
 // ContentCard skeleton that matches the shape of ContentCard component
 export function ContentCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-lg border bg-card animate-pulse">
-      {/* Aspect video area */}
-      <div className="relative aspect-video bg-muted">
-        {/* Content type icon overlay */}
-        <div className="absolute top-3 left-3 p-2 rounded-lg bg-muted-foreground/20 w-8 h-8" />
-        
-        {/* Engagement metrics skeleton */}
+    <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="relative aspect-video">
+        <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
+        <div className="absolute top-3 left-3">
+          <Skeleton className="h-8 w-8 rounded-lg" />
+        </div>
         <div className="absolute bottom-3 right-3 flex items-center gap-2">
-          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted-foreground/20">
-            <div className="w-3 h-3 rounded bg-muted-foreground/30" />
-            <div className="w-4 h-3 rounded bg-muted-foreground/30" />
-          </div>
-          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted-foreground/20">
-            <div className="w-3 h-3 rounded bg-muted-foreground/30" />
-            <div className="w-4 h-3 rounded bg-muted-foreground/30" />
-          </div>
-          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted-foreground/20">
-            <div className="w-3 h-3 rounded bg-muted-foreground/30" />
-            <div className="w-4 h-3 rounded bg-muted-foreground/30" />
-          </div>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1 rounded-lg border bg-background/70 px-2 py-1 shadow-sm backdrop-blur-xs"
+            >
+              <Skeleton className="h-3 w-3 rounded-full" />
+              <Skeleton className="h-3 w-6 rounded-md" />
+            </div>
+          ))}
         </div>
       </div>
-      
-      {/* Card content - reduced padding and spacing */}
+
       <div className="p-4 space-y-3">
-        {/* Title - reduced height */}
         <div className="space-y-1">
-          <div className="bg-muted h-4 rounded w-3/4" />
-          <div className="bg-muted h-4 rounded w-1/2" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
         </div>
-        
-        {/* Tags and payment badge - reduced height */}
+
         <div className="flex items-center justify-between gap-2 mt-2">
           <div className="flex gap-2">
-            <div className="bg-muted h-5 rounded-full w-14" />
-            <div className="bg-muted h-5 rounded-full w-16" />
-            <div className="bg-muted h-5 rounded-full w-14" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-5 w-14 rounded-full" />
+            ))}
           </div>
-          <div className="bg-muted h-5 rounded-md w-16" />
+          <Skeleton className="h-5 w-16 rounded-md" />
         </div>
-        
-        {/* Description - reduced line height and spacing */}
+
         <div className="space-y-1">
-          <div className="bg-muted h-2.5 rounded w-full" />
-          <div className="bg-muted h-2.5 rounded w-5/6" />
-          <div className="bg-muted h-2.5 rounded w-4/6" />
+          <Skeleton className="h-2.5 w-full" />
+          <Skeleton className="h-2.5 w-5/6" />
+          <Skeleton className="h-2.5 w-4/6" />
         </div>
-        
-        {/* Stats row - reduced size */}
+
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1">
-            <div className="bg-muted h-2.5 w-2.5 rounded" />
-            <div className="bg-muted h-2.5 w-14 rounded" />
-          </div>
+          <Skeleton className="h-2.5 w-20 rounded-md" />
+          <Skeleton className="h-2.5 w-16 rounded-md" />
         </div>
-        
-        {/* Time ago and instructor - reduced size */}
+
         <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1">
-            <div className="bg-muted h-2.5 w-2.5 rounded" />
-            <div className="bg-muted h-2.5 w-16 rounded" />
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="bg-muted h-2.5 w-2.5 rounded" />
-            <div className="bg-muted h-2.5 w-20 rounded" />
-          </div>
+          <Skeleton className="h-2.5 w-24 rounded-md" />
+          <Skeleton className="h-2.5 w-20 rounded-md" />
         </div>
-        
-        {/* Action button - reduced height */}
-        <div className="bg-muted h-7 rounded w-full" />
+
+        <Skeleton className="h-9 w-full rounded-md" />
       </div>
     </div>
   )
