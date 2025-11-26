@@ -310,7 +310,6 @@
     },
     "sidebar": {
       "aboutCourse": "About this course",
-      "relatedCourses": "Related Courses",
       "instructor": "Instructor",
       "category": "Category",
       "lessons": "Lessons",
@@ -319,8 +318,7 @@
       "created": "Created",
       "lastUpdated": "Last Updated",
       "requirements": "Requirements",
-      "requirementsText": "Submission required for completion",
-      "relatedContent": "More courses from the same category and instructor coming soon."
+      "requirementsText": "Submission required for completion"
     }
   },
   "resource": {

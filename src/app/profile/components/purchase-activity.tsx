@@ -19,7 +19,7 @@ export function PurchaseActivityTab() {
             <CardTitle>Your interactions</CardTitle>
           </div>
           <CardDescription>
-            View everything you’ve done on PlebDev: purchases, comments, and reactions.
+            View everything you’ve done on the platform: purchases, comments, and reactions.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
