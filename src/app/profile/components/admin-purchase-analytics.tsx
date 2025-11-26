@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import type { ComponentType } from "react"
-import { Activity, BarChart3, Heart, MessageSquare, Users, Wallet, Zap } from "lucide-react"
+import { Activity, BarChart3, MessageSquare, Users, Wallet, Zap } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"

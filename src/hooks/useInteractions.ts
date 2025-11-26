@@ -82,11 +82,6 @@ function summarizeZapReceipt(event: NostrEvent): ZapReceiptSummary {
     }
   }
 
-  // Final safety: if we somehow have sats but not msats, backfill msats so aggregate stats stay consistent.
-  if (amountMsats == null && typeof amountSats === 'number') {
-    amountMsats = amountSats * 1000;
-  }
-
   let senderPubkey: string | null = null;
   let note: string | null = null;
   if (descriptionTag?.[1]) {

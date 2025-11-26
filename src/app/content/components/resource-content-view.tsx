@@ -532,22 +532,34 @@ export function ResourceContentView({
   }, [event?.pubkey, fetchProfile, normalizeKind0])
 
   useEffect(() => {
+    const controller = new AbortController()
+
     const fetchResourceMeta = async () => {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       if (!uuidRegex.test(resourceId)) return
       try {
-        const res = await fetch(`/api/resources/${resourceId}`)
-        if (!res.ok) return
+        const res = await fetch(`/api/resources/${resourceId}`, { signal: controller.signal })
+        if (!res.ok || controller.signal.aborted) return
+
         const body = await res.json()
+        if (controller.signal.aborted) return
+
         const data = body?.data
-        if (typeof data?.price === 'number') {
+        if (!controller.signal.aborted && typeof data?.price === 'number') {
           setServerPrice(data.price)
         }
-        if (Array.isArray(data?.purchases) && typeof data?.price === 'number') {
+        if (
+          !controller.signal.aborted &&
+          Array.isArray(data?.purchases) &&
+          typeof data?.price === 'number'
+        ) {
           const paid = data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
           setServerPurchased(paid)
         }
       } catch (err) {
+        if ((err as any)?.name === 'AbortError' || controller.signal.aborted) {
+          return
+        }
         console.error('Failed to fetch resource meta', err)
       }
     }
@@ -555,6 +567,10 @@ export function ResourceContentView({
     // Only fetch when session status settled to include auth cookies
     if (sessionStatus !== 'loading') {
       fetchResourceMeta()
+    }
+
+    return () => {
+      controller.abort()
     }
   }, [resourceId, sessionStatus])
 

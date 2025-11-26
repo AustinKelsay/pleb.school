@@ -70,19 +70,21 @@ export function parseBolt11Invoice(bolt11: string): ParsedBolt11Invoice | null {
           }
         }
 
-        if (Array.isArray(raw.tags)) {
-          const paymentHashTag = raw.tags.find(
-            (tag: any) => tag?.name === "payment_hash" && typeof tag.value === "string",
+        if (Array.isArray(raw.sections)) {
+          const paymentHashSection = raw.sections.find(
+            (section: any) =>
+              section?.name === "payment_hash" && typeof section.value === "string",
           );
-          if (!result.paymentHash && paymentHashTag?.value) {
-            result.paymentHash = String(paymentHashTag.value).toLowerCase();
+          if (!result.paymentHash && paymentHashSection?.value) {
+            result.paymentHash = String(paymentHashSection.value).toLowerCase();
           }
 
-          const descriptionHashTag = raw.tags.find(
-            (tag: any) => tag?.name === "description_hash" && typeof tag.value === "string",
+          const descriptionHashSection = raw.sections.find(
+            (section: any) =>
+              section?.name === "description_hash" && typeof section.value === "string",
           );
-          if (!result.descriptionHash && descriptionHashTag?.value) {
-            result.descriptionHash = String(descriptionHashTag.value).toLowerCase();
+          if (!result.descriptionHash && descriptionHashSection?.value) {
+            result.descriptionHash = String(descriptionHashSection.value).toLowerCase();
           }
         }
 

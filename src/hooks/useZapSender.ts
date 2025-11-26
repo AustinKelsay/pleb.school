@@ -131,6 +131,7 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
   const metadataCacheRef = useRef<Record<string, LnurlPayResponse>>({});
   const profileCacheRef = useRef<Record<string, { lightningAddress?: string; lnurl?: string }>>({});
   const anonymousKeysRef = useRef<{ pubkey: string; privkey: string } | null>(null);
+  const keyGenerationPromiseRef = useRef<Promise<{ pubkey: string; privkey: string } | null> | null>(null);
 
   const normalizedRecipientPubkey = useMemo(() => {
     return normalizeHexPubkey(zapTarget?.pubkey || eventPubkey);
@@ -171,20 +172,38 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
       let signerPrivkey: string | null = null;
 
       const ensureAnonymousKeys = async () => {
-        if (!anonymousKeysRef.current) {
-          const keys = await generateKeypair();
-          if (keys?.publicKey && keys?.privateKey) {
-            const normalizedPubkey = normalizeHexPubkey(keys.publicKey);
-            const normalizedPrivkey = normalizeHexPrivkey(keys.privateKey);
-            if (normalizedPubkey && normalizedPrivkey) {
-              anonymousKeysRef.current = {
-                pubkey: normalizedPubkey,
-                privkey: normalizedPrivkey
-              };
-            }
-          }
+        // If keys already exist, return immediately
+        if (anonymousKeysRef.current) {
+          return anonymousKeysRef.current;
         }
-        return anonymousKeysRef.current;
+
+        // If key generation is in progress, await the existing promise
+        if (keyGenerationPromiseRef.current) {
+          return await keyGenerationPromiseRef.current;
+        }
+
+        // Start key generation and store the promise
+        keyGenerationPromiseRef.current = (async () => {
+          try {
+            const keys = await generateKeypair();
+            if (keys?.publicKey && keys?.privateKey) {
+              const normalizedPubkey = normalizeHexPubkey(keys.publicKey);
+              const normalizedPrivkey = normalizeHexPrivkey(keys.privateKey);
+              if (normalizedPubkey && normalizedPrivkey) {
+                anonymousKeysRef.current = {
+                  pubkey: normalizedPubkey,
+                  privkey: normalizedPrivkey
+                };
+              }
+            }
+            return anonymousKeysRef.current;
+          } finally {
+            // Clear the promise ref so future calls after completion use the ref directly
+            keyGenerationPromiseRef.current = null;
+          }
+        })();
+
+        return await keyGenerationPromiseRef.current;
       };
 
       const nostrExtension = typeof window !== 'undefined' ? (window as Window & { nostr?: any }).nostr : undefined;

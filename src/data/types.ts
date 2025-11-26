@@ -497,6 +497,7 @@ export interface ContentItem {
     id: string
     amountPaid?: number
     createdAt?: string
+    updatedAt?: string
   }>
 }
 

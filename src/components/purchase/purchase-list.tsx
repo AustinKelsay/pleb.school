@@ -626,8 +626,11 @@ function PurchaseCard({
                   Zap Receipts
                 </p>
                 <div className="space-y-1.5">
-                  {purchase.receipts.slice(0, 5).map((receipt) => (
-                    <ReceiptItem key={receipt.id} receipt={receipt} />
+                  {purchase.receipts.slice(0, 5).map((receipt, index) => (
+                    <ReceiptItem
+                      key={receipt.id === "unknown" ? `unknown-${index}` : receipt.id}
+                      receipt={receipt}
+                    />
                   ))}
                   {purchase.receipts.length > 5 && (
                     <p className="text-xs text-muted-foreground px-3">

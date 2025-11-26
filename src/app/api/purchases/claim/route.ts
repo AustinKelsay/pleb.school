@@ -20,7 +20,8 @@ import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { parseBolt11Invoice, type ParsedBolt11Invoice } from "@/lib/bolt11"
 import { normalizeHexPubkey, normalizeHexPrivkey } from "@/lib/nostr-keys"
 import { isAdmin } from "@/lib/admin-utils"
-import { DEFAULT_RELAYS, getRelays, sanitizeRelayHints } from "@/lib/nostr-relays"
+import { DEFAULT_RELAYS, getRelays } from "@/lib/nostr-relays"
+import { sanitizeRelayHints } from "@/lib/nostr-relays.server"
 
 const paymentTypeEnum = z.enum(["zap", "manual", "comped", "refund"])
 
@@ -240,9 +241,18 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
   const aTag = findTag(zapRequest, "a")
   if (expectedEventId) {
     const normalizedExpectedEvent = normalizeMaybeHex(expectedEventId)
+    const matchesATag = (() => {
+      if (!aTag || !normalizedExpectedEvent) return false
+      const entries = aTag.split(",").map((t) => t.trim()).filter(Boolean)
+      return entries.some((entry) => {
+        const segments = entry.split(":")
+        const eventIdSegment = segments[2]?.trim().toLowerCase()
+        return eventIdSegment === normalizedExpectedEvent
+      })
+    })()
     const matchesEvent =
       (eTag && normalizedExpectedEvent && eTag === normalizedExpectedEvent) ||
-      (aTag && normalizedExpectedEvent && aTag.includes(normalizedExpectedEvent))
+      matchesATag
     if (!matchesEvent) {
       throw new Error("Zap receipt is not for this content.")
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import QRCode from "react-qr-code"
 import { 
   Check,
@@ -148,12 +148,27 @@ export function PurchaseDialog({
           : `${claimed.amountPaid.toLocaleString()} sats recorded`,
       })
       onPurchaseComplete?.(claimed)
-      setTimeout(() => onOpenChange(false), 1200)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+      timeoutRef.current = setTimeout(() => onOpenChange(false), 1200)
     },
     onAutoClaimError: (error) => {
       toast({ title: "Claim failed", description: error, variant: "destructive" })
     }
   })
+
+  // Add this new useEffect for cleanup
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+    }
+  }, [])
+
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Form state (authoritative balance from server when available)
   const paidSatsServer = purchase?.amountPaid ?? 0
