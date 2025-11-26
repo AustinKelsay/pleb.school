@@ -6,25 +6,9 @@ import { prisma } from "@/lib/prisma"
 import { hasPermission } from "@/lib/admin-utils"
 import { parseBolt11Invoice } from "@/lib/bolt11"
 import type { Prisma } from "@prisma/client"
+import type { TraceStep, ReceiptSummary } from "@/types/purchases"
 
 type Scope = "mine" | "all"
-
-type TraceStep = {
-  label: string
-  detail?: string
-  at?: string | null
-  kind?: "info" | "success" | "warning" | "error"
-}
-
-type ReceiptSummary = {
-  id: string
-  amountSats: number | null
-  bolt11?: string | null
-  payerPubkey?: string | null
-  createdAt?: number | null
-  description?: string | null
-  raw?: any
-}
 
 function parseLimit(raw: string | null): number | undefined {
   if (!raw) return 200

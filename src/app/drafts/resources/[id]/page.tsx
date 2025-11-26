@@ -69,6 +69,21 @@ function formatNpubWithEllipsis(pubkey: string): string {
   }
 }
 
+function normalizeAdditionalLink(rawLink?: string): string | null {
+  const trimmed = (rawLink || '').trim()
+  if (!trimmed) return null
+
+  // Block clearly unsafe schemes
+  if (/^(javascript|data):/i.test(trimmed)) return null
+
+  const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+  const isHttp = /^https?:\/\//i.test(trimmed)
+
+  if (hasScheme && !isHttp) return null
+
+  return isHttp ? trimmed : `https://${trimmed}`
+}
+
 /**
  * Draft resource overview component
  */
@@ -385,22 +400,27 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                 <div className="space-y-2">
                   <h4 className="font-semibold">Additional Resources</h4>
                   <div className="space-y-2">
-                    {additionalLinks.map((link: string, index: number) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      asChild
-                    >
-                      <a href={link} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        {formatLinkLabel(link)}
-                      </a>
-                    </Button>
-                  ))}
+                    {additionalLinks.map((rawLink: string, index: number) => {
+                      const href = normalizeAdditionalLink(rawLink)
+                      if (!href) return null
+
+                      return (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start"
+                          asChild
+                        >
+                          <a href={href} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            {formatLinkLabel(rawLink)}
+                          </a>
+                        </Button>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
               )}
             </div>
 

@@ -63,7 +63,7 @@ function formatShortPubkey(pubkey?: string | null): string {
 }
 
 function formatRelativeTime(seconds?: number | null): string {
-  if (!seconds) return "—"
+  if (seconds == null) return "—"
   const diffMs = Math.max(0, Date.now() - seconds * 1000)
   const mins = Math.floor(diffMs / 60000)
   if (mins < 1) return "now"

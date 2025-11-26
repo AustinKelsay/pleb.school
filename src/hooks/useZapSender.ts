@@ -119,7 +119,10 @@ function buildATag(eventKind?: number, eventPubkey?: string, eventIdentifier?: s
   if (!eventPubkey || !eventIdentifier) {
     return undefined;
   }
-  return `${eventKind}:${eventPubkey}:${eventIdentifier}`;
+
+  const normalizedIdentifier = eventIdentifier.toLowerCase();
+
+  return `${eventKind}:${eventPubkey}:${normalizedIdentifier}`;
 }
 
 export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
