@@ -251,13 +251,19 @@ export async function GET(request: NextRequest) {
             COALESCE(SUM(CASE WHEN p."paymentType" = 'refund' THEN 1 ELSE 0 END), 0)::bigint AS "refundCount",
             COALESCE(SUM(
               CASE
-                WHEN p."paymentType" <> 'refund' AND p."amountPaid" >= COALESCE(c.price, r.price, 0) THEN 1
+                WHEN p."paymentType" <> 'refund' AND p."amountPaid" >= LEAST(
+                  COALESCE(NULLIF(p."priceAtPurchase", 0), COALESCE(c.price, r.price, 0)),
+                  COALESCE(c.price, r.price, 0)
+                ) THEN 1
                 ELSE 0
               END
             ), 0)::bigint AS "unlockedCount",
             COALESCE(SUM(
               CASE
-                WHEN p."paymentType" <> 'refund' AND p."amountPaid" < COALESCE(c.price, r.price, 0) THEN 1
+                WHEN p."paymentType" <> 'refund' AND p."amountPaid" < LEAST(
+                  COALESCE(NULLIF(p."priceAtPurchase", 0), COALESCE(c.price, r.price, 0)),
+                  COALESCE(c.price, r.price, 0)
+                ) THEN 1
                 ELSE 0
               END
             ), 0)::bigint AS "partialCount",
@@ -283,13 +289,19 @@ export async function GET(request: NextRequest) {
             COALESCE(SUM(CASE WHEN p."paymentType" = 'refund' THEN 1 ELSE 0 END), 0)::bigint AS "refundCount",
             COALESCE(SUM(
               CASE
-                WHEN p."paymentType" <> 'refund' AND p."amountPaid" >= COALESCE(c.price, r.price, 0) THEN 1
+                WHEN p."paymentType" <> 'refund' AND p."amountPaid" >= LEAST(
+                  COALESCE(NULLIF(p."priceAtPurchase", 0), COALESCE(c.price, r.price, 0)),
+                  COALESCE(c.price, r.price, 0)
+                ) THEN 1
                 ELSE 0
               END
             ), 0)::bigint AS "unlockedCount",
             COALESCE(SUM(
               CASE
-                WHEN p."paymentType" <> 'refund' AND p."amountPaid" < COALESCE(c.price, r.price, 0) THEN 1
+                WHEN p."paymentType" <> 'refund' AND p."amountPaid" < LEAST(
+                  COALESCE(NULLIF(p."priceAtPurchase", 0), COALESCE(c.price, r.price, 0)),
+                  COALESCE(c.price, r.price, 0)
+                ) THEN 1
                 ELSE 0
               END
             ), 0)::bigint AS "partialCount",
@@ -310,7 +322,11 @@ export async function GET(request: NextRequest) {
 
     const toMeta = (purchase: typeof purchases[number]) => {
       const contentType = purchase.courseId ? "course" : "resource"
-      const priceSats = purchase.course?.price ?? purchase.resource?.price ?? 0
+      const currentPrice = purchase.course?.price ?? purchase.resource?.price ?? 0
+      const snapshot = purchase.priceAtPurchase && purchase.priceAtPurchase > 0
+        ? purchase.priceAtPurchase
+        : currentPrice
+      const priceSats = Math.min(snapshot, currentPrice)
       const href = purchase.courseId
         ? `/courses/${purchase.courseId}`
         : purchase.resourceId

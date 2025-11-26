@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CourseAdapter } from '@/lib/db-adapter';
-import { prisma } from '@/lib/prisma';
+import { CourseAdapter, PurchaseAdapter } from '@/lib/db-adapter';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -37,15 +36,13 @@ export async function GET(
     const lessons = await LessonAdapter.findByCourseId(courseId);
 
     // Fetch purchases for the current user (if authenticated)
-    let purchases = [] as Array<{ id: string; amountPaid: number; createdAt: string }>
+    let purchases = [] as Array<{ id: string; amountPaid: number; priceAtPurchase?: number | null; createdAt: string }>
     if (session?.user?.id) {
-      const userPurchases = await prisma.purchase.findMany({
-        where: { userId: session.user.id, courseId },
-        select: { id: true, amountPaid: true, createdAt: true }
-      })
+      const userPurchases = await PurchaseAdapter.findByUserAndCourse(session.user.id, courseId)
       purchases = userPurchases.map((p) => ({
         id: p.id,
         amountPaid: p.amountPaid,
+        priceAtPurchase: p.priceAtPurchase,
         createdAt: p.createdAt.toISOString()
       }))
     }
@@ -63,7 +60,11 @@ export async function GET(
     );
 
     const price = course.price ?? 0
-    const hasPurchased = purchases.some((p) => p.amountPaid >= price)
+    const hasPurchased = purchases.some((p) => {
+      const snapshot = p.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : price
+      const required = Math.min(snapshot, price)
+      return p.amountPaid >= required
+    })
     const isOwner = session?.user?.id && course.userId && session.user.id === course.userId
     const requiresPurchase = price > 0 && !hasPurchased && !isOwner
 

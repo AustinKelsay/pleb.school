@@ -265,7 +265,11 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           setServerPrice(data.price)
         }
         if (Array.isArray(data?.purchases) && typeof data?.price === 'number' && !isCancelled) {
-          const paid = data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
+          const paid = data.purchases.some((p: any) => {
+            const snapshot = p?.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : data.price
+            const required = Math.min(snapshot ?? data.price, data.price)
+            return (p?.amountPaid ?? 0) >= (required ?? 0)
+          })
           setServerPurchased(paid)
         } else if (!isCancelled) {
           setServerPurchased(false)
@@ -528,7 +532,9 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   recentZaps={recentZaps}
                   viewerZapReceipts={viewerZapReceipts}
                   onPurchaseComplete={(purchase) => {
-                    if ((purchase?.amountPaid ?? 0) >= priceSats) {
+                    const snapshot = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0 ? purchase.priceAtPurchase : priceSats
+                    const required = Math.min(snapshot ?? priceSats, priceSats)
+                    if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
                       setServerPurchased(true)
                     }
                   }}

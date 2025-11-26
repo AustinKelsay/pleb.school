@@ -35,6 +35,7 @@ export interface Course {
   purchases?: Array<{
     id: string
     amountPaid?: number
+    priceAtPurchase?: number
     createdAt?: string
     updatedAt?: string
   }>
@@ -57,6 +58,7 @@ export interface Resource {
   purchases?: Array<{
     id: string
     amountPaid?: number
+    priceAtPurchase?: number
     createdAt?: string
     updatedAt?: string
   }>

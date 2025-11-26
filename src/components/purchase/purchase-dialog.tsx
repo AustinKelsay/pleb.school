@@ -140,7 +140,10 @@ export function PurchaseDialog({
     eventIdentifier,
     eventPubkey,
     onAutoClaimSuccess: (claimed) => {
-      const unlocked = (claimed.amountPaid ?? 0) >= priceSats
+      const required = claimed.priceAtPurchase && claimed.priceAtPurchase > 0
+        ? claimed.priceAtPurchase
+        : priceSats
+      const unlocked = (claimed.amountPaid ?? 0) >= (required ?? 0)
       toast({
         title: unlocked ? "Unlocked! 🎉" : "Payment recorded",
         description: unlocked
@@ -172,12 +175,18 @@ export function PurchaseDialog({
 
   // Form state (authoritative balance from server when available)
   const paidSatsServer = purchase?.amountPaid ?? 0
+  const requiredPrice = (() => {
+    const snapshot = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0
+      ? purchase.priceAtPurchase
+      : priceSats
+    return Math.min(snapshot, priceSats)
+  })()
   // If server already shows full payment, trust it. Otherwise allow viewer zap totals to cover the gap.
-  const paidBasis = (purchase && paidSatsServer >= priceSats)
+  const paidBasis = (purchase && paidSatsServer >= requiredPrice)
     ? paidSatsServer
     : Math.max(paidSatsServer, viewerZapTotalSats)
-  const remaining = Math.max(0, priceSats - paidBasis)
-  const defaultAmount = remaining > 0 ? remaining : priceSats
+  const remaining = Math.max(0, requiredPrice - paidBasis)
+  const defaultAmount = remaining > 0 ? remaining : requiredPrice
   const [amount, setAmount] = useState(defaultAmount.toString())
   const [note, setNote] = useState("")
 
@@ -225,7 +234,10 @@ export function PurchaseDialog({
           zapRequestJson: zapState.zapRequest
         })
         if (claimed) {
-          const unlocked = (claimed.amountPaid ?? 0) >= priceSats
+          const required = claimed.priceAtPurchase && claimed.priceAtPurchase > 0
+            ? claimed.priceAtPurchase
+            : priceSats
+          const unlocked = (claimed.amountPaid ?? 0) >= (required ?? 0)
           toast({
             title: unlocked ? "Unlocked!" : "Recorded",
             description: unlocked ? "Enjoy!" : `${claimed.amountPaid} sats saved`

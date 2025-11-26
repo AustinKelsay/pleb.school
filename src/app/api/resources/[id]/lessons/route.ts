@@ -76,12 +76,21 @@ export async function GET(
 
     // If it's a paid resource and user is not the owner, check purchases
     if (isPaidResource && !isOwner && session?.user?.id) {
-      const hasPurchased = await prisma.purchase.findFirst({
+      const purchases = await prisma.purchase.findMany({
         where: {
           userId: session.user.id,
           resourceId: id,
-          amountPaid: { gte: resource.price }
+        },
+        select: {
+          amountPaid: true,
+          priceAtPurchase: true
         }
+      })
+
+      const hasPurchased = purchases.some((p) => {
+        const snapshot = p.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : resource.price
+        const required = Math.min(snapshot, resource.price)
+        return p.amountPaid >= required
       })
 
       if (!hasPurchased) {
