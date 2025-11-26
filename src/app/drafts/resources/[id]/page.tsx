@@ -29,6 +29,7 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react'
+import { formatLinkLabel } from '@/lib/link-label'
 
 interface ResourceDraftPageProps {
   params: Promise<{
@@ -66,6 +67,21 @@ function formatNpubWithEllipsis(pubkey: string): string {
     // Fallback to hex format if encoding fails
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
+}
+
+function normalizeAdditionalLink(rawLink?: string): string | null {
+  const trimmed = (rawLink || '').trim()
+  if (!trimmed) return null
+
+  // Block clearly unsafe schemes
+  if (/^(javascript|data):/i.test(trimmed)) return null
+
+  const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+  const isHttp = /^https?:\/\//i.test(trimmed)
+
+  if (hasScheme && !isHttp) return null
+
+  return isHttp ? trimmed : `https://${trimmed}`
 }
 
 /**
@@ -270,7 +286,6 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
   const additionalLinks = draftData.additionalLinks || []
   const image = draftData.image || null
   const type = draftData.type || 'document'
-  const difficulty = 'intermediate' // Default since it's not in draft data
   const duration = type === 'video' ? '15 min' : undefined
   const author = draftData.user?.username || 
                  (draftData.user?.pubkey ? formatNpubWithEllipsis(draftData.user.pubkey) : 'Anonymous')
@@ -332,9 +347,6 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   <Badge variant="outline" className="capitalize">
                     {type}
                   </Badge>
-                  <Badge variant="outline" className="capitalize">
-                    {difficulty}
-                  </Badge>
                   <DraftBadge variant="outline" />
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">{title}</h1>
@@ -388,20 +400,25 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                 <div className="space-y-2">
                   <h4 className="font-semibold">Additional Resources</h4>
                   <div className="space-y-2">
-                    {additionalLinks.map((link: string, index: number) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                        asChild
-                      >
-                        <a href={link} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Resource {index + 1}
-                        </a>
-                      </Button>
-                    ))}
+                    {additionalLinks.map((rawLink: string, index: number) => {
+                      const href = normalizeAdditionalLink(rawLink)
+                      if (!href) return null
+
+                      return (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start"
+                          asChild
+                        >
+                          <a href={href} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            {formatLinkLabel(rawLink)}
+                          </a>
+                        </Button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -489,10 +506,6 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   <div>
                     <h4 className="font-semibold mb-2">Category</h4>
                     <p className="text-sm text-muted-foreground capitalize">{topics[0] || 'general'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Difficulty</h4>
-                    <p className="text-sm text-muted-foreground capitalize">{difficulty}</p>
                   </div>
                   {duration && (
                     <div>

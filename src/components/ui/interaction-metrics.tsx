@@ -25,7 +25,8 @@ function buildReactionTags(
     tags.push(['p', eventPubkey])
   }
   if (eventKind && eventKind >= 30000 && eventIdentifier && eventPubkey) {
-    tags.push(['a', `${eventKind}:${eventPubkey}:${eventIdentifier}`])
+    const normalizedIdentifier = eventIdentifier.toLowerCase()
+    tags.push(['a', `${eventKind}:${eventPubkey}:${normalizedIdentifier}`])
   }
   return tags
 }
@@ -111,6 +112,7 @@ export function InteractionMetrics({
   const [isReacting, setIsReacting] = useState(false)
   const [optimisticReaction, setOptimisticReaction] = useState(false)
   const [isZapDialogOpen, setIsZapDialogOpen] = useState(false)
+  const [preferAnonymousZap, setPreferAnonymousZap] = useState(false)
   const normalizedSessionPubkey = normalizeHexPubkey(session?.user?.pubkey)
   const normalizedSessionPrivkey = normalizeHexPrivkey(session?.user?.privkey)
   const canServerSign = Boolean(normalizedSessionPrivkey) && !isNip07User(session?.provider)
@@ -128,7 +130,8 @@ export function InteractionMetrics({
     eventKind,
     eventIdentifier,
     eventPubkey,
-    zapTarget
+    zapTarget,
+    preferAnonymousZap
   })
 
   useEffect(() => {
@@ -257,6 +260,10 @@ export function InteractionMetrics({
   const zapStats = zapInsights || DEFAULT_ZAP_INSIGHTS
   const zapTotalSatsDisplay = zapStats.totalSats > 0 ? zapStats.totalSats : 0
   const zapUnitLabel = zapTotalSatsDisplay === 1 ? 'sat' : 'sats'
+  const viewerHasZapped = Boolean(hasZappedWithLightning || viewerZapTotalSats > 0)
+  const zapGlowClass = viewerHasZapped
+    ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.6)]'
+    : 'text-muted-foreground group-hover:text-primary'
   const zapButtonSecondaryLabel = (() => {
     if (zapState.status === 'error') {
       return 'retry'
@@ -284,7 +291,7 @@ export function InteractionMetrics({
             type="button"
             className={`group flex items-center space-x-1.5 sm:space-x-2 transition-colors cursor-pointer bg-transparent border-0 p-0 ${compact ? '' : ''}`}
           >
-            <Zap className={`${iconSize} text-muted-foreground group-hover:text-primary transition-colors`} />
+            <Zap className={`${iconSize} transition-colors ${zapGlowClass}`} />
             <span className="inline-flex items-center justify-center font-medium text-foreground group-hover:text-primary transition-colors">
               {isLoadingZaps ? (
                 <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
@@ -316,6 +323,8 @@ export function InteractionMetrics({
           isZapInFlight={isZapInFlight}
           minZapSats={minZapSats}
           maxZapSats={maxZapSats}
+          preferAnonymousZap={preferAnonymousZap}
+          onTogglePrivacy={setPreferAnonymousZap}
         />
       </Dialog>
       

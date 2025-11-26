@@ -13,6 +13,7 @@ import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { ZapThreads } from '@/components/ui/zap-threads'
 import { InteractionMetrics } from '@/components/ui/interaction-metrics'
+import { formatLinkLabel } from '@/lib/link-label'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, useLessonQuery } from '@/hooks/useLessonsQuery'
 import { 
@@ -221,6 +222,7 @@ function LessonMetadata({
   const lessonEventKind = lessonNote?.kind
   const lessonEventPubkey = lessonNote?.pubkey
   const lessonEventIdentifier = parsedLessonEvent?.d
+  const lightningAddress = (lesson.resource as any)?.user?.lud16 || undefined
   const {
     interactions,
     isLoadingZaps,
@@ -291,6 +293,7 @@ function LessonMetadata({
         viewerZapTotalSats={viewerZapTotalSats}
         zapTarget={{
           pubkey: lessonEventPubkey || instructorPubkey,
+          lightningAddress,
           name: instructorName
         }}
         compact
@@ -371,7 +374,6 @@ function LessonContent({
   let resourceTitle = 'Unknown Lesson'
   let resourceDescription = 'No description available'
   let resourceType = 'document'
-  const resourceDifficulty = 'intermediate' // Default
   let resourceIsPremium = false
   let resourceAuthor = 'Unknown'
   let resourceAuthorPubkey = ''
@@ -380,13 +382,15 @@ function LessonContent({
   let resourceAdditionalLinks: string[] = []
   let resourceVideoUrl: string | undefined = lesson.resource.videoUrl || undefined
 
-  let courseTitle = 'Unknown Course'
-  let courseCategory = 'general'
-  let courseInstructorPubkey = ''
+let courseTitle = 'Unknown Course'
+let courseCategory = 'general'
+let courseInstructorPubkey = ''
 
   // Start with database data
   resourceIsPremium = (lesson.resource.price ?? 0) > 0
   resourceAuthorPubkey = lesson.resource.userId
+  const resourceUser = (lesson.resource as any)?.user
+  const resourceAuthorLightning = resourceUser?.lud16 || undefined
 
   // Parse resource Nostr data if available
   if (lesson.resource.note) {
@@ -505,9 +509,6 @@ function LessonContent({
             <div className="flex items-center space-x-2">
               <Badge variant="outline" className="capitalize">
                 {resourceType}
-              </Badge>
-              <Badge variant="outline" className="capitalize">
-                {resourceDifficulty}
               </Badge>
               {resourceIsPremium && (
                 <Badge variant="outline" className="border-amber-500 text-amber-600">
@@ -641,7 +642,7 @@ function LessonContent({
                 >
                   <a href={link} target="_blank" rel="noopener noreferrer">
                     <FileText className="h-4 w-4 mr-2" />
-                    Resource {index + 1}
+                    {formatLinkLabel(link)}
                   </a>
                 </Button>
               ))}

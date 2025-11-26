@@ -16,11 +16,12 @@ import { authOptions } from '@/lib/auth'
 import { EnhancedProfileDisplay } from './components/enhanced-profile-display'
 import { SimpleSettings } from './components/simple-settings'
 import { AdminContentManager } from './components/admin-content-manager'
+import { PurchaseActivityTab } from './components/purchase-activity'
+import { AdminAnalyticsTabs } from './components/admin-purchase-analytics'
 import { MainLayout } from '@/components/layout'
 import { Container } from '@/components/layout/container'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { User, Settings, FileText, BarChart3, Link2 } from 'lucide-react'
+import { User, Settings, FileText, BarChart3, Link2, Activity } from 'lucide-react'
 import { getAdminInfo } from '@/lib/admin-utils'
 import { LinkedAccountsManager } from '@/components/account/linked-accounts'
 import { ProfileTabs } from './components/profile-tabs'
@@ -41,7 +42,7 @@ export default async function ProfilePage() {
   const isAdmin = adminInfo.isAdmin
   const isModerator = adminInfo.isModerator
   const hasAdminOrModerator = isAdmin || isModerator
-  const allowedTabs = ['profile', 'settings', 'accounts']
+  const allowedTabs = ['profile', 'settings', 'accounts', 'activity']
 
   if (hasAdminOrModerator) {
     allowedTabs.push('content')
@@ -74,6 +75,10 @@ export default async function ProfilePage() {
                   <User className="h-4 w-4" />
                   Profile
                 </TabsTrigger>
+                <TabsTrigger value="activity" className={`${triggerResponsiveClasses} flex items-center justify-center gap-2 rounded-lg border border-transparent px-4 text-sm font-medium transition-all data-[state=active]:border-primary/40 data-[state=active]:bg-primary/10 data-[state=active]:text-primary sm:text-base sm:justify-start`}>
+                  <Activity className="h-4 w-4" />
+                  Activity
+                </TabsTrigger>
                 <TabsTrigger value="settings" className={`${triggerResponsiveClasses} flex items-center justify-center gap-2 rounded-lg border border-transparent px-4 text-sm font-medium transition-all data-[state=active]:border-primary/40 data-[state=active]:bg-primary/10 data-[state=active]:text-primary sm:text-base sm:justify-start`}>
                   <Settings className="h-4 w-4" />
                   Settings
@@ -103,6 +108,10 @@ export default async function ProfilePage() {
               <EnhancedProfileDisplay session={session} />
             </TabsContent>
 
+            <TabsContent value="activity" className="space-y-6">
+              <PurchaseActivityTab />
+            </TabsContent>
+
             <TabsContent value="settings" className="space-y-6">
               <SimpleSettings session={session} />
             </TabsContent>
@@ -119,42 +128,7 @@ export default async function ProfilePage() {
 
                 {adminInfo.permissions.viewAnalytics && (
                   <TabsContent value="analytics" className="space-y-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <BarChart3 className="h-5 w-5" />
-                          Analytics Dashboard
-                          {adminInfo.source === 'config' && (
-                            <span className="text-sm font-normal text-muted-foreground ml-2">
-                              (Config-based)
-                            </span>
-                          )}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <p className="text-muted-foreground">
-                          Analytics and insights about platform usage, course engagement, and user metrics will be displayed here.
-                        </p>
-                        
-                        <div className="grid gap-4">
-                          <div className="space-y-2">
-                            <h4 className="font-medium">Analytics Features:</h4>
-                            <ul className="text-sm text-muted-foreground space-y-1">
-                              <li>• Platform usage metrics</li>
-                              <li>• Course engagement statistics</li>
-                              <li>• User registration trends</li>
-                              <li>• Content performance insights</li>
-                              <li>• Revenue and payment analytics</li>
-                            </ul>
-                          </div>
-                          
-                          <div className="text-xs text-muted-foreground">
-                            Admin level: <strong>{adminInfo.level}</strong> | 
-                            Source: <strong>{adminInfo.source}</strong>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <AdminAnalyticsTabs />
                   </TabsContent>
                 )}
               </>

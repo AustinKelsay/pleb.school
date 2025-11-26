@@ -216,6 +216,16 @@ model Purchase {
     courseId   String?
     resourceId String?
     amountPaid Int
+    /// Payment rail / method: defaults to NIP-57 zap but leaves room for manual/comped/refund entries
+    paymentType String   @default("zap")
+    /// Optional NIP-57 zap receipt event id for audit/dedupe
+    zapReceiptId String? @unique
+    /// Optional bolt11 invoice string captured at purchase time
+    invoice     String?
+    /// Full zap receipt event payload captured at claim time (immutable audit copy)
+    zapReceiptJson Json?
+    /// Zap request event payload whose hash anchors the invoice description
+    zapRequestJson Json?
     createdAt  DateTime  @default(now())
     updatedAt  DateTime  @updatedAt
     user       User      @relation(fields: [userId], references: [id])

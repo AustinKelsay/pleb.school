@@ -266,6 +266,7 @@ If you encounter compatibility issues with specific implementations, please file
 - Zap receipts include verification of the invoice description hash for added security
 - The library verifies that the bolt11 invoice actually commits to the zap request
 - Clients should validate that zap receipts come from the expected LNURL server 
+- Relay URL checks in `snstr` are format/safety guards only (scheme, hostname characters, etc.); they do **not** restrict where the server will connect. In pleb.school we additionally drop zap relay hints that are not on our vetted relay list or that point to localhost/private IP ranges before dialing to avoid SSRF/DoS when validating receipts server-side.
 
 ## Troubleshooting
 

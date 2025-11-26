@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,17 +20,19 @@ import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { useInteractions } from '@/hooks/useInteractions'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import { resolveUniversalId } from '@/lib/universal-router'
+import { formatLinkLabel } from '@/lib/link-label'
 import { 
   Clock, 
   BookOpen, 
   Play,
   Tag,
   ExternalLink,
-  GraduationCap,
-  User
+  GraduationCap
 } from 'lucide-react'
 import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
+import { PurchaseActions } from '@/components/purchase/purchase-actions'
+import { useSession } from 'next-auth/react'
 
 interface CoursePageProps {
   params: {
@@ -141,7 +143,10 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
  */
 function CoursePageContent({ courseId }: { courseId: string }) {
   const { fetchProfile, normalizeKind0 } = useNostr()
+  const { status: sessionStatus } = useSession()
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
+  const [serverPrice, setServerPrice] = useState<number | null>(null)
+  const [serverPurchased, setServerPurchased] = useState<boolean>(false)
   const { course, errors, pricing } = useCopy()
   
   const resolved = React.useMemo(() => resolveUniversalId(courseId), [courseId])
@@ -158,6 +163,15 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     { enabled: !!resolvedCourseId }
   )
 
+  const noteATag = useMemo(() => {
+    const note = courseData?.note
+    if (!note || !note.kind || note.kind < 30000) return undefined
+    if (!note.pubkey) return undefined
+    const dTag = note.tags?.find((t: any) => Array.isArray(t) && t[0] === 'd')?.[1]
+    if (!dTag) return undefined
+    return `${note.kind}:${note.pubkey}:${dTag}`
+  }, [courseData?.note])
+
   // Get real interaction data if course has a Nostr event - call hook unconditionally at top level
   const noteId = courseData?.note?.id
   const {
@@ -169,15 +183,43 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     zapInsights,
     recentZaps,
     hasZappedWithLightning,
-    viewerZapTotalSats
+    viewerZapTotalSats,
+    viewerZapReceipts
   } = useInteractions({
     eventId: noteId,
+    eventATag: noteATag,
     realtime: false,
     staleTime: 5 * 60 * 1000,
     enabled: Boolean(noteId)
   })
 
   const loading = courseLoading || lessonsLoading
+
+  useEffect(() => {
+    const fetchCourseMeta = async () => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(courseId)) return
+      try {
+        const res = await fetch(`/api/courses/${courseId}`)
+        if (!res.ok) return
+        const body = await res.json()
+        const data = body?.course
+        if (typeof data?.price === 'number') {
+          setServerPrice(data.price)
+        }
+        if (Array.isArray(data?.purchases) && typeof data?.price === 'number') {
+          const paid = data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
+          setServerPurchased(paid)
+        }
+      } catch (err) {
+        console.error('Failed to fetch course meta', err)
+      }
+    }
+
+    if (sessionStatus !== 'loading') {
+      fetchCourseMeta()
+    }
+  }, [courseId, sessionStatus])
 
   // useEffect must be called unconditionally before any early returns
   useEffect(() => {
@@ -285,7 +327,10 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   let parsedCourseNote: ReturnType<typeof parseCourseEvent> | null = null
 
   // Start with database data (minimal Course type)
-  isPremium = (courseData.price ?? 0) > 0
+  const hasDbPrice = typeof courseData.price === 'number' && !Number.isNaN(courseData.price)
+  isPremium = hasDbPrice ? (courseData.price ?? 0) > 0 : false
+  const dbPrice = hasDbPrice ? courseData.price ?? 0 : null
+  let nostrPrice = 0
 
   // If we have a Nostr note, use parsed data to enhance the information
   if (courseData.note) {
@@ -300,10 +345,20 @@ function CoursePageContent({ courseId }: { courseId: string }) {
       image = parsedNote.image || image
       isPremium = parsedNote.isPremium || isPremium
       currency = parsedNote.currency || currency
+      if (parsedNote.price) {
+        const parsedPrice = Number(parsedNote.price)
+        if (Number.isFinite(parsedPrice)) {
+          nostrPrice = parsedPrice
+        }
+      }
     } catch (error) {
       console.error('Error parsing course note:', error)
     }
   }
+
+  const priceSats =
+    serverPrice ?? dbPrice ?? nostrPrice ?? 0
+  isPremium = priceSats > 0
 
   const instructor = instructorProfile?.name || 
                      instructorProfile?.display_name || 
@@ -316,6 +371,9 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const commentsCount = interactions.comments
   const likesCount = interactions.likes
   const notePubkey = courseData?.note?.pubkey
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const courseIdIsUuid = uuidRegex.test(courseId)
+  const hasAccess = !isPremium || serverPurchased
 
   const formatDuration = (minutes: number): string => {
     if (minutes < 60) return `${minutes} min`
@@ -392,30 +450,52 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                 </div>
 
                 {estimatedDuration > 0 && (
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <span>{formatDuration(estimatedDuration)}</span>
-                  </div>
-                )}
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <span>{formatDuration(estimatedDuration)}</span>
               </div>
+            )}
+          </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                {!isPremium ? (
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                    <Link href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}>
-                      <GraduationCap className="h-5 w-5 mr-2" />
-                      Start Learning
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                    <Link href="/auth/signin">
-                      <User className="h-5 w-5 mr-2" />
-                      Login to Access
-                    </Link>
-                  </Button>
-                )}
-              </div>
+          {isPremium && priceSats > 0 && (
+          <PurchaseActions
+            title={title}
+            priceSats={priceSats}
+            courseId={courseIdIsUuid ? courseId : undefined}
+            eventId={noteId}
+            eventKind={courseData?.note?.kind}
+            eventIdentifier={parsedCourseNote?.d}
+            eventPubkey={notePubkey}
+            zapTarget={{
+              pubkey: notePubkey,
+              lightningAddress: instructorProfile?.lud16 || undefined,
+              name: instructor
+            }}
+            viewerZapTotalSats={viewerZapTotalSats}
+            alreadyPurchased={serverPurchased}
+            zapInsights={zapInsights}
+            recentZaps={recentZaps}
+            viewerZapReceipts={viewerZapReceipts}
+            onPurchaseComplete={() => {
+              setServerPurchased(true)
+            }}
+          />
+          )}
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            {hasAccess ? (
+              <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
+                <Link href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}>
+                  <GraduationCap className="h-5 w-5 mr-2" />
+                  Start Learning
+                </Link>
+              </Button>
+            ) : (
+              <Button size="lg" variant="outline" className="w-full sm:w-auto" disabled>
+                Purchase required to access lessons
+              </Button>
+            )}
+          </div>
 
               {/* Topics/Tags */}
               {topics && topics.length > 0 && (
@@ -449,7 +529,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                       >
                         <a href={link} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4 mr-2" />
-                          Resource {index + 1}
+                          {formatLinkLabel(link)}
                         </a>
                       </Button>
                     ))}

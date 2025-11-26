@@ -14,13 +14,16 @@ import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
 import { encodePublicKey, type AddressData, type EventData } from 'snstr'
 import { ZapThreads } from '@/components/ui/zap-threads'
 import { InteractionMetrics } from '@/components/ui/interaction-metrics'
-import { useCommentThreads } from '@/hooks/useCommentThreads'
+import { useCommentThreads, type CommentThreadsQueryResult } from '@/hooks/useCommentThreads'
 import { extractVideoBodyMarkdown } from '@/lib/content-utils'
 import { getRelays } from '@/lib/nostr-relays'
 import { ViewsText } from '@/components/ui/views-text'
 import { resolveUniversalId } from '@/lib/universal-router'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import type { NostrEvent } from 'snstr'
+import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
+import { useSession } from 'next-auth/react'
+import { formatLinkLabel } from '@/lib/link-label'
 import {
   ArrowLeft,
   BookOpen,
@@ -159,9 +162,21 @@ interface ContentMetadataProps {
   event: NostrEvent
   parsedEvent: ReturnType<typeof parseEvent>
   resourceKey: string
+  serverPrice: number | null
+  serverPurchased: boolean
+  interactionData: CommentThreadsQueryResult
+  onUnlock?: () => void
 }
 
-function ContentMetadata({ event, parsedEvent, resourceKey }: ContentMetadataProps) {
+function ContentMetadata({
+  event,
+  parsedEvent,
+  resourceKey,
+  serverPrice,
+  serverPurchased,
+  interactionData,
+  onUnlock
+}: ContentMetadataProps) {
   const { fetchProfile, normalizeKind0 } = useNostr()
   const [authorProfile, setAuthorProfile] = useState<NormalizedProfile | null>(null)
 
@@ -218,14 +233,38 @@ function ContentMetadata({ event, parsedEvent, resourceKey }: ContentMetadataPro
     zapInsights,
     recentZaps,
     hasZappedWithLightning,
-    viewerZapTotalSats
-  } = useCommentThreads(event.id)
+    viewerZapTotalSats,
+    viewerZapReceipts
+  } = interactionData
 
   const zapsCount = interactions.zaps
   const commentsCount = commentMetrics.totalComments
   const reactionsCount = interactions.likes
+  const parsedPriceRaw = parsedEvent.price
+  const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
+  const priceSats =
+    serverPrice !== null && serverPrice !== undefined
+      ? serverPrice
+      : parsedPrice ?? 0
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const resourceIdIsUuid = uuidRegex.test(resourceKey)
+
+  const isPremiumFromParsed = parsedEvent.isPremium === true
+  const isPremiumFromTags = event.tags?.some(
+    (tag) => Array.isArray(tag) && tag.length >= 2 && tag[0] === 'isPremium' && tag[1] === 'true'
+  )
+  const derivedPremiumFlag =
+    isPremiumFromParsed ||
+    isPremiumFromTags ||
+    event.kind === 30402 ||
+    Boolean(parsedEvent.price && parseFloat(parsedEvent.price) > 0)
+  const isPremium = Boolean(derivedPremiumFlag)
 
   const videoDurationLabel = resolveVideoDurationLabel(event, parsedEvent)
+  const lockable = isPremium && resourceIdIsUuid && priceSats > 0
+  const hasAccess = !lockable || serverPurchased
+  const canPurchase = lockable
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
 
   return (
     <div className="space-y-4">
@@ -287,6 +326,55 @@ function ContentMetadata({ event, parsedEvent, resourceKey }: ContentMetadataPro
           name: parsedEvent.author || undefined
         }}
       />
+
+      {/* Primary CTA as a single button: Purchase if locked, Watch if unlocked */}
+      <div className="mt-4">
+        {hasAccess ? (
+          <Button className="w-full sm:w-auto" size="lg" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            Watch Now
+          </Button>
+        ) : canPurchase ? (
+          <>
+            <Button
+              className="w-full sm:w-auto"
+              size="lg"
+              onClick={() => setShowPurchaseDialog(true)}
+            >
+              Purchase for {priceSats.toLocaleString()} sats
+            </Button>
+            <PurchaseDialog
+              isOpen={showPurchaseDialog}
+              onOpenChange={setShowPurchaseDialog}
+              title={parsedEvent.title || "Content"}
+              priceSats={priceSats}
+              resourceId={resourceKey}
+              eventId={event.id}
+              eventKind={event.kind}
+              eventIdentifier={parsedEvent.d}
+              eventPubkey={event.pubkey}
+              zapTarget={{
+                pubkey: event.pubkey,
+                lightningAddress: authorProfile?.lud16 || undefined,
+                name: parsedEvent.author || undefined
+              }}
+              viewerZapTotalSats={viewerZapTotalSats}
+              alreadyPurchased={serverPurchased}
+              zapInsights={zapInsights}
+              recentZaps={recentZaps}
+              viewerZapReceipts={viewerZapReceipts}
+              onPurchaseComplete={(purchase) => {
+                if ((purchase?.amountPaid ?? 0) >= priceSats) {
+                  onUnlock?.()
+                }
+              }}
+            />
+          </>
+        ) : (
+          <Badge variant="outline" className="px-3 py-1 text-amber-600 border-amber-400 bg-amber-50">
+            Purchase not available for this identifier
+          </Badge>
+        )}
+      </div>
     </div>
   )
 }
@@ -310,11 +398,19 @@ export function ResourceContentView({
   backHref = `/content/${resourceId}`,
   onMissingResource
 }: ResourceContentViewProps) {
-  const { fetchSingleEvent } = useNostr()
+  const { fetchSingleEvent, fetchProfile, normalizeKind0 } = useNostr()
+  const { status: sessionStatus } = useSession()
   const [event, setEvent] = useState<NostrEvent | null>(initialEvent ?? null)
   const [loading, setLoading] = useState(!initialEvent)
   const [error, setError] = useState<string | null>(null)
+  const [serverPrice, setServerPrice] = useState<number | null>(null)
+  const [serverPurchased, setServerPurchased] = useState<boolean>(false)
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
+  const [authorProfile, setAuthorProfile] = useState<NormalizedProfile | null>(null)
   const resolvedIdentifier = useMemo(() => resolveUniversalId(resourceId), [resourceId])
+  const interactionData = useCommentThreads(event?.id, { enabled: Boolean(event?.id) })
+  const { zapInsights, recentZaps, viewerZapTotalSats, viewerZapReceipts } = interactionData
+  const handleUnlock = () => setServerPurchased(true)
 
   useEffect(() => {
     let cancelled = false
@@ -404,6 +500,80 @@ export function ResourceContentView({
     }
   }, [resourceId, fetchSingleEvent, initialEvent, resolvedIdentifier])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchAuthorProfile = async () => {
+      if (!event?.pubkey) {
+        return
+      }
+
+      try {
+        const profileEvent = await fetchProfile(event.pubkey)
+        if (cancelled) {
+          return
+        }
+        const normalizedProfile = normalizeKind0(profileEvent)
+        setAuthorProfile(normalizedProfile)
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error fetching author profile:', error)
+        }
+      }
+    }
+
+    if (event?.pubkey) {
+      fetchAuthorProfile()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [event?.pubkey, fetchProfile, normalizeKind0])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    const fetchResourceMeta = async () => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(resourceId)) return
+      try {
+        const res = await fetch(`/api/resources/${resourceId}`, { signal: controller.signal })
+        if (!res.ok || controller.signal.aborted) return
+
+        const body = await res.json()
+        if (controller.signal.aborted) return
+
+        const data = body?.data
+        if (!controller.signal.aborted && typeof data?.price === 'number') {
+          setServerPrice(data.price)
+        }
+        if (
+          !controller.signal.aborted &&
+          Array.isArray(data?.purchases) &&
+          typeof data?.price === 'number'
+        ) {
+          const paid = data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
+          setServerPurchased(paid)
+        }
+      } catch (err) {
+        if ((err as any)?.name === 'AbortError' || controller.signal.aborted) {
+          return
+        }
+        console.error('Failed to fetch resource meta', err)
+      }
+    }
+
+    // Only fetch when session status settled to include auth cookies
+    if (sessionStatus !== 'loading') {
+      fetchResourceMeta()
+    }
+
+    return () => {
+      controller.abort()
+    }
+  }, [resourceId, sessionStatus])
+
   const isMissingResource = error === 'Resource not found'
   const shouldSignalMissingResource =
     !!onMissingResource && !loading && (isMissingResource || (!event && !error))
@@ -448,8 +618,6 @@ export function ResourceContentView({
   const category = parsedEvent.topics?.[0] || 'general'
   const type = parsedEvent.type || 'document'
   const additionalLinks = parsedEvent.additionalLinks || []
-  const difficultyTag = event.tags?.find?.((tag) => Array.isArray(tag) && tag[0] === 'difficulty')?.[1]
-  const difficulty = difficultyTag || ''
   // Check parsedEvent.isPremium (boolean) and also check raw event tags for string 'true'
   const isPremiumFromParsed = parsedEvent.isPremium === true
   const isPremiumFromTags = event.tags?.some(
@@ -461,6 +629,16 @@ export function ResourceContentView({
     event.kind === 30402 ||
     Boolean(parsedEvent.price && parseFloat(parsedEvent.price) > 0)
   const isPremium = Boolean(derivedPremiumFlag)
+  const parsedPriceRaw = parsedEvent.price
+  const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
+  const priceSats =
+    serverPrice !== null && serverPrice !== undefined
+      ? serverPrice
+      : parsedPrice ?? 0
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const resourceIdIsUuid = uuidRegex.test(resourceId)
+  const lockable = isPremium && resourceIdIsUuid && priceSats > 0
+  const canPurchase = lockable
   const videoDurationLabel = resolveVideoDurationLabel(event, parsedEvent)
   const videoUrl = resolveVideoPlaybackUrl(parsedEvent.videoUrl, event.content, type)
   const videoBodyMarkdown = type === 'video' ? extractVideoBodyMarkdown(event.content) : ''
@@ -469,6 +647,7 @@ export function ResourceContentView({
   const formattedSummary = preserveLineBreaks(rawSummary)
   const heroImageClassName = 'opacity-55 scale-100'
   const heroGradientClassName = 'from-background/80 via-background/65 to-background'
+  const locked = lockable && !serverPurchased
 
   return (
     <div className="space-y-6">
@@ -496,11 +675,6 @@ export function ResourceContentView({
               <Badge variant="outline" className="capitalize">
                 {type}
               </Badge>
-              {difficulty && (
-                <Badge variant="outline" className="capitalize">
-                  {difficulty}
-                </Badge>
-              )}
               {isPremium && (
                 <Badge variant="outline" className="border-amber-500 text-amber-600">
                   Premium
@@ -532,12 +706,66 @@ export function ResourceContentView({
             )}
           </div>
 
-          <ContentMetadata event={event} parsedEvent={parsedEvent} resourceKey={resourceId} />
+          <ContentMetadata 
+            event={event} 
+            parsedEvent={parsedEvent} 
+            resourceKey={resourceId}
+            serverPrice={serverPrice}
+            serverPurchased={serverPurchased}
+            interactionData={interactionData}
+            onUnlock={handleUnlock}
+          />
         </div>
       </div>
 
       <div className="space-y-6">
-        {type === 'video' ? (
+        {locked ? (
+          <>
+            <Card>
+              <CardContent className="pt-6 space-y-3">
+                <p className="text-muted-foreground">
+                  This is premium content. Purchase to unlock the full video/text.
+                </p>
+                {canPurchase ? (
+                  <Button size="lg" onClick={() => setShowPurchaseDialog(true)} className="w-full sm:w-auto">
+                    Purchase for {priceSats.toLocaleString()} sats
+                  </Button>
+                ) : (
+                  <Badge variant="outline" className="px-3 py-1 text-amber-600 border-amber-400 bg-amber-50">
+                    Purchase not available for this identifier
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+            {/* Render a dialog scoped to this CTA so clicking the button opens it */}
+            <PurchaseDialog
+              isOpen={showPurchaseDialog}
+              onOpenChange={setShowPurchaseDialog}
+              title={parsedEvent.title || "Content"}
+              priceSats={priceSats}
+              resourceId={resourceId}
+              eventId={event.id}
+              eventKind={event.kind}
+              eventIdentifier={parsedEvent.d}
+              eventPubkey={event.pubkey}
+              zapTarget={{
+                pubkey: event.pubkey,
+                lightningAddress: authorProfile?.lud16 || undefined,
+                name: parsedEvent.author || undefined
+              }}
+              viewerZapTotalSats={viewerZapTotalSats}
+              viewerZapReceipts={viewerZapReceipts}
+              alreadyPurchased={serverPurchased}
+              zapInsights={zapInsights}
+              recentZaps={recentZaps}
+              onPurchaseComplete={(purchase) => {
+                if ((purchase?.amountPaid ?? 0) >= priceSats) {
+                  handleUnlock()
+                }
+              }}
+            />
+          </>
+        ) : type === 'video' ? (
           <Card>
             <CardContent className="pt-6 space-y-6">
               <VideoPlayer
@@ -578,7 +806,7 @@ export function ResourceContentView({
                 <Button key={index} variant="outline" className="justify-start" asChild>
                   <a href={link} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />
-                    Resource {index + 1}
+                    {formatLinkLabel(link)}
                   </a>
                 </Button>
               ))}

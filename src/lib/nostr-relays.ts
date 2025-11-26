@@ -1,4 +1,4 @@
-import nostrConfig from '../../config/nostr.json'
+import nostrConfig from "../../config/nostr.json"
 
 export type RelaySet = 'default' | 'content' | 'profile' | 'zapThreads'
 
@@ -6,8 +6,21 @@ type NostrRelayConfig = {
   relays: Record<string, string[]>
 }
 
-function unique(list: string[]): string[] {
+export function unique(list: string[]): string[] {
   return Array.from(new Set(list))
+}
+
+const relayConfig = (nostrConfig as unknown as NostrRelayConfig).relays || {}
+const ALLOWED_RELAY_SETS: RelaySet[] = ['default', 'content', 'profile', 'zapThreads']
+const CUSTOM_RELAYS = relayConfig.custom ?? []
+
+export const RELAY_ALLOWLIST = unique(
+  ALLOWED_RELAY_SETS.flatMap((set) => relayConfig[set] ?? []).concat(CUSTOM_RELAYS)
+).map((url) => url.trim()).filter(Boolean)
+
+export function normalizeRelayUrl(url: URL): string {
+  const base = `${url.protocol}//${url.host}`
+  return url.pathname && url.pathname !== "/" ? `${base}${url.pathname}` : base
 }
 
 /**
@@ -23,4 +36,3 @@ export function getRelays(set: RelaySet = 'default'): string[] {
 }
 
 export const DEFAULT_RELAYS = getRelays('default')
-

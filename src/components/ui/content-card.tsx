@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { OptimizedImage } from "@/components/ui/optimized-image"
-import { 
-  BookOpen, 
+import {
+  BookOpen,
   Clock,
   User,
   Users,
@@ -15,7 +15,8 @@ import {
   Unlock,
   MessageCircle,
   Heart,
-  Eye
+  Eye,
+  ShieldCheck
 } from "lucide-react"
 import type { ContentItem } from "@/data/types"
 import { contentTypeIcons } from "@/data/config"
@@ -24,6 +25,7 @@ import React, { useState, useEffect } from "react"
 import { useNostr, type NormalizedProfile } from "@/hooks/useNostr"
 import { useInteractions } from "@/hooks/useInteractions"
 import { encodePublicKey, decodeAddress } from "snstr"
+import { useSession } from "next-auth/react"
 
 interface HomepageItem {
   title: string
@@ -80,6 +82,9 @@ export function ContentCard({
   const isContent = isContentItem(item)
   const router = useRouter()
   const { fetchProfile, normalizeKind0 } = useNostr()
+  const { status: sessionStatus } = useSession()
+  const isAuthenticated = sessionStatus === 'authenticated'
+  const isSessionLoading = sessionStatus === 'loading'
   
   // State to store the instructor's profile data
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
@@ -122,16 +127,18 @@ export function ContentCard({
     fetchInstructorProfile()
   }, [isContent, fetchProfile, normalizeKind0, item])
 
-  const handleCardClick = () => {
+  const navigateToContent = () => {
     if (!isContent) return
-    
-    // Navigate to appropriate detail page based on actual content type
+
     if (item.type === 'course') {
       router.push(`/courses/${item.id}`)
     } else {
-      // For resources (documents, videos, guides, etc.), navigate to content detail page
       router.push(`/content/${item.id}`)
     }
+  }
+
+  const handleCardClick = () => {
+    navigateToContent()
   }
   
   // Homepage variant uses gradients
@@ -154,7 +161,13 @@ export function ContentCard({
   const zapsCount = interactions.zaps
   const commentsCount = interactions.comments 
   const reactionsCount = interactions.likes
-  const zapTotalSats = zapInsights?.totalSats ?? 0;
+  const zapTotalSats = zapInsights?.totalSats ?? 0
+  const isPremium = isContent && (item as ContentItem).price > 0
+  const price = isContent ? (item as ContentItem).price : 0
+  const purchasedCount = isContent && Array.isArray((item as any).purchases)
+    ? (item as any).purchases.filter((p: any) => (p?.amountPaid ?? 0) >= price).length
+    : 0
+  const isPurchased = purchasedCount > 0
 
   return (
     <Card 
@@ -296,8 +309,13 @@ export function ContentCard({
           
           {/* Payment Badge */}
           {isContent && (
-            <div className="flex-shrink-0 ml-2">
-              {item.isPremium ? (
+            <div className="flex-shrink-0 ml-2 flex items-center gap-2">
+              {isPurchased ? (
+                <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success/10 border border-success/50">
+                  <ShieldCheck className="h-3 w-3 text-success" />
+                  <span className="text-xs font-medium text-success">Purchased</span>
+                </div>
+              ) : isPremium ? (
                 <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
                   <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                   <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
@@ -365,33 +383,41 @@ export function ContentCard({
 
         {/* Action Button */}
         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-          {isContent && !item.isPremium ? (
-            <Button 
-              className="w-full" 
+          {isContent && (!isPremium || isPurchased) ? (
+            <Button
+              className="w-full"
               size="sm"
               variant="outline"
-              onClick={() => {
-                if (item.type === 'course') {
-                  router.push(`/courses/${item.id}`)
-                } else {
-                  router.push(`/content/${item.id}`)
-                }
-              }}
+              onClick={navigateToContent}
             >
               <Eye className="h-4 w-4 mr-2" />
               {item.type === 'course' ? 'Start Learning' : 'View Content'}
             </Button>
           ) : (
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               size="sm"
               variant="outline"
+              disabled={isSessionLoading}
               onClick={() => {
-                router.push('/auth/signin')
+                if (!isContent) return
+
+                if (!isAuthenticated) {
+                  router.push('/auth/signin')
+                  return
+                }
+
+                navigateToContent()
               }}
             >
               <User className="h-4 w-4 mr-2" />
-              Login
+              {isSessionLoading
+                ? 'Loading...'
+                : isAuthenticated
+                  ? item.type === 'course'
+                    ? 'View Course'
+                    : 'View & Unlock'
+                  : 'Login'}
             </Button>
           )}
         </div>

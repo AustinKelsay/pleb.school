@@ -10,6 +10,30 @@ import { parseCourseEvent, parseEvent } from '@/data/types'
 import { NostrFetchService } from '@/lib/nostr-fetch-service'
 import type { Prisma } from '@prisma/client'
 
+const courseUserSelect = {
+  id: true,
+  username: true,
+  pubkey: true,
+  avatar: true,
+  nip05: true,
+  lud16: true,
+} satisfies Prisma.UserSelect
+
+type CourseUser = Prisma.UserGetPayload<{ select: typeof courseUserSelect }>
+type PrismaCourseUser = Prisma.UserGetPayload<{ select: typeof courseUserSelect }>
+
+function transformUser(user?: PrismaCourseUser | null): Course['user'] {
+  if (!user) return undefined
+  return {
+    id: user.id,
+    username: user.username ?? undefined,
+    pubkey: user.pubkey ?? undefined,
+    avatar: user.avatar ?? undefined,
+    nip05: user.nip05 ?? undefined,
+    lud16: user.lud16 ?? undefined,
+  }
+}
+
 // Helper functions to transform Prisma data to match TypeScript interfaces
 function transformResource(resource: any): Resource {
   return {
@@ -18,7 +42,12 @@ function transformResource(resource: any): Resource {
     videoId: resource.videoId ?? undefined,
     videoUrl: resource.videoUrl ?? undefined,
     createdAt: resource.createdAt.toISOString(),
-    updatedAt: resource.updatedAt.toISOString()
+    updatedAt: resource.updatedAt.toISOString(),
+    purchases: Array.isArray(resource.purchases) ? resource.purchases.map((p: any) => ({
+      ...p,
+      createdAt: p.createdAt?.toISOString?.() ?? p.createdAt,
+      updatedAt: p.updatedAt?.toISOString?.() ?? p.updatedAt,
+    })) : undefined
   }
 }
 
@@ -27,7 +56,13 @@ function transformCourse(course: any): Course {
     ...course,
     noteId: course.noteId ?? undefined,
     createdAt: course.createdAt.toISOString(),
-    updatedAt: course.updatedAt.toISOString()
+    updatedAt: course.updatedAt.toISOString(),
+    purchases: Array.isArray(course.purchases) ? course.purchases.map((p: any) => ({
+      ...p,
+      createdAt: p.createdAt?.toISOString?.() ?? p.createdAt,
+      updatedAt: p.updatedAt?.toISOString?.() ?? p.updatedAt,
+    })) : undefined,
+    user: transformUser(course.user),
   }
 }
 
@@ -46,6 +81,7 @@ function transformLesson(lesson: any): Lesson {
 export interface PaginationOptions {
   page?: number
   pageSize?: number
+  userId?: string
 }
 
 // Extended types with Nostr note data
@@ -84,7 +120,10 @@ async function fetchNostrEvent(noteId: string | null): Promise<NostrEvent | unde
 export class CourseAdapter {
   static async findAll(): Promise<Course[]> {
     const courses = await prisma.course.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: courseUserSelect }
+      }
     })
     return courses.map(transformCourse)
   }
@@ -108,7 +147,10 @@ export class CourseAdapter {
       prisma.course.findMany({
         skip,
         take: pageSize,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: courseUserSelect }
+        }
       }),
       prisma.course.count()
     ])
@@ -116,12 +158,7 @@ export class CourseAdapter {
     const totalPages = Math.ceil(totalItems / pageSize)
 
     return {
-      data: courses.map(course => ({
-        ...course,
-        noteId: course.noteId || undefined,
-        createdAt: course.createdAt.toISOString(),
-        updatedAt: course.updatedAt.toISOString()
-      })),
+      data: courses.map(transformCourse),
       pagination: {
         page,
         pageSize,
@@ -133,22 +170,29 @@ export class CourseAdapter {
     }
   }
 
-  static async findById(id: string): Promise<Course | null> {
+  static async findById(id: string, userId?: string): Promise<Course | null> {
+    const include: Prisma.CourseInclude = {
+      user: { select: courseUserSelect }
+    }
+
+    if (userId) {
+      include.purchases = { where: { userId } }
+    }
+
     const course = await prisma.course.findUnique({
-      where: { id }
+      where: { id },
+      include
     })
     if (!course) return null
-    return {
-      ...course,
-      noteId: course.noteId || undefined,
-      createdAt: course.createdAt.toISOString(),
-      updatedAt: course.updatedAt.toISOString()
-    }
+    return transformCourse(course)
   }
 
   static async findByIdWithNote(id: string): Promise<CourseWithNote | null> {
     const course = await prisma.course.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        user: { select: courseUserSelect }
+      }
     })
     
     if (!course) return null
@@ -157,15 +201,12 @@ export class CourseAdapter {
     const note = await fetchNostrEvent(course.noteId)
     
     return {
-      ...course,
-      noteId: course.noteId || undefined,
-      createdAt: course.createdAt.toISOString(),
-      updatedAt: course.updatedAt.toISOString(),
+      ...transformCourse(course),
       note
     }
   }
 
-  static async create(courseData: Omit<Course, 'id' | 'createdAt' | 'updatedAt'>): Promise<Course> {
+  static async create(courseData: Omit<Course, 'id' | 'createdAt' | 'updatedAt' | 'user' | 'purchases'>): Promise<Course> {
     const course = await prisma.course.create({
       data: {
         ...courseData,
@@ -173,26 +214,16 @@ export class CourseAdapter {
         id: `course-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
       }
     })
-    return {
-      ...course,
-      noteId: course.noteId || undefined,
-      createdAt: course.createdAt.toISOString(),
-      updatedAt: course.updatedAt.toISOString()
-    }
+    return transformCourse(course)
   }
 
-  static async update(id: string, updates: Partial<Course>): Promise<Course | null> {
+  static async update(id: string, updates: Partial<Omit<Course, 'user' | 'purchases'>>): Promise<Course | null> {
     try {
       const course = await prisma.course.update({
         where: { id },
         data: updates
       })
-      return {
-        ...course,
-        noteId: course.noteId || undefined,
-        createdAt: course.createdAt.toISOString(),
-        updatedAt: course.updatedAt.toISOString()
-      }
+      return transformCourse(course)
     } catch (error) {
       return null
     }
@@ -212,22 +243,23 @@ export class CourseAdapter {
   static async findByUserId(userId: string): Promise<Course[]> {
     const courses = await prisma.course.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: courseUserSelect }
+      }
     })
     return courses.map(transformCourse)
   }
 
   static async findByNoteId(noteId: string): Promise<Course | null> {
     const course = await prisma.course.findUnique({
-      where: { noteId }
+      where: { noteId },
+      include: {
+        user: { select: courseUserSelect }
+      }
     })
     if (!course) return null
-    return {
-      ...course,
-      noteId: course.noteId || undefined,
-      createdAt: course.createdAt.toISOString(),
-      updatedAt: course.updatedAt.toISOString()
-    }
+    return transformCourse(course)
   }
 }
 
@@ -236,7 +268,7 @@ export class CourseAdapter {
 // ============================================================================
 
 export class ResourceAdapter {
-  static async findAll(options?: { includeLessonResources?: boolean }): Promise<Resource[]> {
+  static async findAll(options?: { includeLessonResources?: boolean; userId?: string }): Promise<Resource[]> {
     const includeLessonResources = options?.includeLessonResources ?? false
     const where: Prisma.ResourceWhereInput | undefined = includeLessonResources
       ? undefined
@@ -250,6 +282,9 @@ export class ResourceAdapter {
 
     const resources = await prisma.resource.findMany({
       orderBy: { createdAt: 'desc' },
+      include: options?.userId
+        ? { purchases: { where: { userId: options.userId } } }
+        : undefined,
       ...(where ? { where } : {})
     })
     return resources.map(transformResource)
@@ -284,6 +319,9 @@ export class ResourceAdapter {
       skip,
       take: pageSize,
       orderBy: { createdAt: 'desc' },
+      include: options?.userId
+        ? { purchases: { where: { userId: options.userId } } }
+        : undefined,
       ...(where ? { where } : {})
     }
 
@@ -311,16 +349,18 @@ export class ResourceAdapter {
     }
   }
 
-  static async findById(id: string): Promise<Resource | null> {
+  static async findById(id: string, userId?: string): Promise<Resource | null> {
     const resource = await prisma.resource.findUnique({
-      where: { id }
+      where: { id },
+      include: userId ? { purchases: { where: { userId } } } : undefined
     })
     return resource ? transformResource(resource) : null
   }
 
-  static async findByIdWithNote(id: string): Promise<ResourceWithNote | null> {
+  static async findByIdWithNote(id: string, userId?: string): Promise<ResourceWithNote | null> {
     const resource = await prisma.resource.findUnique({
-      where: { id }
+      where: { id },
+      include: userId ? { purchases: { where: { userId } } } : undefined
     })
     
     if (!resource) return null
@@ -335,9 +375,10 @@ export class ResourceAdapter {
   }
 
   static async create(resourceData: Omit<Resource, 'id'>): Promise<Resource> {
+    const { purchases: _purchases, ...resourceDataWithoutPurchases } = resourceData
     const resource = await prisma.resource.create({
       data: {
-        ...resourceData,
+        ...resourceDataWithoutPurchases,
         id: (resourceData as any).id || `resource-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         createdAt: new Date((resourceData as any).createdAt || new Date()),
         updatedAt: new Date((resourceData as any).updatedAt || new Date())
@@ -348,10 +389,11 @@ export class ResourceAdapter {
 
   static async update(id: string, updates: Partial<Resource>): Promise<Resource | null> {
     try {
+      const { purchases: _purchases, id: _id, userId: _userId, ...safeUpdates } = updates
       const resource = await prisma.resource.update({
         where: { id },
         data: {
-          ...updates,
+          ...safeUpdates,
           updatedAt: new Date()
         }
       })

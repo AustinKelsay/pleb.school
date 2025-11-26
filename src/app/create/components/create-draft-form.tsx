@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -60,6 +61,8 @@ export default function CreateDraftForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [isPaidResource, setIsPaidResource] = useState(false)
+  const lastPaidPriceRef = useRef<number>(100)
   
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -108,6 +111,10 @@ export default function CreateDraftForm() {
           additionalLinks: draft.additionalLinks || [],
           videoUrl: draft.videoUrl || ''
         })
+        setIsPaidResource((draft.price ?? 0) > 0)
+        if (typeof draft.price === 'number' && draft.price > 0) {
+          lastPaidPriceRef.current = draft.price
+        }
       } catch (err) {
         console.error('Error loading draft:', err)
         setMessage({ 
@@ -155,6 +162,9 @@ export default function CreateDraftForm() {
     
     if (formData.price < 0) {
       newErrors.price = 'Price must be 0 or greater'
+    }
+    if (isPaidResource && formData.price <= 0) {
+      newErrors.price = 'Paid resources must have a price above 0 sats'
     }
     
     if (formData.topics.length === 0) {
@@ -214,6 +224,19 @@ export default function CreateDraftForm() {
     }))
   }
 
+  const handleResourcePaidToggle = (checked: boolean) => {
+    setIsPaidResource(checked)
+    setFormData((prev) => {
+      if (!checked && prev.price > 0) {
+        lastPaidPriceRef.current = prev.price
+      }
+      const nextPrice = checked
+        ? (prev.price > 0 ? prev.price : lastPaidPriceRef.current)
+        : 0
+      return { ...prev, price: nextPrice }
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -230,6 +253,7 @@ export default function CreateDraftForm() {
       
       const payload = {
         ...formData,
+        price: isPaidResource ? formData.price : 0,
         content: formData.content,
       }
 
@@ -297,11 +321,11 @@ export default function CreateDraftForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {message && (
-        <Alert className={message.type === 'error' ? 'border-destructive' : 'border-green-500'}>
+        <Alert className={message.type === 'error' ? 'border-destructive' : 'border-success/30'}>
           {message.type === 'error' ? (
             <AlertCircle className="h-4 w-4 text-destructive" />
           ) : (
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CheckCircle className="h-4 w-4 text-success" />
           )}
           <AlertDescription>{message.text}</AlertDescription>
         </Alert>
@@ -492,6 +516,20 @@ export default function CreateDraftForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
+            <div>
+              <p className="text-sm font-medium">Pricing mode</p>
+              <p className="text-xs text-muted-foreground">
+                Free resources save at 0 sats. Switch to paid to set a price.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Free</span>
+              <Switch checked={isPaidResource} onCheckedChange={handleResourcePaidToggle} />
+              <span className="text-xs font-semibold text-primary">Paid</span>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="image">
               {/* eslint-disable-next-line jsx-a11y/alt-text */}
@@ -524,13 +562,19 @@ export default function CreateDraftForm() {
                 min="0"
                 placeholder="0"
                 value={formData.price}
+                disabled={!isPaidResource}
                 onChange={(e) => {
-                  setFormData(prev => ({ ...prev, price: parseInt(e.target.value) || 0 }))
+                  if (!isPaidResource) return
+                  const parsed = parseInt(e.target.value) || 0
+                  setFormData(prev => ({ ...prev, price: parsed }))
+                  if (parsed > 0) {
+                    lastPaidPriceRef.current = parsed
+                  }
                   setErrors(prev => ({ ...prev, price: undefined }))
                 }}
                 className={errors.price ? 'border-destructive' : ''}
               />
-              {formData.price > 0 && (
+              {isPaidResource && formData.price > 0 && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
                   <Badge variant="secondary" className="text-xs">
                     Premium
@@ -539,7 +583,7 @@ export default function CreateDraftForm() {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Set to 0 for free content
+              {isPaidResource ? 'Set the price in sats.' : 'Free resources always save at 0 sats.'}
             </p>
             {errors.price && <p className="text-sm text-destructive">{errors.price}</p>}
           </div>

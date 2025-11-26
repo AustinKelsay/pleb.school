@@ -6,6 +6,7 @@ type SnstrParsedBolt11Invoice = ReturnType<typeof snstrParseBolt11Invoice>;
 export interface ParsedBolt11Invoice {
   descriptionHash?: string;
   amountMsats?: number;
+  paymentHash?: string;
 }
 
 export function parseBolt11Invoice(bolt11: string): ParsedBolt11Invoice | null {
@@ -25,7 +26,11 @@ export function parseBolt11Invoice(bolt11: string): ParsedBolt11Invoice | null {
 
     const result: ParsedBolt11Invoice = {};
     if (decoded.descriptionHash) {
-      result.descriptionHash = decoded.descriptionHash;
+      result.descriptionHash = decoded.descriptionHash.toLowerCase();
+    }
+
+    if (decoded.paymentHash) {
+      result.paymentHash = decoded.paymentHash.toLowerCase();
     }
 
     if (decoded.amount != null) {
@@ -62,6 +67,24 @@ export function parseBolt11Invoice(bolt11: string): ParsedBolt11Invoice | null {
             if (!Number.isNaN(parsedMsats) && parsedMsats >= 0) {
               amountMsats = parsedMsats;
             }
+          }
+        }
+
+        if (Array.isArray(raw.sections)) {
+          const paymentHashSection = raw.sections.find(
+            (section: any) =>
+              section?.name === "payment_hash" && typeof section.value === "string",
+          );
+          if (!result.paymentHash && paymentHashSection?.value) {
+            result.paymentHash = String(paymentHashSection.value).toLowerCase();
+          }
+
+          const descriptionHashSection = raw.sections.find(
+            (section: any) =>
+              section?.name === "description_hash" && typeof section.value === "string",
+          );
+          if (!result.descriptionHash && descriptionHashSection?.value) {
+            result.descriptionHash = String(descriptionHashSection.value).toLowerCase();
           }
         }
 

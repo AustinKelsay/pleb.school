@@ -750,5 +750,6 @@ SNSTR implements robust security features throughout the codebase:
 - **NIP-19 Security**: Relay URL validation and filtering to prevent injection attacks
 - **NIP-44 Encryption**: Authenticated encryption with ChaCha20 and HMAC-SHA256
 - **Input Validation**: Thorough validation and error checking across all components
+- **Relay Trust Model**: `snstr` only validates relay URL shape; it does not enforce a network allowlist. pleb.school enforces its own allowlist and blocks localhost/private networks when handling user-supplied relay hints on the server to mitigate SSRF/DoS.
 
 For details on security considerations for specific NIPs, see the documentation in each implementation folder.

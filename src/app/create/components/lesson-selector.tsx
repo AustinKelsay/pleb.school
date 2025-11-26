@@ -45,9 +45,10 @@ interface LessonData {
 interface LessonSelectorProps {
   onAddLessons: (lessons: LessonData[]) => void
   existingLessons: LessonData[]
+  priceFilter: 'paid' | 'free'
 }
 
-export default function LessonSelector({ onAddLessons, existingLessons }: LessonSelectorProps) {
+export default function LessonSelector({ onAddLessons, existingLessons, priceFilter }: LessonSelectorProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedLessons, setSelectedLessons] = useState<LessonData[]>([])
@@ -94,6 +95,11 @@ export default function LessonSelector({ onAddLessons, existingLessons }: Lesson
     }))
   
   // Filter resources based on search and existing lessons
+  const matchesPriceFilter = (price?: number) => {
+    const sats = typeof price === 'number' && !Number.isNaN(price) ? price : 0
+    return priceFilter === 'paid' ? sats > 0 : sats <= 0
+  }
+
   const filteredPublished = publishedResources.filter(resource => {
     const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase())
     const notAlreadyAdded = !existingLessons.some(lesson => 
@@ -102,7 +108,7 @@ export default function LessonSelector({ onAddLessons, existingLessons }: Lesson
     const notSelected = !selectedLessons.some(lesson => 
       lesson.resourceId === resource.resourceId
     )
-    return matchesSearch && notAlreadyAdded && notSelected
+    return matchesSearch && notAlreadyAdded && notSelected && matchesPriceFilter(resource.price)
   })
   
   const filteredDrafts = draftResources.filter(draft => {
@@ -113,7 +119,7 @@ export default function LessonSelector({ onAddLessons, existingLessons }: Lesson
     const notSelected = !selectedLessons.some(lesson => 
       lesson.draftId === draft.draftId
     )
-    return matchesSearch && notAlreadyAdded && notSelected
+    return matchesSearch && notAlreadyAdded && notSelected && matchesPriceFilter(draft.price)
   })
   
   const isLoading = isLoadingDocs || isLoadingVideos || isLoadingDrafts
@@ -207,13 +213,12 @@ export default function LessonSelector({ onAddLessons, existingLessons }: Lesson
                       Draft
                     </Badge>
                   )}
-                  {resource.price !== undefined && resource.price > 0 && (
-                    <Badge 
-                      variant="secondary" 
-                      className="text-xs"
+                  {typeof resource.price === 'number' && resource.price > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs flex items-center gap-1 bg-primary/10 text-primary border border-primary/30"
                     >
-                      <DollarSign className="h-3 w-3 mr-0.5" />
-                      {resource.price.toLocaleString()}
+                      {resource.price.toLocaleString()} sats
                     </Badge>
                   )}
                 </div>

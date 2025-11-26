@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CourseAdapter } from '@/lib/db-adapter';
+import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 /**
  * GET /api/courses/[id] - Fetch a specific course
@@ -9,6 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
     const { id } = await params;
     const courseId = id;
     
@@ -32,6 +36,20 @@ export async function GET(
     const { LessonAdapter } = await import('@/lib/db-adapter');
     const lessons = await LessonAdapter.findByCourseId(courseId);
 
+    // Fetch purchases for the current user (if authenticated)
+    let purchases = [] as Array<{ id: string; amountPaid: number; createdAt: string }>
+    if (session?.user?.id) {
+      const userPurchases = await prisma.purchase.findMany({
+        where: { userId: session.user.id, courseId },
+        select: { id: true, amountPaid: true, createdAt: true }
+      })
+      purchases = userPurchases.map((p) => ({
+        id: p.id,
+        amountPaid: p.amountPaid,
+        createdAt: p.createdAt.toISOString()
+      }))
+    }
+
     // Get resources for each lesson
     const { ResourceAdapter } = await import('@/lib/db-adapter');
     const lessonsWithResources = await Promise.all(
@@ -44,10 +62,18 @@ export async function GET(
       })
     );
 
+    const price = course.price ?? 0
+    const hasPurchased = purchases.some((p) => p.amountPaid >= price)
+    const isOwner = session?.user?.id && course.userId && session.user.id === course.userId
+    const requiresPurchase = price > 0 && !hasPurchased && !isOwner
+
     return NextResponse.json({ 
       course: {
         ...course,
-        lessons: lessonsWithResources
+        lessons: lessonsWithResources,
+        purchases,
+        hasPurchased,
+        requiresPurchase
       }
     });
   } catch (error) {
