@@ -21,13 +21,15 @@ import { Section } from '@/components/layout/section'
 import { hasNip07Support } from 'snstr'
 import { authConfigClient } from '@/lib/auth-config-client'
 import { validateCallbackUrlFromParams } from '@/lib/url-utils'
-import { Mail, Github, Zap, KeyRound, UserX, Sparkles, ArrowRight, HelpCircle, Shield, User } from 'lucide-react'
+import { Mail, Github, Zap, KeyRound, UserX, Sparkles, ArrowRight, HelpCircle, Shield, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import {
   clearPersistedAnonymousIdentity,
   getPersistedAnonymousIdentity,
   persistAnonymousIdentity,
 } from '@/lib/anonymous-client-storage'
+import { cn } from '@/lib/utils'
+import { NostrichIcon } from '@/components/icons/nostrich-icon'
 
 interface NostrWindow extends Window {
   nostr?: {
@@ -63,10 +65,23 @@ export default function SignInPage() {
   const [message, setMessage] = useState('')
   const [hasPersistedAnonymousIdentity, setHasPersistedAnonymousIdentity] = useState(false)
   const [anonymousResumeFailed, setAnonymousResumeFailed] = useState(false)
+  const [showRecovery, setShowRecovery] = useState(false)
+  const [showEmailForm, setShowEmailForm] = useState(false)
 
   const callbackUrl = validateCallbackUrlFromParams(searchParams, 'callbackUrl', '/')
   const errorType = searchParams.get('error')
   const copy = authConfigClient.copy.signin
+  const hasCachedAnonymousIdentity = hasPersistedAnonymousIdentity && !anonymousResumeFailed
+
+  const anonymousButtonLabel = isAnonymousLoading
+    ? copy.anonymousCard.loadingButton
+    : hasCachedAnonymousIdentity
+      ? copy.anonymousCard.resumeButton || 'Resume anonymous session'
+      : copy.anonymousCard.button
+
+  const anonymousDescription = hasCachedAnonymousIdentity
+    ? copy.anonymousCard.resumeDescription || 'Pick up the anonymous account stored in this browser.'
+    : copy.anonymousCard.description
 
   useEffect(() => {
     setHasPersistedAnonymousIdentity(Boolean(getPersistedAnonymousIdentity()?.privkey))
@@ -295,17 +310,17 @@ export default function SignInPage() {
             </Alert>
           )}
 
-          <div className="max-w-md mx-auto space-y-6">
+          <div className="max-w-md mx-auto space-y-8">
+
             {/* Nostr-First Authentication */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Zap className="h-4 w-4 text-orange-500" />
-                <span>Nostr-First (Your Nostr profile is source of truth)</span>
-              </div>
-              
-              <div className="space-y-3 pl-6 border-l-2 border-orange-500/20">
-                {/* Nostr Extension */}
-                {authConfigClient.features.showNostrProvider && (
+            {authConfigClient.features.showNostrProvider && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <NostrichIcon className="h-4 w-4 text-purple-500" />
+                  <span>Nostr-First (your Nostr profile is source of truth)</span>
+                </div>
+                
+                <div className="space-y-3 pl-6 border-l-2 border-purple-500/20">
                   <div className="relative">
                     <Button 
                       onClick={handleNostrSignIn}
@@ -313,7 +328,7 @@ export default function SignInPage() {
                       size="lg"
                       disabled={isNostrLoading}
                     >
-                      <Zap className="h-5 w-5 mr-3" />
+                      <NostrichIcon className="h-5 w-5 mr-3 text-purple-500" />
                       {isNostrLoading ? copy.nostrCard.loadingButton : copy.nostrCard.button}
                       {!isNostrLoading && <ArrowRight className="ml-auto h-4 w-4" />}
                     </Button>
@@ -332,10 +347,127 @@ export default function SignInPage() {
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                )}
+                </div>
+              </div>
+            )}
 
-                {/* Anonymous Access */}
-                {authConfigClient.features.showAnonymousProvider && (
+            {/* OAuth-First Authentication */}
+            {(authConfigClient.features.showGithubProvider || authConfigClient.features.showEmailProvider) && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Shield className="h-4 w-4 text-blue-500" />
+                  <span>OAuth-First (traditional login + background Nostr)</span>
+                </div>
+                
+                <div className="space-y-3 pl-6 border-l-2 border-blue-500/20">
+                  {/* GitHub Authentication */}
+                  {authConfigClient.features.showGithubProvider && (
+                    <div className="relative">
+                      <Button 
+                        onClick={handleGithubSignIn}
+                        className="w-full h-12 text-base"
+                        variant="outline"
+                        size="lg"
+                        disabled={isGithubLoading}
+                      >
+                        <Github className="h-5 w-5 mr-3" />
+                        {isGithubLoading ? copy.githubCard.loadingButton : copy.githubCard.button}
+                        {!isGithubLoading && <ArrowRight className="ml-auto h-4 w-4" />}
+                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="absolute -right-8 lg:-right-10 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors cursor-pointer">
+                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={5} className="max-w-xs lg:max-w-sm" align="end">
+                          <div className="space-y-1">
+                            <p className="font-medium">{copy.githubCard.title}</p>
+                            <p className="text-sm">{copy.githubCard.description}</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
+
+                  {/* Email Form */}
+                  {authConfigClient.features.showEmailProvider && (
+                    <div className="relative space-y-3">
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-dashed" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-background px-2 text-muted-foreground">Or with email</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        className="w-full h-12 text-base"
+                        variant="outline"
+                        size="lg"
+                        onClick={() => setShowEmailForm((prev) => !prev)}
+                      >
+                        <Mail className="h-5 w-5 mr-3" />
+                        {showEmailForm ? 'Hide email' : 'Continue with email'}
+                        <ChevronDown
+                          className={cn('ml-auto h-4 w-4 transition-transform', showEmailForm ? '-rotate-180' : 'rotate-0')}
+                        />
+                      </Button>
+
+                      {showEmailForm && (
+                        <form onSubmit={handleEmailSignIn} className="space-y-3 relative">
+                          <Input
+                            type="email"
+                            placeholder={copy.emailCard.placeholder}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            disabled={isLoading}
+                            className="h-12 text-base"
+                          />
+                          <Button 
+                            type="submit" 
+                            className="w-full h-12 text-base"
+                            variant="outline"
+                            size="lg"
+                            disabled={isLoading || !email}
+                          >
+                            <Mail className="h-5 w-5 mr-3" />
+                            {isLoading ? copy.emailCard.loadingButton : copy.emailCard.button}
+                            {!isLoading && <ArrowRight className="ml-auto h-4 w-4" />}
+                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button className="absolute -right-8 lg:-right-10 top-6 p-1 hover:bg-muted rounded-full transition-colors cursor-pointer">
+                                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" sideOffset={5} className="max-w-xs lg:max-w-sm" align="end">
+                              <div className="space-y-1">
+                                <p className="font-medium">{copy.emailCard.title}</p>
+                                <p className="text-sm">{copy.emailCard.description}</p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Anonymous Access */}
+            {authConfigClient.features.showAnonymousProvider && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <UserX className="h-4 w-4 text-green-500" />
+                  <span>Anonymous Access (quickstart, lowest friction)</span>
+                </div>
+                
+                <div className="space-y-3 pl-6 border-l-2 border-green-500/20">
                   <div className="relative">
                     <Button 
                       onClick={handleAnonymousSignIn}
@@ -344,8 +476,8 @@ export default function SignInPage() {
                       size="lg"
                       disabled={isAnonymousLoading}
                     >
-                      <UserX className="h-5 w-5 mr-3" />
-                      {isAnonymousLoading ? copy.anonymousCard.loadingButton : copy.anonymousCard.button}
+                      <UserX className="h-5 w-5 mr-3 text-green-500" />
+                      {anonymousButtonLabel}
                       {!isAnonymousLoading && <ArrowRight className="ml-auto h-4 w-4" />}
                     </Button>
                     <Tooltip>
@@ -357,17 +489,15 @@ export default function SignInPage() {
                       <TooltipContent side="top" sideOffset={5} className="max-w-xs lg:max-w-sm" align="end">
                         <div className="space-y-2">
                           <p className="font-medium">{copy.anonymousCard.title}</p>
-                          <p className="text-sm">{copy.anonymousCard.description}</p>
+                          <p className="text-sm">{anonymousDescription}</p>
                           <p className="text-xs text-muted-foreground">{copy.anonymousCard.helpText}</p>
                         </div>
                       </TooltipContent>
                     </Tooltip>
-                    {(anonymousResumeFailed || hasPersistedAnonymousIdentity) && (
+                    {anonymousResumeFailed && (
                       <div className="mt-3 text-xs text-muted-foreground">
                         <p>
-                          {anonymousResumeFailed
-                            ? 'We could not reopen the cached anonymous account. Please retry or reset the cached key to start fresh.'
-                            : 'We will reuse the anonymous account cached in this browser.'}
+                          We could not reopen the cached anonymous account. Please retry or reset the cached key to start fresh.
                         </p>
                         <button
                           type="button"
@@ -378,172 +508,113 @@ export default function SignInPage() {
                         </button>
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* OAuth-First Authentication */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Shield className="h-4 w-4 text-blue-500" />
-                <span>OAuth-First (Traditional login + background Nostr)</span>
-              </div>
-              
-              <div className="space-y-3 pl-6 border-l-2 border-blue-500/20">
-                {/* GitHub Authentication */}
-                {authConfigClient.features.showGithubProvider && (
-                  <div className="relative">
-                    <Button 
-                      onClick={handleGithubSignIn}
-                      className="w-full h-12 text-base"
-                      variant="outline"
-                      size="lg"
-                      disabled={isGithubLoading}
-                    >
-                      <Github className="h-5 w-5 mr-3" />
-                      {isGithubLoading ? copy.githubCard.loadingButton : copy.githubCard.button}
-                      {!isGithubLoading && <ArrowRight className="ml-auto h-4 w-4" />}
-                    </Button>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="absolute -right-8 lg:-right-10 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors cursor-pointer">
-                          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                    {hasCachedAnonymousIdentity && !anonymousResumeFailed && (
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        <p>We found an anonymous account saved in this browser.</p>
+                        <button
+                          type="button"
+                          onClick={handleResetAnonymousIdentity}
+                          className="mt-1 font-semibold text-primary hover:underline"
+                        >
+                          Reset anonymous identity (clears cached key)
                         </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" sideOffset={5} className="max-w-xs lg:max-w-sm" align="end">
-                        <div className="space-y-1">
-                          <p className="font-medium">{copy.githubCard.title}</p>
-                          <p className="text-sm">{copy.githubCard.description}</p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                )}
-
-                {/* Email Form */}
-                {authConfigClient.features.showEmailProvider && (
-                  <div className="relative space-y-3">
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-dashed" />
                       </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">Or with email</span>
-                      </div>
-                    </div>
-                    
-                    <form onSubmit={handleEmailSignIn} className="space-y-3 relative">
-                      <Input
-                        type="email"
-                        placeholder={copy.emailCard.placeholder}
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        className="h-12 text-base"
-                      />
-                      <Button 
-                        type="submit" 
-                        className="w-full h-12 text-base"
-                        variant="outline"
-                        size="lg"
-                        disabled={isLoading || !email}
-                      >
-                        <Mail className="h-5 w-5 mr-3" />
-                        {isLoading ? copy.emailCard.loadingButton : copy.emailCard.button}
-                        {!isLoading && <ArrowRight className="ml-auto h-4 w-4" />}
-                      </Button>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="absolute -right-8 lg:-right-10 top-6 p-1 hover:bg-muted rounded-full transition-colors cursor-pointer">
-                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" sideOffset={5} className="max-w-xs lg:max-w-sm" align="end">
-                          <div className="space-y-1">
-                            <p className="font-medium">{copy.emailCard.title}</p>
-                            <p className="text-sm">{copy.emailCard.description}</p>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </form>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Recovery Section */}
-            {authConfigClient.features.showRecoveryProvider && (
-              <div className="space-y-4">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-dashed" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">Account Recovery</span>
+                    )}
+                    {!hasPersistedAnonymousIdentity && !anonymousResumeFailed && (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Generates a fresh anonymous keypair and stores it only in this browser.
+                      </p>
+                    )}
                   </div>
                 </div>
+              </div>
+            )}
 
-                <Card className="border-dashed relative">
-                  <CardContent className="pt-6">
-                    <div className="space-y-3">
-                      <div className="text-center space-y-1">
-                        <div className="flex items-center justify-center gap-1">
-                          <Zap className="h-6 w-6 text-orange-500" />
-                          <KeyRound className="h-6 w-6 text-muted-foreground" />
+            {/* Recovery Section (collapsed by default) */}
+            {authConfigClient.features.showRecoveryProvider && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4 text-amber-500" />
+                    <span>Account Recovery</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3"
+                    onClick={() => setShowRecovery((prev) => !prev)}
+                  >
+                    {showRecovery ? 'Hide' : 'Show'}
+                    <ChevronDown
+                      className={cn('ml-2 h-4 w-4 transition-transform', showRecovery ? '-rotate-180' : 'rotate-0')}
+                    />
+                  </Button>
+                </div>
+
+                {showRecovery && (
+                  <div className="space-y-3 pl-6 border-l-2 border-amber-500/20">
+                    <Card className="border-dashed relative">
+                      <CardContent className="pt-6">
+                        <div className="space-y-3">
+                          <div className="text-center space-y-1">
+                            <div className="flex items-center justify-center gap-1">
+                              <Zap className="h-6 w-6 text-orange-500" />
+                              <KeyRound className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <h3 className="font-medium">{copy.recoveryCard.title}</h3>
+                            <p className="text-sm text-muted-foreground">{copy.recoveryCard.description}</p>
+                          </div>
+                          
+                          <form onSubmit={handleRecoverySignIn} className="space-y-3">
+                            <Input
+                              type="password"
+                              placeholder={copy.recoveryCard.placeholder}
+                              value={privateKey}
+                              onChange={(e) => setPrivateKey(e.target.value)}
+                              required
+                              disabled={isRecoveryLoading}
+                              className="h-11 font-mono text-sm"
+                            />
+                            <Button 
+                              type="submit" 
+                              className="w-full h-11"
+                              variant="outline"
+                              disabled={isRecoveryLoading || !privateKey}
+                            >
+                              {isRecoveryLoading ? copy.recoveryCard.loadingButton : copy.recoveryCard.button}
+                              <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                          </form>
+                          
+                          <p className="text-xs text-muted-foreground text-center">
+                            {copy.recoveryCard.helpText}
+                          </p>
                         </div>
-                        <h3 className="font-medium">{copy.recoveryCard.title}</h3>
-                        <p className="text-sm text-muted-foreground">{copy.recoveryCard.description}</p>
-                      </div>
-                      
-                      <form onSubmit={handleRecoverySignIn} className="space-y-3">
-                        <Input
-                          type="password"
-                          placeholder={copy.recoveryCard.placeholder}
-                          value={privateKey}
-                          onChange={(e) => setPrivateKey(e.target.value)}
-                          required
-                          disabled={isRecoveryLoading}
-                          className="h-11 font-mono text-sm"
-                        />
-                        <Button 
-                          type="submit" 
-                          className="w-full h-11"
-                          variant="outline"
-                          disabled={isRecoveryLoading || !privateKey}
-                        >
-                          {isRecoveryLoading ? copy.recoveryCard.loadingButton : copy.recoveryCard.button}
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      </form>
-                      
-                      <p className="text-xs text-muted-foreground text-center">
-                        {copy.recoveryCard.helpText}
-                      </p>
-                    </div>
-                    
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="absolute -right-8 lg:-right-10 top-6 p-1 hover:bg-muted rounded-full transition-colors cursor-pointer">
-                          <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" sideOffset={5} className="max-w-xs lg:max-w-sm" align="end">
-                        <div className="space-y-2">
-                          <p className="font-medium">Account Recovery Details</p>
-                          <p className="text-sm">Supported formats: {authConfigClient.providers?.recovery?.supportedFormats?.join(', ') || 'hex, nsec'}</p>
-                          <p className="text-xs text-muted-foreground">{authConfigClient.providers?.recovery?.description || copy.recoveryCard.helpText}</p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </CardContent>
-                </Card>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="absolute right-3 top-3 p-1 hover:bg-muted rounded-full transition-colors cursor-pointer">
+                              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={5} className="max-w-xs lg:max-w-sm" align="end">
+                            <div className="space-y-2">
+                              <p className="font-medium">Account Recovery Details</p>
+                              <p className="text-sm">Supported formats: {authConfigClient.providers?.recovery?.supportedFormats?.join(', ') || 'hex, nsec'}</p>
+                              <p className="text-xs text-muted-foreground">{authConfigClient.providers?.recovery?.description || copy.recoveryCard.helpText}</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Footer Links */}
-            <div className="text-center space-y-4 pt-8">
+            <div className="text-center space-y-4 pt-4">
               <p className="text-sm text-muted-foreground">
                 Don&apos;t have an account?{' '}
                 <Link href="/" className="text-primary hover:underline font-medium">

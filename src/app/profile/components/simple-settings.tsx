@@ -19,6 +19,7 @@ import {
   Github,
   RefreshCw
 } from 'lucide-react'
+import { NostrichIcon } from '@/components/icons'
 import { updateBasicProfile, updateEnhancedProfile, type BasicProfileData, type EnhancedProfileData, type SignedKind0Event } from '../actions'
 import { useToast } from '@/hooks/use-toast'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
@@ -85,6 +86,21 @@ export function SimpleSettings({ session }: SimpleSettingsProps) {
       : derivedProfileSource === 'nostr'
         ? 'nostr'
         : 'oauth'
+
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case 'nostr':
+        return <NostrichIcon className="h-4 w-4 text-purple-500" />
+      case 'email':
+        return <Mail className="h-4 w-4" />
+      case 'github':
+        return <Github className="h-4 w-4" />
+      case 'anonymous':
+        return <span className="inline-block h-4 w-4 rounded-full bg-green-500" />
+      default:
+        return <RefreshCw className="h-4 w-4" />
+    }
+  }
 
   const requiresNostrExtension = accountType === 'nostr' && !user.privkey
   const canEditBasic = accountType === 'oauth'
@@ -440,8 +456,9 @@ export function SimpleSettings({ session }: SimpleSettingsProps) {
               <p className="text-sm font-medium">Linked Accounts:</p>
               <div className="flex flex-wrap gap-2">
                 {linkedAccounts.map((account) => (
-                  <Badge key={account.provider} variant="outline">
-                    {account.provider}
+                  <Badge key={account.provider} variant="outline" className="flex items-center gap-1">
+                    {getProviderIcon(account.provider)}
+                    <span className="capitalize">{account.provider}</span>
                   </Badge>
                 ))}
               </div>
