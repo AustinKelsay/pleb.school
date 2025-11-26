@@ -117,8 +117,8 @@
     }
   },
   "site": {
-    "title": "PlebDevs - Learn to Code, Build on Bitcoin, Become a dev",
-    "description": "A one of a kind developer education, content, and community platform built on Nostr and fully Lightning integrated.",
+    "title": "pleb.school – Nostr-native course & content platform",
+    "description": "Open-source, configurable education stack for creators to run courses, videos, and documents with Nostr identity and Lightning-powered interactions.",
     "brandName": "pleb.school"
   },
   "navigation": {

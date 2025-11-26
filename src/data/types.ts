@@ -339,7 +339,7 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
           if (tag[1] === "video") {
             eventData.type = "video"
             eventData.topics.push(tag[1])
-          } else if (tag[1] !== "plebdevs") {
+          } else if (!["plebdevs", "plebschool"].includes(tag[1] || "")) {
             eventData.topics.push(tag[1])
           }
           break

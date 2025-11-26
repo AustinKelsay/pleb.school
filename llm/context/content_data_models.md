@@ -173,7 +173,7 @@ export const parseEvent = event => {
         if (tag[1] === 'video') {
           eventData.type = 'video';
           eventData.topics.push(tag[1]);
-        } else if (tag[1] !== 'plebdevs') {
+        } else if (!['plebdevs', 'plebschool'].includes(tag[1] || '')) {
           eventData.topics.push(tag[1]);
         }
         break;
@@ -787,11 +787,11 @@ REAL EXAMPLE COURSE NOSTR:
     ],
     [
       "name",
-      "PlebDevs Starter Course"
+      "pleb.school Starter Course"
     ],
     [
       "about",
-      "Welcome to the PlebDevs starter course! I'm Austin, the founder of PlebDevs, and I'm here to guide you through your journey from complete beginner to capable developer. This course is specifically designed for those new to coding, though we have plenty of intermediate and advanced content available on the platform for when you're ready to level up. \n\nIn this starter course we cover: \n1. Setting up your Code Editor, \n2. Git / Github \n3. HTML \n4. CSS \n5. JavaScript. \n\nStarter Course Objectives:\n1. Provide an easy-to-follow overview of the developer journey\n2. Get you comfortable in a development environment\n3. Give you hands-on experience with core programming languages\n4. Get you setup for the PlebDevs Frontend & Backend Courses and the rest of the content on the platform."
+      "Welcome to the pleb.school starter course! This demo track walks you from complete beginner to capable builder while showcasing how the configurable, Nostr-native platform delivers lessons across the web and relays. \n\nIn this starter course we cover: \n1. Setting up your Code Editor, \n2. Git / GitHub \n3. HTML \n4. CSS \n5. JavaScript. \n\nStarter Course Objectives:\n1. Provide an easy-to-follow overview of the developer journey\n2. Get you comfortable in a development environment\n3. Give you hands-on experience with core programming languages\n4. Get you ready to publish your own courses on the pleb.school stack and explore the rest of the content on the platform."
     ],
     [
       "image",

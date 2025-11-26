@@ -53,8 +53,11 @@ const mockNostrEvents: NostrEvent[] = [
     sig: "example_signature",
     tags: [
       ["d", "f538f5c5-1a72-4804-8eb1-3f05cea64874"],
-      ["name", "PlebDevs Starter Course"],
-      ["about", "Welcome to the PlebDevs starter course! Complete beginner to capable developer course. Learn HTML, CSS, JavaScript, Git and setup your development environment."],
+      ["name", "pleb.school Starter Course"],
+      [
+        "about",
+        "Welcome to the pleb.school starter course! Use this demo track to explore how the configurable, Nostr-native platform delivers lessons across web and relays."
+      ],
       ["image", "https://plebdevs-bucket.nyc3.cdn.digitaloceanspaces.com/images/plebdevs-starter.png"],
       ["t", "beginner"],
       ["t", "frontend"],
