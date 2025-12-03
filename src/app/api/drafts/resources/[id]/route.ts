@@ -147,12 +147,11 @@ export async function PUT(
     }
 
     const updateData = validationResult.data
+    const { additionalLinks, ...restUpdateData } = updateData
     const normalizedLinks =
-      updateData.additionalLinks !== undefined
-        ? normalizeAdditionalLinks(updateData.additionalLinks)
-        : undefined
+      additionalLinks !== undefined ? normalizeAdditionalLinks(additionalLinks) : undefined
     const updatePayload = {
-      ...updateData,
+      ...restUpdateData,
       ...(normalizedLinks !== undefined ? { additionalLinks: normalizedLinks } : {}),
     }
 

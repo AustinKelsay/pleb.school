@@ -90,6 +90,16 @@ function withNormalizedAdditionalLinks<T extends { additionalLinks?: unknown }>(
   }
 }
 
+function toAdditionalLinksJson(links: AdditionalLink[]): Prisma.JsonArray {
+  return links.map(link => {
+    const entry: Prisma.JsonObject = { url: link.url }
+    if (link.title) {
+      entry.title = link.title
+    }
+    return entry
+  })
+}
+
 // Type for course draft with includes
 export type CourseDraftWithIncludes = Prisma.CourseDraftGetPayload<{
   include: {
@@ -444,6 +454,7 @@ export class DraftService {
    */
   static async create(data: CreateDraftData) {
     const additionalLinks = normalizeAdditionalLinks(data.additionalLinks)
+    const additionalLinksJson = toAdditionalLinksJson(additionalLinks)
 
     return await prisma.draft.create({
       data: {
@@ -454,7 +465,7 @@ export class DraftService {
         image: data.image,
         price: data.price || 0,
         topics: data.topics,
-        additionalLinks,
+        additionalLinks: additionalLinksJson,
         videoUrl: data.videoUrl,
         userId: data.userId,
       },
@@ -571,8 +582,10 @@ export class DraftService {
    * Update a draft
    */
   static async update(id: string, data: UpdateDraftData) {
-    const additionalLinks =
-      data.additionalLinks !== undefined ? normalizeAdditionalLinks(data.additionalLinks) : undefined
+    const hasAdditionalLinks = data.additionalLinks !== undefined
+    const additionalLinksJson = hasAdditionalLinks
+      ? toAdditionalLinksJson(normalizeAdditionalLinks(data.additionalLinks))
+      : undefined
 
     return await prisma.draft.update({
       where: { id },
@@ -584,7 +597,7 @@ export class DraftService {
         ...(data.image !== undefined && { image: data.image }),
         ...(data.price !== undefined && { price: data.price }),
         ...(data.topics !== undefined && { topics: data.topics }),
-        ...(additionalLinks !== undefined && { additionalLinks }),
+        ...(hasAdditionalLinks && { additionalLinks: additionalLinksJson }),
         ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl }),
         updatedAt: new Date()
       },
