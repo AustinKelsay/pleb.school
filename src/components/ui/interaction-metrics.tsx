@@ -25,8 +25,8 @@ function buildReactionTags(
     tags.push(['p', eventPubkey])
   }
   if (eventKind && eventKind >= 30000 && eventIdentifier && eventPubkey) {
-    const normalizedIdentifier = eventIdentifier.toLowerCase()
-    tags.push(['a', `${eventKind}:${eventPubkey}:${normalizedIdentifier}`])
+    const normalizedPubkey = eventPubkey.toLowerCase()
+    tags.push(['a', `${eventKind}:${normalizedPubkey}:${eventIdentifier}`])
   }
   return tags
 }

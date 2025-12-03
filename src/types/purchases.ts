@@ -31,6 +31,7 @@ export type PurchaseListItem = {
   courseId?: string | null
   resourceId?: string | null
   amountPaid: number
+  priceAtPurchase?: number | null
   paymentType: string
   zapReceiptId?: string | null
   invoice?: string | null

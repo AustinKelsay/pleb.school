@@ -1,6 +1,6 @@
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // datasource db {
@@ -10,105 +10,106 @@ datasource db {
 // }
 
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 model User {
-    id               String            @id @default(uuid())
-    pubkey           String?           @unique
-    privkey          String?
-    email            String?           @unique
-    emailVerified    DateTime?
-    username         String?           @unique
-    avatar           String?
-    purchased        Purchase[]
-    courses          Course[]
-    resources        Resource[]
-    courseDrafts     CourseDraft[]
-    drafts           Draft[]
-    role             Role?
-    accounts         Account[]
-    sessions         Session[]
-    createdAt        DateTime          @default(now())
-    updatedAt        DateTime          @updatedAt
-    userLessons      UserLesson[]
-    userCourses      UserCourse[]
-    nip05            String?
-    lud16            String?
-    banner           String?
-    // Account linking fields
-    primaryProvider  String?           // Track which provider is primary (nostr, email, github, anonymous)
-    profileSource    String?           @default("oauth") // "nostr" or "oauth" - determines profile field priority
-    platformNip05    PlatformNip05?
-    platformLightningAddress PlatformLightningAddress?
-    userBadges       UserBadge[]
+  id                       String                    @id @default(uuid())
+  pubkey                   String?                   @unique
+  privkey                  String?
+  email                    String?                   @unique
+  emailVerified            DateTime?
+  username                 String?                   @unique
+  displayName              String?
+  avatar                   String?
+  purchased                Purchase[]
+  courses                  Course[]
+  resources                Resource[]
+  courseDrafts             CourseDraft[]
+  drafts                   Draft[]
+  role                     Role?
+  accounts                 Account[]
+  sessions                 Session[]
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  userLessons              UserLesson[]
+  userCourses              UserCourse[]
+  nip05                    String?
+  lud16                    String?
+  banner                   String?
+  // Account linking fields
+  primaryProvider          String? // Track which provider is primary (nostr, email, github, anonymous)
+  profileSource            String?                   @default("oauth") // "nostr" or "oauth" - determines profile field priority
+  platformNip05            PlatformNip05?
+  platformLightningAddress PlatformLightningAddress?
+  userBadges               UserBadge[]
 }
 
 model Session {
-    id           String   @id @default(cuid())
-    sessionToken String   @unique
-    userId       String
-    expires      DateTime
-    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
-    identifier String
-    token      String   @unique
-    expires    DateTime
-    lookupId   String?  @unique
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  lookupId   String?  @unique
 
-    @@unique([identifier, token])
+  @@unique([identifier, token])
 }
 
 model Account {
-    id                 String  @id @default(cuid())
-    userId             String
-    type               String
-    provider           String
-    providerAccountId  String
-    refresh_token      String?
-    access_token       String?
-    expires_at         Int?
-    token_type         String?
-    scope              String?
-    id_token           String?
-    session_state      String?
-    oauth_token_secret String?
-    oauth_token        String?
-    createdAt          DateTime @default(now())
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  oauth_token_secret String?
+  oauth_token        String?
+  createdAt          DateTime @default(now())
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId])
 }
 
 model Role {
-    id                    String    @id @default(uuid())
-    user                  User      @relation(fields: [userId], references: [id])
-    userId                String    @unique
-    subscribed            Boolean   @default(false)
-    admin                 Boolean   @default(false)
-    subscriptionType      String    @default("monthly")
-    subscriptionStartDate DateTime?
-    lastPaymentAt         DateTime?
-    subscriptionExpiredAt DateTime?
-    nwc                   String?
+  id                    String    @id @default(uuid())
+  user                  User      @relation(fields: [userId], references: [id])
+  userId                String    @unique
+  subscribed            Boolean   @default(false)
+  admin                 Boolean   @default(false)
+  subscriptionType      String    @default("monthly")
+  subscriptionStartDate DateTime?
+  lastPaymentAt         DateTime?
+  subscriptionExpiredAt DateTime?
+  nwc                   String?
 }
 
 model Resource {
-    id           String        @id // Client generates UUID
-    userId       String
-    user         User          @relation(fields: [userId], references: [id])
-    lessons      Lesson[]
-    draftLessons DraftLesson[]
-    price        Int           @default(0)
-    purchases    Purchase[]
-    noteId       String?       @unique
-    videoId      String?
-    videoUrl     String?
-    createdAt    DateTime      @default(now())
-    updatedAt    DateTime      @updatedAt
+  id           String        @id // Client generates UUID
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  lessons      Lesson[]
+  draftLessons DraftLesson[]
+  price        Int           @default(0)
+  purchases    Purchase[]
+  noteId       String?       @unique
+  videoId      String?
+  videoUrl     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Draft {
@@ -131,172 +132,174 @@ model Draft {
 }
 
 model Course {
-    id          String       @id
-    userId      String
-    user        User         @relation(fields: [userId], references: [id])
-    price       Int          @default(0)
-    lessons     Lesson[]
-    purchases   Purchase[]
-    noteId      String?      @unique
-    submissionRequired Boolean @default(false)
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
-    userCourses UserCourse[]
-    badge       Badge?
+  id                 String       @id
+  userId             String
+  user               User         @relation(fields: [userId], references: [id])
+  price              Int          @default(0)
+  lessons            Lesson[]
+  purchases          Purchase[]
+  noteId             String?      @unique
+  submissionRequired Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  userCourses        UserCourse[]
+  badge              Badge?
 }
 
 model CourseDraft {
-    id           String        @id @default(uuid())
-    userId       String
-    user         User          @relation(fields: [userId], references: [id])
-    draftLessons DraftLesson[]
-    title        String
-    summary      String
-    image        String?
-    price        Int?          @default(0)
-    topics       String[]
-    createdAt    DateTime      @default(now())
-    updatedAt    DateTime      @updatedAt
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  draftLessons DraftLesson[]
+  title        String
+  summary      String
+  image        String?
+  price        Int?          @default(0)
+  topics       String[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Lesson {
-    id          String       @id @default(uuid())
-    courseId    String?
-    course      Course?      @relation(fields: [courseId], references: [id])
-    resourceId  String?
-    resource    Resource?    @relation(fields: [resourceId], references: [id])
-    draftId     String?
-    draft       Draft?       @relation(fields: [draftId], references: [id])
-    index       Int
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
-    userLessons UserLesson[]
+  id          String       @id @default(uuid())
+  courseId    String?
+  course      Course?      @relation(fields: [courseId], references: [id])
+  resourceId  String?
+  resource    Resource?    @relation(fields: [resourceId], references: [id])
+  draftId     String?
+  draft       Draft?       @relation(fields: [draftId], references: [id])
+  index       Int
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  userLessons UserLesson[]
 
-    @@unique([courseId, index])
-    @@unique([courseId, resourceId])
-    @@unique([draftId, index])
+  @@unique([courseId, index])
+  @@unique([courseId, resourceId])
+  @@unique([draftId, index])
 }
 
 model DraftLesson {
-    id            String      @id @default(uuid())
-    courseDraftId String
-    courseDraft   CourseDraft @relation(fields: [courseDraftId], references: [id])
-    resourceId    String?
-    resource      Resource?   @relation(fields: [resourceId], references: [id])
-    draftId       String?
-    draft         Draft?      @relation(fields: [draftId], references: [id])
-    index         Int
-    createdAt     DateTime    @default(now())
-    updatedAt     DateTime    @updatedAt
+  id            String      @id @default(uuid())
+  courseDraftId String
+  courseDraft   CourseDraft @relation(fields: [courseDraftId], references: [id])
+  resourceId    String?
+  resource      Resource?   @relation(fields: [resourceId], references: [id])
+  draftId       String?
+  draft         Draft?      @relation(fields: [draftId], references: [id])
+  index         Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-    @@unique([courseDraftId, index])
-    @@unique([courseDraftId, resourceId])
-    @@unique([draftId, index])
+  @@unique([courseDraftId, index])
+  @@unique([courseDraftId, resourceId])
+  @@unique([draftId, index])
 }
 
 model UserLesson {
-    id          String    @id @default(uuid())
-    userId      String
-    user        User      @relation(fields: [userId], references: [id])
-    lessonId    String
-    lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-    opened      Boolean   @default(false)
-    completed   Boolean   @default(false)
-    openedAt    DateTime?
-    completedAt DateTime?
-    createdAt   DateTime  @default(now())
-    updatedAt   DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  lessonId    String
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  opened      Boolean   @default(false)
+  completed   Boolean   @default(false)
+  openedAt    DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-    @@unique([userId, lessonId])
+  @@unique([userId, lessonId])
 }
 
 model Purchase {
-    id         String    @id @default(uuid())
-    userId     String
-    courseId   String?
-    resourceId String?
-    amountPaid Int
-    /// Payment rail / method: defaults to NIP-57 zap but leaves room for manual/comped/refund entries
-    paymentType String   @default("zap")
-    /// Optional NIP-57 zap receipt event id for audit/dedupe
-    zapReceiptId String? @unique
-    /// Optional bolt11 invoice string captured at purchase time
-    invoice     String?
-    /// Full zap receipt event payload captured at claim time (immutable audit copy)
-    zapReceiptJson Json?
-    /// Zap request event payload whose hash anchors the invoice description
-    zapRequestJson Json?
-    createdAt  DateTime  @default(now())
-    updatedAt  DateTime  @updatedAt
-    user       User      @relation(fields: [userId], references: [id])
-    course     Course?   @relation(fields: [courseId], references: [id])
-    resource   Resource? @relation(fields: [resourceId], references: [id])
+  id              String    @id @default(uuid())
+  userId          String
+  courseId        String?
+  resourceId      String?
+  amountPaid      Int
+  /// Snapshot of the content price (sats) at the time the purchase was recorded. Nullable to preserve legacy purchases without a snapshot.
+  priceAtPurchase Int?
+  /// Payment rail / method: defaults to NIP-57 zap but leaves room for manual/comped/refund entries
+  paymentType     String    @default("zap")
+  /// Optional NIP-57 zap receipt event id for audit/dedupe
+  zapReceiptId    String?   @unique
+  /// Optional bolt11 invoice string captured at purchase time
+  invoice         String?
+  /// Full zap receipt event payload captured at claim time (immutable audit copy)
+  zapReceiptJson  Json?
+  /// Zap request event payload whose hash anchors the invoice description
+  zapRequestJson  Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id])
+  course          Course?   @relation(fields: [courseId], references: [id])
+  resource        Resource? @relation(fields: [resourceId], references: [id])
 
-    @@unique([userId, courseId, resourceId])
+  @@unique([userId, courseId, resourceId])
 }
 
 model UserCourse {
-    id          String    @id @default(uuid())
-    userId      String
-    user        User      @relation(fields: [userId], references: [id])
-    courseId    String
-    course      Course    @relation(fields: [courseId], references: [id])
-    started     Boolean   @default(false)
-    completed   Boolean   @default(false)
-    startedAt   DateTime?
-    completedAt DateTime?
-    submittedRepoLink String?
-    createdAt   DateTime  @default(now())
-    updatedAt   DateTime  @updatedAt
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  courseId          String
+  course            Course    @relation(fields: [courseId], references: [id])
+  started           Boolean   @default(false)
+  completed         Boolean   @default(false)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  submittedRepoLink String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-    @@unique([userId, courseId])
+  @@unique([userId, courseId])
 }
 
 model PlatformNip05 {
-    id        String   @id @default(uuid())
-    userId    String   @unique
-    user      User     @relation(fields: [userId], references: [id])
-    pubkey    String
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  pubkey    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PlatformLightningAddress {
-    id              String  @id @default(uuid())
-    userId          String  @unique
-    user            User    @relation(fields: [userId], references: [id])
-    name            String
-    allowsNostr     Boolean @default(true)
-    description     String?
-    maxSendable     BigInt  @default(10000000000)
-    minSendable     BigInt  @default(1000)
-    invoiceMacaroon String
-    lndCert         String?
-    lndHost         String
-    lndPort         Int     @default(8080)
+  id              String  @id @default(uuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id])
+  name            String
+  allowsNostr     Boolean @default(true)
+  description     String?
+  maxSendable     BigInt  @default(10000000000)
+  minSendable     BigInt  @default(1000)
+  invoiceMacaroon String
+  lndCert         String?
+  lndHost         String
+  lndPort         Int     @default(8080)
 }
 
 model Badge {
-    id          String       @id @default(uuid())
-    name        String
-    noteId      String       @unique
-    courseId    String?      @unique  // Optional relation to course
-    course      Course?      @relation(fields: [courseId], references: [id])
-    userBadges  UserBadge[] // Many users can have this badge
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
+  id         String      @id @default(uuid())
+  name       String
+  noteId     String      @unique
+  courseId   String?     @unique // Optional relation to course
+  course     Course?     @relation(fields: [courseId], references: [id])
+  userBadges UserBadge[] // Many users can have this badge
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model UserBadge {
-    id        String   @id @default(uuid())
-    userId    String
-    user      User     @relation(fields: [userId], references: [id])
-    badgeId   String
-    badge     Badge    @relation(fields: [badgeId], references: [id])
-    awardedAt DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+  awardedAt DateTime @default(now())
 
-    @@unique([userId, badgeId]) // Each user can only have one of each badge
+  @@unique([userId, badgeId]) // Each user can only have one of each badge
 }
 
 // ============================================================
@@ -304,13 +307,13 @@ model UserBadge {
 // ============================================================
 
 model ViewCounterTotal {
-  key        String   @id
-  namespace  String
-  entityId   String?
-  path       String?
-  total      Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  key       String   @id
+  namespace String
+  entityId  String?
+  path      String?
+  total     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ViewCounterDaily {

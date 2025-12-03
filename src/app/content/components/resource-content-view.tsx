@@ -351,7 +351,10 @@ function ContentMetadata({
                 recentZaps={recentZaps}
                 viewerZapReceipts={viewerZapReceipts}
                 onPurchaseComplete={(purchase) => {
-                  if ((purchase?.amountPaid ?? 0) >= priceSats) {
+                  const required = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0
+                    ? purchase.priceAtPurchase
+                    : priceSats
+                  if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
                     onUnlock?.()
                   }
                 }}
@@ -861,7 +864,11 @@ export function ResourceContentView({
               zapInsights={zapInsights}
               recentZaps={recentZaps}
               onPurchaseComplete={(purchase) => {
-                if ((purchase?.amountPaid ?? 0) >= priceSats) {
+                const snapshot = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0
+                  ? purchase.priceAtPurchase
+                  : priceSats
+                const required = Math.min(snapshot ?? priceSats, priceSats)
+                if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
                   handleUnlock()
                 }
               }}

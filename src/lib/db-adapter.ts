@@ -17,12 +17,12 @@ const courseUserSelect = {
   avatar: true,
   nip05: true,
   lud16: true,
+  displayName: true,
 } satisfies Prisma.UserSelect
 
 type CourseUser = Prisma.UserGetPayload<{ select: typeof courseUserSelect }>
-type PrismaCourseUser = Prisma.UserGetPayload<{ select: typeof courseUserSelect }>
 
-function transformUser(user?: PrismaCourseUser | null): Course['user'] {
+function transformUser(user?: CourseUser | null): Course['user'] {
   if (!user) return undefined
   return {
     id: user.id,
@@ -31,6 +31,7 @@ function transformUser(user?: PrismaCourseUser | null): Course['user'] {
     avatar: user.avatar ?? undefined,
     nip05: user.nip05 ?? undefined,
     lud16: user.lud16 ?? undefined,
+    displayName: user.displayName ?? undefined,
   }
 }
 
@@ -74,6 +75,33 @@ function transformLesson(lesson: any): Lesson {
     draftId: lesson.draftId ?? undefined,
     createdAt: lesson.createdAt.toISOString(),
     updatedAt: lesson.updatedAt.toISOString()
+  }
+}
+
+// ============================================================================
+// PURCHASE ADAPTER
+// ============================================================================
+
+export interface PurchaseRecord {
+  id: string
+  amountPaid: number
+  priceAtPurchase?: number | null
+  createdAt: Date
+}
+
+export class PurchaseAdapter {
+  static async findByUserAndCourse(userId: string, courseId: string): Promise<PurchaseRecord[]> {
+    const purchases = await prisma.purchase.findMany({
+      where: { userId, courseId },
+      select: { id: true, amountPaid: true, priceAtPurchase: true, createdAt: true }
+    })
+
+    return purchases.map((purchase) => ({
+      id: purchase.id,
+      amountPaid: purchase.amountPaid,
+      priceAtPurchase: purchase.priceAtPurchase,
+      createdAt: purchase.createdAt
+    }))
   }
 }
 

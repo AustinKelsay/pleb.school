@@ -74,6 +74,7 @@ export async function GET(
           select: { 
             id: true,
             amountPaid: true,
+            priceAtPurchase: true,
             createdAt: true,
           }
         } : false,
@@ -90,7 +91,11 @@ export async function GET(
     // Check if this is a paid resource and user has access
     const isPaid = resource.price > 0
     const hasPurchased = (resource.purchases || []).some(
-      (p) => p.amountPaid >= resource.price
+      (p) => {
+        const snapshot = p.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : resource.price
+        const required = Math.min(snapshot, resource.price)
+        return p.amountPaid >= required
+      }
     )
     const isOwner = session?.user?.id === resource.userId
     // Compute course-based unlock using shared helper

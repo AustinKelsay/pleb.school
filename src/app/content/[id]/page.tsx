@@ -590,7 +590,9 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   recentZaps={recentZaps}
                   viewerZapReceipts={viewerZapReceipts}
                   onPurchaseComplete={(purchase) => {
-                    if ((purchase?.amountPaid ?? 0) >= priceSats) {
+                    const snapshot = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0 ? purchase.priceAtPurchase : priceSats
+                    const required = Math.min(snapshot ?? priceSats, priceSats)
+                    if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
                       setServerPurchased(true)
                     }
                   }}

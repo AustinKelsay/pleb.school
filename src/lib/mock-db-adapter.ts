@@ -164,6 +164,25 @@ let resourcesInMemory: Resource[] = [...resourceData]
 let lessonsInMemory: Lesson[] = [...lessonData]
 
 // ============================================================================
+// PURCHASE ADAPTER
+// ============================================================================
+
+export interface PurchaseRecord {
+  id: string
+  amountPaid: number
+  priceAtPurchase?: number | null
+  createdAt: Date
+}
+
+export class PurchaseAdapter {
+  static async findByUserAndCourse(_userId: string, _courseId: string): Promise<PurchaseRecord[]> {
+    await new Promise(resolve => setTimeout(resolve, 10))
+    // Mock data set does not contain purchases yet
+    return []
+  }
+}
+
+// ============================================================================
 // COURSE ADAPTER
 // ============================================================================
 
