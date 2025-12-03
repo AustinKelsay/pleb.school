@@ -19,7 +19,6 @@ import {
   Clock, 
   FileText, 
   Play, 
-  ExternalLink,
   Eye,
   BookOpen,
   Video,
@@ -29,7 +28,9 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react'
-import { formatLinkLabel } from '@/lib/link-label'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import { AdditionalLinksList } from '@/components/ui/additional-links-card'
+import type { AdditionalLink } from '@/types/additional-links'
 
 interface ResourceDraftPageProps {
   params: Promise<{
@@ -46,7 +47,7 @@ interface DraftData {
   image?: string | null
   price?: number | null
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   videoUrl?: string | null
   createdAt: string
   updatedAt: string
@@ -67,21 +68,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
     // Fallback to hex format if encoding fails
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
-}
-
-function normalizeAdditionalLink(rawLink?: string): string | null {
-  const trimmed = (rawLink || '').trim()
-  if (!trimmed) return null
-
-  // Block clearly unsafe schemes
-  if (/^(javascript|data):/i.test(trimmed)) return null
-
-  const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
-  const isHttp = /^https?:\/\//i.test(trimmed)
-
-  if (hasScheme && !isHttp) return null
-
-  return isHttp ? trimmed : `https://${trimmed}`
 }
 
 /**
@@ -200,8 +186,10 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
         if (!response.ok) {
           throw new Error(result.error || 'Failed to fetch draft')
         }
-        
-        setDraftData(result.data)
+        setDraftData({
+          ...result.data,
+          additionalLinks: normalizeAdditionalLinks(result.data.additionalLinks)
+        })
       } catch (err) {
         console.error('Error fetching draft:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch draft')
@@ -283,7 +271,7 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
   const title = draftData.title
   const description = draftData.summary
   const topics = draftData.topics || []
-  const additionalLinks = draftData.additionalLinks || []
+  const additionalLinks = normalizeAdditionalLinks(draftData.additionalLinks)
   const image = draftData.image || null
   const type = draftData.type || 'document'
   const duration = type === 'video' ? '15 min' : undefined
@@ -396,32 +384,7 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
               )}
 
               {/* Additional Links */}
-              {additionalLinks && additionalLinks.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Additional Resources</h4>
-                  <div className="space-y-2">
-                    {additionalLinks.map((rawLink: string, index: number) => {
-                      const href = normalizeAdditionalLink(rawLink)
-                      if (!href) return null
-
-                      return (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-start"
-                          asChild
-                        >
-                          <a href={href} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            {formatLinkLabel(rawLink)}
-                          </a>
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
+              <AdditionalLinksList links={additionalLinks} />
             </div>
 
             <div className="relative order-1 xl:order-2">

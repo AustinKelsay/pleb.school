@@ -2,14 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Documentation
-
-Comprehensive technical documentation is available in the `/docs` directory:
-- [Profile System Architecture](./docs/profile-system-architecture.md) - Multi-account profile management
-- [Profile API Reference](./docs/profile-api-reference.md) - Complete API documentation
-- [Profile Implementation Guide](./docs/profile-implementation-guide.md) - Implementation details
-- [Documentation Index](./docs/README.md) - All available documentation
-
 ## Development Commands
 
 ```bash
@@ -27,9 +19,12 @@ npx prisma db push      # Push schema changes to database
 npx prisma migrate dev  # Create and apply new migration
 npx prisma studio       # Open Prisma Studio for database browsing
 
-# Testing during development
-# Run these commands to verify your changes before committing
-npm run build && npm run lint  # Ensure build success and clean code
+# Docker development (alternative to local setup)
+docker compose up db    # Start PostgreSQL only
+docker compose up app   # Full stack (waits for Prisma sync)
+
+# Verify changes before committing
+npm run build && npm run lint
 ```
 
 ## Important Development Workflow
@@ -46,11 +41,8 @@ When making changes to this codebase:
 The project uses ESLint CLI (ESLint 9) with a customized flat config in `eslint.config.mjs`:
 - Uses `FlatCompat` to convert Next.js ESLint configs to flat config format
 - Extends `next/core-web-vitals` and `next/typescript` via compatibility layer
-- **Disabled Rules**: 
-  - `@typescript-eslint/no-unused-vars` and `no-unused-vars`
-  - `@typescript-eslint/no-unused-params` and `no-unused-params`
-  - `@typescript-eslint/no-explicit-any`
-- **Note**: Migrated from deprecated `next lint` to ESLint CLI for Next.js 16 compatibility
+- **Disabled Rules**: `no-unused-vars`, `no-explicit-any`
+- **React Hooks**: `rules-of-hooks` (error), `exhaustive-deps` (warn)
 
 ## Project Architecture
 
@@ -79,6 +71,7 @@ Real-time content management through Nostr protocol:
 - **Event Parsing**: Parser functions in `src/data/types.ts` convert Nostr events to UI data
 - **Publishing System**: Complete draft-to-Nostr publishing flow with NIP-07 browser extension support
 - **Atomic Operations**: All draft lessons published before course creation
+- **Key NIPs Used**: NIP-01 (events), NIP-07 (browser signing), NIP-19 (bech32 encoding), NIP-23 (long-form content), NIP-51 (lists/courses), NIP-57 (zaps), NIP-99 (classified listings/paid content)
 
 ### Key Architectural Files
 
@@ -110,24 +103,26 @@ Real-time content management through Nostr protocol:
 - **Privacy Options**: NIP-07 users can opt for anonymous zaps while maintaining purchase records
 
 #### API Routes
-- `/api/health` - Health check endpoint
-- `/api/courses` - Course CRUD with validation
-- `/api/resources` - Resource management endpoints
-- `/api/drafts/*/publish` - Publishing endpoints for drafts
+- `/api/courses`, `/api/resources` - Content CRUD with validation
+- `/api/drafts/courses`, `/api/drafts/resources` - Draft management
+- `/api/drafts/*/publish` - Publishing endpoints (drafts to Nostr)
 - `/api/purchases/claim` - Purchase claiming via zap aggregation
+- `/api/profile/*` - Profile aggregation and sync
+- `/api/account/*` - Account linking and OAuth callbacks
 - **Error Handling**: Structured error classes (NotFoundError, ValidationError, etc.)
 - **Validation**: Comprehensive Zod schemas matching TypeScript types
 
 ### Core Technologies
-- **Next.js 15.3.5** with Turbopack
+- **Next.js 15** with Turbopack and App Router
 - **React 19** with Server Components
 - **TypeScript** with strict mode
 - **Tailwind CSS v4** with shadcn/ui
 - **snstr** for Nostr protocol
 - **Zod** for runtime validation
 - **@tanstack/react-query** for data fetching
-- **NextAuth.js** with Prisma adapter
+- **NextAuth.js 4** with Prisma adapter
 - **Prisma** with PostgreSQL
+- **Vercel KV** for view counters (hot path)
 
 ### Environment Variables
 
@@ -136,9 +131,12 @@ Real-time content management through Nostr protocol:
 - `NEXTAUTH_SECRET` - Secret for JWT encryption
 - `NEXTAUTH_URL` - Application URL (e.g., http://localhost:3000)
 
-**Optional (for GitHub OAuth):**
-- `GITHUB_CLIENT_ID` - GitHub OAuth client ID
-- `GITHUB_CLIENT_SECRET` - GitHub OAuth client secret
+**Docker (when using docker-compose):**
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Database credentials
+
+**Optional:**
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` - GitHub OAuth
+- `KV_REST_API_URL`, `KV_REST_API_TOKEN` - Vercel KV for view counters
 
 ## Code Style Guidelines
 
@@ -147,21 +145,14 @@ Real-time content management through Nostr protocol:
    - Use arrow functions for components: `export const ComponentName = () => {}`
 
 2. **Import Organization**:
-   - React/Next imports first
-   - Third-party libraries
-   - Internal components
-   - Types/interfaces
-   - Utils/lib functions
+   - React/Next imports first, then third-party, then internal (`@/` alias preferred)
+   - Delete unused imports even if linting permits
 
 3. **Data Access**:
    - ALWAYS use adapters (CourseAdapter, ResourceAdapter, etc.)
    - NEVER access mock data or database directly
-   - Always check cache before fetching data
 
-4. **Error Handling**:
-   - Use try-catch blocks for async operations
-   - Return structured error responses from API routes
-   - Use custom error classes
+4. **Naming**: Components/contexts/hooks use PascalCase (hooks prefixed with `use`), route directories use kebab-case
 
 ## Smart Image Optimization
 - **OptimizedImage Component**: Automatically handles images from any domain without manual configuration
@@ -170,10 +161,9 @@ Real-time content management through Nostr protocol:
 
 ## Git Workflow
 
-When creating commits:
-1. **Always run**: `npm run lint` and `npm run build` before committing
-2. **Database changes**: Run `npx prisma generate` after schema changes
-3. **Atomic commits**: Keep commits focused on single features or fixes
+- **Always run**: `npm run lint` and `npm run build` before committing
+- **Database changes**: Run `npx prisma generate` after schema changes
+- **Commit style**: Short, imperative, lowercase subjects (e.g., `add feature`, `fix bug`)
 
 ## Purchase & Sales Implementation Details
 

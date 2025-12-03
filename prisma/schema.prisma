@@ -122,7 +122,7 @@ model Draft {
     image           String?
     price           Int?          @default(0)
     topics          String[]
-    additionalLinks String[]
+    additionalLinks Json           @default(dbgenerated("'[]'::jsonb"))
     videoUrl        String?
     createdAt       DateTime      @default(now())
     updatedAt       DateTime      @updatedAt

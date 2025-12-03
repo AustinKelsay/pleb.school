@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { DraftService } from '@/lib/draft-service'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { z } from 'zod'
+
+const additionalLinkSchema = z.object({
+  url: z.string().url('Link must be a valid URL'),
+  title: z.string().trim().min(1).max(120).optional(),
+})
+
+const additionalLinksSchema = z
+  .array(z.union([z.string().url(), additionalLinkSchema]))
+  .optional()
 
 // Validation schemas
 const updateDraftSchema = z.object({
@@ -13,7 +23,7 @@ const updateDraftSchema = z.object({
   image: z.string().url().optional().or(z.literal('')).optional(),
   price: z.number().int().min(0).optional(),
   topics: z.array(z.string()).min(1, 'At least one topic is required').optional(),
-  additionalLinks: z.array(z.string().url()).optional(),
+  additionalLinks: additionalLinksSchema,
   videoUrl: z.string().url().optional()
 })
 
@@ -137,9 +147,17 @@ export async function PUT(
     }
 
     const updateData = validationResult.data
+    const normalizedLinks =
+      updateData.additionalLinks !== undefined
+        ? normalizeAdditionalLinks(updateData.additionalLinks)
+        : undefined
+    const updatePayload = {
+      ...updateData,
+      ...(normalizedLinks !== undefined ? { additionalLinks: normalizedLinks } : {}),
+    }
 
-    const effectiveType = updateData.type ?? existingDraft.type
-    const effectiveVideoUrl = updateData.videoUrl ?? existingDraft.videoUrl
+    const effectiveType = updatePayload.type ?? existingDraft.type
+    const effectiveVideoUrl = updatePayload.videoUrl ?? existingDraft.videoUrl
 
     if (effectiveType === 'video' && !effectiveVideoUrl) {
       return NextResponse.json(
@@ -158,7 +176,7 @@ export async function PUT(
       }
     }
 
-    const draft = await DraftService.update(id, updateData)
+    const draft = await DraftService.update(id, updatePayload)
 
     return NextResponse.json({
       success: true,

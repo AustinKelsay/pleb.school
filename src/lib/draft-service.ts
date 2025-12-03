@@ -5,6 +5,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import type { AdditionalLink } from '@/types/additional-links'
 
 // Types for draft operations
 export interface CreateCourseDraftData {
@@ -32,7 +34,7 @@ export interface CreateDraftData {
   image?: string
   price?: number
   topics: string[]
-  additionalLinks?: string[]
+  additionalLinks?: AdditionalLink[]
   videoUrl?: string
   userId: string
 }
@@ -45,7 +47,7 @@ export interface UpdateDraftData {
   image?: string
   price?: number
   topics?: string[]
-  additionalLinks?: string[]
+  additionalLinks?: AdditionalLink[]
   videoUrl?: string
 }
 
@@ -75,6 +77,16 @@ export interface PaginatedResult<T> {
     totalPages: number
     hasNext: boolean
     hasPrev: boolean
+  }
+}
+
+function withNormalizedAdditionalLinks<T extends { additionalLinks?: unknown }>(
+  draft: T
+): T & { additionalLinks: AdditionalLink[] } {
+  const normalizedLinks = normalizeAdditionalLinks((draft as any)?.additionalLinks)
+  return {
+    ...draft,
+    additionalLinks: normalizedLinks,
   }
 }
 
@@ -431,6 +443,8 @@ export class DraftService {
    * Create a new draft
    */
   static async create(data: CreateDraftData) {
+    const additionalLinks = normalizeAdditionalLinks(data.additionalLinks)
+
     return await prisma.draft.create({
       data: {
         type: data.type,
@@ -440,7 +454,7 @@ export class DraftService {
         image: data.image,
         price: data.price || 0,
         topics: data.topics,
-        additionalLinks: data.additionalLinks || [],
+        additionalLinks,
         videoUrl: data.videoUrl,
         userId: data.userId,
       },
@@ -463,7 +477,7 @@ export class DraftService {
           }
         }
       }
-    })
+    }).then(withNormalizedAdditionalLinks)
   }
 
   /**
@@ -479,7 +493,7 @@ export class DraftService {
       where.userId = options.userId
     }
 
-    const [data, total] = await Promise.all([
+    const [rawData, total] = await Promise.all([
       prisma.draft.findMany({
         where,
         skip,
@@ -509,6 +523,8 @@ export class DraftService {
       }),
       prisma.draft.count({ where })
     ])
+
+    const data = rawData.map(withNormalizedAdditionalLinks)
 
     return {
       data,
@@ -548,13 +564,16 @@ export class DraftService {
           }
         }
       }
-    })
+    }).then(draft => (draft ? withNormalizedAdditionalLinks(draft) : draft))
   }
 
   /**
    * Update a draft
    */
   static async update(id: string, data: UpdateDraftData) {
+    const additionalLinks =
+      data.additionalLinks !== undefined ? normalizeAdditionalLinks(data.additionalLinks) : undefined
+
     return await prisma.draft.update({
       where: { id },
       data: {
@@ -565,7 +584,7 @@ export class DraftService {
         ...(data.image !== undefined && { image: data.image }),
         ...(data.price !== undefined && { price: data.price }),
         ...(data.topics !== undefined && { topics: data.topics }),
-        ...(data.additionalLinks !== undefined && { additionalLinks: data.additionalLinks }),
+        ...(additionalLinks !== undefined && { additionalLinks }),
         ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl }),
         updatedAt: new Date()
       },
@@ -588,7 +607,7 @@ export class DraftService {
           }
         }
       }
-    })
+    }).then(withNormalizedAdditionalLinks)
   }
 
   /**

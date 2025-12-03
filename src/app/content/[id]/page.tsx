@@ -39,7 +39,7 @@ import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { useSession } from 'next-auth/react'
-import { formatLinkLabel } from '@/lib/link-label'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 
 interface ResourcePageProps {
   params: Promise<{
@@ -736,64 +736,14 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   )}
                 </CardContent>
               </Card>
-              {!isFullWidth && additionalLinks && additionalLinks.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <BookOpen className="h-5 w-5" />
-                      <span>Additional Resources</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
-                      {additionalLinks.map((link, index) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          className="justify-start"
-                          asChild
-                        >
-                          <a href={link} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            {formatLinkLabel(link)}
-                          </a>
-                        </Button>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              {!isFullWidth && (
+                <AdditionalLinksCard links={additionalLinks} layout="stack" />
               )}
             </div>
           </div>
           
           {/* Additional Resources - single display in full-width mode */}
-          {isFullWidth && additionalLinks && additionalLinks.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <BookOpen className="h-5 w-5" />
-                  <span>Additional Resources</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {additionalLinks.map((link, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="justify-start"
-                      asChild
-                    >
-                      <a href={link} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        {formatLinkLabel(link)}
-                      </a>
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {isFullWidth && <AdditionalLinksCard links={additionalLinks} />}
           
           {/* Comments Section - Only show for preview-gated content since ResourceContentView includes its own comments */}
           {requiresPreviewGate && (

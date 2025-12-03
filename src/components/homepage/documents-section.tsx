@@ -7,6 +7,7 @@ import { ContentCardSkeleton } from "@/components/ui/content-skeleton";
 import { Section } from "@/components/layout";
 import { useHomepageSectionConfig } from "@/hooks/useContentConfig";
 import { applyContentFilters } from "@/lib/content-config";
+import { tagsToAdditionalLinks } from "@/lib/additional-links";
 
 /**
  * Client component for fetching and displaying document resources
@@ -149,7 +150,7 @@ function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
     studentsCount: 0,
     featured: false,
     topics: document.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-    additionalLinks: document.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
+    additionalLinks: tagsToAdditionalLinks(document.note?.tags, 'r'),
     noteId: document.note?.id || document.noteId,
     purchases: document.purchases,
   };

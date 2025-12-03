@@ -24,7 +24,6 @@ import { preserveLineBreaks } from '@/lib/text-utils'
 import type { NostrEvent } from 'snstr'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { useSession } from 'next-auth/react'
-import { formatLinkLabel } from '@/lib/link-label'
 import {
   ArrowLeft,
   BookOpen,
@@ -37,6 +36,7 @@ import {
   User,
   Video
 } from 'lucide-react'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 
 /**
  * Ensures video posts always have a playable URL by inferring legacy embeds when needed.
@@ -894,27 +894,8 @@ export function ResourceContentView({
         )}
       </div>
 
-      {showAdditionalLinks && additionalLinks && additionalLinks.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <ExternalLink className="h-5 w-5" />
-              <span>Additional Resources</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {additionalLinks.map((link, index) => (
-                <Button key={index} variant="outline" className="justify-start" asChild>
-                  <a href={link} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    {formatLinkLabel(link)}
-                  </a>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {showAdditionalLinks && (
+        <AdditionalLinksCard links={additionalLinks} icon="link" />
       )}
 
       <div data-comments-section>

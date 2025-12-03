@@ -19,7 +19,6 @@ import {
   Eye, 
   FileText, 
   Play, 
-  ExternalLink, 
   ArrowLeft, 
   BookOpen, 
   Video, 
@@ -30,8 +29,10 @@ import {
   AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
-import { formatLinkLabel } from '@/lib/link-label'
 import { DraftContentSkeleton } from '@/components/ui/app-skeleton-client'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
+import type { AdditionalLink } from '@/types/additional-links'
 
 interface ResourceDraftPreviewPageProps {
   params: Promise<{
@@ -48,7 +49,7 @@ interface DraftData {
   image?: string | null
   price?: number | null
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   videoUrl?: string | null
   createdAt: string
   updatedAt: string
@@ -157,7 +158,10 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
           throw new Error(result.error || 'Failed to fetch draft')
         }
         
-        setDraftData(result.data)
+        setDraftData({
+          ...result.data,
+          additionalLinks: normalizeAdditionalLinks(result.data.additionalLinks)
+        })
       } catch (err) {
         console.error('Error fetching draft:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch draft')
@@ -196,7 +200,7 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
   const description = draftData.summary
   const category = draftData.topics[0] || 'general'
   const type = draftData.type || 'document'
-  const additionalLinks = draftData.additionalLinks || []
+  const additionalLinks = normalizeAdditionalLinks(draftData.additionalLinks)
   const additionalContent = draftData.content?.trim()
   const isPremium = (draftData.price ?? 0) > 0
 
@@ -276,33 +280,7 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
       </div>
       
       {/* Additional Links */}
-      {additionalLinks && additionalLinks.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <ExternalLink className="h-5 w-5" />
-              <span>Additional Resources</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {additionalLinks.map((link, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  className="justify-start"
-                  asChild
-                >
-                  <a href={link} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    {formatLinkLabel(link)}
-                  </a>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <AdditionalLinksCard links={additionalLinks} icon="link" />
 
       {/* Draft Actions */}
       <Card>

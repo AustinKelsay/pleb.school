@@ -10,6 +10,8 @@ import {
 import { parseCourseEvent, parseEvent } from '@/data/types'
 import type { Course, Resource } from '@prisma/client'
 import { RelayPool, type NostrEvent } from 'snstr'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import type { AdditionalLink } from '@/types/additional-links'
 
 export class RepublishError extends Error {
   constructor(
@@ -36,7 +38,7 @@ export interface RepublishResourceOptions extends BaseRepublishOptions {
   price: number
   image?: string
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   type: 'document' | 'video'
   videoUrl?: string
 }
@@ -147,6 +149,7 @@ export class RepublishService {
 
     const { signedEvent, privkey, relays, relaySet, ...payload } = options
     const selectedRelays = relays && relays.length > 0 ? relays : getRelays(relaySet ?? 'default')
+    const normalizedAdditionalLinks = normalizeAdditionalLinks(payload.additionalLinks)
 
     if (signedEvent) {
       const dTag = signedEvent.tags.find(tag => tag[0] === 'd')
@@ -243,7 +246,7 @@ export class RepublishService {
       image: payload.image,
       price: payload.price,
       topics: payload.topics,
-      additionalLinks: payload.additionalLinks,
+      additionalLinks: normalizedAdditionalLinks,
       videoUrl: payload.type === 'video' ? payload.videoUrl ?? null : undefined,
     }
 
