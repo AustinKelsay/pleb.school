@@ -138,18 +138,14 @@ function DraftResourceContent({ draftData, resourceId }: { draftData: DraftData;
               title={draftData.title}
             />
             {additionalContent && (
-              <div className="prose prose-lg max-w-none">
-                <MarkdownRenderer content={draftData.content} />
-              </div>
+              <MarkdownRenderer content={draftData.content} />
             )}
           </CardContent>
         </Card>
       ) : (
         <Card>
           <CardContent className="pt-6">
-            <div className="prose prose-lg max-w-none">
-              <MarkdownRenderer content={draftData.content} />
-            </div>
+            <MarkdownRenderer content={draftData.content} />
           </CardContent>
         </Card>
       )}
