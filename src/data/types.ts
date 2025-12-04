@@ -496,6 +496,7 @@ export interface ContentItem {
   purchases?: Array<{
     id: string
     amountPaid?: number
+    priceAtPurchase?: number
     createdAt?: string
     updatedAt?: string
   }>

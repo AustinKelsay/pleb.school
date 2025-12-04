@@ -1,4 +1,4 @@
-export type PurchaseStatus = "unlocked" | "partial" | "refunded" | "manual"
+export type PurchaseStatus = "unlocked" | "partial" | "refunded"
 
 export type TraceStep = {
   label: string

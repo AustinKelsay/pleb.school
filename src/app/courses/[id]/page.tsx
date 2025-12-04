@@ -390,6 +390,9 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const notePubkey = courseData?.note?.pubkey
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const courseIdIsUuid = uuidRegex.test(courseId)
+  const viewerZapTotal = viewerZapTotalSats ?? 0
+  // Access requires server-confirmed purchase - don't grant access based on client-side zap totals alone
+  // The auto-claim flow in PurchaseCard will set serverPurchased=true after successful API claim
   const hasAccess = !isPremium || serverPurchased
 
   const formatDuration = (minutes: number): string => {
@@ -488,7 +491,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
               lightningAddress: instructorProfile?.lud16 || undefined,
               name: instructor
             }}
-            viewerZapTotalSats={viewerZapTotalSats}
+            viewerZapTotalSats={viewerZapTotal}
             alreadyPurchased={serverPurchased}
             zapInsights={zapInsights}
             recentZaps={recentZaps}
@@ -609,7 +612,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                   <div>
                     <h4 className="font-semibold mb-2">Price</h4>
                     <p className="text-sm text-muted-foreground">
-                      {(courseData.price ?? 0) > 0 ? `${(courseData.price ?? 0).toLocaleString()} ${currency}` : 'Free'}
+                      {priceSats > 0 ? `${priceSats.toLocaleString()} ${currency}` : 'Free'}
                     </p>
                   </div>
                   <div>

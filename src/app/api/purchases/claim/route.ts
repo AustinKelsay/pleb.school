@@ -503,28 +503,41 @@ export async function POST(request: NextRequest) {
         ? requestZapProof.zapReceiptJson
         : [requestZapProof.zapReceiptJson]
       const receiptIds = receiptList
-        .map((r: any) => (r?.id ? String(r.id).toLowerCase() : null))
+        .map((r: any) => (r?.id ? String(r.id) : null))
         .filter(Boolean) as string[]
+      const normalizedReceiptIds = receiptIds.map((id) => id.toLowerCase())
 
-      if (receiptIds.length > 0) {
-        // Check explicit column (unique index handles atomicity/race)
-        const existingByReceipt = await prisma.purchase.findFirst({
-          where: { zapReceiptId: { in: receiptIds } },
-          select: { userId: true }
-        })
-        if (existingByReceipt && existingByReceipt.userId !== session.user.id) {
+      if (normalizedReceiptIds.length > 0) {
+        // Check explicit column case-insensitively (unique index handles atomicity/race)
+        const existingByReceipt = await prisma.$queryRaw<{ userid: string }[]>`
+          SELECT "userId" as userid
+          FROM "Purchase"
+          WHERE "zapReceiptId" IS NOT NULL
+            AND lower("zapReceiptId") = ANY(${normalizedReceiptIds})
+          LIMIT 1
+        `
+        const existing = existingByReceipt[0]
+        if (existing && existing.userid !== session.user.id) {
           return NextResponse.json(
             { error: "zapReceiptId already used by another user" },
             { status: 409 }
           )
         }
 
-        // Lightweight JSONB containment check per receipt to avoid full-table scans
-        for (const id of receiptIds) {
+        // Case-insensitive JSONB receipt check (handles array or single object storage)
+        for (const id of normalizedReceiptIds) {
           const conflicts = await prisma.$queryRaw<{ userid: string }[]>`
             SELECT "userId" as userid
-            FROM "Purchase"
-            WHERE "zapReceiptJson" @> ${JSON.stringify([{ id }])}::jsonb
+            FROM "Purchase",
+                 LATERAL jsonb_array_elements(
+                   CASE
+                     WHEN jsonb_typeof("zapReceiptJson") = 'array' THEN "zapReceiptJson"
+                     ELSE jsonb_build_array("zapReceiptJson")
+                   END
+                 ) AS receipt(elem)
+            WHERE "zapReceiptJson" IS NOT NULL
+              AND jsonb_typeof(receipt.elem) = 'object'
+              AND lower(receipt.elem->>'id') = ${id}
             LIMIT 1
           `
           const conflict = conflicts[0]

@@ -316,7 +316,7 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
   const title = draftData.title
   const description = draftData.summary
   const topics = draftData.topics || []
-  const additionalLinks = normalizeAdditionalLinks(draftData.additionalLinks)
+  const additionalLinks = draftData.additionalLinks
   const image = draftData.image || null
   const type = draftData.type || 'document'
   const isPremium = (draftData.price ?? 0) > 0

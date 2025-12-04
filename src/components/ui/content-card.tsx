@@ -25,7 +25,7 @@ import React, { useState, useEffect } from "react"
 import { useNostr, type NormalizedProfile } from "@/hooks/useNostr"
 import { useInteractions } from "@/hooks/useInteractions"
 import { encodePublicKey, decodeAddress } from "snstr"
-import { useSession } from "next-auth/react"
+import { useSession } from "@/hooks/useSession"
 
 interface HomepageItem {
   title: string
@@ -164,12 +164,12 @@ export function ContentCard({
   const zapTotalSats = zapInsights?.totalSats ?? 0
   const isPremium = isContent && (item as ContentItem).price > 0
   const price = isContent ? (item as ContentItem).price : 0
-  const purchasedCount = isContent && Array.isArray((item as any).purchases)
-    ? (item as any).purchases.filter((p: any) => {
-        const snapshot = p?.priceAtPurchase
+  const purchasedCount = isContent && Array.isArray((item as ContentItem).purchases)
+    ? (item as ContentItem).purchases!.filter((p) => {
+        const snapshot = p.priceAtPurchase
         const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
         const required = Math.min(snapshotValid ? snapshot : price, price)
-        return (p?.amountPaid ?? 0) >= (required ?? 0)
+        return (p.amountPaid ?? 0) >= (required ?? 0)
       }).length
     : 0
   const isPurchased = purchasedCount > 0

@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-export function DraftContentSkeleton() {
+export const DraftContentSkeleton = () => {
   return (
     <div className="space-y-6">
       <Card className="overflow-hidden">
@@ -44,7 +44,7 @@ export function DraftContentSkeleton() {
   )
 }
 
-export function DraftLessonSkeleton() {
+export const DraftLessonSkeleton = () => {
   return (
     <div className="space-y-6">
       <Card className="overflow-hidden">
