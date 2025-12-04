@@ -39,7 +39,9 @@ import type { Purchase } from "@prisma/client"
 import { useZapSender } from "@/hooks/useZapSender"
 import { usePurchaseEligibility } from "@/hooks/usePurchaseEligibility"
 
-const MIN_ZAP = 1
+const DEFAULT_MIN_ZAP_SATS = 500
+const envMinZap = Number(process.env.NEXT_PUBLIC_MIN_ZAP_SATS)
+const MIN_ZAP = Number.isFinite(envMinZap) && envMinZap > 0 ? envMinZap : DEFAULT_MIN_ZAP_SATS
 
 interface PurchaseDialogProps {
   isOpen: boolean
@@ -185,7 +187,8 @@ export function PurchaseDialog({
     ? paidSatsServer
     : Math.max(paidSatsServer, viewerZapTotalSats)
   const remaining = Math.max(0, requiredPrice - paidBasis)
-  const defaultAmount = remaining > 0 ? remaining : requiredPrice
+  const baseAmount = remaining > 0 ? remaining : requiredPrice
+  const defaultAmount = Math.max(baseAmount, MIN_ZAP)
   const [amount, setAmount] = useState(defaultAmount.toString())
   const [note, setNote] = useState("")
 
@@ -213,7 +216,8 @@ export function PurchaseDialog({
       return
     }
     if (!isValid) {
-      toast({ title: "Invalid amount", description: `Minimum ${remaining || MIN_ZAP} sats`, variant: "destructive" })
+      const minRequired = Math.max(remaining, MIN_ZAP)
+      toast({ title: "Invalid amount", description: `Minimum ${minRequired} sats`, variant: "destructive" })
       return
     }
 
@@ -594,9 +598,13 @@ function ZapRow({ zap }: { zap: ZapReceiptSummary }) {
       {expanded && (
         <div className="border-t px-2 py-1.5">
           {zap.note && <p className="text-xs text-muted-foreground mb-1">{zap.note}</p>}
-          <pre className="text-[9px] font-mono text-muted-foreground/70 whitespace-pre-wrap break-all max-h-24 overflow-auto">
-            {JSON.stringify(zap.event || zap, null, 2)}
-          </pre>
+          <div className="text-[9px] font-mono text-muted-foreground/70 space-y-0.5">
+            {zap.id && <p>Receipt: {zap.id.slice(0, 10)}…</p>}
+            <p>Amount: {formatSats(zap.amountSats)} sats</p>
+            {zap.senderPubkey && <p>From: {formatShortPubkey(zap.senderPubkey)}</p>}
+            {zap.receiverPubkey && <p>To: {formatShortPubkey(zap.receiverPubkey)}</p>}
+            {zap.createdAt && <p>Time: {new Date(zap.createdAt * 1000).toLocaleString()}</p>}
+          </div>
         </div>
       )}
     </div>

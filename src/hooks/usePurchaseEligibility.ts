@@ -100,11 +100,11 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
 
   const normalizedEventId = eventId?.toLowerCase()
   const normalizedEventPubkey = eventPubkey?.toLowerCase()
+  const normalizedEventIdentifier = eventIdentifier?.toLowerCase()
   const eventATag =
-    eventKind && normalizedEventPubkey && eventIdentifier
-      ? `${eventKind}:${normalizedEventPubkey}:${eventIdentifier}`
+    eventKind && normalizedEventPubkey && normalizedEventIdentifier
+      ? `${eventKind}:${normalizedEventPubkey}:${normalizedEventIdentifier}`
       : null
-  const eventATagLower = eventATag?.toLowerCase()
 
   const viewerReceipts = useMemo(() => {
     if (!zapReceipts || !sessionPubkey) return []
@@ -114,17 +114,15 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
       if (!matchesPayer) return false
       if ((normalizedEventId || eventATag) && zap.event?.tags) {
         const eTag = zap.event.tags.find((t) => t[0] === "e")?.[1]?.toLowerCase()
-        const aTag = zap.event.tags.find((t) => t[0] === "a")?.[1]
+        const aTag = zap.event.tags.find((t) => t[0] === "a")?.[1]?.toLowerCase()
         const matchesEvent =
           (normalizedEventId && eTag === normalizedEventId) ||
-          (eventATag &&
-            typeof aTag === "string" &&
-            (aTag === eventATag || (eventATagLower && aTag.toLowerCase() === eventATagLower)))
+          (eventATag && typeof aTag === "string" && aTag === eventATag)
         if (!matchesEvent) return false
       }
       return true
     })
-  }, [zapReceipts, sessionPubkey, normalizedEventId, eventATag, eventATagLower])
+  }, [zapReceipts, sessionPubkey, normalizedEventId, eventATag])
 
   const claimPurchase = useCallback(async (args?: ClaimArgs) => {
     if (!isAuthed) {

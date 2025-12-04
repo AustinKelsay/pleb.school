@@ -250,6 +250,7 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
         return eventIdSegment === normalizedExpectedEvent
       })
     })()
+
     const matchesEvent =
       (eTag && normalizedExpectedEvent && eTag === normalizedExpectedEvent) ||
       matchesATag
@@ -592,12 +593,8 @@ export async function POST(request: NextRequest) {
         existingPurchase.zapReceiptJson,
         requestZapProof?.zapReceiptJson
       ) as Prisma.InputJsonValue | undefined
-      await prisma.purchase.updateMany({
-        where: {
-          userId: session.user.id,
-          courseId: courseId ? courseId : null,
-          resourceId: resourceId ? resourceId : null
-        },
+      const updated = await prisma.purchase.update({
+        where: { id: existingPurchase.id },
         data: {
           amountPaid: updatedAmount,
           // Preserve existing snapshot, but fill it if missing
@@ -611,14 +608,6 @@ export async function POST(request: NextRequest) {
           // Persist the exact artifacts we validated to avoid future relay fetches.
           zapReceiptJson: mergedZapReceipts,
           zapRequestJson: zapRequestJsonInput
-        }
-      })
-
-      const updated = await prisma.purchase.findFirst({
-        where: {
-          userId: session.user.id,
-          courseId: courseId ? courseId : null,
-          resourceId: resourceId ? resourceId : null
         }
       })
 

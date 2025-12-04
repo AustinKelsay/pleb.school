@@ -236,6 +236,8 @@ model Purchase {
   resource        Resource? @relation(fields: [resourceId], references: [id])
 
   @@unique([userId, courseId, resourceId])
+  @@unique([userId, courseId])
+  @@unique([userId, resourceId])
 }
 
 model UserCourse {

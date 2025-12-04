@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { checkCourseUnlockViaLessons } from '@/lib/course-access'
+import { PurchaseAdapter } from '@/lib/db-adapter'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,16 +92,7 @@ export async function GET(
       let hasAccess = false
 
       if (session?.user?.id) {
-        const purchases = await prisma.purchase.findMany({
-          where: {
-            userId: session.user.id,
-            resourceId: id,
-          },
-          select: {
-            amountPaid: true,
-            priceAtPurchase: true,
-          }
-        })
+        const purchases = await PurchaseAdapter.findByUserAndResource(session.user.id, id)
 
         const hasPurchasedResource = purchases.some((purchase) => {
           const snapshot = purchase.priceAtPurchase

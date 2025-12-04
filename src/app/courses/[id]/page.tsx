@@ -198,11 +198,13 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const loading = courseLoading || lessonsLoading
 
   useEffect(() => {
+    const controller = new AbortController()
+
     const fetchCourseMeta = async () => {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       if (!uuidRegex.test(courseId)) return
       try {
-        const res = await fetch(`/api/courses/${courseId}`)
+        const res = await fetch(`/api/courses/${courseId}`, { signal: controller.signal })
         if (!res.ok) return
         const body = await res.json()
         const data = body?.course
@@ -219,6 +221,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           setServerPurchased(paid)
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
         console.error('Failed to fetch course meta', err)
       }
     }
@@ -226,16 +229,20 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     if (sessionStatus !== 'loading') {
       fetchCourseMeta()
     }
+
+    return () => controller.abort()
   }, [courseId, sessionStatus])
 
   // useEffect must be called unconditionally before any early returns
   useEffect(() => {
     if (!courseData) return
 
+    let mounted = true
+
     const fetchInstructorProfile = async () => {
       // Try to get instructor pubkey from multiple sources
       let instructorPubkey = courseData.userId // From database
-      
+
       // If we have a Nostr note, try to get more instructor data
       if (courseData.note) {
         try {
@@ -250,6 +257,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
       if (instructorPubkey) {
         try {
           const profileEvent = await fetchProfile(instructorPubkey)
+          if (!mounted) return
           const normalizedProfile = normalizeKind0(profileEvent)
           setInstructorProfile(normalizedProfile)
         } catch (profileError) {
@@ -259,6 +267,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     }
 
     fetchInstructorProfile()
+
+    return () => { mounted = false }
   }, [courseData, fetchProfile, normalizeKind0])
 
   // Early return check after all hooks (hooks must be called unconditionally)

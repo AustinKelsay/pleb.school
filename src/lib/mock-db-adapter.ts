@@ -180,6 +180,12 @@ export class PurchaseAdapter {
     // Mock data set does not contain purchases yet
     return []
   }
+
+  static async findByUserAndResource(_userId: string, _resourceId: string): Promise<PurchaseRecord[]> {
+    await new Promise(resolve => setTimeout(resolve, 10))
+    // Mock data set does not contain purchases yet
+    return []
+  }
 }
 
 // ============================================================================

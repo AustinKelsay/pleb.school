@@ -73,7 +73,8 @@ export async function checkCourseUnlockViaLessons(options: {
   // Determine unlocked courses
   const unlockedCourses = new Set<string>()
   for (const purchase of coursePurchases) {
-    const courseId = purchase.courseId!
+    if (!purchase.courseId) continue
+    const courseId = purchase.courseId
     const currentPrice = courseMap.get(courseId)
     const purchasePrice = purchase.priceAtPurchase !== null && purchase.priceAtPurchase !== undefined && purchase.priceAtPurchase > 0
       ? purchase.priceAtPurchase

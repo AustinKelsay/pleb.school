@@ -103,6 +103,20 @@ export class PurchaseAdapter {
       createdAt: purchase.createdAt
     }))
   }
+
+  static async findByUserAndResource(userId: string, resourceId: string): Promise<PurchaseRecord[]> {
+    const purchases = await prisma.purchase.findMany({
+      where: { userId, resourceId },
+      select: { id: true, amountPaid: true, priceAtPurchase: true, createdAt: true }
+    })
+
+    return purchases.map((purchase) => ({
+      id: purchase.id,
+      amountPaid: purchase.amountPaid,
+      priceAtPurchase: purchase.priceAtPurchase,
+      createdAt: purchase.createdAt
+    }))
+  }
 }
 
 // Pagination options for query functions
