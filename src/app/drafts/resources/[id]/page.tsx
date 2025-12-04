@@ -12,13 +12,14 @@ import { DraftBanner, DraftActions } from '@/components/ui/draft-banner'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Section } from '@/components/layout/section'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
+import { VideoPlayer } from '@/components/ui/video-player'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { encodePublicKey } from 'snstr'
-import { 
-  Clock, 
-  FileText, 
-  Play, 
+import {
+  FileText,
+  Play,
   Eye,
   BookOpen,
   Video,
@@ -29,7 +30,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
-import { AdditionalLinksList } from '@/components/ui/additional-links-card'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 import type { AdditionalLink } from '@/types/additional-links'
 
 interface ResourceDraftPageProps {
@@ -71,88 +72,136 @@ function formatNpubWithEllipsis(pubkey: string): string {
 }
 
 /**
- * Draft resource overview component
+ * Draft resource content component - shows actual content for FREE drafts
+ * or a preview gate for PAID drafts
  */
-function DraftResourceOverview({ resourceId }: { resourceId: string }) {
+function DraftResourceContent({ draftData, resourceId }: { draftData: DraftData; resourceId: string }) {
+  const isPremium = (draftData.price ?? 0) > 0
+  const type = draftData.type || 'document'
+  const additionalContent = draftData.content?.trim()
+
+  // For PAID drafts, show preview gate (mirrors published paid content behavior)
+  if (isPremium) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <BookOpen className="h-5 w-5" />
+              <span>About this Resource (Draft)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/20">
+                <BookOpen className="h-8 w-8 text-primary" />
+              </div>
+              <p className="text-lg font-medium text-foreground mb-2">
+                Premium Content Preview
+              </p>
+              <p className="text-sm text-muted-foreground mb-2">
+                This is paid content ({(draftData.price ?? 0).toLocaleString()} sats). Click below to preview how it will appear.
+              </p>
+              <p className="text-xs text-muted-foreground mb-6">
+                Once published, users will need to purchase access to view.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                <Button size="lg" asChild>
+                  <Link href={`/drafts/resources/${resourceId}/preview`}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Preview Content
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link href={`/create?draft=${resourceId}`}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Draft
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // For FREE drafts, show content directly (mirrors published free content behavior)
+  // No extra metadata row - author/date info is already in the sidebar
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <BookOpen className="h-5 w-5" />
-            <span>About this Resource (Draft)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/20">
-              <BookOpen className="h-8 w-8 text-primary" />
+      {type === 'video' ? (
+        <Card>
+          <CardContent className="pt-6 space-y-6">
+            <VideoPlayer
+              url={draftData.videoUrl || undefined}
+              title={draftData.title}
+            />
+            {additionalContent && (
+              <div className="prose prose-lg max-w-none">
+                <MarkdownRenderer content={draftData.content} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="prose prose-lg max-w-none">
+              <MarkdownRenderer content={draftData.content} />
             </div>
-            <p className="text-lg font-medium text-foreground mb-2">
-              Ready to preview the content?
-            </p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Click below to see how your content will appear when published.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2 justify-center">
-              <Button size="lg" asChild>
-                <Link href={`/drafts/resources/${resourceId}/preview`}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview Content
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href={`/create?draft=${resourceId}`}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Draft
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
 
 /**
  * Draft resource actions component
+ * For FREE drafts, hides Preview Content since content is shown directly
+ * For PAID drafts, keeps Preview Content button for preview gate behavior
  */
-function DraftResourceActions({ 
-  resourceId, 
-  onDelete, 
-  isDeleting 
-}: { 
+function DraftResourceActions({
+  resourceId,
+  onDelete,
+  isDeleting,
+  isPremium = false
+}: {
   resourceId: string
   onDelete: () => void
   isDeleting: boolean
+  isPremium?: boolean
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className={`grid grid-cols-1 gap-3 ${isPremium ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
       <Button size="lg" className="bg-primary hover:bg-primary/90" asChild>
         <Link href={`/create?draft=${resourceId}`}>
           <Edit className="h-5 w-5 mr-2" />
           Edit Draft
         </Link>
       </Button>
-      
-      <Button size="lg" variant="outline" asChild>
-        <Link href={`/drafts/resources/${resourceId}/preview`}>
-          <Eye className="h-5 w-5 mr-2" />
-          Preview Content
-        </Link>
-      </Button>
-      
+
+      {/* Only show Preview Content for PAID drafts where content is gated */}
+      {isPremium && (
+        <Button size="lg" variant="outline" asChild>
+          <Link href={`/drafts/resources/${resourceId}/preview`}>
+            <Eye className="h-5 w-5 mr-2" />
+            Preview Content
+          </Link>
+        </Button>
+      )}
+
       <Button size="lg" variant="outline" asChild>
         <Link href={`/drafts/resources/${resourceId}/publish`}>
           <Share className="h-5 w-5 mr-2" />
           Publish to Nostr
         </Link>
       </Button>
-      
-      <Button 
-        size="lg" 
-        variant="outline" 
+
+      <Button
+        size="lg"
+        variant="outline"
         className="text-destructive border-destructive/50 hover:bg-destructive/10"
         onClick={onDelete}
         disabled={isDeleting}
@@ -274,8 +323,8 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
   const additionalLinks = normalizeAdditionalLinks(draftData.additionalLinks)
   const image = draftData.image || null
   const type = draftData.type || 'document'
-  const duration = type === 'video' ? '15 min' : undefined
-  const author = draftData.user?.username || 
+  const isPremium = (draftData.price ?? 0) > 0
+  const author = draftData.user?.username ||
                  (draftData.user?.pubkey ? formatNpubWithEllipsis(draftData.user.pubkey) : 'Anonymous')
 
   const formatDate = (timestamp: string): string => {
@@ -316,7 +365,7 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
             actions={
               <DraftActions
                 editHref={`/create?draft=${resourceId}`}
-                previewHref={`/drafts/resources/${resourceId}/preview`}
+                previewHref={isPremium ? `/drafts/resources/${resourceId}/preview` : undefined}
                 publishHref={`/drafts/resources/${resourceId}/publish`}
                 className="hidden xl:flex"
               />
@@ -348,21 +397,15 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   <Eye className="h-5 w-5 text-muted-foreground" />
                   <span>Draft Preview</span>
                 </div>
-                
-                {duration && (
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <span>{duration}</span>
-                  </div>
-                )}
               </div>
 
               {/* Desktop Draft Actions */}
               <div className="hidden xl:block">
-                <DraftResourceActions 
-                  resourceId={resourceId} 
+                <DraftResourceActions
+                  resourceId={resourceId}
                   onDelete={handleDelete}
                   isDeleting={isDeleting}
+                  isPremium={isPremium}
                 />
               </div>
 
@@ -382,9 +425,6 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   </div>
                 </div>
               )}
-
-              {/* Additional Links */}
-              <AdditionalLinksList links={additionalLinks} />
             </div>
 
             <div className="relative order-1 xl:order-2">
@@ -433,19 +473,18 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
 
           {/* Mobile/Tablet Draft Actions */}
           <div className="xl:hidden">
-            <DraftResourceActions 
-              resourceId={resourceId} 
+            <DraftResourceActions
+              resourceId={resourceId}
               onDelete={handleDelete}
               isDeleting={isDeleting}
+              isPremium={isPremium}
             />
           </div>
 
-          {/* Resource Overview */}
+          {/* Resource Content */}
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <Suspense fallback={<div>Loading...</div>}>
-                <DraftResourceOverview resourceId={resourceId} />
-              </Suspense>
+              <DraftResourceContent draftData={draftData} resourceId={resourceId} />
             </div>
 
             <div className="space-y-6">
@@ -470,12 +509,6 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                     <h4 className="font-semibold mb-2">Category</h4>
                     <p className="text-sm text-muted-foreground capitalize">{topics[0] || 'general'}</p>
                   </div>
-                  {duration && (
-                    <div>
-                      <h4 className="font-semibold mb-2">Duration</h4>
-                      <p className="text-sm text-muted-foreground">{duration}</p>
-                    </div>
-                  )}
                   <div>
                     <h4 className="font-semibold mb-2">Price</h4>
                     <p className="text-sm text-muted-foreground">
@@ -509,14 +542,17 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                       Edit Content
                     </Link>
                   </Button>
-                  
-                  <Button variant="outline" size="sm" className="w-full justify-start" asChild>
-                    <Link href={`/drafts/resources/${resourceId}/preview`}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Preview Content
-                    </Link>
-                  </Button>
-                  
+
+                  {/* Only show Preview Content for PAID drafts where content is gated */}
+                  {isPremium && (
+                    <Button variant="outline" size="sm" className="w-full justify-start" asChild>
+                      <Link href={`/drafts/resources/${resourceId}/preview`}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Preview Content
+                      </Link>
+                    </Button>
+                  )}
+
                   <Button variant="outline" size="sm" className="w-full justify-start" asChild>
                     <Link href={`/drafts/resources/${resourceId}/publish`}>
                       <Share className="h-4 w-4 mr-2" />
@@ -525,6 +561,9 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* Additional Links */}
+              <AdditionalLinksCard links={additionalLinks} layout="stack" />
             </div>
           </div>
         </div>

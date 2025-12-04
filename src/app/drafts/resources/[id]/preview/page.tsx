@@ -18,10 +18,7 @@ import {
   Clock, 
   Eye, 
   FileText, 
-  Play, 
   ArrowLeft, 
-  BookOpen, 
-  Video, 
   Calendar,
   User,
   Edit,
@@ -123,13 +120,6 @@ function ContentMetadata({ draftData }: { draftData: DraftData }) {
           <div className="flex items-center space-x-1">
             <Clock className="h-4 w-4" />
             <span>{readingTime} min read</span>
-          </div>
-        )}
-        
-        {draftData.type === 'video' && (
-          <div className="flex items-center space-x-1">
-            <Play className="h-4 w-4" />
-            <span>15 min</span>
           </div>
         )}
       </div>
@@ -259,7 +249,6 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
               <VideoPlayer 
                 url={draftData.videoUrl || undefined}
                 title={draftData.title}
-                duration="15 min"
               />
               {additionalContent && (
                 <div className="prose prose-lg max-w-none">
