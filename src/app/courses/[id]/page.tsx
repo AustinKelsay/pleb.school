@@ -211,8 +211,9 @@ function CoursePageContent({ courseId }: { courseId: string }) {
         }
         if (Array.isArray(data?.purchases) && typeof data?.price === 'number') {
           const paid = data.purchases.some((p: any) => {
-            const snapshot = p?.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : data.price
-            const required = Math.min(snapshot ?? data.price, data.price)
+            const snapshot = p?.priceAtPurchase
+            const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+            const required = Math.min(snapshotValid ? snapshot : data.price, data.price)
             return (p?.amountPaid ?? 0) >= (required ?? 0)
           })
           setServerPurchased(paid)

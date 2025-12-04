@@ -140,9 +140,9 @@ export function PurchaseDialog({
     eventIdentifier,
     eventPubkey,
     onAutoClaimSuccess: (claimed) => {
-      const required = claimed.priceAtPurchase && claimed.priceAtPurchase > 0
-        ? claimed.priceAtPurchase
-        : priceSats
+      const snapshot = claimed.priceAtPurchase
+      const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+      const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
       const unlocked = (claimed.amountPaid ?? 0) >= (required ?? 0)
       toast({
         title: unlocked ? "Unlocked! 🎉" : "Payment recorded",
@@ -176,10 +176,9 @@ export function PurchaseDialog({
   // Form state (authoritative balance from server when available)
   const paidSatsServer = purchase?.amountPaid ?? 0
   const requiredPrice = (() => {
-    const snapshot = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0
-      ? purchase.priceAtPurchase
-      : priceSats
-    return Math.min(snapshot, priceSats)
+    const snapshot = purchase?.priceAtPurchase
+    const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+    return Math.min(snapshotValid ? snapshot : priceSats, priceSats)
   })()
   // If server already shows full payment, trust it. Otherwise allow viewer zap totals to cover the gap.
   const paidBasis = (purchase && paidSatsServer >= requiredPrice)
@@ -234,9 +233,9 @@ export function PurchaseDialog({
           zapRequestJson: zapState.zapRequest
         })
         if (claimed) {
-          const required = claimed.priceAtPurchase && claimed.priceAtPurchase > 0
-            ? claimed.priceAtPurchase
-            : priceSats
+          const snapshot = claimed.priceAtPurchase
+          const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+          const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
           const unlocked = (claimed.amountPaid ?? 0) >= (required ?? 0)
           toast({
             title: unlocked ? "Unlocked!" : "Recorded",

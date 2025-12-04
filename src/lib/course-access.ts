@@ -18,7 +18,7 @@ export interface CourseAccessResult {
  * Determines whether a user has access to a resource via any parent course.
  * - Accepts optionally preloaded lessons to avoid extra DB queries.
  * - Falls back to fetching lessons for the resource if not provided.
- * - Treats any course purchase or enrollment (userCourse) as unlocked.
+ * - Unlocks if user has a sufficient purchase (amountPaid >= min(priceAtPurchase, currentPrice)) for the course or is enrolled via userCourse.
  */
 export async function checkCourseUnlockViaLessons(options: {
   userId?: string | null
@@ -41,36 +41,65 @@ export async function checkCourseUnlockViaLessons(options: {
     })
   }
 
-  // Build course list
-  const courseIds = lessons
-    .map((lesson) => lesson.course?.id ?? lesson.courseId)
-    .filter((id): id is string => Boolean(id))
+  // Build course map with prices, falling back to courseId when course relation isn't preloaded
+  const courseMap = new Map<string, number | null>()
+  for (const lesson of lessons) {
+    const courseId = lesson.course?.id ?? lesson.courseId
+    if (!courseId) continue
+
+    const existingPrice = courseMap.get(courseId)
+    const price = lesson.course?.price ?? existingPrice ?? null
+    courseMap.set(courseId, price)
+  }
+
+  const courseIds = Array.from(courseMap.keys())
 
   if (!userId || courseIds.length === 0) {
     return { unlockedViaCourse: false, unlockingCourseId: null, lessonsWithCourse: lessons }
   }
 
-  // Any purchase on these courses grants access
+  // Fetch course purchases with amounts
   const coursePurchases = await prisma.purchase.findMany({
     where: { userId, courseId: { in: courseIds } },
-    select: { courseId: true }
+    select: { courseId: true, amountPaid: true, priceAtPurchase: true }
   })
 
-  // Enrollment also grants access (covers gifted/comped)
-  const userCourse = await prisma.userCourse.findFirst({
+  // Fetch user courses (enrollments)
+  const userCourses = await prisma.userCourse.findMany({
     where: { userId, courseId: { in: courseIds } },
     select: { courseId: true }
   })
 
-  const unlockingCourseId =
-    coursePurchases[0]?.courseId ??
-    userCourse?.courseId ??
-    courseIds[0] ??
-    null
+  // Determine unlocked courses
+  const unlockedCourses = new Set<string>()
+  for (const purchase of coursePurchases) {
+    const courseId = purchase.courseId!
+    const currentPrice = courseMap.get(courseId)
+    const purchasePrice = purchase.priceAtPurchase !== null && purchase.priceAtPurchase !== undefined && purchase.priceAtPurchase > 0
+      ? purchase.priceAtPurchase
+      : null
 
-  const unlockedViaCourse =
-    coursePurchases.length > 0 ||
-    Boolean(userCourse)
+    let requiredPrice: number
+    if (purchasePrice != null && currentPrice != null) {
+      requiredPrice = Math.min(purchasePrice, currentPrice)
+    } else if (purchasePrice != null) {
+      requiredPrice = purchasePrice
+    } else if (currentPrice != null) {
+      requiredPrice = currentPrice
+    } else {
+      requiredPrice = 0
+    }
+
+    if (purchase.amountPaid >= requiredPrice) {
+      unlockedCourses.add(courseId)
+    }
+  }
+  for (const uc of userCourses) {
+    unlockedCourses.add(uc.courseId)
+  }
+
+  const unlockedViaCourse = unlockedCourses.size > 0
+  const unlockingCourseId = unlockedCourses.size > 0 ? [...unlockedCourses][0]! : null
 
   return { unlockedViaCourse, unlockingCourseId, lessonsWithCourse: lessons }
 }

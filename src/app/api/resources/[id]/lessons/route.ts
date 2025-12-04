@@ -91,12 +91,26 @@ export async function GET(
       let hasAccess = false
 
       if (session?.user?.id) {
-        const hasPurchasedResource = await prisma.purchase.findFirst({
+        const purchases = await prisma.purchase.findMany({
           where: {
             userId: session.user.id,
             resourceId: id,
-            amountPaid: { gte: resource.price }
+          },
+          select: {
+            amountPaid: true,
+            priceAtPurchase: true,
           }
+        })
+
+        const hasPurchasedResource = purchases.some((purchase) => {
+          const snapshot = purchase.priceAtPurchase
+          const currentPrice = resource.price ?? 0
+          const hasSnapshot = snapshot !== null && snapshot !== undefined && snapshot > 0
+          const requiredPrice = hasSnapshot
+            ? Math.min(snapshot, currentPrice)
+            : currentPrice
+
+          return purchase.amountPaid >= requiredPrice
         })
 
         const courseAccess = await checkCourseUnlockViaLessons({

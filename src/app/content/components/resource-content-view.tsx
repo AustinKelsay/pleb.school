@@ -351,9 +351,9 @@ function ContentMetadata({
                 recentZaps={recentZaps}
                 viewerZapReceipts={viewerZapReceipts}
                 onPurchaseComplete={(purchase) => {
-                  const required = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0
-                    ? purchase.priceAtPurchase
-                    : priceSats
+                  const snapshot = purchase?.priceAtPurchase
+                  const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+                  const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
                   if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
                     onUnlock?.()
                   }
@@ -681,7 +681,12 @@ export function ResourceContentView({
         if (!controller.signal.aborted) {
           const unlockedByPurchase =
             Array.isArray(data?.purchases) && typeof data?.price === 'number'
-              ? data.purchases.some((p: any) => (p?.amountPaid ?? 0) >= data.price)
+              ? data.purchases.some((p: any) => {
+                  const snapshot = p?.priceAtPurchase
+                  const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+                  const required = Math.min(snapshotValid ? snapshot : data.price, data.price)
+                  return (p?.amountPaid ?? 0) >= required
+                })
               : false
           const unlockedByCourse = data?.unlockedViaCourse === true
           const fromCourseId =
@@ -694,14 +699,6 @@ export function ResourceContentView({
           setUnlockedViaCourse(unlockedByCourse)
           if (fromCourseId) {
             setUnlockingCourseId(fromCourseId)
-          }
-          if (unlockedByCourse && Array.isArray(data?.lessons)) {
-            const firstCourseId = data.lessons
-              .map((lesson: any) => lesson.course?.id || lesson.courseId)
-              .find((id: string | undefined) => Boolean(id))
-            if (firstCourseId) {
-              setUnlockingCourseId(firstCourseId)
-            }
           }
           setServerPurchased(unlockedByPurchase || unlockedByCourse)
         }
@@ -864,10 +861,9 @@ export function ResourceContentView({
               zapInsights={zapInsights}
               recentZaps={recentZaps}
               onPurchaseComplete={(purchase) => {
-                const snapshot = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0
-                  ? purchase.priceAtPurchase
-                  : priceSats
-                const required = Math.min(snapshot ?? priceSats, priceSats)
+                const snapshot = purchase?.priceAtPurchase
+                const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+                const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
                 if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
                   handleUnlock()
                 }

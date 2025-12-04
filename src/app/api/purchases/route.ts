@@ -323,9 +323,8 @@ export async function GET(request: NextRequest) {
     const toMeta = (purchase: typeof purchases[number]) => {
       const contentType = purchase.courseId ? "course" : "resource"
       const currentPrice = purchase.course?.price ?? purchase.resource?.price ?? 0
-      const snapshot = purchase.priceAtPurchase && purchase.priceAtPurchase > 0
-        ? purchase.priceAtPurchase
-        : currentPrice
+      const hasSnapshot = purchase.priceAtPurchase !== null && purchase.priceAtPurchase !== undefined && purchase.priceAtPurchase > 0
+      const snapshot = hasSnapshot ? purchase.priceAtPurchase! : currentPrice
       const priceSats = Math.min(snapshot, currentPrice)
       const href = purchase.courseId
         ? `/courses/${purchase.courseId}`
