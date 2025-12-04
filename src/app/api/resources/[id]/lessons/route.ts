@@ -17,8 +17,104 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
+type LockedLessonsData = {
+  locked: true
+  id: string
+  price: number | null
+  noteId: string | null
+  createdAt: Date
+  user: {
+    id: string
+    username: string | null
+    pubkey: string | null
+    lud16: string | null
+  }
+  isPaid: boolean
+  requiresPurchase: true
+  unlockedViaCourse: false
+  unlockingCourseId: null
+}
+
+type LessonSummary = {
+  id: string
+  courseId: string | null
+  index: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+type CourseWithLessons = {
+  course: {
+    id: string
+    userId: string
+    price: number | null
+    noteId: string | null
+  }
+  lessons: LessonSummary[]
+}
+
+type UnlockedLessonsData = {
+  locked: false
+  resourceId: string
+  lessonCount: number
+  courses: CourseWithLessons[]
+  lessons: LessonSummary[]
+  isPaid: boolean
+  requiresPurchase: false
+  unlockedViaCourse: boolean
+  unlockingCourseId: string | null
+}
+
+export type LessonsResponse =
+  | { success: true; data: LockedLessonsData }
+  | { success: true; data: UnlockedLessonsData }
+
 /**
  * GET /api/resources/[id]/lessons - Get all lessons that use this resource
+ *
+ * Response shapes (discriminated by `data.locked`):
+ *
+ * - Locked (paid content without access):
+ *   {
+ *     "success": true,
+ *     "data": {
+ *       "locked": true,
+ *       "id": "<resource-id>",
+ *       "price": 1200,
+ *       "noteId": "abcdef...",
+ *       "createdAt": "2024-08-01T12:00:00.000Z",
+ *       "user": { "id": "...", "username": "...", "pubkey": "...", "lud16": "..." },
+ *       "isPaid": true,
+ *       "requiresPurchase": true,
+ *       "unlockedViaCourse": false,
+ *       "unlockingCourseId": null
+ *     }
+ *   }
+ *
+ * - Unlocked:
+ *   {
+ *     "success": true,
+ *     "data": {
+ *       "locked": false,
+ *       "resourceId": "<resource-id>",
+ *       "lessonCount": 3,
+ *       "courses": [
+ *         {
+ *           "course": { "id": "<course-id>", "userId": "...", "price": 900, "noteId": "..." },
+ *           "lessons": [
+ *             { "id": "<lesson-id>", "courseId": "<course-id>", "index": 0, "createdAt": "...", "updatedAt": "..." }
+ *           ]
+ *         }
+ *       ],
+ *       "lessons": [
+ *         { "id": "<lesson-id>", "courseId": "<course-id>", "index": 0, "createdAt": "...", "updatedAt": "..." }
+ *       ],
+ *       "isPaid": true,
+ *       "requiresPurchase": false,
+ *       "unlockedViaCourse": true,
+ *       "unlockingCourseId": "<course-id>"
+ *     }
+ *   }
  */
 export async function GET(
   request: NextRequest,
@@ -87,6 +183,7 @@ export async function GET(
     // Check access permissions for paid content
     const isOwner = session?.user?.id === resource.userId
     const isPaidResource = resource.price > 0
+    let courseAccessResult: Awaited<ReturnType<typeof checkCourseUnlockViaLessons>> | null = null
 
     if (isPaidResource && !isOwner) {
       let hasAccess = false
@@ -105,19 +202,20 @@ export async function GET(
           return purchase.amountPaid >= requiredPrice
         })
 
-        const courseAccess = await checkCourseUnlockViaLessons({
+        courseAccessResult = await checkCourseUnlockViaLessons({
           userId: session.user.id,
           resourceId: id,
           lessons
         })
 
-        hasAccess = Boolean(hasPurchasedResource) || courseAccess.unlockedViaCourse
+        hasAccess = Boolean(hasPurchasedResource) || courseAccessResult.unlockedViaCourse
       }
 
       if (!hasAccess) {
         return NextResponse.json({
           success: true,
           data: {
+            locked: true,
             id: resource.id,
             price: resource.price,
             noteId: resource.noteId,
@@ -156,7 +254,7 @@ export async function GET(
       course: {
         id: string
         userId: string
-        price: number
+        price: number | null
         noteId: string | null
       },
       lessons: Array<{
@@ -170,6 +268,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
+        locked: false,
         resourceId: id,
         lessonCount: lessons.length,
         courses: Object.values(lessonsByCourse),
@@ -179,7 +278,11 @@ export async function GET(
           index: lesson.index,
           createdAt: lesson.createdAt,
           updatedAt: lesson.updatedAt,
-        }))
+        })),
+        isPaid: isPaidResource,
+        requiresPurchase: false,
+        unlockedViaCourse: courseAccessResult?.unlockedViaCourse ?? false,
+        unlockingCourseId: courseAccessResult?.unlockingCourseId ?? null,
       }
     })
   } catch (error) {

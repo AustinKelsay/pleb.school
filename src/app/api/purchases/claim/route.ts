@@ -383,9 +383,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Content not found" }, { status: 404 })
     }
 
-    // If we lack both a Nostr noteId and an owner pubkey, we cannot bind the zap to this content.
+    // Zap claims must be bound to a specific identifier: prefer noteId, but allow pubkey-only content.
     if (paymentType === "zap" && !priceResolution.noteId && !priceResolution.ownerPubkey) {
-      return badRequest("Content is missing a Nostr identifier; cannot verify zap for this item.")
+      return badRequest("Content is missing both a Nostr noteId and publisher pubkey; cannot verify zap for this item.")
     }
 
     const priceSats = priceResolution.price
