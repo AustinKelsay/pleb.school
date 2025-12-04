@@ -20,7 +20,6 @@ import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { useInteractions } from '@/hooks/useInteractions'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import { resolveUniversalId } from '@/lib/universal-router'
-import { formatLinkLabel } from '@/lib/link-label'
 import { 
   Clock, 
   BookOpen, 
@@ -33,6 +32,9 @@ import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseActions } from '@/components/purchase/purchase-actions'
 import { useSession } from 'next-auth/react'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import { AdditionalLinksList } from '@/components/ui/additional-links-card'
+import type { AdditionalLink } from '@/types/additional-links'
 
 interface CoursePageProps {
   params: {
@@ -209,8 +211,9 @@ function CoursePageContent({ courseId }: { courseId: string }) {
         }
         if (Array.isArray(data?.purchases) && typeof data?.price === 'number') {
           const paid = data.purchases.some((p: any) => {
-            const snapshot = p?.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : data.price
-            const required = Math.min(snapshot ?? data.price, data.price)
+            const snapshot = p?.priceAtPurchase
+            const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+            const required = Math.min(snapshotValid ? snapshot : data.price, data.price)
             return (p?.amountPaid ?? 0) >= (required ?? 0)
           })
           setServerPurchased(paid)
@@ -324,7 +327,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   let description = 'No description available'
   let category = 'general'
   let topics: string[] = []
-  let additionalLinks: string[] = []
+  let additionalLinks: AdditionalLink[] = []
   let image = '/placeholder.svg'
   let isPremium = false
   let currency = 'sats'
@@ -345,7 +348,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
       description = parsedNote.description || description
       category = parsedNote.category || category
       topics = parsedNote.topics || topics
-      additionalLinks = parsedNote.additionalLinks || additionalLinks
+      additionalLinks = normalizeAdditionalLinks(parsedNote.additionalLinks || additionalLinks)
       image = parsedNote.image || image
       isPremium = parsedNote.isPremium || isPremium
       currency = parsedNote.currency || currency
@@ -519,27 +522,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
               )}
 
               {/* Additional Links */}
-              {additionalLinks && additionalLinks.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Additional Resources</h4>
-                  <div className="space-y-2">
-                    {additionalLinks.map((link: string, index: number) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                        asChild
-                      >
-                        <a href={link} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          {formatLinkLabel(link)}
-                        </a>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <AdditionalLinksList links={additionalLinks} />
             </div>
 
             <div className="relative">

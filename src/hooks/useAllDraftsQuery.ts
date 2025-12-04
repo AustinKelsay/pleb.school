@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import type { AdditionalLink } from '@/types/additional-links'
 
 // Types matching the API response
 interface DraftLesson {
@@ -38,7 +39,7 @@ interface ResourceDraft {
   image?: string | null
   price?: number | null
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   createdAt: string
   updatedAt: string
   draftType: 'resource'

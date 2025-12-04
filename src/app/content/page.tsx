@@ -28,6 +28,8 @@ import { getNoteImage } from "@/lib/note-image"
 import { Prefix, type NostrEvent, type RelayPool } from "snstr"
 import { isNip19String, tryDecodeNip19Entity } from "@/lib/nip19-utils"
 import { getRelays } from "@/lib/nostr-relays"
+import { useContentConfig } from "@/hooks/useContentConfig"
+import { tagsToAdditionalLinks } from "@/lib/additional-links"
 
 const HEX_EVENT_ID_REGEX = /^[0-9a-f]{64}$/i
 
@@ -88,6 +90,10 @@ async function fetchEventForIdentifier(
 
 export default function ContentPage() {
   const { contentLibrary, pricing } = useCopy()
+  const contentConfig = useContentConfig()
+  const includeLessonResources = contentConfig?.contentPage?.includeLessonResources
+  const includeLessonVideos = includeLessonResources?.videos ?? true
+  const includeLessonDocuments = includeLessonResources?.documents ?? true
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set(['all']))
   const [noteImageCache, setNoteImageCache] = useState<Record<string, string>>({})
   const attemptedNoteIds = useRef<Set<string>>(new Set())
@@ -95,8 +101,10 @@ export default function ContentPage() {
   
   // Fetch data from all hooks
   const { courses, isLoading: coursesLoading } = useCoursesQuery()
-  const { videos, isLoading: videosLoading } = useVideosQuery()
-  const { documents, isLoading: documentsLoading } = useDocumentsQuery()
+  // Include lesson-linked resources by default so they still appear in the content library,
+  // even though other surfaces (e.g. homepage carousels) purposely hide them. Config can override.
+  const { videos, isLoading: videosLoading } = useVideosQuery({ includeLessonResources: includeLessonVideos })
+  const { documents, isLoading: documentsLoading } = useDocumentsQuery({ includeLessonResources: includeLessonDocuments })
   
   // Combine loading states
   const loading = coursesLoading || videosLoading || documentsLoading
@@ -216,7 +224,7 @@ export default function ContentPage() {
           rating: 4.5,
           published: true,
           topics: course.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-          additionalLinks: course.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
+          additionalLinks: tagsToAdditionalLinks(course.note?.tags, 'r'),
           noteId: course.note?.id || course.noteId,
           purchases: course.purchases,
         }
@@ -248,7 +256,7 @@ export default function ContentPage() {
           rating: 4.5,
           published: true,
           topics: video.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-          additionalLinks: video.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
+          additionalLinks: tagsToAdditionalLinks(video.note?.tags, 'r'),
           noteId: video.note?.id || video.noteId,
           purchases: video.purchases,
         }
@@ -280,7 +288,7 @@ export default function ContentPage() {
           rating: 4.5,
           published: true,
           topics: document.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-          additionalLinks: document.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
+          additionalLinks: tagsToAdditionalLinks(document.note?.tags, 'r'),
           noteId: document.note?.id || document.noteId,
           purchases: document.purchases,
         }

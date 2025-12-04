@@ -166,8 +166,9 @@ export function ContentCard({
   const price = isContent ? (item as ContentItem).price : 0
   const purchasedCount = isContent && Array.isArray((item as any).purchases)
     ? (item as any).purchases.filter((p: any) => {
-        const snapshot = p?.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : price
-        const required = Math.min(snapshot ?? price, price)
+        const snapshot = p?.priceAtPurchase
+        const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+        const required = Math.min(snapshotValid ? snapshot : price, price)
         return (p?.amountPaid ?? 0) >= (required ?? 0)
       }).length
     : 0

@@ -24,7 +24,6 @@ import { preserveLineBreaks } from '@/lib/text-utils'
 import type { NostrEvent } from 'snstr'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { useSession } from 'next-auth/react'
-import { formatLinkLabel } from '@/lib/link-label'
 import {
   ArrowLeft,
   BookOpen,
@@ -37,6 +36,7 @@ import {
   User,
   Video
 } from 'lucide-react'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 
 /**
  * Ensures video posts always have a playable URL by inferring legacy embeds when needed.
@@ -351,9 +351,9 @@ function ContentMetadata({
                 recentZaps={recentZaps}
                 viewerZapReceipts={viewerZapReceipts}
                 onPurchaseComplete={(purchase) => {
-                  const required = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0
-                    ? purchase.priceAtPurchase
-                    : priceSats
+                  const snapshot = purchase?.priceAtPurchase
+                  const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+                  const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
                   if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
                     onUnlock?.()
                   }
@@ -377,6 +377,8 @@ interface ResourceMetadataHeroProps {
   resourceId: string
   serverPrice: number | null
   serverPurchased: boolean
+  unlockedViaCourse?: boolean
+  unlockingCourseId?: string | null
   interactionData: CommentThreadsQueryResult
   onUnlock?: () => void
   showBackLink?: boolean
@@ -393,6 +395,8 @@ export function ResourceMetadataHero({
   resourceId,
   serverPrice,
   serverPurchased,
+  unlockedViaCourse = false,
+  unlockingCourseId = null,
   interactionData,
   onUnlock,
   showBackLink,
@@ -438,6 +442,11 @@ export function ResourceMetadataHero({
             {isPremium && (
               <Badge variant="outline" className="border-amber-500 text-amber-600">
                 Premium
+              </Badge>
+            )}
+            {unlockedViaCourse && (
+              <Badge variant="outline" className="border-success/60 text-success bg-success/10">
+                Access via course
               </Badge>
             )}
           </div>
@@ -521,6 +530,8 @@ export function ResourceContentView({
   const [error, setError] = useState<string | null>(null)
   const [serverPrice, setServerPrice] = useState<number | null>(null)
   const [serverPurchased, setServerPurchased] = useState<boolean>(false)
+  const [unlockedViaCourse, setUnlockedViaCourse] = useState<boolean>(false)
+  const [unlockingCourseId, setUnlockingCourseId] = useState<string | null>(null)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [authorProfile, setAuthorProfile] = useState<NormalizedProfile | null>(null)
   const resolvedIdentifier = useMemo(() => resolveUniversalId(resourceId), [resourceId])
@@ -654,7 +665,10 @@ export function ResourceContentView({
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       if (!uuidRegex.test(resourceId)) return
       try {
-        const res = await fetch(`/api/resources/${resourceId}`, { signal: controller.signal })
+        const res = await fetch(`/api/resources/${resourceId}`, {
+          signal: controller.signal,
+          credentials: 'include',
+        })
         if (!res.ok || controller.signal.aborted) return
 
         const body = await res.json()
@@ -664,17 +678,29 @@ export function ResourceContentView({
         if (!controller.signal.aborted && typeof data?.price === 'number') {
           setServerPrice(data.price)
         }
-        if (
-          !controller.signal.aborted &&
-          Array.isArray(data?.purchases) &&
-          typeof data?.price === 'number'
-        ) {
-          const paid = data.purchases.some((p: any) => {
-            const snapshot = p?.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : data.price
-            const required = Math.min(snapshot ?? data.price, data.price)
-            return (p?.amountPaid ?? 0) >= (required ?? 0)
-          })
-          setServerPurchased(paid)
+        if (!controller.signal.aborted) {
+          const unlockedByPurchase =
+            Array.isArray(data?.purchases) && typeof data?.price === 'number'
+              ? data.purchases.some((p: any) => {
+                  const snapshot = p?.priceAtPurchase
+                  const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+                  const required = Math.min(snapshotValid ? snapshot : data.price, data.price)
+                  return (p?.amountPaid ?? 0) >= required
+                })
+              : false
+          const unlockedByCourse = data?.unlockedViaCourse === true
+          const fromCourseId =
+            data?.unlockingCourseId ||
+            (Array.isArray(data?.lessons)
+              ? data.lessons
+                  .map((lesson: any) => lesson.course?.id || lesson.courseId)
+                  .find((id: string | undefined) => Boolean(id))
+              : null)
+          setUnlockedViaCourse(unlockedByCourse)
+          if (fromCourseId) {
+            setUnlockingCourseId(fromCourseId)
+          }
+          setServerPurchased(unlockedByPurchase || unlockedByCourse)
         }
       } catch (err) {
         if ((err as any)?.name === 'AbortError' || controller.signal.aborted) {
@@ -762,6 +788,15 @@ export function ResourceContentView({
   const videoBodyMarkdown = type === 'video' ? extractVideoBodyMarkdown(event.content) : ''
 
   const locked = lockable && !serverPurchased
+  const courseCta = unlockedViaCourse && unlockingCourseId ? (
+    <div className="flex flex-wrap gap-2 justify-end">
+      <Button variant="outline" size="sm" asChild>
+        <Link href={`/courses/${unlockingCourseId}`}>
+          Go to course
+        </Link>
+      </Button>
+    </div>
+  ) : null
 
   return (
     <div className="space-y-6">
@@ -772,13 +807,18 @@ export function ResourceContentView({
           resourceId={resourceId}
           serverPrice={serverPrice}
           serverPurchased={serverPurchased}
+          unlockedViaCourse={unlockedViaCourse}
+          unlockingCourseId={unlockingCourseId}
           interactionData={interactionData}
           onUnlock={handleUnlock}
           showBackLink={showBackLink}
           backHref={backHref}
           isPremium={isPremium}
+          rightCtas={courseCta || undefined}
         />
       )}
+
+      {courseCta && !showHero && courseCta}
 
       <div className="space-y-6">
         {locked ? (
@@ -821,10 +861,9 @@ export function ResourceContentView({
               zapInsights={zapInsights}
               recentZaps={recentZaps}
               onPurchaseComplete={(purchase) => {
-                const snapshot = purchase?.priceAtPurchase && purchase.priceAtPurchase > 0
-                  ? purchase.priceAtPurchase
-                  : priceSats
-                const required = Math.min(snapshot ?? priceSats, priceSats)
+                const snapshot = purchase?.priceAtPurchase
+                const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+                const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
                 if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
                   handleUnlock()
                 }
@@ -858,27 +897,8 @@ export function ResourceContentView({
         )}
       </div>
 
-      {showAdditionalLinks && additionalLinks && additionalLinks.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <ExternalLink className="h-5 w-5" />
-              <span>Additional Resources</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {additionalLinks.map((link, index) => (
-                <Button key={index} variant="outline" className="justify-start" asChild>
-                  <a href={link} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    {formatLinkLabel(link)}
-                  </a>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {showAdditionalLinks && (
+        <AdditionalLinksCard links={additionalLinks} icon="link" />
       )}
 
       <div data-comments-section>

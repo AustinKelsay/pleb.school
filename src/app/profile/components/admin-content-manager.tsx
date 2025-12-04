@@ -44,6 +44,7 @@ import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { extractVideoBodyMarkdown } from '@/lib/content-utils'
 import { EditPublishedResourceDialog, type ResourceEditData } from './edit-published-resource-dialog'
 import { EditPublishedCourseDialog, type CourseEditData } from './edit-published-course-dialog'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
 
 type PublishedItemType = 'course' | 'video' | 'document'
 
@@ -223,9 +224,7 @@ function buildResourceEditData(item: PublishedResourceItem): ResourceEditData {
     return lower !== 'video' && lower !== 'document'
   })
 
-  const additionalLinks = Array.from(
-    new Set((parsed?.additionalLinks ?? []).map(link => link.trim()).filter(Boolean))
-  )
+  const additionalLinks = normalizeAdditionalLinks(parsed?.additionalLinks ?? [])
 
   const content =
     item.type === 'video'

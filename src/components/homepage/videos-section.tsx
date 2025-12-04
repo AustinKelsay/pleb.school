@@ -7,6 +7,7 @@ import { ContentCardSkeleton } from "@/components/ui/content-skeleton";
 import { Section } from "@/components/layout";
 import { useHomepageSectionConfig } from "@/hooks/useContentConfig";
 import { applyContentFilters } from "@/lib/content-config";
+import { tagsToAdditionalLinks } from "@/lib/additional-links";
 
 /**
  * Client component for fetching and displaying video resources
@@ -149,7 +150,7 @@ function VideoCard({ video }: { video: VideoResourceWithNote }) {
     studentsCount: 0,
     featured: false,
     topics: video.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-    additionalLinks: video.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
+    additionalLinks: tagsToAdditionalLinks(video.note?.tags, 'r'),
     noteId: video.note?.id || video.noteId,
     purchases: video.purchases,
   };

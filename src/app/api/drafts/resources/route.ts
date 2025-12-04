@@ -3,7 +3,17 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { DraftService } from '@/lib/draft-service'
 import { getAdminInfo } from '@/lib/admin-utils'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { z } from 'zod'
+
+const additionalLinkSchema = z.object({
+  url: z.string().url('Link must be a valid URL'),
+  title: z.string().trim().min(1).max(120).optional(),
+})
+
+const additionalLinksSchema = z
+  .array(z.union([z.string().url(), additionalLinkSchema]))
+  .optional()
 
 // Validation schemas
 const createDraftSchema = z.object({
@@ -14,7 +24,7 @@ const createDraftSchema = z.object({
   image: z.string().url().optional().or(z.literal('')),
   price: z.number().int().min(0).optional(),
   topics: z.array(z.string()).min(1, 'At least one topic is required'),
-  additionalLinks: z.array(z.string().url()).optional(),
+  additionalLinks: additionalLinksSchema,
   videoUrl: z.string().url().optional()
 })
 
@@ -117,6 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { type, title, summary, content, image, price, topics, additionalLinks, videoUrl } = validationResult.data
+    const normalizedLinks = normalizeAdditionalLinks(additionalLinks)
 
     if (type === 'video') {
       if (!videoUrl) {
@@ -140,7 +151,7 @@ export async function POST(request: NextRequest) {
       image: image || undefined,
       price,
       topics,
-      additionalLinks: additionalLinks || [],
+      additionalLinks: normalizedLinks,
       videoUrl,
       userId: session.user.id
     })

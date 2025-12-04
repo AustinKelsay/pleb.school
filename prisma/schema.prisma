@@ -113,22 +113,22 @@ model Resource {
 }
 
 model Draft {
-  id              String        @id @default(uuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id])
-  type            String
-  title           String
-  summary         String
-  content         String
-  image           String?
-  price           Int?          @default(0)
-  topics          String[]
-  additionalLinks String[]
-  videoUrl        String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  draftLessons    DraftLesson[]
-  lessons         Lesson[]
+    id              String        @id @default(uuid())
+    userId          String
+    user            User          @relation(fields: [userId], references: [id])
+    type            String
+    title           String
+    summary         String
+    content         String
+    image           String?
+    price           Int?          @default(0)
+    topics          String[]
+    additionalLinks Json           @default(dbgenerated("'[]'::jsonb"))
+    videoUrl        String?
+    createdAt       DateTime      @default(now())
+    updatedAt       DateTime      @updatedAt
+    draftLessons    DraftLesson[]
+    lessons         Lesson[]
 }
 
 model Course {

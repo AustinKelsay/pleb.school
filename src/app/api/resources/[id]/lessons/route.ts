@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { checkCourseUnlockViaLessons } from '@/lib/course-access'
+
+export const dynamic = 'force-dynamic'
 
 // Validation schemas
 const paramsSchema = z.object({
@@ -40,7 +43,17 @@ export async function GET(
       select: { 
         id: true,
         userId: true,
-        price: true 
+        price: true,
+        noteId: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            pubkey: true,
+            lud16: true,
+          }
+        }
       }
     })
 
@@ -74,34 +87,54 @@ export async function GET(
     const isOwner = session?.user?.id === resource.userId
     const isPaidResource = resource.price > 0
 
-    // If it's a paid resource and user is not the owner, check purchases
-    if (isPaidResource && !isOwner && session?.user?.id) {
-      const purchases = await prisma.purchase.findMany({
-        where: {
+    if (isPaidResource && !isOwner) {
+      let hasAccess = false
+
+      if (session?.user?.id) {
+        const purchases = await prisma.purchase.findMany({
+          where: {
+            userId: session.user.id,
+            resourceId: id,
+          },
+          select: {
+            amountPaid: true,
+            priceAtPurchase: true,
+          }
+        })
+
+        const hasPurchasedResource = purchases.some((purchase) => {
+          const snapshot = purchase.priceAtPurchase
+          const currentPrice = resource.price ?? 0
+          const hasSnapshot = snapshot !== null && snapshot !== undefined && snapshot > 0
+          const requiredPrice = hasSnapshot
+            ? Math.min(snapshot, currentPrice)
+            : currentPrice
+
+          return purchase.amountPaid >= requiredPrice
+        })
+
+        const courseAccess = await checkCourseUnlockViaLessons({
           userId: session.user.id,
           resourceId: id,
-        },
-        select: {
-          amountPaid: true,
-          priceAtPurchase: true
-        }
-      })
+          lessons
+        })
 
-      const hasPurchased = purchases.some((p) => {
-        const snapshot = p.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : resource.price
-        const required = Math.min(snapshot, resource.price)
-        return p.amountPaid >= required
-      })
+        hasAccess = Boolean(hasPurchasedResource) || courseAccess.unlockedViaCourse
+      }
 
-      if (!hasPurchased) {
-        // Return limited information for unpurchased paid resources
+      if (!hasAccess) {
         return NextResponse.json({
           success: true,
           data: {
-            resourceId: id,
-            lessonCount: lessons.length,
+            id: resource.id,
+            price: resource.price,
+            noteId: resource.noteId,
+            createdAt: resource.createdAt,
+            user: resource.user,
             isPaid: true,
             requiresPurchase: true,
+            unlockedViaCourse: false,
+            unlockingCourseId: null,
           }
         })
       }

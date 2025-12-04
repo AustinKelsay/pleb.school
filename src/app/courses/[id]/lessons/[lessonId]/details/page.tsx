@@ -12,7 +12,6 @@ import { parseCourseEvent, parseEvent } from '@/data/types'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { ZapThreads } from '@/components/ui/zap-threads'
-import { formatLinkLabel } from '@/lib/link-label'
 import { ResourceMetadataHero } from '@/app/content/components/resource-content-view'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, useLessonQuery } from '@/hooks/useLessonsQuery'
@@ -34,6 +33,8 @@ import { encodePublicKey } from 'snstr'
 import { resolveUniversalId } from '@/lib/universal-router'
 import { getRelays } from '@/lib/nostr-relays'
 import { useCommentThreads } from '@/hooks/useCommentThreads'
+import type { AdditionalLink } from '@/types/additional-links'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 
 function resolveLessonVideoUrl(
   parsedVideoUrl: string | undefined,
@@ -262,7 +263,7 @@ function LessonContent({
   let resourceType: string = 'document'
   let resourceIsPremium = false
   let resourceImage = ''
-  let resourceAdditionalLinks: string[] = []
+  let resourceAdditionalLinks: AdditionalLink[] = []
   let resourceVideoUrl: string | undefined = lesson.resource.videoUrl || undefined
 
 let courseTitle = 'Unknown Course'
@@ -520,64 +521,14 @@ let courseInstructorPubkey = ''
             </CardContent>
           </Card>
 
-          {!isFullWidth && content.additionalLinks && content.additionalLinks.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-base font-semibold">
-                  <BookOpen className="h-5 w-5" />
-                  <span>Additional Resources</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-3">
-                  {content.additionalLinks.map((link, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="justify-start"
-                      asChild
-                    >
-                      <a href={link} target="_blank" rel="noopener noreferrer">
-                        <FileText className="h-4 w-4 mr-2" />
-                        {formatLinkLabel(link)}
-                      </a>
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          {!isFullWidth && (
+            <AdditionalLinksCard links={content.additionalLinks} layout="stack" icon="file" />
           )}
         </div>
       </div>
 
       {/* Additional Resources */}
-      {isFullWidth && content.additionalLinks && content.additionalLinks.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <BookOpen className="h-5 w-5" />
-              <span>Additional Resources</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {content.additionalLinks.map((link, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  className="justify-start"
-                  asChild
-                >
-                  <a href={link} target="_blank" rel="noopener noreferrer">
-                    <FileText className="h-4 w-4 mr-2" />
-                    {formatLinkLabel(link)}
-                  </a>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {isFullWidth && <AdditionalLinksCard links={content.additionalLinks} icon="file" />}
       
       {/* Comments Section */}
       {lesson.resource?.note && (

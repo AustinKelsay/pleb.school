@@ -7,6 +7,7 @@ import { ContentCardSkeleton } from "@/components/ui/content-skeleton";
 import { Section } from "@/components/layout";
 import { useHomepageSectionConfig } from "@/hooks/useContentConfig";
 import { applyContentFilters } from "@/lib/content-config";
+import { tagsToAdditionalLinks } from "@/lib/additional-links";
 
 /**
  * Client component for fetching and displaying courses
@@ -146,7 +147,7 @@ function CourseCard({ course }: { course: CourseWithNote }) {
     studentsCount: 0,
     featured: false,
     topics: course.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-    additionalLinks: course.note?.tags.filter(tag => tag[0] === "l").map(tag => tag[1]) || [],
+    additionalLinks: tagsToAdditionalLinks(course.note?.tags, 'l'),
     noteId: course.note?.id || course.noteId,
     purchases: course.purchases,
   };

@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
+import type { AdditionalLink } from '@/types/additional-links'
 
 export interface DraftLesson {
   id: string
@@ -42,7 +43,7 @@ export interface DraftLesson {
     price?: number | null
     image?: string | null
     topics: string[]
-    additionalLinks?: string[]
+    additionalLinks?: AdditionalLink[]
     videoUrl?: string | null
   }
 }

@@ -5,6 +5,8 @@
 
 // import { nostrFreeContentEvents, nostrPaidContentEvents } from '@/data/nostr-events'
 import { ResourceDisplay, NostrFreeContentEvent, NostrPaidContentEvent } from "@/data/types"
+import { tagsToAdditionalLinks } from "@/lib/additional-links"
+import type { AdditionalLink } from "@/types/additional-links"
 
 export { parseCourseEvent, parseEvent } from "@/data/types"
 export type { ParsedCourseEvent, ParsedResourceEvent } from "@/data/types"
@@ -17,7 +19,7 @@ export interface ResourceContent {
   isMarkdown: boolean
   hasVideo: boolean
   videoUrl?: string
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   author: string
   pubkey: string
   publishedAt: string
@@ -32,12 +34,7 @@ function parseNostrEventContent(event: NostrFreeContentEvent | NostrPaidContentE
   const isMarkdown = !hasVideo || content.includes('#') || content.includes('```')
   
   // Extract additional links from tags
-  const additionalLinks: string[] = []
-  event.tags.forEach((tag: string[]) => {
-    if (tag[0] === 'r') {
-      additionalLinks.push(tag[1])
-    }
-  })
+  const additionalLinks = tagsToAdditionalLinks(event.tags, 'r')
   
   // Extract title from tags
   let title = resource.title

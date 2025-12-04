@@ -600,10 +600,11 @@ export async function POST(request: NextRequest) {
         },
         data: {
           amountPaid: updatedAmount,
-          // Preserve existing snapshot, but fill it if missing/zero
-          priceAtPurchase: existingPurchase.priceAtPurchase && existingPurchase.priceAtPurchase > 0
-            ? existingPurchase.priceAtPurchase
-            : priceSats,
+          // Preserve existing snapshot, but fill it if missing
+          priceAtPurchase:
+            existingPurchase.priceAtPurchase !== null && existingPurchase.priceAtPurchase !== undefined && existingPurchase.priceAtPurchase > 0
+              ? existingPurchase.priceAtPurchase
+              : priceSats,
           paymentType: resolvedPaymentType,
           zapReceiptId: existingPurchase.zapReceiptId ?? verifiedZapReceiptId,
           invoice: verifiedInvoice ?? existingPurchase.invoice,

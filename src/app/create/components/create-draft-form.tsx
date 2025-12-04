@@ -38,6 +38,8 @@ import {
   Eye,
   Edit
 } from 'lucide-react'
+import { additionalLinkLabel, normalizeAdditionalLinks } from '@/lib/additional-links'
+import type { AdditionalLink } from '@/types/additional-links'
 
 type ContentType = 'document' | 'video'
 
@@ -49,7 +51,7 @@ interface FormData {
   image: string
   price: number
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   videoUrl?: string // For video type
 }
 
@@ -82,7 +84,8 @@ export default function CreateDraftForm() {
   
   // Temporary input states
   const [currentTopic, setCurrentTopic] = useState('')
-  const [currentLink, setCurrentLink] = useState('')
+  const [currentLinkTitle, setCurrentLinkTitle] = useState('')
+  const [currentLinkUrl, setCurrentLinkUrl] = useState('')
   const [errors, setErrors] = useState<Partial<Record<keyof FormData | 'videoUrl', string>>>({})
 
   // Load draft data if editing
@@ -100,6 +103,8 @@ export default function CreateDraftForm() {
         }
         
         const draft = result.data
+        const normalizedLinks = normalizeAdditionalLinks(draft.additionalLinks)
+
         setFormData({
           type: draft.type as ContentType,
           title: draft.title,
@@ -108,7 +113,7 @@ export default function CreateDraftForm() {
           image: draft.image || '',
           price: draft.price || 0,
           topics: draft.topics || [],
-          additionalLinks: draft.additionalLinks || [],
+          additionalLinks: normalizedLinks,
           videoUrl: draft.videoUrl || ''
         })
         setIsPaidResource((draft.price ?? 0) > 0)
@@ -170,6 +175,11 @@ export default function CreateDraftForm() {
     if (formData.topics.length === 0) {
       newErrors.topics = 'At least one topic is required'
     }
+
+    const invalidLink = formData.additionalLinks.find(link => !isValidUrl(link.url))
+    if (invalidLink) {
+      newErrors.additionalLinks = 'All additional links must include valid URLs'
+    }
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -203,18 +213,35 @@ export default function CreateDraftForm() {
   }
 
   const addLink = () => {
-    if (currentLink.trim()) {
-      if (isValidUrl(currentLink.trim())) {
-        setFormData(prev => ({
-          ...prev,
-          additionalLinks: [...prev.additionalLinks, currentLink.trim()]
-        }))
-        setCurrentLink('')
-      } else {
-        setMessage({ type: 'error', text: 'Please enter a valid URL' })
-        setTimeout(() => setMessage(null), 3000)
-      }
+    const url = currentLinkUrl.trim()
+    const title = currentLinkTitle.trim()
+
+    if (!url) {
+      return
     }
+
+    const normalizedUrl = isValidUrl(url)
+      ? url
+      : isValidUrl(`https://${url}`)
+        ? `https://${url}`
+        : null
+
+    if (!normalizedUrl) {
+      setMessage({ type: 'error', text: 'Please enter a valid URL' })
+      setTimeout(() => setMessage(null), 3000)
+      return
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      additionalLinks: normalizeAdditionalLinks([
+        ...prev.additionalLinks,
+        { url: normalizedUrl, title },
+      ]),
+    }))
+    setCurrentLinkUrl('')
+    setCurrentLinkTitle('')
+    setErrors(prev => ({ ...prev, additionalLinks: undefined }))
   }
 
   const removeLink = (index: number) => {
@@ -653,37 +680,48 @@ export default function CreateDraftForm() {
               Additional Links <span className="text-muted-foreground">(Optional)</span>
             </Label>
             <div className="space-y-3">
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <Input
-                  type="url"
-                  placeholder="https://example.com/resource"
-                  value={currentLink}
-                  onChange={(e) => setCurrentLink(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      addLink()
-                    }
-                  }}
+                  placeholder="Link title (e.g., Official docs)"
+                  value={currentLinkTitle}
+                  onChange={(e) => setCurrentLinkTitle(e.target.value)}
                 />
-                <Button 
-                  type="button" 
-                  variant="secondary" 
-                  onClick={addLink}
-                  size="icon"
-                  className="shrink-0"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/resource"
+                    value={currentLinkUrl}
+                    onChange={(e) => setCurrentLinkUrl(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addLink()
+                      }
+                    }}
+                  />
+                  <Button 
+                    type="button" 
+                    variant="secondary" 
+                    onClick={addLink}
+                    size="icon"
+                    className="shrink-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
+              {errors.additionalLinks && <p className="text-sm text-destructive">{errors.additionalLinks}</p>}
               {formData.additionalLinks.length > 0 && (
                 <div className="space-y-2 rounded-lg border p-3">
                   {formData.additionalLinks.map((link, index) => (
-                    <div key={index} className="flex items-center gap-2 group">
+                    <div key={link.url + index} className="flex items-center gap-2 group">
                       <Link2 className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="text-sm text-muted-foreground truncate flex-1">
-                        {link}
-                      </span>
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="text-sm font-medium truncate">
+                          {link.title?.trim() || additionalLinkLabel(link)}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">{link.url}</span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeLink(index)}

@@ -4,6 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
+import type { AdditionalLink } from '@/types/additional-links'
 
 export interface ResourceDraft {
   id: string
@@ -14,7 +15,7 @@ export interface ResourceDraft {
   image?: string
   price?: number
   topics: string[]
-  additionalLinks?: string[]
+  additionalLinks?: AdditionalLink[]
   videoUrl?: string
   createdAt: string
   updatedAt: string

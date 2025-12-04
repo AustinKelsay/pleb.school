@@ -61,7 +61,8 @@ export async function GET(
 
     const price = course.price ?? 0
     const hasPurchased = purchases.some((p) => {
-      const snapshot = p.priceAtPurchase && p.priceAtPurchase > 0 ? p.priceAtPurchase : price
+      const hasSnapshot = p.priceAtPurchase !== null && p.priceAtPurchase !== undefined && p.priceAtPurchase > 0
+      const snapshot = hasSnapshot ? p.priceAtPurchase! : price
       const required = Math.min(snapshot, price)
       return p.amountPaid >= required
     })
