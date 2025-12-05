@@ -118,7 +118,7 @@ cd pleb.school
 npm install
 
 # Set up environment variables (local dev)
-cp .env .env.local  # contains sample dev creds; replace secrets before deploying
+cp .env.example .env.local  # contains sample dev creds; replace secrets before deploying
 # Ensure DATABASE_URL, POSTGRES_*, NEXTAUTH_SECRET, and KV/Email/GitHub vars are set
 
 # Set up database (optional for development)
