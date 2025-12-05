@@ -33,6 +33,11 @@
     "contentPage.imageFetch": "Image fetch settings for note preview images on /content.",
     "contentPage.imageFetch.relaySet": "Relay set name (from config/nostr.json) used to resolve note images.",
     "contentPage.imageFetch.maxConcurrentFetches": "Maximum simultaneous note-image fetches to avoid flooding relays.",
+    "search": "Search functionality configuration for querying Nostr content.",
+    "search.minKeywordLength": "Minimum characters required before search executes (default: 3).",
+    "search.timeout": "Nostr relay query timeout in milliseconds (default: 15000).",
+    "search.limit": "Maximum number of events to fetch from relays (default: 100).",
+    "search.relaySet": "Relay set name (from config/nostr.json) used for search queries (default: 'default').",
     "global": "Global configuration shared across the application",
     "global.categories": "Master list of available content categories (strings). Must match content item 'category' values.",
     "global.priceFilterOptions": "Labels for price filter dropdown options. Keys must be 'all', 'free', 'paid'.",
@@ -119,6 +124,12 @@
       "relaySet": "default",
       "maxConcurrentFetches": 6
     }
+  },
+  "search": {
+    "minKeywordLength": 3,
+    "timeout": 15000,
+    "limit": 100,
+    "relaySet": "default"
   },
   "global": {
     "categories": [

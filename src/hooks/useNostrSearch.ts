@@ -2,13 +2,12 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useSnstrContext } from '@/contexts/snstr-context'
-import { NostrEvent, RelayPool } from 'snstr'
+import { NostrEvent, RelayPool, decodePublicKey } from 'snstr'
 import { parseCourseEvent, parseEvent } from '@/data/types'
 import { SearchResult } from '@/lib/search'
-
-// Import mock database data to get all valid noteIds
-import coursesData from '@/data/mockDb/Course.json'
-import resourcesData from '@/data/mockDb/Resource.json'
+import { getRelays, type RelaySet } from '@/lib/nostr-relays'
+import adminConfig from '../../config/admin.json'
+import contentConfig from '../../config/content.json'
 
 // Options for the hook
 export interface UseNostrSearchOptions {
@@ -31,16 +30,54 @@ export interface NostrSearchResult {
   isFetching: boolean
 }
 
-// Extract all valid IDs from mock database for 'd' tag queries
-function getAllValidIds(): string[] {
-  const courseIds = coursesData.map(course => course.id)
-  const resourceIds = resourcesData.map(resource => resource.id)
-  
-  return [...courseIds, ...resourceIds]
+type SearchConfig = {
+  timeout: number
+  limit: number
+  minKeywordLength: number
+  relaySet?: RelaySet
 }
 
-// Get all valid IDs to filter search results using 'd' tag queries
-const VALID_IDS = getAllValidIds()
+// Get search config with defaults
+function getSearchConfig(): SearchConfig {
+  const searchConfig = (contentConfig as any).search || {}
+  return {
+    timeout: searchConfig.timeout ?? 15000,
+    limit: searchConfig.limit ?? 100,
+    minKeywordLength: searchConfig.minKeywordLength ?? 3,
+    relaySet: searchConfig.relaySet as RelaySet | undefined,
+  }
+}
+
+function resolveSearchRelays(relaySet: RelaySet | undefined, fallbackRelays: string[]): string[] {
+  const configuredRelays = getRelays(relaySet ?? 'default')
+  return configuredRelays.length ? configuredRelays : fallbackRelays
+}
+
+// Convert npub to hex format for Nostr author queries
+function npubToHex(pubkey: string): string | null {
+  try {
+    if (pubkey.startsWith('npub1')) {
+      return decodePublicKey(pubkey as `npub1${string}`)
+    } else if (/^[a-f0-9]{64}$/i.test(pubkey)) {
+      return pubkey.toLowerCase()
+    }
+  } catch (error) {
+    console.error('Error converting pubkey:', error)
+  }
+  return null
+}
+
+// Get admin pubkeys as hex for Nostr author queries
+function getAdminPubkeysHex(): string[] {
+  const allPubkeys = [
+    ...adminConfig.admins.pubkeys,
+    ...adminConfig.moderators.pubkeys,
+  ]
+
+  return allPubkeys
+    .map(npubToHex)
+    .filter((hex): hex is string => hex !== null)
+}
 
 // Query keys factory for better cache management
 export const nostrSearchQueryKeys = {
@@ -200,41 +237,48 @@ function resourceEventToSearchResult(event: NostrEvent, keyword: string): Search
 
 /**
  * Search Nostr events for content matching keywords
- * Uses 'd' tag queries to fetch only events from our mock database, then does client-side filtering
+ * Queries content from admin/moderator pubkeys and filters by keyword client-side
  */
 async function searchNostrContent(
   keyword: string,
   relayPool: RelayPool,
-  relays: string[]
+  relays: string[],
+  config: SearchConfig
 ): Promise<SearchResult[]> {
-  if (!keyword || keyword.length < 3) return []
-  
-  const results: SearchResult[] = []
-  
+  const searchRelays = resolveSearchRelays(config.relaySet, relays)
+
+  if (!keyword || keyword.length < config.minKeywordLength) return []
+
+  const adminPubkeys = getAdminPubkeysHex()
+
+  if (adminPubkeys.length === 0) {
+    console.warn('No admin pubkeys configured - search will return no results')
+    return []
+  }
+
   try {
-    console.log(`Searching Nostr for keyword: "${keyword}" in ${VALID_IDS.length} items from mock database`)
-    
-    // Fetch all events for items in our mock database using 'd' tag queries
-    // This follows the same pattern as useCoursesQuery and useDocumentsQuery
+    console.log(`Searching Nostr for keyword: "${keyword}" from ${adminPubkeys.length} admin author(s)`)
+
+    // Fetch events from admin authors - this queries real content published by admins
     const events = await relayPool.querySync(
-      relays,
-      { 
+      searchRelays,
+      {
         kinds: [30004, 30023, 30402],
-        "#d": VALID_IDS, // Query by 'd' tag for items in our mock database
-        limit: 100 // Limit initial results
+        authors: adminPubkeys,
+        limit: config.limit
       },
-      { timeout: 15000 } // 15 second timeout
+      { timeout: config.timeout }
     )
-    
-    console.log(`Found ${events.length} events from Nostr, now filtering by keyword "${keyword}"`)
-    
-    // Use a Map to deduplicate results by ID
+
+    console.log(`Found ${events.length} events from admin authors, filtering by keyword "${keyword}"`)
+
+    // Use a Map to deduplicate results by ID (d tag value)
     const resultsMap = new Map<string, SearchResult>()
-    
+
     // Process each event and do client-side keyword matching
     for (const event of events) {
       let searchResult: SearchResult | null = null
-      
+
       if (event.kind === 30004) {
         // Course event
         searchResult = courseEventToSearchResult(event, keyword)
@@ -242,7 +286,7 @@ async function searchNostrContent(
         // Resource event (free or paid)
         searchResult = resourceEventToSearchResult(event, keyword)
       }
-      
+
       if (searchResult) {
         // Only keep the result with the highest match score for each ID
         const existingResult = resultsMap.get(searchResult.id)
@@ -251,17 +295,17 @@ async function searchNostrContent(
         }
       }
     }
-    
+
     // Convert Map to array
     const deduplicatedResults = Array.from(resultsMap.values())
-    
+
     console.log(`Processed ${deduplicatedResults.length} unique search results (${events.length - deduplicatedResults.length} duplicates removed)`)
-    
+
     // Sort by match score (highest first)
     deduplicatedResults.sort((a, b) => b.matchScore - a.matchScore)
-    
+
     return deduplicatedResults
-    
+
   } catch (error) {
     console.error('Error searching Nostr content:', error)
     throw new Error(`Failed to search Nostr content: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -270,21 +314,24 @@ async function searchNostrContent(
 
 /**
  * Hook for searching content on Nostr relays using React Query
- * 
+ *
  * Features:
- * - Searches both course events (kind 30004) and resource events (kinds 30023, 30402)
+ * - Searches content from admin/moderator pubkeys (configured in admin.json)
+ * - Searches course events (kind 30004) and resource events (kinds 30023, 30402)
  * - Uses existing parser functions for consistent data structure
  * - Returns results compatible with existing search UI
  * - Includes proper loading states and error handling
  * - Uses React Query for caching and state management
- * - Minimum 3 character keyword requirement
+ * - Configurable via content.json search settings
  */
 export function useNostrSearch(
   keyword: string,
   options: UseNostrSearchOptions = {}
 ): NostrSearchResult {
   const { relayPool, relays } = useSnstrContext()
-  
+  const config = getSearchConfig()
+  const searchRelays = resolveSearchRelays(config.relaySet, relays)
+
   const {
     enabled = true,
     staleTime = 2 * 60 * 1000, // 2 minutes (shorter for search)
@@ -297,8 +344,8 @@ export function useNostrSearch(
 
   const query = useQuery({
     queryKey: nostrSearchQueryKeys.search(keyword),
-    queryFn: () => searchNostrContent(keyword, relayPool, relays),
-    enabled: enabled && keyword.length >= 3,
+    queryFn: () => searchNostrContent(keyword, relayPool, searchRelays, config),
+    enabled: enabled && keyword.length >= config.minKeywordLength,
     staleTime,
     gcTime,
     refetchOnWindowFocus,
@@ -319,6 +366,7 @@ export function useNostrSearch(
 
 /**
  * Hook for searching specific event kinds on Nostr
+ * Also filters by admin pubkeys for content relevance
  */
 export function useNostrSearchByKind(
   keyword: string,
@@ -326,7 +374,9 @@ export function useNostrSearchByKind(
   options: UseNostrSearchOptions = {}
 ): NostrSearchResult {
   const { relayPool, relays } = useSnstrContext()
-  
+  const config = getSearchConfig()
+  const searchRelays = resolveSearchRelays(config.relaySet, relays)
+
   const {
     enabled = true,
     staleTime = 2 * 60 * 1000,
@@ -340,43 +390,46 @@ export function useNostrSearchByKind(
   const query = useQuery({
     queryKey: [...nostrSearchQueryKeys.search(keyword), kinds],
     queryFn: async () => {
-      if (!keyword || keyword.length < 3) return []
-      
+      if (!keyword || keyword.length < config.minKeywordLength) return []
+
+      const adminPubkeys = getAdminPubkeysHex()
+      if (adminPubkeys.length === 0) return []
+
       try {
         const events = await relayPool.querySync(
-          relays,
-          { 
+          searchRelays,
+          {
             kinds,
-            search: keyword,
-            limit: 50
+            authors: adminPubkeys,
+            limit: config.limit
           },
-          { timeout: 15000 }
+          { timeout: config.timeout }
         )
-        
+
         const results: SearchResult[] = []
-        
+
         for (const event of events) {
           let searchResult: SearchResult | null = null
-          
+
           if (event.kind === 30004) {
             searchResult = courseEventToSearchResult(event, keyword)
           } else if (event.kind === 30023 || event.kind === 30402) {
             searchResult = resourceEventToSearchResult(event, keyword)
           }
-          
+
           if (searchResult) {
             results.push(searchResult)
           }
         }
-        
+
         return results.sort((a, b) => b.matchScore - a.matchScore)
-        
+
       } catch (error) {
         console.error('Error searching Nostr by kind:', error)
         throw new Error(`Failed to search Nostr: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
     },
-    enabled: enabled && keyword.length >= 3,
+    enabled: enabled && keyword.length >= config.minKeywordLength,
     staleTime,
     gcTime,
     refetchOnWindowFocus,
