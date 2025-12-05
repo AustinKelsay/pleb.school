@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { DraftService } from '@/lib/draft-service'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { z } from 'zod'
 
 interface RouteParams {
@@ -114,10 +115,11 @@ export async function POST(
     }
 
     // Validate additional links if provided
-    if (draft.additionalLinks && draft.additionalLinks.length > 0) {
-      draft.additionalLinks.forEach((link, index) => {
+    const normalizedLinks = normalizeAdditionalLinks(draft.additionalLinks)
+    if (normalizedLinks.length > 0) {
+      normalizedLinks.forEach((link, index) => {
         try {
-          new URL(link)
+          new URL(link.url)
         } catch (e) {
           errors.push(`Invalid URL at additional link ${index + 1}`)
         }

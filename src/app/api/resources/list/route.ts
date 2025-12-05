@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResourceAdapter } from '@/lib/db-adapter'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
     const searchParams = request.nextUrl.searchParams
     const page = searchParams.get('page')
     const pageSize = searchParams.get('pageSize')
@@ -42,6 +45,7 @@ export async function GET(request: NextRequest) {
         page: parsedPage,
         pageSize: parsedPageSize,
         includeLessonResources,
+        userId: session?.user?.id,
       })
 
       return NextResponse.json({
@@ -50,7 +54,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const resources = await ResourceAdapter.findAll({ includeLessonResources })
+    const resources = await ResourceAdapter.findAll({ includeLessonResources, userId: session?.user?.id })
 
     return NextResponse.json({
       resources,

@@ -11,12 +11,14 @@ import { Separator } from '@/components/ui/separator'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Link2, LinkIcon, Unlink, Shield, Mail, Github, Key, User } from 'lucide-react'
+import { NostrichIcon } from '@/components/icons'
 import { getProviderDisplayName } from '@/lib/account-linking'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { dispatchProfileUpdatedEvent } from '@/lib/profile-events'
+import { LinkedAccountsSkeleton } from '@/app/profile/components/profile-skeletons'
 
 interface LinkedAccount {
   provider: string
@@ -252,7 +254,7 @@ export function LinkedAccountsManager() {
   const getProviderIcon = (provider: string) => {
     switch (provider) {
       case 'nostr':
-        return <Key className="h-4 w-4" />
+        return <NostrichIcon className="h-4 w-4 text-purple-500" />
       case 'email':
         return <Mail className="h-4 w-4" />
       case 'github':
@@ -282,13 +284,7 @@ export function LinkedAccountsManager() {
   }, [providerToUnlink])
 
   if (loading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </CardContent>
-      </Card>
-    )
+    return <LinkedAccountsSkeleton />
   }
 
   return (
@@ -407,14 +403,14 @@ export function LinkedAccountsManager() {
                   </p>
                 )}
                 {providerToUnlink === 'nostr' && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/40 dark:text-amber-50">
+                  <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-purple-900 dark:border-purple-400/30 dark:bg-purple-950/30 dark:text-purple-50">
                     <p className="text-sm font-medium">
                       Disconnecting your self-custodied Nostr login means we will mint a new encrypted key pair so the app can keep signing background Nostr events (just like email/GitHub users).
                     </p>
                     <label className="mt-3 flex items-start gap-2 text-sm">
                       <input
                         type="checkbox"
-                        className="mt-1 h-4 w-4 rounded border border-amber-500 accent-amber-600"
+                        className="mt-1 h-4 w-4 rounded border border-purple-500 accent-purple-600"
                         checked={nostrUnlinkAcknowledged}
                         onChange={(event) => setNostrUnlinkAcknowledged(event.target.checked)}
                       />

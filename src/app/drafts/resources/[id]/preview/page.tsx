@@ -18,11 +18,7 @@ import {
   Clock, 
   Eye, 
   FileText, 
-  Play, 
-  ExternalLink, 
   ArrowLeft, 
-  BookOpen, 
-  Video, 
   Calendar,
   User,
   Edit,
@@ -30,6 +26,10 @@ import {
   AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
+import { DraftContentSkeleton } from '@/components/ui/app-skeleton-client'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
+import type { AdditionalLink } from '@/types/additional-links'
 
 interface ResourceDraftPreviewPageProps {
   params: Promise<{
@@ -46,7 +46,7 @@ interface DraftData {
   image?: string | null
   price?: number | null
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   videoUrl?: string | null
   createdAt: string
   updatedAt: string
@@ -67,29 +67,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
     // Fallback to hex format if encoding fails
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
-}
-
-/**
- * Loading component for content
- */
-function ContentSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="h-4 bg-muted rounded"></div>
-            <div className="h-4 bg-muted rounded w-4/5"></div>
-            <div className="h-4 bg-muted rounded w-3/5"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
 }
 
 /**
@@ -145,13 +122,6 @@ function ContentMetadata({ draftData }: { draftData: DraftData }) {
             <span>{readingTime} min read</span>
           </div>
         )}
-        
-        {draftData.type === 'video' && (
-          <div className="flex items-center space-x-1">
-            <Play className="h-4 w-4" />
-            <span>15 min</span>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -178,7 +148,10 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
           throw new Error(result.error || 'Failed to fetch draft')
         }
         
-        setDraftData(result.data)
+        setDraftData({
+          ...result.data,
+          additionalLinks: normalizeAdditionalLinks(result.data.additionalLinks)
+        })
       } catch (err) {
         console.error('Error fetching draft:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch draft')
@@ -193,7 +166,7 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
   }, [resourceId])
 
   if (loading) {
-    return <ContentSkeleton />
+    return <DraftContentSkeleton />
   }
 
   if (error) {
@@ -217,9 +190,8 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
   const description = draftData.summary
   const category = draftData.topics[0] || 'general'
   const type = draftData.type || 'document'
-  const additionalLinks = draftData.additionalLinks || []
+  const additionalLinks = normalizeAdditionalLinks(draftData.additionalLinks)
   const additionalContent = draftData.content?.trim()
-  const difficulty = 'intermediate' // Default
   const isPremium = (draftData.price ?? 0) > 0
 
   return (
@@ -245,9 +217,6 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
             </Badge>
             <Badge variant="outline" className="capitalize">
               {type}
-            </Badge>
-            <Badge variant="outline" className="capitalize">
-              {difficulty}
             </Badge>
             <DraftPreviewBadge />
             {isPremium && (
@@ -280,54 +249,23 @@ function ResourceDraftContent({ resourceId }: { resourceId: string }) {
               <VideoPlayer 
                 url={draftData.videoUrl || undefined}
                 title={draftData.title}
-                duration="15 min"
               />
               {additionalContent && (
-                <div className="prose prose-lg max-w-none">
-                  <MarkdownRenderer content={draftData.content} />
-                </div>
+                <MarkdownRenderer content={draftData.content} />
               )}
             </CardContent>
           </Card>
         ) : (
           <Card>
             <CardContent className="pt-6">
-              <div className="prose prose-lg max-w-none">
-                <MarkdownRenderer content={draftData.content} />
-              </div>
+              <MarkdownRenderer content={draftData.content} />
             </CardContent>
           </Card>
         )}
       </div>
       
       {/* Additional Links */}
-      {additionalLinks && additionalLinks.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <ExternalLink className="h-5 w-5" />
-              <span>Additional Resources</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {additionalLinks.map((link, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  className="justify-start"
-                  asChild
-                >
-                  <a href={link} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Resource {index + 1}
-                  </a>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <AdditionalLinksCard links={additionalLinks} icon="link" />
 
       {/* Draft Actions */}
       <Card>
@@ -387,7 +325,7 @@ function ResourceDraftPreviewContent({ resourceId }: { resourceId: string }) {
           </div>
 
           {/* Content */}
-          <Suspense fallback={<ContentSkeleton />}>
+          <Suspense fallback={<DraftContentSkeleton />}>
             <ResourceDraftContent resourceId={resourceId} />
           </Suspense>
         </div>

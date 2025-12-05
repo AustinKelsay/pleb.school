@@ -7,6 +7,7 @@ import { ContentCardSkeleton } from "@/components/ui/content-skeleton";
 import { Section } from "@/components/layout";
 import { useHomepageSectionConfig } from "@/hooks/useContentConfig";
 import { applyContentFilters } from "@/lib/content-config";
+import { tagsToAdditionalLinks } from "@/lib/additional-links";
 
 /**
  * Client component for fetching and displaying courses
@@ -121,6 +122,8 @@ export function CoursesSection() {
  */
 function CourseCard({ course }: { course: CourseWithNote }) {
   // Transform CourseWithNote into ContentCard-compatible format
+  const instructorName = course.user?.username || course.user?.displayName || course.user?.pubkey || course.userId
+
   const contentItem = {
     id: course.id,
     type: 'course' as const,
@@ -131,8 +134,8 @@ function CourseCard({ course }: { course: CourseWithNote }) {
     image: course.note?.tags.find(tag => tag[0] === "image")?.[1] || '',
     href: `/courses/${course.id}`,
     tags: course.note?.tags || [],
-    author: course.userId,  
-    instructor: course.userId,
+    author: instructorName,
+    instructor: instructorName,
     instructorPubkey: course.note?.pubkey || '',
     published: true,
     createdAt: course.createdAt,
@@ -144,8 +147,9 @@ function CourseCard({ course }: { course: CourseWithNote }) {
     studentsCount: 0,
     featured: false,
     topics: course.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-    additionalLinks: course.note?.tags.filter(tag => tag[0] === "l").map(tag => tag[1]) || [],
+    additionalLinks: tagsToAdditionalLinks(course.note?.tags, 'l'),
     noteId: course.note?.id || course.noteId,
+    purchases: course.purchases,
   };
 
   return <ContentCard item={contentItem} variant="content" showContentTypeTags={false} />;

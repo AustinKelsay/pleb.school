@@ -1,0 +1,80 @@
+export type PurchaseStatus = "unlocked" | "partial" | "refunded"
+
+export type TraceStep = {
+  label: string
+  detail?: string
+  at?: string | null
+  kind?: "info" | "success" | "warning" | "error"
+}
+
+export type ReceiptSummary = {
+  id: string
+  amountSats: number | null
+  bolt11?: string | null
+  payerPubkey?: string | null
+  createdAt?: number | null
+  description?: string | null
+  raw?: any
+}
+
+export type UserSummary = {
+  id: string
+  username?: string | null
+  email?: string | null
+  avatar?: string | null
+  pubkey?: string | null
+}
+
+export type PurchaseListItem = {
+  id: string
+  userId: string
+  courseId?: string | null
+  resourceId?: string | null
+  amountPaid: number
+  priceAtPurchase?: number | null
+  paymentType: string
+  zapReceiptId?: string | null
+  invoice?: string | null
+  zapReceiptJson?: any
+  zapRequestJson?: any
+  createdAt: string
+  updatedAt: string
+  contentType: "course" | "resource"
+  priceSats: number
+  receiptCount: number
+  receiptsTotalSats: number
+  receipts?: ReceiptSummary[]
+  status: PurchaseStatus
+  lifeCycle: TraceStep[]
+  href?: string
+  // Content metadata for display
+  contentId?: string | null
+  noteId?: string | null
+  videoId?: string | null
+  videoUrl?: string | null
+  thumbnail?: string | null
+  lessonCount?: number | null
+  creatorId?: string | null
+  // Creator/publisher info
+  creator?: UserSummary | null
+  // Zap provenance
+  zapSignerPubkey?: string | null
+  isPrivacyZap?: boolean
+  // Enriched data from Nostr notes (added client-side)
+  title?: string
+  description?: string
+  image?: string
+  topics?: string[]
+  // Buyer info (for admin views)
+  user?: UserSummary
+}
+
+export type PurchaseStats = {
+  totalPurchases: number
+  totalRevenueSats: number
+  unlockedCount: number
+  partialCount: number
+  refundCount: number
+  buyers: number
+  averageTicketSats: number
+}

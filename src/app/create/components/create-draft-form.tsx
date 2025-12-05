@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -37,6 +38,8 @@ import {
   Eye,
   Edit
 } from 'lucide-react'
+import { additionalLinkLabel, normalizeAdditionalLinks } from '@/lib/additional-links'
+import type { AdditionalLink } from '@/types/additional-links'
 
 type ContentType = 'document' | 'video'
 
@@ -48,7 +51,7 @@ interface FormData {
   image: string
   price: number
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   videoUrl?: string // For video type
 }
 
@@ -60,6 +63,8 @@ export default function CreateDraftForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [isPaidResource, setIsPaidResource] = useState(false)
+  const lastPaidPriceRef = useRef<number>(100)
   
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -79,7 +84,8 @@ export default function CreateDraftForm() {
   
   // Temporary input states
   const [currentTopic, setCurrentTopic] = useState('')
-  const [currentLink, setCurrentLink] = useState('')
+  const [currentLinkTitle, setCurrentLinkTitle] = useState('')
+  const [currentLinkUrl, setCurrentLinkUrl] = useState('')
   const [errors, setErrors] = useState<Partial<Record<keyof FormData | 'videoUrl', string>>>({})
 
   // Load draft data if editing
@@ -97,6 +103,8 @@ export default function CreateDraftForm() {
         }
         
         const draft = result.data
+        const normalizedLinks = normalizeAdditionalLinks(draft.additionalLinks)
+
         setFormData({
           type: draft.type as ContentType,
           title: draft.title,
@@ -105,9 +113,13 @@ export default function CreateDraftForm() {
           image: draft.image || '',
           price: draft.price || 0,
           topics: draft.topics || [],
-          additionalLinks: draft.additionalLinks || [],
+          additionalLinks: normalizedLinks,
           videoUrl: draft.videoUrl || ''
         })
+        setIsPaidResource((draft.price ?? 0) > 0)
+        if (typeof draft.price === 'number' && draft.price > 0) {
+          lastPaidPriceRef.current = draft.price
+        }
       } catch (err) {
         console.error('Error loading draft:', err)
         setMessage({ 
@@ -156,9 +168,17 @@ export default function CreateDraftForm() {
     if (formData.price < 0) {
       newErrors.price = 'Price must be 0 or greater'
     }
+    if (isPaidResource && formData.price <= 0) {
+      newErrors.price = 'Paid resources must have a price above 0 sats'
+    }
     
     if (formData.topics.length === 0) {
       newErrors.topics = 'At least one topic is required'
+    }
+
+    const invalidLink = formData.additionalLinks.find(link => !isValidUrl(link.url))
+    if (invalidLink) {
+      newErrors.additionalLinks = 'All additional links must include valid URLs'
     }
     
     setErrors(newErrors)
@@ -193,18 +213,35 @@ export default function CreateDraftForm() {
   }
 
   const addLink = () => {
-    if (currentLink.trim()) {
-      if (isValidUrl(currentLink.trim())) {
-        setFormData(prev => ({
-          ...prev,
-          additionalLinks: [...prev.additionalLinks, currentLink.trim()]
-        }))
-        setCurrentLink('')
-      } else {
-        setMessage({ type: 'error', text: 'Please enter a valid URL' })
-        setTimeout(() => setMessage(null), 3000)
-      }
+    const url = currentLinkUrl.trim()
+    const title = currentLinkTitle.trim()
+
+    if (!url) {
+      return
     }
+
+    const normalizedUrl = isValidUrl(url)
+      ? url
+      : isValidUrl(`https://${url}`)
+        ? `https://${url}`
+        : null
+
+    if (!normalizedUrl) {
+      setMessage({ type: 'error', text: 'Please enter a valid URL' })
+      setTimeout(() => setMessage(null), 3000)
+      return
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      additionalLinks: normalizeAdditionalLinks([
+        ...prev.additionalLinks,
+        { url: normalizedUrl, title },
+      ]),
+    }))
+    setCurrentLinkUrl('')
+    setCurrentLinkTitle('')
+    setErrors(prev => ({ ...prev, additionalLinks: undefined }))
   }
 
   const removeLink = (index: number) => {
@@ -212,6 +249,19 @@ export default function CreateDraftForm() {
       ...prev,
       additionalLinks: prev.additionalLinks.filter((_, i) => i !== index)
     }))
+  }
+
+  const handleResourcePaidToggle = (checked: boolean) => {
+    setIsPaidResource(checked)
+    setFormData((prev) => {
+      if (!checked && prev.price > 0) {
+        lastPaidPriceRef.current = prev.price
+      }
+      const nextPrice = checked
+        ? (prev.price > 0 ? prev.price : lastPaidPriceRef.current)
+        : 0
+      return { ...prev, price: nextPrice }
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -230,6 +280,7 @@ export default function CreateDraftForm() {
       
       const payload = {
         ...formData,
+        price: isPaidResource ? formData.price : 0,
         content: formData.content,
       }
 
@@ -297,11 +348,11 @@ export default function CreateDraftForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {message && (
-        <Alert className={message.type === 'error' ? 'border-destructive' : 'border-green-500'}>
+        <Alert className={message.type === 'error' ? 'border-destructive' : 'border-success/30'}>
           {message.type === 'error' ? (
             <AlertCircle className="h-4 w-4 text-destructive" />
           ) : (
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CheckCircle className="h-4 w-4 text-success" />
           )}
           <AlertDescription>{message.text}</AlertDescription>
         </Alert>
@@ -492,6 +543,20 @@ export default function CreateDraftForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
+            <div>
+              <p className="text-sm font-medium">Pricing mode</p>
+              <p className="text-xs text-muted-foreground">
+                Free resources save at 0 sats. Switch to paid to set a price.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Free</span>
+              <Switch checked={isPaidResource} onCheckedChange={handleResourcePaidToggle} />
+              <span className="text-xs font-semibold text-primary">Paid</span>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="image">
               {/* eslint-disable-next-line jsx-a11y/alt-text */}
@@ -524,13 +589,19 @@ export default function CreateDraftForm() {
                 min="0"
                 placeholder="0"
                 value={formData.price}
+                disabled={!isPaidResource}
                 onChange={(e) => {
-                  setFormData(prev => ({ ...prev, price: parseInt(e.target.value) || 0 }))
+                  if (!isPaidResource) return
+                  const parsed = parseInt(e.target.value) || 0
+                  setFormData(prev => ({ ...prev, price: parsed }))
+                  if (parsed > 0) {
+                    lastPaidPriceRef.current = parsed
+                  }
                   setErrors(prev => ({ ...prev, price: undefined }))
                 }}
                 className={errors.price ? 'border-destructive' : ''}
               />
-              {formData.price > 0 && (
+              {isPaidResource && formData.price > 0 && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
                   <Badge variant="secondary" className="text-xs">
                     Premium
@@ -539,7 +610,7 @@ export default function CreateDraftForm() {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Set to 0 for free content
+              {isPaidResource ? 'Set the price in sats.' : 'Free resources always save at 0 sats.'}
             </p>
             {errors.price && <p className="text-sm text-destructive">{errors.price}</p>}
           </div>
@@ -609,37 +680,48 @@ export default function CreateDraftForm() {
               Additional Links <span className="text-muted-foreground">(Optional)</span>
             </Label>
             <div className="space-y-3">
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <Input
-                  type="url"
-                  placeholder="https://example.com/resource"
-                  value={currentLink}
-                  onChange={(e) => setCurrentLink(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      addLink()
-                    }
-                  }}
+                  placeholder="Link title (e.g., Official docs)"
+                  value={currentLinkTitle}
+                  onChange={(e) => setCurrentLinkTitle(e.target.value)}
                 />
-                <Button 
-                  type="button" 
-                  variant="secondary" 
-                  onClick={addLink}
-                  size="icon"
-                  className="shrink-0"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/resource"
+                    value={currentLinkUrl}
+                    onChange={(e) => setCurrentLinkUrl(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addLink()
+                      }
+                    }}
+                  />
+                  <Button 
+                    type="button" 
+                    variant="secondary" 
+                    onClick={addLink}
+                    size="icon"
+                    className="shrink-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
+              {errors.additionalLinks && <p className="text-sm text-destructive">{errors.additionalLinks}</p>}
               {formData.additionalLinks.length > 0 && (
                 <div className="space-y-2 rounded-lg border p-3">
                   {formData.additionalLinks.map((link, index) => (
-                    <div key={index} className="flex items-center gap-2 group">
+                    <div key={link.url + index} className="flex items-center gap-2 group">
                       <Link2 className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="text-sm text-muted-foreground truncate flex-1">
-                        {link}
-                      </span>
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="text-sm font-medium truncate">
+                          {link.title?.trim() || additionalLinkLabel(link)}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">{link.url}</span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeLink(index)}

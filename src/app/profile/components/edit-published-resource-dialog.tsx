@@ -19,6 +19,8 @@ import { Loader2, Plus, X } from 'lucide-react'
 import { useRepublishResourceMutation } from '@/hooks/usePublishedContentMutations'
 import { createUnsignedResourceEvent, type ResourceEventDraftInput } from '@/lib/nostr-events'
 import { hasNip07Support, type NostrEvent } from 'snstr'
+import { normalizeAdditionalLinks, additionalLinkLabel } from '@/lib/additional-links'
+import type { AdditionalLink } from '@/types/additional-links'
 
 export type ResourceEditData = {
   id: string
@@ -28,7 +30,7 @@ export type ResourceEditData = {
   price: number
   image?: string
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   type: 'document' | 'video'
   videoUrl?: string
   pubkey?: string
@@ -50,15 +52,20 @@ export function EditPublishedResourceDialog({
   const mutation = useRepublishResourceMutation()
   const [error, setError] = useState<string | null>(null)
   const [topicInput, setTopicInput] = useState('')
-  const [linkInput, setLinkInput] = useState('')
+  const [linkTitleInput, setLinkTitleInput] = useState('')
+  const [linkUrlInput, setLinkUrlInput] = useState('')
 
   const [formState, setFormState] = useState<ResourceEditData | null>(data ?? null)
 
   useEffect(() => {
     if (data) {
-      setFormState(data)
+      setFormState({
+        ...data,
+        additionalLinks: normalizeAdditionalLinks(data.additionalLinks),
+      })
       setTopicInput('')
-      setLinkInput('')
+      setLinkTitleInput('')
+      setLinkUrlInput('')
       setError(null)
     }
   }, [data, open])
@@ -72,7 +79,7 @@ export function EditPublishedResourceDialog({
 
   const displayLinks = useMemo(() => {
     if (!formState) return []
-    return formState.additionalLinks.map(link => link.trim()).filter(Boolean)
+    return normalizeAdditionalLinks(formState.additionalLinks)
   }, [formState])
 
   const requestNip07Signature = async (
@@ -84,7 +91,7 @@ export function EditPublishedResourceDialog({
       price: number
       image?: string
       topics: string[]
-      additionalLinks: string[]
+      additionalLinks: AdditionalLink[]
       type: 'document' | 'video'
       videoUrl?: string
     }
@@ -160,26 +167,40 @@ export function EditPublishedResourceDialog({
 
   const handleAddLink = () => {
     if (!formState) return
-    const value = linkInput.trim()
-    if (!value) return
+    const url = linkUrlInput.trim()
+    const title = linkTitleInput.trim()
+    if (!url) return
+
+    const normalizedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`
+
+    try {
+      new URL(normalizedUrl)
+    } catch {
+      setError('Please enter a valid URL for additional links.')
+      return
+    }
 
     setFormState(prev =>
       prev
         ? {
             ...prev,
-            additionalLinks: Array.from(new Set([...prev.additionalLinks, value])),
+            additionalLinks: normalizeAdditionalLinks([
+              ...prev.additionalLinks,
+              { url: normalizedUrl, title },
+            ]),
           }
         : prev
     )
-    setLinkInput('')
+    setLinkTitleInput('')
+    setLinkUrlInput('')
   }
 
-  const handleRemoveLink = (link: string) => {
+  const handleRemoveLink = (linkUrl: string) => {
     setFormState(prev =>
       prev
         ? {
             ...prev,
-            additionalLinks: prev.additionalLinks.filter(item => item !== link),
+            additionalLinks: prev.additionalLinks.filter(item => item.url !== linkUrl),
           }
         : prev
     )
@@ -444,37 +465,52 @@ export function EditPublishedResourceDialog({
 
               <div className="space-y-2">
                 <Label>Additional Links</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <Input
-                    value={linkInput}
-                    onChange={event => setLinkInput(event.target.value)}
-                    placeholder="https://example.com"
-                    onKeyDown={event => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        handleAddLink()
-                      }
-                    }}
+                    value={linkTitleInput}
+                    onChange={event => setLinkTitleInput(event.target.value)}
+                    placeholder="Link title (e.g., Official docs)"
                   />
-                  <Button type="button" variant="outline" onClick={handleAddLink}>
-                    <Plus className="mr-1 h-4 w-4" />
-                    Add
-                  </Button>
+                  <div className="flex gap-2">
+                    <Input
+                      value={linkUrlInput}
+                      onChange={event => setLinkUrlInput(event.target.value)}
+                      placeholder="https://example.com"
+                      onKeyDown={event => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          handleAddLink()
+                        }
+                      }}
+                    />
+                    <Button type="button" variant="outline" onClick={handleAddLink}>
+                      <Plus className="mr-1 h-4 w-4" />
+                      Add
+                    </Button>
+                  </div>
                 </div>
                 {displayLinks.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col gap-2">
                     {displayLinks.map(link => (
-                      <Badge key={link} variant="outline" className="flex items-center gap-1">
-                        {link}
+                      <div
+                        key={link.url}
+                        className="flex items-start justify-between gap-3 rounded-md border px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {link.title?.trim() || additionalLinkLabel(link)}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => handleRemoveLink(link)}
-                          className="ml-1 focus:outline-none"
-                          aria-label={`Remove ${link}`}
+                          onClick={() => handleRemoveLink(link.url)}
+                          className="ml-1 focus:outline-none text-muted-foreground hover:text-destructive"
+                          aria-label={`Remove ${link.url}`}
                         >
                           <X className="h-3 w-3" />
                         </button>
-                      </Badge>
+                      </div>
                     ))}
                   </div>
                 ) : (

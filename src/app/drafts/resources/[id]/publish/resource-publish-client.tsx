@@ -26,6 +26,7 @@ import {
   BookOpen,
   Zap
 } from 'lucide-react'
+import type { AdditionalLink } from '@/types/additional-links'
 
 interface ResourcePublishPageClientProps {
   resourceId: string
@@ -40,7 +41,7 @@ interface DraftData {
   image?: string
   price?: number
   topics: string[]
-  additionalLinks?: string[]
+  additionalLinks?: AdditionalLink[]
   videoUrl?: string
   createdAt: string
   updatedAt: string

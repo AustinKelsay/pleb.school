@@ -15,6 +15,8 @@ import {
 } from 'snstr'
 import type { Draft, CourseDraft } from '@prisma/client'
 import type { DraftWithIncludes, CourseDraftWithIncludes } from './draft-service'
+import { additionalLinksToTags, normalizeAdditionalLinks } from '@/lib/additional-links'
+import type { AdditionalLink } from '@/types/additional-links'
 
 export type ResourceEventDraftInput = {
   id: string
@@ -26,7 +28,7 @@ export type ResourceEventDraftInput = {
   image?: string | null
   price?: number | null
   topics: string[]
-  additionalLinks?: string[]
+  additionalLinks?: AdditionalLink[]
   videoUrl?: string | null
 }
 
@@ -180,11 +182,8 @@ export function createResourceEvent(
   }
 
   // Add additional links as 'r' tags
-  if (draft.additionalLinks && draft.additionalLinks.length > 0) {
-    draft.additionalLinks.forEach(link => {
-      tags.push(['r', link])
-    })
-  }
+  const normalizedLinks = normalizeAdditionalLinks(draft.additionalLinks)
+  tags.push(...additionalLinksToTags(normalizedLinks))
   
   // Create and sign the event using snstr's createEvent
   // This is for server-side signing only (OAuth users)
@@ -298,11 +297,8 @@ export function createUnsignedResourceEvent(
   }
 
   // Add additional links as 'r' tags
-  if (draft.additionalLinks && draft.additionalLinks.length > 0) {
-    draft.additionalLinks.forEach(link => {
-      tags.push(['r', link])
-    })
-  }
+  const normalizedLinks = normalizeAdditionalLinks(draft.additionalLinks)
+  tags.push(...additionalLinksToTags(normalizedLinks))
   
   return {
     pubkey,

@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
         } : false,
         purchases: session?.user?.id ? {
           where: { userId: session.user.id },
-          select: { id: true }
+          select: { id: true, amountPaid: true, priceAtPurchase: true, createdAt: true }
         } : false,
       },
       skip,

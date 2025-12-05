@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CourseAdapter } from '@/lib/db-adapter';
+import { CourseAdapter, PurchaseAdapter } from '@/lib/db-adapter';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 /**
  * GET /api/courses/[id] - Fetch a specific course
@@ -9,6 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
     const { id } = await params;
     const courseId = id;
     
@@ -32,7 +35,48 @@ export async function GET(
     const { LessonAdapter } = await import('@/lib/db-adapter');
     const lessons = await LessonAdapter.findByCourseId(courseId);
 
-    // Get resources for each lesson
+    // Fetch purchases for the current user (if authenticated)
+    let purchases = [] as Array<{ id: string; amountPaid: number; priceAtPurchase?: number | null; createdAt: string }>
+    if (session?.user?.id) {
+      const userPurchases = await PurchaseAdapter.findByUserAndCourse(session.user.id, courseId)
+      purchases = userPurchases.map((p) => ({
+        id: p.id,
+        amountPaid: p.amountPaid,
+        priceAtPurchase: p.priceAtPurchase,
+        createdAt: p.createdAt.toISOString()
+      }))
+    }
+
+    const price = course.price ?? 0
+    const hasPurchased = purchases.some((p) => {
+      const hasSnapshot = p.priceAtPurchase !== null && p.priceAtPurchase !== undefined && p.priceAtPurchase > 0
+      const snapshot = hasSnapshot ? p.priceAtPurchase! : price
+      const required = Math.min(snapshot, price)
+      return p.amountPaid >= required
+    })
+    const isOwner = session?.user?.id && course.userId && session.user.id === course.userId
+    const requiresPurchase = price > 0 && !hasPurchased && !isOwner
+
+    // For paid courses, avoid exposing lesson/resource structure to users without access
+    if (requiresPurchase) {
+      return NextResponse.json({
+        course: {
+          id: course.id,
+          userId: course.userId,
+          price: course.price,
+          noteId: course.noteId,
+          submissionRequired: course.submissionRequired,
+          createdAt: course.createdAt,
+          updatedAt: course.updatedAt,
+          user: course.user,
+          purchases,
+          hasPurchased,
+          requiresPurchase
+        }
+      })
+    }
+
+    // Get resources for each lesson only after access is confirmed
     const { ResourceAdapter } = await import('@/lib/db-adapter');
     const lessonsWithResources = await Promise.all(
       lessons.map(async (lesson) => {
@@ -47,7 +91,10 @@ export async function GET(
     return NextResponse.json({ 
       course: {
         ...course,
-        lessons: lessonsWithResources
+        lessons: lessonsWithResources,
+        purchases,
+        hasPurchased,
+        requiresPurchase
       }
     });
   } catch (error) {

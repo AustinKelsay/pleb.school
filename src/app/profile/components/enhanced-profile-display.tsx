@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { 
   User, 
@@ -34,6 +33,7 @@ import type { AggregatedProfile } from '@/lib/profile-aggregator'
 import { cn } from '@/lib/utils'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { getAccountType } from '@/lib/profile-priority'
+import { ProfileOverviewSkeleton } from '@/app/profile/components/profile-skeletons'
 
 interface EnhancedProfileDisplayProps {
   session: Session
@@ -168,15 +168,7 @@ export function EnhancedProfileDisplay({ session }: EnhancedProfileDisplayProps)
   }
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-32 w-full" />
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </div>
-    )
+    return <ProfileOverviewSkeleton />
   }
 
   const profile = aggregatedProfile || {

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import React from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -26,7 +26,10 @@ import {
   Eye,
   BookOpen,
   Video,
-  Tag
+  Tag,
+  Loader2,
+  Maximize2,
+  Minimize2
 } from 'lucide-react'
 import type { NostrEvent } from 'snstr'
 import { getRelays } from '@/lib/nostr-relays'
@@ -34,6 +37,9 @@ import { ViewsText } from '@/components/ui/views-text'
 import { ResourceContentView } from '@/app/content/components/resource-content-view'
 import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
+import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
+import { useSession } from 'next-auth/react'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 
 interface ResourcePageProps {
   params: Promise<{
@@ -115,11 +121,26 @@ function ResourceOverview({ resourceId }: { resourceId: string }) {
  */
 function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const { fetchSingleEvent, fetchProfile, normalizeKind0 } = useNostr()
+  const { status: sessionStatus } = useSession()
   const [event, setEvent] = useState<NostrEvent | null>(null)
   const [authorProfile, setAuthorProfile] = useState<NormalizedProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [idResult, setIdResult] = useState<UniversalIdResult | null>(null)
+  const [serverPrice, setServerPrice] = useState<number | null>(null)
+  const [serverPurchased, setServerPurchased] = useState<boolean>(false)
+  const [unlockedViaCourse, setUnlockedViaCourse] = useState<boolean>(false)
+  const [unlockingCourseId, setUnlockingCourseId] = useState<string | null>(null)
+  const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(true)
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
+  const [isFullWidth, setIsFullWidth] = useState(false)
+
+  const eventATag = useMemo(() => {
+    if (!event || !event.kind || event.kind < 30000) return undefined
+    const identifier = extractNoteId(event)
+    if (!identifier) return undefined
+    return `${event.kind}:${event.pubkey}:${identifier}`
+  }, [event])
   
   // Get real interaction data from Nostr - call hook unconditionally at top level
   const {
@@ -131,9 +152,11 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     zapInsights,
     recentZaps,
     hasZappedWithLightning,
-    viewerZapTotalSats
+    viewerZapTotalSats,
+    viewerZapReceipts
   } = useInteractions({
     eventId: event?.id,
+    eventATag,
     realtime: false,
     staleTime: 5 * 60 * 1000 // Use staleTime instead of cacheDuration
   })
@@ -243,6 +266,62 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     }
   }, [resourceId, fetchSingleEvent, fetchProfile, normalizeKind0])
 
+  useEffect(() => {
+    let isCancelled = false
+
+    const fetchResourceMeta = async () => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(resourceId)) {
+        setIsPurchaseStatusLoading(false)
+        return
+      }
+
+      if (sessionStatus === 'loading') return
+
+      setIsPurchaseStatusLoading(true)
+      try {
+        const res = await fetch(`/api/resources/${resourceId}`, {
+          credentials: 'include',
+        })
+        if (!res.ok) return
+        const body = await res.json()
+        const data = body?.data
+        if (typeof data?.price === 'number' && !isCancelled) {
+          setServerPrice(data.price)
+        }
+        if (!isCancelled) {
+          const unlockedByPurchase =
+            Array.isArray(data?.purchases) && typeof data?.price === 'number'
+              ? data.purchases.some((p: any) => {
+                  const snapshot = p?.priceAtPurchase
+                  const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+                  const required = Math.min(snapshotValid ? snapshot : data.price, data.price)
+                  return (p?.amountPaid ?? 0) >= required
+                })
+              : false
+          const unlockedByCourse = data?.unlockedViaCourse === true
+          setServerPurchased(unlockedByPurchase || unlockedByCourse)
+          setUnlockedViaCourse(unlockedByCourse)
+          setUnlockingCourseId(data?.unlockingCourseId || null)
+        }
+      } catch (err) {
+        console.error('Failed to fetch resource meta', err)
+      } finally {
+        if (!isCancelled) {
+          setIsPurchaseStatusLoading(false)
+        }
+      }
+    }
+
+    fetchResourceMeta()
+
+    return () => {
+      // Prevent state updates if the component unmounts mid-request
+      // (e.g., during fast navigation between resources).
+      isCancelled = true
+    }
+  }, [resourceId, sessionStatus, viewerZapTotalSats, viewerZapReceipts?.length])
+
   if (loading) {
     return (
       <MainLayout>
@@ -280,7 +359,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                  parsedEvent.author || 
                  formatNpubWithEllipsis(event.pubkey)
   const type = parsedEvent.type || 'document'
-  const difficulty = 'intermediate' // Default since it's not in parseEvent
   // Views are tracked via /api/views and Vercel KV
   const trimmedDuration = parsedEvent.duration?.trim()
   const duration = type === 'video' ? (trimmedDuration ? trimmedDuration : undefined) : undefined
@@ -305,6 +383,27 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const zapsCount = interactions.zaps
   const commentsCount = interactions.comments
   const reactionsCount = interactions.likes
+  const parsedPriceRaw = parsedEvent.price
+  const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
+  const priceSats =
+    serverPrice !== null && serverPrice !== undefined
+      ? serverPrice
+      : parsedPrice ?? 0
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const resourceIdIsUuid = uuidRegex.test(resourceId)
+  const canPurchase = resourceIdIsUuid && isPaidResource && priceSats > 0
+  const courseAccessCta = unlockedViaCourse && unlockingCourseId ? (
+    <div className="flex flex-wrap gap-2 items-center">
+      <Badge variant="outline" className="border-success/60 text-success bg-success/10">
+        Access via course
+      </Badge>
+      <Button variant="outline" size="sm" asChild>
+        <Link href={`/courses/${unlockingCourseId}`}>
+          Go to course
+        </Link>
+      </Button>
+    </div>
+  ) : null
 
   const formatDate = (timestamp: number): string => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
@@ -381,9 +480,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   <Badge variant="outline" className="capitalize">
                     {type}
                   </Badge>
-                  <Badge variant="outline" className="capitalize">
-                    {difficulty}
-                  </Badge>
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">{title}</h1>
                 <p className="text-lg text-muted-foreground" style={preserveLineBreaks(description).style}>
@@ -430,15 +526,76 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
 
               {requiresPreviewGate && (
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                    <Link href={`/content/${resourceId}/details`}>
-                      {getResourceTypeIcon(type)}
-                      <span className="ml-2">
-                        {type === 'video' ? 'Watch Now' : 'Read Now'}
-                      </span>
-                    </Link>
-                  </Button>
-                </div>
+                  {isPurchaseStatusLoading ? (
+                    <Button size="lg" className="w-full sm:w-auto" disabled aria-busy={true}>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking access...
+                    </Button>
+                  ) : canPurchase && !serverPurchased ? (
+                    <Button
+                      size="lg"
+                      className="w-full sm:w-auto"
+                      onClick={() => setShowPurchaseDialog(true)}
+                    >
+                      Purchase for {priceSats.toLocaleString()} sats
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
+                        <Link href={`/content/${resourceId}/details`}>
+                          {getResourceTypeIcon(type)}
+                          <span className="ml-2">
+                            {type === 'video' ? 'Watch Now' : serverPurchased ? 'View Content' : 'Read Now'}
+                          </span>
+                        </Link>
+                      </Button>
+                      {serverPurchased && (
+                        <Badge variant="outline" className="px-3 py-1 bg-success/10 border-success/50 text-success">
+                          Purchased for {priceSats.toLocaleString()} sats
+                        </Badge>
+                      )}
+                      {!canPurchase && isPaidResource && !serverPurchased && (
+                        <Badge variant="outline" className="px-3 py-1 text-amber-600 border-amber-400 bg-amber-50">
+                          Purchase unavailable for this identifier
+                        </Badge>
+                      )}
+                    </>
+              )}
+            </div>
+          )}
+
+          {requiresPreviewGate && serverPurchased && courseAccessCta}
+
+          {canPurchase && (
+            <PurchaseDialog
+              isOpen={showPurchaseDialog}
+              onOpenChange={setShowPurchaseDialog}
+              title={title}
+                  priceSats={priceSats}
+                  resourceId={resourceId}
+                  eventId={event.id}
+                  eventKind={event.kind}
+                  eventIdentifier={parsedEvent.d}
+                  eventPubkey={event.pubkey}
+                  zapTarget={{
+                    pubkey: event.pubkey,
+                    lightningAddress: authorProfile?.lud16 || undefined,
+                    name: author
+                  }}
+                  viewerZapTotalSats={viewerZapTotalSats}
+                  alreadyPurchased={serverPurchased}
+                  zapInsights={zapInsights}
+                  recentZaps={recentZaps}
+                  viewerZapReceipts={viewerZapReceipts}
+                  onPurchaseComplete={(purchase) => {
+                    const snapshot = purchase?.priceAtPurchase
+                    const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+                    const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
+                    if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
+                      setServerPurchased(true)
+                    }
+                  }}
+                />
               )}
 
               {/* Tags */}
@@ -499,18 +656,40 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           </div>
 
           {/* Resource Content - Conditionally render preview or full content */}
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setIsFullWidth(prev => !prev)}>
+              {isFullWidth ? (
+                <>
+                  <Minimize2 className="h-4 w-4 mr-2" />
+                  Exit Full Width
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-4 w-4 mr-2" />
+                  Full Width
+                </>
+              )}
+            </Button>
+          </div>
+
+          <div className={`grid grid-cols-1 gap-8 transition-all duration-300 ease-out ${isFullWidth ? 'lg:grid-cols-1' : 'lg:grid-cols-3'}`}>
+            <div className={`${isFullWidth ? 'lg:col-span-3' : 'lg:col-span-2'} transition-all duration-300 ease-out`}>
               {requiresPreviewGate ? (
                 <Suspense fallback={<ResourceContentSkeleton />}>
                   <ResourceOverview resourceId={resourceId} />
                 </Suspense>
               ) : (
-                <ResourceContentView resourceId={resourceId} initialEvent={event} showBackLink={false} />
+                <ResourceContentView 
+                  resourceId={resourceId} 
+                  initialEvent={event} 
+                  showBackLink={false}
+                  showHero={false}
+                  showAdditionalLinks={false}
+                />
               )}
             </div>
 
-            <div className="space-y-6">
+            <div className={`${isFullWidth ? 'lg:max-h-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden lg:scale-95' : 'space-y-6 lg:opacity-100 lg:scale-100 lg:max-h-[2000px]'} transition-all duration-300 ease-out`}>
               <Card>
                 <CardHeader>
                   <CardTitle>About this {type}</CardTitle>
@@ -527,10 +706,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   <div>
                     <h4 className="font-semibold mb-2">Category</h4>
                     <p className="text-sm text-muted-foreground capitalize">{topics[0] || 'general'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Difficulty</h4>
-                    <p className="text-sm text-muted-foreground capitalize">{difficulty}</p>
                   </div>
                   {duration && (
                     <div>
@@ -555,27 +730,21 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                       <Button variant="outline" className="w-full justify-center" asChild>
                         <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4 mr-2" />
-                          Open in Nostr
+                          Open on Nostr
                         </a>
                       </Button>
                     </div>
                   )}
                 </CardContent>
               </Card>
-
-              {/* Related Resources */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Related Resources</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    More resources from the same category and difficulty level coming soon.
-                  </p>
-                </CardContent>
-              </Card>
+              {!isFullWidth && (
+                <AdditionalLinksCard links={additionalLinks} layout="stack" />
+              )}
             </div>
           </div>
+          
+          {/* Additional Resources - single display in full-width mode */}
+          {isFullWidth && <AdditionalLinksCard links={additionalLinks} />}
           
           {/* Comments Section - Only show for preview-gated content since ResourceContentView includes its own comments */}
           {requiresPreviewGate && (

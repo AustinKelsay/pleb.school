@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Share2, ExternalLink, Download } from 'lucide-react'
 import { ResourceDisplay } from '@/data/types'
 import { type ResourceContent } from '@/lib/content-utils'
+import { additionalLinkLabel } from '@/lib/additional-links'
 
 interface ResourceActionsProps {
   resource: ResourceDisplay
@@ -54,9 +55,9 @@ export function ResourceActions({ resource, content }: ResourceActionsProps) {
           size="sm"
           asChild
         >
-          <a href={content.additionalLinks[0]} target="_blank" rel="noopener noreferrer">
+          <a href={content.additionalLinks[0].url} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-4 w-4 mr-2" />
-            Resources
+            {additionalLinkLabel(content.additionalLinks[0])}
           </a>
         </Button>
       )}

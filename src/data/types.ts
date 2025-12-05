@@ -4,6 +4,8 @@
  */
 
 import type { LucideIcon } from "lucide-react"
+import { tagsToAdditionalLinks } from "@/lib/additional-links"
+import type { AdditionalLink } from "@/types/additional-links"
 
 // ============================================================================
 // DATABASE MODELS (minimal fields only - matching Prisma schema)
@@ -13,6 +15,16 @@ import type { LucideIcon } from "lucide-react"
  * Course model - minimal database fields only
  * Full content comes from NIP-51 course list events (kind 30004)
  */
+export interface CourseUser {
+  id: string
+  username?: string | null
+  pubkey?: string | null
+  avatar?: string | null
+  nip05?: string | null
+  lud16?: string | null
+  displayName?: string | null
+}
+
 export interface Course {
   id: string              // @id (client generates UUID)
   userId: string          // User relation
@@ -21,6 +33,14 @@ export interface Course {
   submissionRequired: boolean // @default(false)
   createdAt: string       // @default(now())
   updatedAt: string       // @updatedAt
+  user?: CourseUser
+  purchases?: Array<{
+    id: string
+    amountPaid?: number
+    priceAtPurchase?: number
+    createdAt?: string
+    updatedAt?: string
+  }>
 }
 
 /**
@@ -37,6 +57,13 @@ export interface Resource {
   videoUrl?: string       // Direct video URL for embeds
   createdAt: string       // @default(now())
   updatedAt: string       // @updatedAt
+  purchases?: Array<{
+    id: string
+    amountPaid?: number
+    priceAtPurchase?: number
+    createdAt?: string
+    updatedAt?: string
+  }>
 }
 
 /**
@@ -115,7 +142,7 @@ export interface ParsedCourseEvent {
   published_at: string
   created_at: number
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   d: string
   tags: string[][]
   type: "course"
@@ -135,7 +162,7 @@ export interface ParsedResourceEvent {
   pubkey: string
   content: string
   kind: number
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   title: string
   summary: string
   image: string
@@ -218,9 +245,6 @@ export function parseCourseEvent(event: NostrCourseListEvent | NostrEvent): Pars
       case "t":
         eventData.topics.push(tag[1])
         break
-      case "r":
-        eventData.additionalLinks.push(tag[1])
-        break
       case "instructor":
         eventData.instructor = tag[1]
         break
@@ -239,6 +263,8 @@ export function parseCourseEvent(event: NostrCourseListEvent | NostrEvent): Pars
   if (eventData.topics.length > 0) {
     eventData.category = eventData.topics[0]
   }
+
+  eventData.additionalLinks = tagsToAdditionalLinks(event.tags, 'r')
 
   return eventData
 }
@@ -316,13 +342,8 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
           if (tag[1] === "video") {
             eventData.type = "video"
             eventData.topics.push(tag[1])
-          } else if (tag[1] !== "plebdevs") {
+          } else if (!["plebdevs", "plebschool"].includes(tag[1] || "")) {
             eventData.topics.push(tag[1])
-          }
-          break
-        case "r":
-          if (tag[1]) {
-            eventData.additionalLinks.push(tag[1])
           }
           break
         case "video":
@@ -355,6 +376,8 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
   if (eventData.type === "video" && !eventData.videoUrl) {
     eventData.videoUrl = extractVideoUrlFromContent(event.content) || undefined
   }
+
+  eventData.additionalLinks = tagsToAdditionalLinks(event.tags, 'r')
 
   return eventData
 }
@@ -408,7 +431,7 @@ export interface CourseDisplay extends Course {
   tags: string[][]
   topics: string[]
   lessonReferences: string[]
-  additionalLinks?: string[]
+  additionalLinks?: AdditionalLink[]
   // Engagement metrics (zaps, comments, likes)
   zapsCount?: number
   commentsCount?: number
@@ -431,7 +454,7 @@ export interface ResourceDisplay extends Resource {
   difficulty: 'beginner' | 'intermediate' | 'advanced'
   published: boolean
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   duration?: string
   thumbnailUrl?: string
   videoUrl?: string
@@ -467,9 +490,16 @@ export interface ContentItem {
   enrollmentCount?: number
   viewCount?: number
   topics: string[]
-  additionalLinks: string[]
+  additionalLinks: AdditionalLink[]
   // Nostr event ID for zapthreads integration
   noteId?: string
+  purchases?: Array<{
+    id: string
+    amountPaid?: number
+    priceAtPurchase?: number
+    createdAt?: string
+    updatedAt?: string
+  }>
 }
 
 // ============================================================================

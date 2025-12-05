@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { RepublishService, RepublishError } from '@/lib/republish-service'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { z } from 'zod'
 
 const paramsSchema = z.object({
@@ -24,7 +25,15 @@ const republishSchema = z
       .optional()
       .default([]),
     additionalLinks: z
-      .array(z.string().trim().url('Links must be valid URLs'))
+      .array(
+        z.union([
+          z.string().trim().url('Links must be valid URLs'),
+          z.object({
+            url: z.string().trim().url('Links must be valid URLs'),
+            title: z.string().trim().min(1).max(120).optional(),
+          }),
+        ])
+      )
       .max(25)
       .optional()
       .default([]),
@@ -113,9 +122,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const sanitizedTopics = Array.from(
       new Set((topics || []).map(topic => topic.trim()).filter(Boolean))
     ).filter(topic => topic.toLowerCase() !== type)
-    const sanitizedLinks = Array.from(
-      new Set((additionalLinks || []).map(link => link.trim()).filter(Boolean))
-    )
+    const normalizedLinks = normalizeAdditionalLinks(additionalLinks)
 
     const result = await RepublishService.republishResource(resourceId, session.user.id, {
       title: trimmedTitle,
@@ -124,7 +131,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       price,
       image,
       topics: sanitizedTopics,
-      additionalLinks: sanitizedLinks,
+      additionalLinks: normalizedLinks,
       type,
       videoUrl: type === 'video' ? videoUrl! : undefined,
       signedEvent,

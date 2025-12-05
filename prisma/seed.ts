@@ -82,7 +82,7 @@ async function main() {
 
   // Create resources
   const resources = [
-    // PlebDevs Starter Course resources
+    // pleb.school Starter Course resources
     {
       id: '6d8260b3-c902-46ec-8aed-f3b8c8f1229b',
       userId: testUser.id,
@@ -154,7 +154,7 @@ async function main() {
 
   // Create lessons for courses
   const lessons = [
-    // PlebDevs Starter Course lessons
+    // pleb.school Starter Course lessons
     {
       id: 'lesson-1',
       courseId: 'f538f5c5-1a72-4804-8eb1-3f05cea64874',

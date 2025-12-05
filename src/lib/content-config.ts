@@ -46,6 +46,10 @@ export interface ContentPageConfig {
     enableFilters: boolean
     enableSorting: boolean
   }
+  includeLessonResources?: {
+    videos: boolean
+    documents: boolean
+  }
 }
 
 export interface GlobalConfig {

@@ -7,6 +7,7 @@ import {
   fetchLnurlPayMetadata,
   getEventHash,
   getPublicKey,
+  generateKeypair,
   signEvent,
   supportsNostrZaps,
   type LnurlPayResponse,
@@ -24,6 +25,7 @@ import type { LightningRecipient, ZapSendResult } from '@/types/zap';
 interface SendZapArgs {
   amountSats: number;
   note?: string;
+  preferAnonymous?: boolean;
 }
 
 interface UseZapSenderOptions {
@@ -32,6 +34,7 @@ interface UseZapSenderOptions {
   eventIdentifier?: string;
   eventPubkey?: string;
   zapTarget?: LightningRecipient;
+  preferAnonymousZap?: boolean;
 }
 
 type ZapStatus =
@@ -64,6 +67,18 @@ interface ZapSenderHook {
   isZapInFlight: boolean;
   minZapSats?: number | null;
   maxZapSats?: number | null;
+}
+
+function isUserRejection(error: unknown): boolean {
+  if (!error) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('reject') ||
+    normalized.includes('denied') ||
+    normalized.includes('declin') ||
+    normalized.includes('cancel')
+  );
 }
 
 async function sha256Hex(value: string): Promise<string> {
@@ -104,17 +119,22 @@ function buildATag(eventKind?: number, eventPubkey?: string, eventIdentifier?: s
   if (!eventPubkey || !eventIdentifier) {
     return undefined;
   }
-  return `${eventKind}:${eventPubkey}:${eventIdentifier}`;
+
+  const normalizedPubkey = eventPubkey.toLowerCase();
+
+  return `${eventKind}:${normalizedPubkey}:${eventIdentifier}`;
 }
 
 export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
-  const { eventId, eventKind, eventIdentifier, eventPubkey, zapTarget } = options;
+  const { eventId, eventKind, eventIdentifier, eventPubkey, zapTarget, preferAnonymousZap = false } = options;
   const { relays } = useSnstrContext();
   const { data: session, status: sessionStatus } = useSession();
   const { fetchProfile, normalizeKind0 } = useNostr();
   const [zapState, setZapState] = useState<ZapState>({ status: 'idle' });
   const metadataCacheRef = useRef<Record<string, LnurlPayResponse>>({});
   const profileCacheRef = useRef<Record<string, { lightningAddress?: string; lnurl?: string }>>({});
+  const anonymousKeysRef = useRef<{ pubkey: string; privkey: string } | null>(null);
+  const keyGenerationPromiseRef = useRef<Promise<{ pubkey: string; privkey: string } | null> | null>(null);
 
   const normalizedRecipientPubkey = useMemo(() => {
     return normalizeHexPubkey(zapTarget?.pubkey || eventPubkey);
@@ -142,29 +162,92 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
       lnurl: string,
       lnurlDetails: LnurlDetails,
       note: string,
-      senderPubkeyHint?: string
+      senderPubkeyHint?: string,
+      privacyModeOverride?: boolean
     ): Promise<{ event: NostrEvent; signerPubkey: string }> => {
       const aTag = buildATag(eventKind, normalizedRecipientPubkey || eventPubkey, eventIdentifier);
       const relayHints = zapTarget?.relayHints || [];
       const relayList = Array.from(new Set([...(relayHints || []), ...relays]));
 
-      let signerPubkey = senderPubkeyHint || normalizedSessionPubkey || null;
+      const privacyMode = typeof privacyModeOverride === 'boolean' ? privacyModeOverride : preferAnonymousZap === true;
 
-      if (canServerSign && normalizedSessionPrivkey && !signerPubkey) {
-        signerPubkey = normalizeHexPubkey(getPublicKey(normalizedSessionPrivkey));
-      }
+      let signerPubkey = privacyMode ? null : senderPubkeyHint || normalizedSessionPubkey || null;
+      let signerPrivkey: string | null = null;
+
+      const ensureAnonymousKeys = async () => {
+        // If keys already exist, return immediately
+        if (anonymousKeysRef.current) {
+          return anonymousKeysRef.current;
+        }
+
+        // If key generation is in progress, await the existing promise
+        if (keyGenerationPromiseRef.current) {
+          return await keyGenerationPromiseRef.current;
+        }
+
+        // Start key generation and store the promise
+        keyGenerationPromiseRef.current = (async () => {
+          try {
+            const keys = await generateKeypair();
+            if (keys?.publicKey && keys?.privateKey) {
+              const normalizedPubkey = normalizeHexPubkey(keys.publicKey);
+              const normalizedPrivkey = normalizeHexPrivkey(keys.privateKey);
+              if (normalizedPubkey && normalizedPrivkey) {
+                anonymousKeysRef.current = {
+                  pubkey: normalizedPubkey,
+                  privkey: normalizedPrivkey
+                };
+              }
+            }
+            return anonymousKeysRef.current;
+          } finally {
+            // Clear the promise ref so future calls after completion use the ref directly
+            keyGenerationPromiseRef.current = null;
+          }
+        })();
+
+        return await keyGenerationPromiseRef.current;
+      };
 
       const nostrExtension = typeof window !== 'undefined' ? (window as Window & { nostr?: any }).nostr : undefined;
 
+      if (privacyMode) {
+        const anon = await ensureAnonymousKeys();
+        signerPubkey = anon?.pubkey || null;
+        signerPrivkey = anon?.privkey || null;
+      } else {
+        if (canServerSign && normalizedSessionPrivkey && !signerPubkey) {
+          signerPubkey = normalizeHexPubkey(getPublicKey(normalizedSessionPrivkey));
+          signerPrivkey = normalizedSessionPrivkey;
+        }
+
+        if (!signerPubkey && !nostrExtension?.getPublicKey) {
+          const anon = await ensureAnonymousKeys();
+          signerPubkey = anon?.pubkey || null;
+          signerPrivkey = anon?.privkey || null;
+        }
+
+        if (!signerPubkey) {
+          if (!nostrExtension?.getPublicKey) {
+            throw new Error('Connect a Nostr extension to zap this content.');
+          }
+          try {
+            const extensionPubkey = normalizeHexPubkey(await nostrExtension.getPublicKey());
+            if (!extensionPubkey) {
+              throw new Error('The connected Nostr extension returned an invalid public key.');
+            }
+            signerPubkey = extensionPubkey;
+          } catch (err) {
+            if (isUserRejection(err)) {
+              throw new Error('User declined to share their pubkey. Enable privacy or approve the wallet prompt.');
+            }
+            throw err instanceof Error ? err : new Error(String(err));
+          }
+        }
+      }
+
       if (!signerPubkey) {
-        if (!nostrExtension?.getPublicKey) {
-          throw new Error('Connect a Nostr extension to zap this content.');
-        }
-        const extensionPubkey = normalizeHexPubkey(await nostrExtension.getPublicKey());
-        if (!extensionPubkey) {
-          throw new Error('The connected Nostr extension returned an invalid public key.');
-        }
-        signerPubkey = extensionPubkey;
+        throw new Error('Unable to prepare a signing key for this zap.');
       }
 
       const zapRequestTemplate = createZapRequest(
@@ -180,12 +263,25 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
         signerPubkey
       );
 
-      if (canServerSign && normalizedSessionPrivkey) {
+      const tags = Array.isArray(zapRequestTemplate.tags) ? [...zapRequestTemplate.tags] : [];
+      const normalizedPayer = normalizedSessionPubkey;
+      if (privacyMode && normalizedPayer) {
+        const hasPTag = tags.some((t) => t[0] === 'P' && t[1]?.toLowerCase() === normalizedPayer);
+        if (!hasPTag) {
+          tags.push(['P', normalizedPayer]);
+        }
+      }
+      const zapRequestWithPrivacy = {
+        ...zapRequestTemplate,
+        tags
+      };
+
+      if (!privacyMode && canServerSign && normalizedSessionPrivkey) {
         const unsignedEvent = {
-          ...zapRequestTemplate,
+          ...zapRequestWithPrivacy,
           pubkey: signerPubkey,
-          created_at: zapRequestTemplate.created_at ?? Math.floor(Date.now() / 1000),
-          tags: zapRequestTemplate.tags ?? []
+          created_at: zapRequestWithPrivacy.created_at ?? Math.floor(Date.now() / 1000),
+          tags: zapRequestWithPrivacy.tags ?? []
         };
         const zapId = await getEventHash(unsignedEvent);
         const zapSig = await signEvent(zapId, normalizedSessionPrivkey);
@@ -195,12 +291,31 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
         };
       }
 
+      if (signerPrivkey) {
+        const unsignedEvent = {
+          ...zapRequestWithPrivacy,
+          pubkey: signerPubkey,
+          created_at: zapRequestWithPrivacy.created_at ?? Math.floor(Date.now() / 1000),
+          tags: zapRequestWithPrivacy.tags ?? []
+        };
+        const zapId = await getEventHash(unsignedEvent);
+        const zapSig = await signEvent(zapId, signerPrivkey);
+        return { event: { ...unsignedEvent, id: zapId, sig: zapSig }, signerPubkey };
+      }
+
       if (!nostrExtension?.signEvent || !nostrExtension?.getPublicKey) {
         throw new Error('Connect a Nostr (NIP-07) extension to zap content.');
       }
 
-      const signed = await nostrExtension.signEvent(zapRequestTemplate);
-      return { event: signed, signerPubkey };
+      try {
+        const signed = await nostrExtension.signEvent(zapRequestWithPrivacy);
+        return { event: signed, signerPubkey };
+      } catch (err) {
+        if (isUserRejection(err)) {
+          throw new Error('User declined to sign the zap request.');
+        }
+        throw err instanceof Error ? err : new Error(String(err));
+      }
     },
     [
       canServerSign,
@@ -212,12 +327,13 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
       normalizedSessionPrivkey,
       normalizedSessionPubkey,
       relays,
-      zapTarget?.relayHints
+      zapTarget?.relayHints,
+      preferAnonymousZap
     ]
   );
 
   const sendZap = useCallback(
-    async ({ amountSats, note = '' }: SendZapArgs): Promise<ZapSendResult> => {
+    async ({ amountSats, note = '', preferAnonymous }: SendZapArgs): Promise<ZapSendResult> => {
       try {
         if (!zapTarget) {
           throw new Error('No lightning recipient available for this content.');
@@ -227,9 +343,6 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
         }
         if (sessionStatus === 'loading') {
           throw new Error('Still loading your session. Try again in a moment.');
-        }
-        if (sessionStatus !== 'authenticated') {
-          throw new Error('Sign in with a Nostr-capable account to send zaps.');
         }
 
         const profileCacheKey = (normalizedRecipientPubkey || eventPubkey || '').toLowerCase();
@@ -301,11 +414,15 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
 
         setZapState({ status: 'signing', metadata, lnurlDetails });
 
+        const effectivePrivacy = typeof preferAnonymous === 'boolean' ? preferAnonymous : preferAnonymousZap;
+
         const { event: signedZapRequest } = await createSignedZapRequest(
           amountMsats,
           lnurlDetails.lnurlBech32,
           lnurlDetails,
-          trimmedNote
+          trimmedNote,
+          undefined,
+          effectivePrivacy
         );
 
         setZapState({ status: 'requesting-invoice', metadata, lnurlDetails, zapRequest: signedZapRequest });
@@ -403,7 +520,7 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
         throw error instanceof Error ? error : new Error(message);
       }
     },
-    [createSignedZapRequest, eventPubkey, fetchProfile, normalizeKind0, normalizedRecipientPubkey, sessionStatus, zapTarget]
+    [createSignedZapRequest, eventPubkey, fetchProfile, normalizeKind0, normalizedRecipientPubkey, sessionStatus, zapTarget, preferAnonymousZap]
   );
 
   const retryWeblnPayment = useCallback(async () => {

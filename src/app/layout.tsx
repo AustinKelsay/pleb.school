@@ -19,8 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PlebDevs - Learn to Code on Lightning",
-  description: "A one of a kind developer education, content, and community platform built on Nostr and fully Lightning integrated.",
+  title: "pleb.school – Nostr-native course & content platform",
+  description:
+    "Configurable, open-source education stack for courses, videos, and docs with Nostr identity and Lightning-powered interactions.",
 };
 
 export default function RootLayout({

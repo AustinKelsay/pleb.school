@@ -27,6 +27,9 @@
     "contentPage.filters.enableSearch": "Boolean - show/hide search input for filtering content by title/description",
     "contentPage.filters.enableFilters": "Boolean - show/hide category and price filter controls",
     "contentPage.filters.enableSorting": "Boolean - show/hide sort dropdown for ordering results",
+    "contentPage.includeLessonResources": "Controls whether lesson-linked resources still appear in the public content library. Useful when you want them hidden from homepage carousels but discoverable on /content.",
+    "contentPage.includeLessonResources.videos": "Boolean - when true, video resources used in courses remain visible on /content.",
+    "contentPage.includeLessonResources.documents": "Boolean - when true, document resources used in courses remain visible on /content.",
     "global": "Global configuration shared across the application",
     "global.categories": "Master list of available content categories (strings). Must match content item 'category' values.",
     "global.priceFilterOptions": "Labels for price filter dropdown options. Keys must be 'all', 'free', 'paid'.",
@@ -104,6 +107,10 @@
       "enableSearch": true,
       "enableFilters": true,
       "enableSorting": true
+    },
+    "includeLessonResources": {
+      "videos": true,
+      "documents": true
     }
   },
   "global": {

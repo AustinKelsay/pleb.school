@@ -3,6 +3,7 @@ import type { NostrEvent } from 'snstr'
 import { publishedContentQueryKeys } from './usePublishedContentQuery'
 import { resourceNotesQueryKeys } from './useResourceNotes'
 import { courseNotesQueryKeys } from './useCourseNotes'
+import type { AdditionalLink } from '@/types/additional-links'
 
 type RepublishResourcePayload = {
   id: string
@@ -13,7 +14,7 @@ type RepublishResourcePayload = {
     price: number
     image?: string
     topics: string[]
-    additionalLinks: string[]
+    additionalLinks: AdditionalLink[]
     type: 'document' | 'video'
     videoUrl?: string
     signedEvent?: NostrEvent

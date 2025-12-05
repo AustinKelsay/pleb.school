@@ -23,6 +23,7 @@ export interface CommentThreadsQueryResult {
   recentZaps: ReturnType<typeof useInteractions>['recentZaps']
   hasZappedWithLightning: ReturnType<typeof useInteractions>['hasZappedWithLightning']
   viewerZapTotalSats: ReturnType<typeof useInteractions>['viewerZapTotalSats']
+  viewerZapReceipts: ReturnType<typeof useInteractions>['viewerZapReceipts']
 }
 
 /**
@@ -46,7 +47,8 @@ export function useCommentThreads(
     zapInsights,
     recentZaps,
     hasZappedWithLightning,
-    viewerZapTotalSats
+    viewerZapTotalSats,
+    viewerZapReceipts
   } = useInteractions({
     eventId,
     realtime: false,
@@ -73,7 +75,8 @@ export function useCommentThreads(
     zapInsights,
     recentZaps,
     hasZappedWithLightning,
-    viewerZapTotalSats
+    viewerZapTotalSats,
+    viewerZapReceipts
   }
 }
 

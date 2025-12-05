@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { checkCourseUnlockViaLessons } from '@/lib/course-access'
+import { PurchaseAdapter } from '@/lib/db-adapter'
+
+export const dynamic = 'force-dynamic'
 
 // Validation schemas
 const paramsSchema = z.object({
@@ -13,8 +17,104 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
+type LockedLessonsData = {
+  locked: true
+  id: string
+  price: number | null
+  noteId: string | null
+  createdAt: Date
+  user: {
+    id: string
+    username: string | null
+    pubkey: string | null
+    lud16: string | null
+  }
+  isPaid: boolean
+  requiresPurchase: true
+  unlockedViaCourse: false
+  unlockingCourseId: null
+}
+
+type LessonSummary = {
+  id: string
+  courseId: string | null
+  index: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+type CourseWithLessons = {
+  course: {
+    id: string
+    userId: string
+    price: number | null
+    noteId: string | null
+  }
+  lessons: LessonSummary[]
+}
+
+type UnlockedLessonsData = {
+  locked: false
+  resourceId: string
+  lessonCount: number
+  courses: CourseWithLessons[]
+  lessons: LessonSummary[]
+  isPaid: boolean
+  requiresPurchase: false
+  unlockedViaCourse: boolean
+  unlockingCourseId: string | null
+}
+
+export type LessonsResponse =
+  | { success: true; data: LockedLessonsData }
+  | { success: true; data: UnlockedLessonsData }
+
 /**
  * GET /api/resources/[id]/lessons - Get all lessons that use this resource
+ *
+ * Response shapes (discriminated by `data.locked`):
+ *
+ * - Locked (paid content without access):
+ *   {
+ *     "success": true,
+ *     "data": {
+ *       "locked": true,
+ *       "id": "<resource-id>",
+ *       "price": 1200,
+ *       "noteId": "abcdef...",
+ *       "createdAt": "2024-08-01T12:00:00.000Z",
+ *       "user": { "id": "...", "username": "...", "pubkey": "...", "lud16": "..." },
+ *       "isPaid": true,
+ *       "requiresPurchase": true,
+ *       "unlockedViaCourse": false,
+ *       "unlockingCourseId": null
+ *     }
+ *   }
+ *
+ * - Unlocked:
+ *   {
+ *     "success": true,
+ *     "data": {
+ *       "locked": false,
+ *       "resourceId": "<resource-id>",
+ *       "lessonCount": 3,
+ *       "courses": [
+ *         {
+ *           "course": { "id": "<course-id>", "userId": "...", "price": 900, "noteId": "..." },
+ *           "lessons": [
+ *             { "id": "<lesson-id>", "courseId": "<course-id>", "index": 0, "createdAt": "...", "updatedAt": "..." }
+ *           ]
+ *         }
+ *       ],
+ *       "lessons": [
+ *         { "id": "<lesson-id>", "courseId": "<course-id>", "index": 0, "createdAt": "...", "updatedAt": "..." }
+ *       ],
+ *       "isPaid": true,
+ *       "requiresPurchase": false,
+ *       "unlockedViaCourse": true,
+ *       "unlockingCourseId": "<course-id>"
+ *     }
+ *   }
  */
 export async function GET(
   request: NextRequest,
@@ -40,7 +140,17 @@ export async function GET(
       select: { 
         id: true,
         userId: true,
-        price: true 
+        price: true,
+        noteId: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            pubkey: true,
+            lud16: true,
+          }
+        }
       }
     })
 
@@ -73,25 +183,48 @@ export async function GET(
     // Check access permissions for paid content
     const isOwner = session?.user?.id === resource.userId
     const isPaidResource = resource.price > 0
+    let courseAccessResult: Awaited<ReturnType<typeof checkCourseUnlockViaLessons>> | null = null
 
-    // If it's a paid resource and user is not the owner, check purchases
-    if (isPaidResource && !isOwner && session?.user?.id) {
-      const hasPurchased = await prisma.purchase.findFirst({
-        where: {
+    if (isPaidResource && !isOwner) {
+      let hasAccess = false
+
+      if (session?.user?.id) {
+        const purchases = await PurchaseAdapter.findByUserAndResource(session.user.id, id)
+
+        const hasPurchasedResource = purchases.some((purchase) => {
+          const snapshot = purchase.priceAtPurchase
+          const currentPrice = resource.price ?? 0
+          const hasSnapshot = snapshot !== null && snapshot !== undefined && snapshot > 0
+          const requiredPrice = hasSnapshot
+            ? Math.min(snapshot, currentPrice)
+            : currentPrice
+
+          return purchase.amountPaid >= requiredPrice
+        })
+
+        courseAccessResult = await checkCourseUnlockViaLessons({
           userId: session.user.id,
-          resourceId: id
-        }
-      })
+          resourceId: id,
+          lessons
+        })
 
-      if (!hasPurchased) {
-        // Return limited information for unpurchased paid resources
+        hasAccess = Boolean(hasPurchasedResource) || courseAccessResult.unlockedViaCourse
+      }
+
+      if (!hasAccess) {
         return NextResponse.json({
           success: true,
           data: {
-            resourceId: id,
-            lessonCount: lessons.length,
+            locked: true,
+            id: resource.id,
+            price: resource.price,
+            noteId: resource.noteId,
+            createdAt: resource.createdAt,
+            user: resource.user,
             isPaid: true,
             requiresPurchase: true,
+            unlockedViaCourse: false,
+            unlockingCourseId: null,
           }
         })
       }
@@ -121,7 +254,7 @@ export async function GET(
       course: {
         id: string
         userId: string
-        price: number
+        price: number | null
         noteId: string | null
       },
       lessons: Array<{
@@ -135,6 +268,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
+        locked: false,
         resourceId: id,
         lessonCount: lessons.length,
         courses: Object.values(lessonsByCourse),
@@ -144,7 +278,11 @@ export async function GET(
           index: lesson.index,
           createdAt: lesson.createdAt,
           updatedAt: lesson.updatedAt,
-        }))
+        })),
+        isPaid: isPaidResource,
+        requiresPurchase: false,
+        unlockedViaCourse: courseAccessResult?.unlockedViaCourse ?? false,
+        unlockingCourseId: courseAccessResult?.unlockingCourseId ?? null,
       }
     })
   } catch (error) {

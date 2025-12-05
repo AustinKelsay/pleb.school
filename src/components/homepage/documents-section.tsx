@@ -7,6 +7,7 @@ import { ContentCardSkeleton } from "@/components/ui/content-skeleton";
 import { Section } from "@/components/layout";
 import { useHomepageSectionConfig } from "@/hooks/useContentConfig";
 import { applyContentFilters } from "@/lib/content-config";
+import { tagsToAdditionalLinks } from "@/lib/additional-links";
 
 /**
  * Client component for fetching and displaying document resources
@@ -125,11 +126,11 @@ function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
   const contentItem = {
     id: document.id,
     type: 'document' as const,
-    title: document.note?.tags.find(tag => tag[0] === "title")?.[1] || 
-           document.note?.tags.find(tag => tag[0] === "name")?.[1] || 
+    title: document.note?.tags.find(tag => tag[0] === "title")?.[1] ||
+           document.note?.tags.find(tag => tag[0] === "name")?.[1] ||
            `Document ${document.id}`,
-    description: document.note?.tags.find(tag => tag[0] === "summary")?.[1] || 
-                document.note?.tags.find(tag => tag[0] === "description")?.[1] || 
+    description: document.note?.tags.find(tag => tag[0] === "summary")?.[1] ||
+                document.note?.tags.find(tag => tag[0] === "description")?.[1] ||
                 document.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
     category: document.price > 0 ? 'Premium' : 'Free',
     duration: '5-10 min read',
@@ -149,8 +150,9 @@ function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
     studentsCount: 0,
     featured: false,
     topics: document.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-    additionalLinks: document.note?.tags.filter(tag => tag[0] === "r").map(tag => tag[1]) || [],
+    additionalLinks: tagsToAdditionalLinks(document.note?.tags, 'r'),
     noteId: document.note?.id || document.noteId,
+    purchases: document.purchases,
   };
 
   return <ContentCard item={contentItem} variant="content" showContentTypeTags={false} />;

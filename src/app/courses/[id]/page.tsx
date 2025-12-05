@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,11 +26,15 @@ import {
   Play,
   Tag,
   ExternalLink,
-  GraduationCap,
-  User
+  GraduationCap
 } from 'lucide-react'
 import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
+import { PurchaseActions } from '@/components/purchase/purchase-actions'
+import { useSession } from 'next-auth/react'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import { AdditionalLinksList } from '@/components/ui/additional-links-card'
+import type { AdditionalLink } from '@/types/additional-links'
 
 interface CoursePageProps {
   params: {
@@ -141,7 +145,10 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
  */
 function CoursePageContent({ courseId }: { courseId: string }) {
   const { fetchProfile, normalizeKind0 } = useNostr()
+  const { status: sessionStatus } = useSession()
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
+  const [serverPrice, setServerPrice] = useState<number | null>(null)
+  const [serverPurchased, setServerPurchased] = useState<boolean>(false)
   const { course, errors, pricing } = useCopy()
   
   const resolved = React.useMemo(() => resolveUniversalId(courseId), [courseId])
@@ -158,6 +165,15 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     { enabled: !!resolvedCourseId }
   )
 
+  const noteATag = useMemo(() => {
+    const note = courseData?.note
+    if (!note || !note.kind || note.kind < 30000) return undefined
+    if (!note.pubkey) return undefined
+    const dTag = note.tags?.find((t: any) => Array.isArray(t) && t[0] === 'd')?.[1]
+    if (!dTag) return undefined
+    return `${note.kind}:${note.pubkey}:${dTag}`
+  }, [courseData?.note])
+
   // Get real interaction data if course has a Nostr event - call hook unconditionally at top level
   const noteId = courseData?.note?.id
   const {
@@ -169,9 +185,11 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     zapInsights,
     recentZaps,
     hasZappedWithLightning,
-    viewerZapTotalSats
+    viewerZapTotalSats,
+    viewerZapReceipts
   } = useInteractions({
     eventId: noteId,
+    eventATag: noteATag,
     realtime: false,
     staleTime: 5 * 60 * 1000,
     enabled: Boolean(noteId)
@@ -179,14 +197,52 @@ function CoursePageContent({ courseId }: { courseId: string }) {
 
   const loading = courseLoading || lessonsLoading
 
+  useEffect(() => {
+    const controller = new AbortController()
+
+    const fetchCourseMeta = async () => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(courseId)) return
+      try {
+        const res = await fetch(`/api/courses/${courseId}`, { signal: controller.signal })
+        if (!res.ok) return
+        const body = await res.json()
+        const data = body?.course
+        if (typeof data?.price === 'number') {
+          setServerPrice(data.price)
+        }
+        if (Array.isArray(data?.purchases) && typeof data?.price === 'number') {
+          const paid = data.purchases.some((p: any) => {
+            const snapshot = p?.priceAtPurchase
+            const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
+            const required = Math.min(snapshotValid ? snapshot : data.price, data.price)
+            return (p?.amountPaid ?? 0) >= (required ?? 0)
+          })
+          setServerPurchased(paid)
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        console.error('Failed to fetch course meta', err)
+      }
+    }
+
+    if (sessionStatus !== 'loading') {
+      fetchCourseMeta()
+    }
+
+    return () => controller.abort()
+  }, [courseId, sessionStatus])
+
   // useEffect must be called unconditionally before any early returns
   useEffect(() => {
     if (!courseData) return
 
+    let mounted = true
+
     const fetchInstructorProfile = async () => {
       // Try to get instructor pubkey from multiple sources
       let instructorPubkey = courseData.userId // From database
-      
+
       // If we have a Nostr note, try to get more instructor data
       if (courseData.note) {
         try {
@@ -201,6 +257,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
       if (instructorPubkey) {
         try {
           const profileEvent = await fetchProfile(instructorPubkey)
+          if (!mounted) return
           const normalizedProfile = normalizeKind0(profileEvent)
           setInstructorProfile(normalizedProfile)
         } catch (profileError) {
@@ -210,6 +267,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     }
 
     fetchInstructorProfile()
+
+    return () => { mounted = false }
   }, [courseData, fetchProfile, normalizeKind0])
 
   // Early return check after all hooks (hooks must be called unconditionally)
@@ -278,14 +337,17 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   let description = 'No description available'
   let category = 'general'
   let topics: string[] = []
-  let additionalLinks: string[] = []
+  let additionalLinks: AdditionalLink[] = []
   let image = '/placeholder.svg'
   let isPremium = false
   let currency = 'sats'
   let parsedCourseNote: ReturnType<typeof parseCourseEvent> | null = null
 
   // Start with database data (minimal Course type)
-  isPremium = (courseData.price ?? 0) > 0
+  const hasDbPrice = typeof courseData.price === 'number' && !Number.isNaN(courseData.price)
+  isPremium = hasDbPrice ? (courseData.price ?? 0) > 0 : false
+  const dbPrice = hasDbPrice ? courseData.price ?? 0 : null
+  let nostrPrice = 0
 
   // If we have a Nostr note, use parsed data to enhance the information
   if (courseData.note) {
@@ -296,14 +358,24 @@ function CoursePageContent({ courseId }: { courseId: string }) {
       description = parsedNote.description || description
       category = parsedNote.category || category
       topics = parsedNote.topics || topics
-      additionalLinks = parsedNote.additionalLinks || additionalLinks
+      additionalLinks = normalizeAdditionalLinks(parsedNote.additionalLinks || additionalLinks)
       image = parsedNote.image || image
       isPremium = parsedNote.isPremium || isPremium
       currency = parsedNote.currency || currency
+      if (parsedNote.price) {
+        const parsedPrice = Number(parsedNote.price)
+        if (Number.isFinite(parsedPrice)) {
+          nostrPrice = parsedPrice
+        }
+      }
     } catch (error) {
       console.error('Error parsing course note:', error)
     }
   }
+
+  const priceSats =
+    serverPrice ?? dbPrice ?? nostrPrice ?? 0
+  isPremium = priceSats > 0
 
   const instructor = instructorProfile?.name || 
                      instructorProfile?.display_name || 
@@ -316,6 +388,12 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const commentsCount = interactions.comments
   const likesCount = interactions.likes
   const notePubkey = courseData?.note?.pubkey
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const courseIdIsUuid = uuidRegex.test(courseId)
+  const viewerZapTotal = viewerZapTotalSats ?? 0
+  // Access requires server-confirmed purchase - don't grant access based on client-side zap totals alone
+  // The auto-claim flow in PurchaseCard will set serverPurchased=true after successful API claim
+  const hasAccess = !isPremium || serverPurchased
 
   const formatDuration = (minutes: number): string => {
     if (minutes < 60) return `${minutes} min`
@@ -392,30 +470,52 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                 </div>
 
                 {estimatedDuration > 0 && (
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <span>{formatDuration(estimatedDuration)}</span>
-                  </div>
-                )}
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <span>{formatDuration(estimatedDuration)}</span>
               </div>
+            )}
+          </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                {!isPremium ? (
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                    <Link href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}>
-                      <GraduationCap className="h-5 w-5 mr-2" />
-                      Start Learning
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                    <Link href="/auth/signin">
-                      <User className="h-5 w-5 mr-2" />
-                      Login to Access
-                    </Link>
-                  </Button>
-                )}
-              </div>
+          {isPremium && priceSats > 0 && (
+          <PurchaseActions
+            title={title}
+            priceSats={priceSats}
+            courseId={courseIdIsUuid ? courseId : undefined}
+            eventId={noteId}
+            eventKind={courseData?.note?.kind}
+            eventIdentifier={parsedCourseNote?.d}
+            eventPubkey={notePubkey}
+            zapTarget={{
+              pubkey: notePubkey,
+              lightningAddress: instructorProfile?.lud16 || undefined,
+              name: instructor
+            }}
+            viewerZapTotalSats={viewerZapTotal}
+            alreadyPurchased={serverPurchased}
+            zapInsights={zapInsights}
+            recentZaps={recentZaps}
+            viewerZapReceipts={viewerZapReceipts}
+            onPurchaseComplete={() => {
+              setServerPurchased(true)
+            }}
+          />
+          )}
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            {hasAccess ? (
+              <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
+                <Link href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}>
+                  <GraduationCap className="h-5 w-5 mr-2" />
+                  Start Learning
+                </Link>
+              </Button>
+            ) : (
+              <Button size="lg" variant="outline" className="w-full sm:w-auto" disabled>
+                Purchase required to access lessons
+              </Button>
+            )}
+          </div>
 
               {/* Topics/Tags */}
               {topics && topics.length > 0 && (
@@ -435,27 +535,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
               )}
 
               {/* Additional Links */}
-              {additionalLinks && additionalLinks.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Additional Resources</h4>
-                  <div className="space-y-2">
-                    {additionalLinks.map((link: string, index: number) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                        asChild
-                      >
-                        <a href={link} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Resource {index + 1}
-                        </a>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <AdditionalLinksList links={additionalLinks} />
             </div>
 
             <div className="relative">
@@ -532,7 +612,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                   <div>
                     <h4 className="font-semibold mb-2">Price</h4>
                     <p className="text-sm text-muted-foreground">
-                      {(courseData.price ?? 0) > 0 ? `${(courseData.price ?? 0).toLocaleString()} ${currency}` : 'Free'}
+                      {priceSats > 0 ? `${priceSats.toLocaleString()} ${currency}` : 'Free'}
                     </p>
                   </div>
                   <div>
@@ -558,7 +638,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                       <Button variant="outline" className="w-full justify-center" asChild>
                         <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-4 w-4 mr-2" />
-                          Open in Nostr
+                          Open on Nostr
                         </a>
                       </Button>
                     </div>
@@ -566,17 +646,6 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                 </CardContent>
               </Card>
 
-              {/* Related Courses */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Related Courses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    More courses from the same category and instructor coming soon.
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           </div>
           
