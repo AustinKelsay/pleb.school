@@ -43,6 +43,7 @@ All user‑facing strings for navigation, homepage, about page, content pages, e
 
 - `site.*` controls global title/description/brand name.
 - `homepage.*` powers the landing page hero, stats, sections, and CTA.
+- `homepage.hero.title.useAnimated` toggles the rotating hero keywords; when `false`, the title uses `homepage.hero.title.staticWord` (or the first `animatedWords` entry) as a static label.
 - `about.*` powers the About page hero, three feature pillars, and the “make it your own” CTA. This is the place to explain how your forked platform works (who it’s for, how Nostr/Lightning are used, and how to configure the stack) without touching React components.
 
 ### ⚡ `nostr.json` — Nostr Relays & NIPs
