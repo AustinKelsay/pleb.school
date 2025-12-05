@@ -14,13 +14,14 @@ The pleb.school demo shows how to run a self-hosted Next.js 15 stack where brand
 - 🎛️ **Multi-format content** — reusable layouts for courses, documents, and videos with progress, stats, and sharing baked in.
 - 🏗️ **Production-ready stack** — Next.js 15 + React 19 with Prisma/Postgres, NextAuth, validation, rate limiting, and caching.
 - 🚢 **Portable deployment** — run locally (`npm run dev`), via Docker (`docker compose up app`), or on Vercel using the provided config.
+- 📑 **Config reference** — `config/README.md` documents every client-side JSON key; keep secrets in environment variables only.
 
 ---
 
 ## 🛠️ **Technology Stack**
 
 ### **Core Framework**
-- **Next.js 15.3.5** - Full-stack React framework
+- **Next.js 15.5.4** - Full-stack React framework
 - **React 19** - Latest React with concurrent features
 - **TypeScript 5** - Type-safe development with strict mode
 - **Turbopack** - Next-generation bundler
@@ -28,7 +29,7 @@ The pleb.school demo shows how to run a self-hosted Next.js 15 stack where brand
 ### **Architecture & Performance**
 - **Hybrid Data Architecture** - Mock JSON database + Real Nostr events for optimal development experience
 - **Database Adapter Pattern** - Clean data access abstraction with JSON mock + Nostr integration
-- **Live Nostr Integration** - Real-time connection to production relays (relay.nostr.band, nos.lol, relay.damus.io)
+- **Live Nostr Integration** - Real-time connection to relays (nos.lol, relay.damus.io, relay.primal.net, nostr.land, purplerelay.com, nostr.wine)
 - **Advanced Query Hooks** - TanStack Query with intelligent caching, batch operations, and error boundaries
 - **Hierarchical Caching** - L1 memory cache with 5-minute stale time and automatic invalidation
 - **zapthreads Integration** - Lightning Network payments and Bitcoin interactions
@@ -116,9 +117,9 @@ cd pleb.school
 # Install dependencies
 npm install
 
-# Set up environment variables
-cp .env.example .env.local
-# Add your DATABASE_URL and NEXTAUTH_SECRET
+# Set up environment variables (local dev)
+cp .env .env.local  # contains sample dev creds; replace secrets before deploying
+# Ensure DATABASE_URL, POSTGRES_*, NEXTAUTH_SECRET, and KV/Email/GitHub vars are set
 
 # Set up database (optional for development)
 npx prisma generate
@@ -565,38 +566,12 @@ try {
 
 ## 🌟 **Recent Achievements**
 
-### **🆕 Latest Updates (January 2025)**
-- **🆕 Nostr Publishing System**: Complete implementation for publishing draft courses and resources to Nostr
-- **🆕 NIP-07 Browser Extension Support**: Full client-side signing flow for users with Nostr browser extensions
-- **🆕 Resource API Endpoints**: Complete CRUD operations for resources with access control and validation
-- **🆕 Draft Publishing Flow**: Publish drafts to Nostr relays first, then save to database with proper event references
-- **🆕 Course Publishing with Lessons**: Support for courses with mixed draft/published and paid/free lesson types
-- **🆕 Atomic Publishing Operations**: Ensure all draft lessons are published before creating the course
-- **✅ Dual Authentication Architecture**: Revolutionary Nostr-first vs OAuth-first identity system
-- **✅ Profile Source Authority**: Nostr-first accounts sync from relays, OAuth-first maintain OAuth profile authority
-- **✅ Universal Nostr Capabilities**: 100% of users get Nostr functionality with appropriate key custody models
-- **✅ Smart Profile Sync**: Real-time Nostr profile updates for NIP07/Anonymous users, OAuth stability for Email/GitHub users
-- **✅ Identity Flow Control**: Clear data flow - Nostr→Database vs OAuth→Database based on account type
-- **✅ Enhanced Security Boundaries**: User custody (NIP07), platform custody (Anonymous), transparent background (Email/GitHub)
-- **✅ Multi-Provider Support**: Email magic links, GitHub OAuth, Anonymous experimentation, and NIP07 browser extension
-- **✅ Complete NIP-01 Profile Collection**: Comprehensive Nostr profile metadata fetching and storage
-- **✅ Enhanced Session Data**: All user profile fields available in session including banner, nip05, lud16, and complete Nostr profile
-- **✅ Simplified OAuth Collection**: GitHub OAuth streamlined to essential fields (name, email, image) while preserving full Nostr capabilities
-- **✅ PostgreSQL Database**: Complete Prisma schema with User, Course, Resource, and Purchase models including banner field support
-- **✅ Comprehensive Profile Sync**: Real-time synchronization of all NIP-01 profile fields (name, picture, about, nip05, lud16, banner, website, location, etc.)
-- **✅ Smart Profile Data Flow**: Nostr-first accounts get complete profile from relays, OAuth-first maintain basic provider data with background Nostr capabilities
-- **✅ Enhanced User Sessions**: Full profile data accessible in session.user including nostrProfile object with all Nostr metadata
-- **✅ Hybrid Development Setup**: Mock JSON database + Real Nostr events for optimal development experience
-- **✅ Database Adapter Pattern**: Clean abstraction layer with JSON mock + Nostr integration
-- **✅ Real Nostr Integration**: Live connection to production relays (relay.nostr.band, nos.lol, relay.damus.io)
-- **✅ Smart Query Hooks**: Advanced TanStack Query hooks with real-time Nostr data fetching
-- **✅ Batch Nostr Queries**: Efficient batch fetching using 'd' tag queries for optimal performance
-- **✅ Production Nostr Events**: Real course and content events with actual NIP-23/NIP-99 compliance
-- **✅ Lightning Integration**: zapthreads for Bitcoin payments and Lightning Network interactions
-- **✅ 47 Complete Themes**: Advanced theming system with custom color schemes and fonts
-- **✅ Enhanced Caching**: 5-minute stale time with intelligent cache invalidation and error handling
-- **✅ Type-Safe Navigation**: All routing uses `item.type === 'course'` for consistent behavior
-- **✅ Zero Build Errors**: Complete resolution of all compilation issues with clean linting
+### **🆕 Latest Updates (December 2025)**
+- Purchase dialog now honors `purchase.progressBasis` in both bar and label, uses safe defaults for auto-close/QR/note limits, and guards config access.
+- Payments config remains client-safe; see `config/payments.json` + `config/README.md` for zap presets, note limits, min zaps, and progress basis toggles.
+- Content config adds `contentPage.imageFetch` (relay set + max concurrent fetches) to throttle note preview image loading.
+- Config docs are consolidated in `config/README.md`; remember `/config/*.json` ships to clients—keep secrets in environment variables.
+- Docker Compose defaults: services `plebschool-app`/`plebschool-db`; dev startup runs `prisma db push --accept-data-loss` then `npm run dev` for convenience.
 
 ### **🗑️ Code Cleanup**
 - **Removed Problematic Files**: Eliminated `course-utils.ts` and `videos/mock-videos.ts` that were causing build issues

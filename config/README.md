@@ -37,6 +37,7 @@ Example (dark + clean‑slate):
 ### 📝 `content.json` — Content Display
 Homepage sections (courses, videos, documents), filters (price/category/sort), pagination and search options, and global labels (categories, sort/price labels).
 - `contentPage.includeLessonResources.{videos,documents}` lets you keep lesson-linked resources discoverable on `/content` while leaving homepage carousels untouched. Defaults to `true` for both so lessons don't disappear from the library once added to a course.
+- `contentPage.imageFetch.{relaySet,maxConcurrentFetches}` sets which relay set to use for note preview images on `/content` and caps concurrent fetches to avoid flooding relays.
 
 ### 🔤 `copy.json` — Site Copy & Text
 All user‑facing strings for navigation, homepage, about page, content pages, error/empty states, cards, and lessons.
@@ -51,18 +52,15 @@ All user‑facing strings for navigation, homepage, about page, content pages, e
 - `about.*` powers the About page hero, three feature pillars, and the “make it your own” CTA. This is the place to explain how your forked platform works (who it’s for, how Nostr/Lightning are used, and how to configure the stack) without touching React components.
 
 ### 💸 `payments.json` — Payments & Zap UX
-Zap presets, minimums, privacy toggle behavior, note byte limits, recent zap list size, zap QR auto-show, purchase min zap, auto-close timing, purchase QR auto-show, and progress basis. Client-safe; no secrets.
-
-### 📚 `content.json` — Content Display
-- Adds `contentPage.imageFetch` to set the relay set used for note-image fetches and cap concurrent fetches.
+Zap presets, minimums, privacy toggle behavior, note byte limits, zap QR auto-show (`zap.autoShowQr`), recent zap list size, purchase min zap, auto-close timing, purchase QR auto-show, and progress basis (`server` vs `serverPlusViewer`). Client-safe; no secrets.
 
 ### ⚡ `nostr.json` — Nostr Relays & NIPs
-Relay sets and event type mapping. The app now reads relays from this file everywhere.
+Relay sets and event type mapping. Relay access flows through `getRelays(set)`; `default` is used as the fallback when a set is empty or missing.
 
 - Relay sets: `default`, `content` (optional), `profile` (optional), `zapThreads` (new), `custom`.
 - Runtime: `src/lib/nostr-relays.ts` provides `getRelays(set)` and `DEFAULT_RELAYS`.
-- Fetch/publish services aligned to config; API publish routes accept `relaySet`.
-- ZapThreads widget uses the `zapThreads` set by default.
+- Fetch/publish services that accept `relaySet` can use these names; otherwise they fall back to `default`.
+- ZapThreads widget prefers the `zapThreads` set when present; otherwise it falls back to `default`.
 
 ### 🛡️ `admin.json` — Admin & Moderator
 Pubkey lists (npub or hex) and permission flags. `features.*` are advisory until wired; admin-utils reads admins/moderators and normalizes keys.

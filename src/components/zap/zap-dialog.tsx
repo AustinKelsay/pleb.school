@@ -178,7 +178,7 @@ export function ZapDialog({
         variant: "destructive"
       })
     }
-  }, [invalidAmount, belowMin, aboveMax, minZapSats, maxZapSats, resolvedZapAmount, sendZap, zapNote, toast, zapCopy])
+  }, [invalidAmount, belowMin, aboveMax, effectiveMinZap, maxZapSats, resolvedZapAmount, sendZap, zapNote, toast, zapCopy])
 
   const handleCopy = useCallback(async () => {
     if (!zapState.invoice) return

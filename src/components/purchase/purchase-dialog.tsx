@@ -226,7 +226,7 @@ export function PurchaseDialog({
 
   useEffect(() => {
     if (zapState.invoice && purchaseAutoShowQr) setShowQr(true)
-  }, [zapState.invoice, purchaseAutoShowQr])
+  }, [zapState.invoice])
 
   // Handlers
   const handlePurchase = useCallback(async () => {
