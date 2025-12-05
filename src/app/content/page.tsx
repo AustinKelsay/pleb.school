@@ -27,7 +27,7 @@ import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { getNoteImage } from "@/lib/note-image"
 import { Prefix, type NostrEvent, type RelayPool } from "snstr"
 import { isNip19String, tryDecodeNip19Entity } from "@/lib/nip19-utils"
-import { getRelays } from "@/lib/nostr-relays"
+import { getRelays, type RelaySet } from "@/lib/nostr-relays"
 import { useContentConfig } from "@/hooks/useContentConfig"
 import { tagsToAdditionalLinks } from "@/lib/additional-links"
 
@@ -94,6 +94,12 @@ export default function ContentPage() {
   const includeLessonResources = contentConfig?.contentPage?.includeLessonResources
   const includeLessonVideos = includeLessonResources?.videos ?? true
   const includeLessonDocuments = includeLessonResources?.documents ?? true
+  const imageFetchConfig = contentConfig?.contentPage?.imageFetch
+  const imageFetchRelaySet: RelaySet = imageFetchConfig?.relaySet ?? "default"
+  const maxConcurrentFetches =
+    typeof imageFetchConfig?.maxConcurrentFetches === "number" && imageFetchConfig.maxConcurrentFetches > 0
+      ? imageFetchConfig.maxConcurrentFetches
+      : 6
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set(['all']))
   const [noteImageCache, setNoteImageCache] = useState<Record<string, string>>({})
   const attemptedNoteIds = useRef<Set<string>>(new Set())
@@ -145,20 +151,38 @@ export default function ContentPage() {
 
       try {
         const { RelayPool: SnstrRelayPool } = await import('snstr')
-        relayPoolInstance = new SnstrRelayPool(getRelays('default'))
+        relayPoolInstance = new SnstrRelayPool(getRelays(imageFetchRelaySet))
 
-        results = await Promise.all(
-          noteIdsToFetch.map(async (noteId) => {
+        const worker = async (indexRef: { value: number }) => {
+          const local: Array<{ noteId: string; image?: string; hasEvent: boolean }> = []
+          while (indexRef.value < noteIdsToFetch.length) {
+            const noteId = noteIdsToFetch[indexRef.value]
+            indexRef.value += 1
             try {
               const event = await fetchEventForIdentifier(noteId, relayPoolInstance ?? undefined)
               const image = getNoteImage(event ?? undefined)
-              return { noteId, image, hasEvent: Boolean(event) }
+              local.push({ noteId, image, hasEvent: Boolean(event) })
             } catch (error) {
               console.error(`Failed to fetch note ${noteId} for image`, error)
-              return { noteId, image: undefined, hasEvent: false }
+              local.push({ noteId, image: undefined, hasEvent: false })
             }
-          })
+          }
+          return local
+        }
+
+        const workerCount = Math.max(
+          1,
+          Math.min(
+            noteIdsToFetch.length,
+            Number.isFinite(maxConcurrentFetches) && maxConcurrentFetches > 0 ? maxConcurrentFetches : noteIdsToFetch.length
+          )
         )
+
+        const sharedIndex = { value: 0 }
+        const batches = await Promise.all(
+          Array.from({ length: workerCount }, () => worker(sharedIndex))
+        )
+        results = batches.flat()
 
         if (isCancelled) return
 

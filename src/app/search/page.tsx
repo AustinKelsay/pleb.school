@@ -12,11 +12,13 @@ import { useDebounce } from "@/hooks/use-debounce"
 import { useNostrSearch } from "@/hooks/useNostrSearch"
 import type { ContentItem } from '@/data/types'
 import { cn } from "@/lib/utils"
+import { copyConfig } from "@/lib/copy"
 
 function SearchContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  
+  const searchCopy = copyConfig.search
+
   const [searchQuery, setSearchQuery] = useState(searchParams?.get('q') || '')
   const [searchType, setSearchType] = useState<'all' | 'courses' | 'resources'>('all')
   
@@ -99,9 +101,9 @@ function SearchContent() {
         <div className="space-y-6">
           {/* Search Header */}
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold">Search Content</h1>
+            <h1 className="text-3xl font-bold">{searchCopy?.title ?? "Search Content"}</h1>
             <p className="text-muted-foreground">
-              Search courses and resources from Nostr relays
+              {searchCopy?.description ?? "Search courses and resources from Nostr relays"}
             </p>
           </div>
           
@@ -114,7 +116,7 @@ function SearchContent() {
               )} />
               <Input
                 type="search"
-                placeholder="Search Nostr content... (min 3 characters)"
+                placeholder={searchCopy?.inputPlaceholder ?? "Search Nostr content... (min 3 characters)"}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={cn(
@@ -135,18 +137,18 @@ function SearchContent() {
           </form>
           
           {/* Search Type Tabs */}
-          {searchQuery.length >= 3 && (
+              {searchQuery.length >= 3 && (
             <div className="max-w-2xl mx-auto">
               <Tabs value={searchType} onValueChange={(value) => setSearchType(value as 'all' | 'courses' | 'resources')}>
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="all" className="cursor-pointer">
-                    All {summary && `(${summary.total})`}
+                    {(searchCopy?.tabs?.all ?? "All")} {summary && `(${summary.total})`}
                   </TabsTrigger>
                   <TabsTrigger value="courses" className="cursor-pointer">
-                    Courses {summary && `(${summary.courses})`}
+                    {(searchCopy?.tabs?.courses ?? "Courses")} {summary && `(${summary.courses})`}
                   </TabsTrigger>
                   <TabsTrigger value="resources" className="cursor-pointer">
-                    Resources {summary && `(${summary.resources})`}
+                    {(searchCopy?.tabs?.resources ?? "Resources")} {summary && `(${summary.resources})`}
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -157,13 +159,13 @@ function SearchContent() {
           <div className="mt-8">
             {searchQuery.length > 0 && searchQuery.length < 3 && (
               <p className="text-center text-muted-foreground">
-                Please enter at least 3 characters to search
+                {searchCopy?.emptyPrompt ?? "Please enter at least 3 characters to search"}
               </p>
             )}
             
             {error && (
               <p className="text-center text-destructive">
-                {error instanceof Error ? error.message : 'Failed to search. Please try again.'}
+                {error instanceof Error ? error.message : (searchCopy?.error ?? "Failed to search. Please try again.")}
               </p>
             )}
             
@@ -178,7 +180,7 @@ function SearchContent() {
                 {/* Search Results Summary */}
                 <div className="text-center mb-6">
                   <p className="text-muted-foreground">
-                    Found {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''} for{' '}
+                    {(searchCopy?.summary?.prefix ?? "Found")} {filteredResults.length} {filteredResults.length === 1 ? (searchCopy?.summary?.resultSingular ?? "result") : (searchCopy?.summary?.resultPlural ?? "results")} {(searchCopy?.summary?.for ?? "for")}{' '}
                     <span className="inline-block bg-primary/10 text-primary px-2 py-1 rounded font-medium">
                       &quot;{searchQuery}&quot;
                     </span>

@@ -38,10 +38,22 @@ import type { ZapInsights, ZapReceiptSummary } from "@/hooks/useInteractions"
 import type { Purchase } from "@prisma/client"
 import { useZapSender } from "@/hooks/useZapSender"
 import { usePurchaseEligibility } from "@/hooks/usePurchaseEligibility"
+import { getPaymentsConfig } from "@/lib/payments-config"
+import { copyConfig } from "@/lib/copy"
 
-const DEFAULT_MIN_ZAP_SATS = 500
+const formatTemplate = (template?: string, vars: Record<string, string | number> = {}) =>
+  template?.replace(/\{(\w+)\}/g, (_, key) =>
+    key in vars ? String(vars[key]) : `{${key}}`
+  )
+
+const paymentsConfig = getPaymentsConfig()
+const configMinZap = paymentsConfig.purchase?.minZap ?? 500
 const envMinZap = Number(process.env.NEXT_PUBLIC_MIN_ZAP_SATS)
-const MIN_ZAP = Number.isFinite(envMinZap) && envMinZap > 0 ? envMinZap : DEFAULT_MIN_ZAP_SATS
+const MIN_ZAP = Number.isFinite(envMinZap) && envMinZap > 0 ? envMinZap : configMinZap
+const purchaseAutoCloseMs = paymentsConfig.purchase?.autoCloseMs ?? 1200
+const purchaseAutoShowQr = paymentsConfig.purchase?.autoShowQr ?? false
+const purchaseProgressBasis = paymentsConfig.purchase?.progressBasis ?? "server"
+const purchaseNoteMaxBytes = paymentsConfig.purchase?.noteMaxBytes ?? 280
 
 interface PurchaseDialogProps {
   isOpen: boolean
@@ -108,9 +120,11 @@ export function PurchaseDialog({
   const { status: sessionStatus } = useSession()
   const { toast } = useToast()
   const isAuthed = sessionStatus === "authenticated"
+  const purchaseCopy = copyConfig.payments?.purchaseDialog
   
   const [preferAnonymous, setPreferAnonymous] = useState(false)
   const [showQr, setShowQr] = useState(false)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Zap sender
   const { sendZap, zapState, resetZapState, isZapInFlight, retryWeblnPayment } = useZapSender({
@@ -123,7 +137,7 @@ export function PurchaseDialog({
   })
 
   // Purchase eligibility
-  const { 
+  const {
     eligible, 
     status: purchaseStatus, 
     purchase, 
@@ -146,20 +160,27 @@ export function PurchaseDialog({
       const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
       const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
       const unlocked = (claimed.amountPaid ?? 0) >= (required ?? 0)
+      const autoClaimCopy = purchaseCopy?.autoClaim
       toast({
-        title: unlocked ? "Unlocked! 🎉" : "Payment recorded",
+        title: unlocked
+          ? autoClaimCopy?.unlockedTitle ?? "Unlocked! 🎉"
+          : autoClaimCopy?.recordedTitle ?? "Payment recorded",
         description: unlocked
-          ? "Your zaps unlocked this content"
-          : `${claimed.amountPaid.toLocaleString()} sats recorded`,
+          ? autoClaimCopy?.unlockedDescription ?? "Your zaps unlocked this content"
+          : formatTemplate(autoClaimCopy?.recordedDescription, { amount: claimed.amountPaid.toLocaleString() }) ?? `${claimed.amountPaid.toLocaleString()} sats recorded`,
       })
       onPurchaseComplete?.(claimed)
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }
-      timeoutRef.current = setTimeout(() => onOpenChange(false), 1200)
+      timeoutRef.current = setTimeout(() => onOpenChange(false), purchaseAutoCloseMs)
     },
     onAutoClaimError: (error) => {
-      toast({ title: "Claim failed", description: error, variant: "destructive" })
+      toast({
+        title: purchaseCopy?.autoClaim?.claimFailedTitle ?? "Claim failed",
+        description: error,
+        variant: "destructive"
+      })
     }
   })
 
@@ -172,8 +193,6 @@ export function PurchaseDialog({
       }
     }
   }, [])
-
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Form state (authoritative balance from server when available)
   const paidSatsServer = purchase?.amountPaid ?? 0
@@ -206,26 +225,34 @@ export function PurchaseDialog({
   }, [isOpen, defaultAmount, resetZapState])
 
   useEffect(() => {
-    if (zapState.invoice) setShowQr(true)
-  }, [zapState.invoice])
+    if (zapState.invoice && purchaseAutoShowQr) setShowQr(true)
+  }, [zapState.invoice, purchaseAutoShowQr])
 
   // Handlers
   const handlePurchase = useCallback(async () => {
     if (!isAuthed) {
-      toast({ title: "Sign in required", variant: "destructive" })
+      toast({ title: purchaseCopy?.validation?.signInRequired ?? "Sign in required", variant: "destructive" })
       return
     }
     if (!isValid) {
       const minRequired = Math.max(remaining, MIN_ZAP)
-      toast({ title: "Invalid amount", description: `Minimum ${minRequired} sats`, variant: "destructive" })
+      toast({
+        title: purchaseCopy?.validation?.invalidAmountTitle ?? "Invalid amount",
+        description: formatTemplate(purchaseCopy?.validation?.invalidAmountDescription, { min: minRequired }) ?? `Minimum ${minRequired} sats`,
+        variant: "destructive"
+      })
       return
     }
 
     try {
       const result = await sendZap({ amountSats: resolvedAmount, note, preferAnonymous })
       toast({
-        title: result.paid ? "Payment sent" : "Invoice ready",
-        description: result.paid ? "Recording purchase…" : "Pay to unlock"
+        title: result.paid
+          ? purchaseCopy?.send?.paidTitle ?? "Payment sent"
+          : purchaseCopy?.send?.invoiceReadyTitle ?? "Invoice ready",
+        description: result.paid
+          ? purchaseCopy?.send?.paidDescription ?? "Recording purchase..."
+          : purchaseCopy?.send?.invoiceReadyDescription ?? "Pay to unlock"
       })
 
       if (result.paid) {
@@ -242,51 +269,61 @@ export function PurchaseDialog({
           const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
           const unlocked = (claimed.amountPaid ?? 0) >= (required ?? 0)
           toast({
-            title: unlocked ? "Unlocked!" : "Recorded",
-            description: unlocked ? "Enjoy!" : `${claimed.amountPaid} sats saved`
+            title: unlocked
+              ? purchaseCopy?.send?.unlockedTitle ?? "Unlocked!"
+              : purchaseCopy?.send?.recordedTitle ?? "Recorded",
+            description: unlocked
+              ? purchaseCopy?.send?.unlockedDescription ?? "Enjoy!"
+              : formatTemplate(purchaseCopy?.send?.recordedDescription, { amount: claimed.amountPaid?.toLocaleString() ?? "" }) ?? `${claimed.amountPaid} sats saved`
           })
           onPurchaseComplete?.(claimed)
         } else {
-          toast({ title: "Waiting for receipt", description: "Will unlock when confirmed" })
+          toast({
+            title: purchaseCopy?.send?.waitingTitle ?? "Waiting for receipt",
+            description: purchaseCopy?.send?.waitingDescription ?? "Will unlock when confirmed"
+          })
         }
       }
     } catch (error) {
       toast({
-        title: "Failed",
-        description: error instanceof Error ? error.message : "Try again",
+        title: purchaseCopy?.send?.failedTitle ?? "Failed",
+        description: formatTemplate(purchaseCopy?.send?.failedDescription, { error: error instanceof Error ? error.message : "Try again" }) ?? (error instanceof Error ? error.message : "Try again"),
         variant: "destructive"
       })
     }
-  }, [isAuthed, isValid, remaining, sendZap, resolvedAmount, note, preferAnonymous, claimPurchase, zapState.zapRequest, priceSats, onPurchaseComplete, toast])
+  }, [isAuthed, isValid, remaining, sendZap, resolvedAmount, note, preferAnonymous, claimPurchase, zapState.zapRequest, priceSats, onPurchaseComplete, toast, purchaseCopy])
 
   const handleClaimExisting = useCallback(async () => {
     if (!isAuthed) {
-      toast({ title: "Sign in first", variant: "destructive" })
+      toast({ title: purchaseCopy?.send?.claimSignInTitle ?? "Sign in first", variant: "destructive" })
       return
     }
     const claimed = await claimPurchase()
     if (claimed) {
-      toast({ title: "Unlocked!", description: "Past zaps verified" })
+      toast({
+        title: purchaseCopy?.send?.claimSuccessTitle ?? "Unlocked!",
+        description: purchaseCopy?.send?.claimSuccessDescription ?? "Past zaps verified"
+      })
       onPurchaseComplete?.(claimed)
     } else {
-      toast({ title: "No receipts found", variant: "destructive" })
+      toast({ title: purchaseCopy?.send?.claimNoneTitle ?? "No receipts found", variant: "destructive" })
     }
-  }, [claimPurchase, isAuthed, onPurchaseComplete, toast])
+  }, [claimPurchase, isAuthed, onPurchaseComplete, toast, purchaseCopy])
 
   const handleCopy = useCallback(async () => {
     if (!zapState.invoice) return
     try {
       await navigator.clipboard.writeText(zapState.invoice)
-      toast({ title: "Copied!" })
+      toast({ title: purchaseCopy?.send?.copyTitle ?? "Copied!" })
     } catch {
-      toast({ title: "Copy failed", variant: "destructive" })
+      toast({ title: purchaseCopy?.send?.copyFailedTitle ?? "Copy failed", variant: "destructive" })
     }
-  }, [zapState.invoice, toast])
+  }, [zapState.invoice, toast, purchaseCopy])
 
   const handleRetry = useCallback(async () => {
     const paid = await retryWeblnPayment()
     if (paid) {
-      toast({ title: "Paid!" })
+      toast({ title: purchaseCopy?.send?.unlockedTitle ?? "Paid!" })
       const claimed = await claimPurchase({
         invoice: zapState.invoice!,
         amountPaidOverride: resolvedAmount,
@@ -296,7 +333,7 @@ export function PurchaseDialog({
       })
       if (claimed) onPurchaseComplete?.(claimed)
     } else {
-      toast({ title: "Failed", variant: "destructive" })
+      toast({ title: purchaseCopy?.send?.failedTitle ?? "Failed", variant: "destructive" })
     }
   }, [
     retryWeblnPayment,
@@ -306,19 +343,24 @@ export function PurchaseDialog({
     zapState.zapRequest,
     resolvedAmount,
     onPurchaseComplete,
+    purchaseCopy,
     toast
   ])
 
   // Derived states
+  const progressPaidSats =
+    purchaseProgressBasis === "serverPlusViewer"
+      ? Math.max(paidSatsServer, viewerZapTotalSats)
+      : paidSatsServer
   const paidSats = paidSatsServer
   const isOwned = alreadyPurchased || paidSats >= priceSats
-  const progress = Math.min(100, Math.round((paidSats / priceSats) * 100))
+  const progress = Math.min(100, Math.round((progressPaidSats / priceSats) * 100))
   // Allow manual claim once viewer zaps reach price, even if server purchase is still partial.
   const canClaimFree = eligible && isAuthed && !isOwned && viewerZapTotalSats >= priceSats
   const isProcessing = isZapInFlight || purchaseStatus === "pending"
   const hasStats = Boolean(zapInsights && recentZaps)
 
-  const zapCommentLimit = zapState.metadata?.commentAllowed ?? 280
+  const zapCommentLimit = zapState.metadata?.commentAllowed ?? purchaseNoteMaxBytes
   const bytesLeft = Math.max(0, zapCommentLimit - getByteLength(note))
 
   // Status message
@@ -379,7 +421,7 @@ export function PurchaseDialog({
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Progress</span>
                     <span className="font-medium">
-                      {formatSats(paidSats)} / {formatSats(priceSats)} sats
+                      {formatSats(progressPaidSats)} / {formatSats(priceSats)} sats
                     </span>
                   </div>
                   <Progress value={progress} className="h-2" />

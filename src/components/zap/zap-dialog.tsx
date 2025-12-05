@@ -32,6 +32,13 @@ import { cn } from "@/lib/utils"
 import type { LightningRecipient, ZapSendResult } from "@/types/zap"
 import type { ZapInsights, ZapReceiptSummary } from "@/hooks/useInteractions"
 import type { ZapState } from "@/hooks/useZapSender"
+import { copyConfig } from "@/lib/copy"
+import { getPaymentsConfig } from "@/lib/payments-config"
+
+const formatTemplate = (template?: string, vars: Record<string, string | number> = {}) =>
+  template?.replace(/\{(\w+)\}/g, (_, key) =>
+    key in vars ? String(vars[key]) : `{${key}}`
+  )
 
 interface ZapDialogProps {
   isOpen: boolean
@@ -106,18 +113,26 @@ export function ZapDialog({
   } = useZapFormState()
   const { toast } = useToast()
   const [showQr, setShowQr] = useState(false)
+  const zapCopy = copyConfig.payments?.zapDialog
+  const paymentsConfig = getPaymentsConfig()
 
-  const zapCommentLimit = zapState.metadata?.commentAllowed ?? 280
+  const zapCommentLimit = zapState.metadata?.commentAllowed ?? paymentsConfig.zap.noteMaxBytes
   const bytesRemaining = Math.max(0, zapCommentLimit - getByteLength(zapNote))
   const targetName = zapTarget?.name || "this creator"
   const lightningId = zapTarget?.lightningAddress || zapTarget?.lnurl || zapState.lnurlDetails?.identifier || ""
   const isAuthed = sessionStatus === "authenticated"
-  const showPrivacyToggle = isAuthed && !session?.user?.privkey
+  const privacyCfg = paymentsConfig.zap.privacyToggle
+  const showPrivacyToggle =
+    privacyCfg.enabled &&
+    (!privacyCfg.requireAuth || isAuthed) &&
+    (!privacyCfg.hideWhenPrivkeyPresent || !session?.user?.privkey)
 
-  const belowMin = typeof minZapSats === "number" && resolvedZapAmount < minZapSats
+  const effectiveMinZap = typeof minZapSats === "number" ? minZapSats : MIN_CUSTOM_ZAP
+  const belowMin = resolvedZapAmount < effectiveMinZap
   const aboveMax = typeof maxZapSats === "number" && resolvedZapAmount > maxZapSats
   const invalidAmount = customAmountInvalid || resolvedZapAmount < MIN_CUSTOM_ZAP || belowMin || aboveMax
   const ctaDisabled = invalidAmount || isZapInFlight
+  const recentZapsLimit = paymentsConfig.zap.recentZapsLimit
 
   useEffect(() => {
     if (!isOpen) {
@@ -128,16 +143,19 @@ export function ZapDialog({
   }, [isOpen, resetForm, resetZapState])
 
   useEffect(() => {
-    if (zapState.invoice) setShowQr(true)
-  }, [zapState.invoice])
+    if (zapState.invoice && paymentsConfig.zap.autoShowQr) setShowQr(true)
+  }, [zapState.invoice, paymentsConfig.zap.autoShowQr])
 
   const handleSend = useCallback(async () => {
     if (invalidAmount) {
       toast({
-        title: "Invalid amount",
+        title: zapCopy?.invalidAmountTitle ?? "Invalid amount",
         description: belowMin || aboveMax
-          ? `Choose between ${minZapSats?.toLocaleString() ?? 1}–${maxZapSats?.toLocaleString() ?? "∞"} sats`
-          : `Minimum ${MIN_CUSTOM_ZAP} sat`,
+          ? formatTemplate(zapCopy?.invalidAmountRange, {
+              min: effectiveMinZap?.toLocaleString() ?? 1,
+              max: maxZapSats?.toLocaleString() ?? "∞"
+            }) ?? `Choose between ${effectiveMinZap?.toLocaleString() ?? 1}–${maxZapSats?.toLocaleString() ?? "∞"} sats`
+          : formatTemplate(zapCopy?.invalidAmountMinimum, { min: MIN_CUSTOM_ZAP }) ?? `Minimum ${MIN_CUSTOM_ZAP} sat`,
         variant: "destructive"
       })
       return
@@ -146,46 +164,59 @@ export function ZapDialog({
     try {
       const result = await sendZap({ amountSats: resolvedZapAmount, note: zapNote })
       toast({
-        title: result.paid ? "Zap sent ⚡" : "Invoice ready",
-        description: result.paid ? "Thanks for the support!" : "Pay with your Lightning wallet"
+        title: result.paid
+          ? zapCopy?.successPaidTitle ?? "Zap sent ⚡"
+          : zapCopy?.invoiceReadyTitle ?? "Invoice ready",
+        description: result.paid
+          ? zapCopy?.successPaidDescription ?? "Thanks for the support!"
+          : zapCopy?.invoiceReadyDescription ?? "Pay with your Lightning wallet"
       })
     } catch (error) {
       toast({
-        title: "Zap failed",
-        description: error instanceof Error ? error.message : "Try again",
+        title: zapCopy?.failedTitle ?? "Zap failed",
+        description: formatTemplate(zapCopy?.failedDescription, { error: error instanceof Error ? error.message : "Try again" }) ?? (error instanceof Error ? error.message : "Try again"),
         variant: "destructive"
       })
     }
-  }, [invalidAmount, belowMin, aboveMax, minZapSats, maxZapSats, resolvedZapAmount, sendZap, zapNote, toast])
+  }, [invalidAmount, belowMin, aboveMax, minZapSats, maxZapSats, resolvedZapAmount, sendZap, zapNote, toast, zapCopy])
 
   const handleCopy = useCallback(async () => {
     if (!zapState.invoice) return
     try {
       await navigator.clipboard.writeText(zapState.invoice)
-      toast({ title: "Copied!" })
+      toast({ title: zapCopy?.copiedTitle ?? "Copied!" })
     } catch {
-      toast({ title: "Copy failed", variant: "destructive" })
+      toast({ title: zapCopy?.copyFailedTitle ?? "Copy failed", variant: "destructive" })
     }
-  }, [zapState.invoice, toast])
+  }, [zapState.invoice, toast, zapCopy])
 
   const handleRetry = useCallback(async () => {
     const paid = await retryWeblnPayment()
     toast({
-      title: paid ? "Zap paid!" : "WebLN failed",
-      description: paid ? "Thanks!" : "Pay manually below",
+      title: paid
+        ? zapCopy?.retryPaidTitle ?? "Zap paid!"
+        : zapCopy?.retryFailedTitle ?? "WebLN failed",
+      description: paid
+        ? zapCopy?.retryPaidDescription ?? "Thanks!"
+        : zapCopy?.retryFailedDescription ?? "Pay manually below",
       variant: paid ? "default" : "destructive"
     })
-  }, [retryWeblnPayment, toast])
+  }, [retryWeblnPayment, toast, zapCopy])
 
   // Status indicator
   const statusConfig: Record<string, { text: string; loading: boolean; error?: boolean }> = {
-    resolving: { text: "Resolving…", loading: true },
-    signing: { text: "Signing…", loading: true },
-    "requesting-invoice": { text: "Getting invoice…", loading: true },
-    paying: { text: "Paying…", loading: true },
-    "invoice-ready": { text: zapState.weblnError ? "WebLN failed" : "Ready to pay", loading: false },
-    success: { text: "Sent!", loading: false },
-    error: { text: zapState.error || "Failed", loading: false, error: true }
+    resolving: { text: zapCopy?.status?.resolving ?? "Resolving...", loading: true },
+    signing: { text: zapCopy?.status?.signing ?? "Signing...", loading: true },
+    "requesting-invoice": { text: zapCopy?.status?.requestingInvoice ?? "Getting invoice...", loading: true },
+    paying: { text: zapCopy?.status?.paying ?? "Paying...", loading: true },
+    "invoice-ready": {
+      text: zapState.weblnError
+        ? zapCopy?.status?.invoiceReadyWeblnFailed ?? "WebLN failed"
+        : zapCopy?.status?.invoiceReady ?? "Ready to pay",
+      loading: false
+    },
+    success: { text: zapCopy?.status?.success ?? "Sent!", loading: false },
+    error: { text: zapState.error || zapCopy?.status?.error || "Failed", loading: false, error: true }
   }
   const status = statusConfig[zapState.status]
 
@@ -368,7 +399,7 @@ export function ZapDialog({
               {recentZaps.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No zaps yet</p>
               ) : (
-                recentZaps.slice(0, 8).map((zap) => (
+                recentZaps.slice(0, recentZapsLimit).map((zap) => (
                   <ZapRow key={zap.id} zap={zap} />
                 ))
               )}

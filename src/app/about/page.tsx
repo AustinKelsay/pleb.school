@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   const hero = aboutCopy?.hero
   const sections = aboutCopy?.sections
+  const steps = aboutCopy?.steps
   const cta = aboutCopy?.cta
   const hasPrimaryCta = Boolean(cta?.primary?.href && cta?.primary?.label)
   const hasSecondaryCta = Boolean(cta?.secondary?.href && cta?.secondary?.label)
@@ -92,21 +93,27 @@ export default function AboutPage() {
 
           <div className="grid gap-4 md:grid-cols-3 text-left">
             <Card className="p-4 space-y-2">
-              <h3 className="font-medium text-foreground">1. Fork & clone</h3>
+              <h3 className="font-medium text-foreground">
+                {steps?.fork?.title ?? "1. Fork & clone"}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Create your own repository and clone it locally. Keep upstream changes in a branch if you want to stay close to the reference implementation.
+                {steps?.fork?.description ?? "Create your own repository and clone it locally. Keep upstream changes in a branch if you want to stay close to the reference implementation."}
               </p>
             </Card>
             <Card className="p-4 space-y-2">
-              <h3 className="font-medium text-foreground">2. Configure branding & relays</h3>
+              <h3 className="font-medium text-foreground">
+                {steps?.configure?.title ?? "2. Configure branding & relays"}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Update `config/copy.json`, `config/content.json`, and `config/nostr.json` to match your brand, navigation, content sections, and relay setup.
+                {steps?.configure?.description ?? "Update `config/copy.json`, `config/content.json`, and `config/nostr.json` to match your brand, navigation, content sections, and relay setup."}
               </p>
             </Card>
             <Card className="p-4 space-y-2">
-              <h3 className="font-medium text-foreground">3. Deploy your instance</h3>
+              <h3 className="font-medium text-foreground">
+                {steps?.deploy?.title ?? "3. Deploy your instance"}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Point your environment variables at your Postgres instance and Nostr relays, then deploy to Vercel, Fly.io, or your preferred platform.
+                {steps?.deploy?.description ?? "Point your environment variables at your Postgres instance and Nostr relays, then deploy to Vercel, Fly.io, or your preferred platform."}
               </p>
             </Card>
           </div>

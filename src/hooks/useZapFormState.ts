@@ -1,8 +1,21 @@
 import { useCallback, useMemo, useState } from "react"
+import { getPaymentsConfig } from "@/lib/payments-config"
 
-export const QUICK_ZAP_AMOUNTS = [21, 100, 500, 1000, 2100] as const
-export const DEFAULT_QUICK_ZAP_INDEX = 1
-export const MIN_CUSTOM_ZAP = 1
+const paymentsConfig = getPaymentsConfig()
+
+export const QUICK_ZAP_AMOUNTS = (paymentsConfig.zap?.quickAmounts?.length
+  ? paymentsConfig.zap.quickAmounts
+  : [21, 100, 500, 1000, 2100]) as number[]
+
+export const DEFAULT_QUICK_ZAP_INDEX =
+  typeof paymentsConfig.zap?.defaultQuickIndex === "number"
+    ? paymentsConfig.zap.defaultQuickIndex
+    : 1
+
+export const MIN_CUSTOM_ZAP =
+  typeof paymentsConfig.zap?.minCustomZap === "number" && paymentsConfig.zap.minCustomZap > 0
+    ? paymentsConfig.zap.minCustomZap
+    : 1
 
 export interface UseZapFormStateOptions {
   defaultQuickAmountIndex?: number
@@ -22,7 +35,11 @@ export interface UseZapFormStateResult {
 }
 
 export function useZapFormState(options: UseZapFormStateOptions = {}): UseZapFormStateResult {
-  const defaultIndex = options.defaultQuickAmountIndex ?? DEFAULT_QUICK_ZAP_INDEX
+  const requestedIndex = options.defaultQuickAmountIndex ?? DEFAULT_QUICK_ZAP_INDEX
+  const defaultIndex = Math.min(
+    Math.max(0, requestedIndex),
+    Math.max(0, QUICK_ZAP_AMOUNTS.length - 1)
+  )
   const defaultAmount = QUICK_ZAP_AMOUNTS[defaultIndex] ?? QUICK_ZAP_AMOUNTS[0]
 
   const [selectedZapAmount, setSelectedZapAmount] = useState<number>(defaultAmount)

@@ -44,7 +44,17 @@ All user‑facing strings for navigation, homepage, about page, content pages, e
 - `site.*` controls global title/description/brand name.
 - `homepage.*` powers the landing page hero, stats, sections, and CTA.
 - `homepage.hero.title.useAnimated` toggles the rotating hero keywords; when `false`, the title uses `homepage.hero.title.staticWord` (or the first `animatedWords` entry) as a static label.
+- `search.*` drives search page title/description, input placeholder, tab labels, summary, and empty/error messages.
+- `verifyEmail.*` covers the email verification page titles, labels, button text, and errors.
+- `about.steps.*` fills the three “make it yours” step cards.
+- `payments.purchaseDialog` and `payments.zapDialog` hold toasts/status text for Lightning payments and zaps.
 - `about.*` powers the About page hero, three feature pillars, and the “make it your own” CTA. This is the place to explain how your forked platform works (who it’s for, how Nostr/Lightning are used, and how to configure the stack) without touching React components.
+
+### 💸 `payments.json` — Payments & Zap UX
+Zap presets, minimums, privacy toggle behavior, note byte limits, recent zap list size, zap QR auto-show, purchase min zap, auto-close timing, purchase QR auto-show, and progress basis. Client-safe; no secrets.
+
+### 📚 `content.json` — Content Display
+- Adds `contentPage.imageFetch` to set the relay set used for note-image fetches and cap concurrent fetches.
 
 ### ⚡ `nostr.json` — Nostr Relays & NIPs
 Relay sets and event type mapping. The app now reads relays from this file everywhere.

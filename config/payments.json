@@ -1,0 +1,39 @@
+{
+  "_comments": {
+    "_overview": "Payments and zap configuration (client-safe). Controls zap presets, limits, and purchase dialog behaviors.",
+    "zap.quickAmounts": "Preset zap buttons in sats.",
+    "zap.defaultQuickIndex": "Index in quickAmounts to preselect (0-based).",
+    "zap.minCustomZap": "Minimum sats for custom zap input.",
+    "zap.noteMaxBytes": "Maximum bytes allowed in zap note (fallback when event metadata is missing).",
+    "zap.privacyToggle": "Controls visibility of the 'Private zap' toggle.",
+    "zap.privacyToggle.enabled": "Show the privacy toggle at all.",
+    "zap.privacyToggle.requireAuth": "Only show when the user is authenticated.",
+    "zap.privacyToggle.hideWhenPrivkeyPresent": "Hide when the session already has a stored privkey.",
+    "zap.recentZapsLimit": "How many recent zaps to list in the sidebar.",
+    "purchase.minZap": "Minimum sats enforced in the purchase dialog (fallback if env NEXT_PUBLIC_MIN_ZAP_SATS is absent).",
+    "purchase.autoCloseMs": "Delay before closing the purchase dialog after a successful auto-claim.",
+    "purchase.autoShowQr": "Automatically reveal QR once an invoice is created.",
+    "purchase.progressBasis": "How to compute progress: 'server' uses server-paid only; 'serverPlusViewer' also counts viewer zaps.",
+    "purchase.noteMaxBytes": "Maximum bytes for purchase dialog zap note (fallback when event metadata is missing)."
+  },
+  "zap": {
+    "quickAmounts": [21, 100, 500, 1000, 2100],
+    "defaultQuickIndex": 1,
+    "minCustomZap": 1,
+    "noteMaxBytes": 280,
+    "privacyToggle": {
+      "enabled": true,
+      "requireAuth": true,
+      "hideWhenPrivkeyPresent": true
+    },
+    "recentZapsLimit": 8,
+    "autoShowQr": true
+  },
+  "purchase": {
+    "minZap": 500,
+    "autoCloseMs": 1200,
+    "autoShowQr": true,
+    "progressBasis": "server",
+    "noteMaxBytes": 280
+  }
+}
