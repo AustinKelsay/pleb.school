@@ -9,7 +9,11 @@ host="$1"
 port="$2"
 shift 2
 
-until pg_isready -h "$host" -p "$port" -U plebschool -d pleb_school; do
+# Allow env overrides for credentials; fall back to defaults used in compose
+db_user="${POSTGRES_USER:-plebschool}"
+db_name="${POSTGRES_DB:-pleb_school}"
+
+until pg_isready -h "$host" -p "$port" -U "$db_user" -d "$db_name"; do
   >&2 echo "Postgres is unavailable - sleeping"
   sleep 1
 done
