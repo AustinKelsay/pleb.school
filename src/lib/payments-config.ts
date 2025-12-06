@@ -1,31 +1,35 @@
+import { z } from "zod"
 import paymentsConfigRaw from "../../config/payments.json"
 
-type ProgressBasis = "server" | "serverPlusViewer"
+const ProgressBasisSchema = z.enum(["server", "serverPlusViewer"])
 
-export interface PaymentsConfig {
-  zap: {
-    quickAmounts: number[]
-    defaultQuickIndex: number
-    minCustomZap: number
-    noteMaxBytes: number
-    autoShowQr: boolean
-    privacyToggle: {
-      enabled: boolean
-      requireAuth: boolean
-      hideWhenPrivkeyPresent: boolean
-    }
-    recentZapsLimit: number
-  }
-  purchase: {
-    minZap: number
-    autoCloseMs: number
-    autoShowQr: boolean
-    progressBasis: ProgressBasis
-    noteMaxBytes: number
-  }
-}
+const PaymentsConfigSchema = z.object({
+  zap: z.object({
+    quickAmounts: z.array(z.number().positive()),
+    defaultQuickIndex: z.number().int().min(0),
+    minCustomZap: z.number().positive(),
+    noteMaxBytes: z.number().int().positive(),
+    autoShowQr: z.boolean(),
+    privacyToggle: z.object({
+      enabled: z.boolean(),
+      requireAuth: z.boolean(),
+      hideWhenPrivkeyPresent: z.boolean()
+    }),
+    recentZapsLimit: z.number().int().positive()
+  }),
+  purchase: z.object({
+    minZap: z.number().positive(),
+    autoCloseMs: z.number().int().positive(),
+    autoShowQr: z.boolean(),
+    progressBasis: ProgressBasisSchema,
+    noteMaxBytes: z.number().int().positive()
+  })
+})
 
-const paymentsConfig = paymentsConfigRaw as PaymentsConfig
+export type ProgressBasis = z.infer<typeof ProgressBasisSchema>
+export type PaymentsConfig = z.infer<typeof PaymentsConfigSchema>
+
+const paymentsConfig = PaymentsConfigSchema.parse(paymentsConfigRaw)
 
 export function getPaymentsConfig(): PaymentsConfig {
   return paymentsConfig
