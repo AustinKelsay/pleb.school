@@ -10,198 +10,139 @@ npm run dev          # Start development server with Turbopack
 npm run build        # Build for production (includes prisma generate)
 npm run start        # Start production server
 npm run lint         # Run ESLint
-npm run db:push      # Push database schema changes
-npm run db:seed      # Seed database with sample data
 
-# Database operations (requires DATABASE_URL environment variable)
-npx prisma generate     # Generate Prisma client
+# Database operations
+npx prisma generate     # Generate Prisma client (after schema changes)
 npx prisma db push      # Push schema changes to database
-npx prisma migrate dev  # Create and apply new migration
-npx prisma studio       # Open Prisma Studio for database browsing
+npm run db:seed         # Seed database with sample data
 
-# Docker development (alternative to local setup)
+# Docker (alternative to local setup)
 docker compose up db    # Start PostgreSQL only
-docker compose up app   # Full stack (waits for Prisma sync)
+docker compose up app   # Full stack
 
-# Verify changes before committing
+# Always verify before committing
 npm run build && npm run lint
 ```
 
-## Important Development Workflow
-
-When making changes to this codebase:
-1. **Always run linting**: Use `npm run lint` after making changes and fix any errors before committing
-2. **Check build success**: Run `npm run build` to ensure no compilation errors
-3. **Database Adapter Pattern**: Use adapters for all data access - never access data directly
-4. **Type Safety**: Maintain strict TypeScript compliance with runtime Zod validation
-5. **Database Changes**: Use `npx prisma generate` after schema changes, `npx prisma db push` for development
-
-## ESLint Configuration
-
-The project uses ESLint CLI (ESLint 9) with a customized flat config in `eslint.config.mjs`:
-- Uses `FlatCompat` to convert Next.js ESLint configs to flat config format
-- Extends `next/core-web-vitals` and `next/typescript` via compatibility layer
-- **Disabled Rules**: `no-unused-vars`, `no-explicit-any`
-- **React Hooks**: `rules-of-hooks` (error), `exhaustive-deps` (warn)
-
 ## Project Architecture
 
-This is a **Next.js 15** application with **React 19** using the App Router pattern. The project demonstrates a sophisticated developer education platform with **hybrid data architecture** combining traditional databases with **Nostr protocol** for content management.
+**Next.js 15** app with **React 19** using App Router. A developer education platform combining PostgreSQL with **Nostr protocol** for decentralized content management.
 
-### Key Architectural Patterns
+### Hybrid Data Architecture
 
-#### Hybrid Data Architecture
-The project uses a unique **Database + Nostr Events** approach:
-- **Minimal Database Fields**: Only essential data (ID, price, timestamps, relations) stored in PostgreSQL
-- **Rich Content from Nostr**: Full content comes from NIP-23 (free) and NIP-99 (paid) events
-- **Unified Display Layer**: Combines both sources for complete UI data via Display interfaces
-- **Development Mode**: JSON mock files + real Nostr events for rapid development without database setup
+The core architectural pattern: **Database stores metadata, Nostr stores content**.
 
-#### Database Adapter Pattern
-Clean data access abstraction in `src/lib/db-adapter.ts`:
-- **CourseAdapter**: CRUD operations with JSON database simulation + Nostr event integration
-- **ResourceAdapter**: Handles both documents and videos from JSON files + Nostr events
-- **LessonAdapter**: Course-to-resource relationships with JSON persistence
-- **Performance**: Built-in hierarchical caching for sub-50ms response times
-- **IMPORTANT**: Always use adapters, never access mock data or database directly
+- **PostgreSQL (Prisma)**: Users, purchases, progress, prices, relations, timestamps
+- **Nostr Events**: Full content via NIP-23 (free) and NIP-99 (paid) events
+- **Display Layer**: Parser functions merge both sources into unified UI interfaces
 
-#### Nostr Integration
-Real-time content management through Nostr protocol:
-- **SnstrProvider**: Context provider for relay pool management in `src/contexts/snstr-context.tsx`
-- **Event Parsing**: Parser functions in `src/data/types.ts` convert Nostr events to UI data
-- **Publishing System**: Complete draft-to-Nostr publishing flow with NIP-07 browser extension support
-- **Atomic Operations**: All draft lessons published before course creation
-- **Key NIPs Used**: NIP-01 (events), NIP-07 (browser signing), NIP-19 (bech32 encoding), NIP-23 (long-form content), NIP-51 (lists/courses), NIP-57 (zaps), NIP-99 (classified listings/paid content)
+### Key NIPs Used
+- **NIP-01**: Basic event structure
+- **NIP-07**: Browser extension signing
+- **NIP-19**: Bech32 encoding (npub, naddr)
+- **NIP-23**: Long-form content (kind 30023)
+- **NIP-51**: Lists/courses (kind 30004)
+- **NIP-57**: Zaps (Lightning payments)
+- **NIP-99**: Classified listings/paid content (kind 30402)
 
-### Key Architectural Files
+### Authentication System
 
-#### Data Management
-- `src/data/types.ts` - **Complete type system**: Database models, Nostr event types, Display interfaces, and parser functions
-- `src/lib/db-adapter.ts` - **Database adapter pattern**: Clean data abstraction with JSON mock + Nostr integration
-- `src/data/mockDb/` - **JSON mock database**: Course.json, Resource.json, Lesson.json files for development
-- `src/lib/cache.ts` - **Production caching**: Hierarchical L1/L2 cache with TTL and statistics
+Dual identity architecture in `src/lib/auth.ts`:
 
-#### Authentication System
-- `src/lib/auth.ts` - **Dual Identity Architecture**: 
-  - **Nostr-first** (NIP07, Anonymous): Nostr profile is source of truth, syncs on every login
-  - **OAuth-first** (Email, GitHub): OAuth profile is authoritative, gets ephemeral Nostr keys
-- **5 Authentication Methods**: Email magic links, GitHub OAuth, NIP07 browser extension, Anonymous, Recovery mode
-- **Universal Nostr Access**: All users get Nostr capabilities with appropriate key custody models
+**Nostr-first** (NIP07, Anonymous): Nostr profile is source of truth, syncs on every login
+**OAuth-first** (Email, GitHub): OAuth profile is authoritative, gets ephemeral Nostr keys for protocol access
 
-#### Publishing System
-- `src/lib/nostr-events.ts` - **Event builders**: Create NIP-23/NIP-99/NIP-51 compliant events
-- `src/lib/publish-service.ts` - **Publishing service**: Atomic operations for drafts to Nostr
-- `src/lib/draft-service.ts` - **Draft management**: CourseDraftService, DraftService, DraftLessonService classes
+All users get Nostr capabilities regardless of login method.
 
-#### Purchases & Sales System
-- `src/lib/pricing.ts` - **Price resolution**: Canonical pricing for courses and resources
-- `src/hooks/usePurchaseEligibility.ts` - **Purchase eligibility**: Auto-claim purchases when zap totals meet price
-- `src/components/purchase/purchase-dialog.tsx` - **Purchase UI**: Complete purchase flow with zap integration
-- `src/app/api/purchases/claim/route.ts` - **Purchase API**: Claim purchases via NIP-57 zaps
-- **Payment Rail**: All purchases are NIP-57 zaps; aggregate zaps count toward price
-- **Auto-claiming**: Purchases are automatically created when viewer zap totals reach price threshold
-- **Privacy Options**: NIP-07 users can opt for anonymous zaps while maintaining purchase records
+### Purchase System
 
-#### API Routes
-- `/api/courses`, `/api/resources` - Content CRUD with validation
-- `/api/drafts/courses`, `/api/drafts/resources` - Draft management
-- `/api/drafts/*/publish` - Publishing endpoints (drafts to Nostr)
-- `/api/purchases/claim` - Purchase claiming via zap aggregation
-- `/api/profile/*` - Profile aggregation and sync
-- `/api/account/*` - Account linking and OAuth callbacks
-- **Error Handling**: Structured error classes (NotFoundError, ValidationError, etc.)
-- **Validation**: Comprehensive Zod schemas matching TypeScript types
+All purchases are NIP-57 zaps with aggregation:
+- User zaps accumulate toward content price
+- When `viewerZapTotalSats >= price`, purchase is auto-claimed via `/api/purchases/claim`
+- Check `usePurchaseEligibility` hook for purchase state
+- Never create purchases directly; always use the claim API
 
-### Core Technologies
-- **Next.js 15** with Turbopack and App Router
-- **React 19** with Server Components
-- **TypeScript** with strict mode
-- **Tailwind CSS v4** with shadcn/ui
-- **snstr** for Nostr protocol
-- **Zod** for runtime validation
-- **@tanstack/react-query** for data fetching
-- **NextAuth.js 4** with Prisma adapter
-- **Prisma** with PostgreSQL
-- **Vercel KV** for view counters (hot path)
+### Key Files
 
-### Environment Variables
+| Area | File | Purpose |
+|------|------|---------|
+| Types | `src/data/types.ts` | Database models, Nostr types, Display interfaces, parsers |
+| Data Access | `src/lib/db-adapter.ts` | Adapter pattern for all data operations |
+| Auth | `src/lib/auth.ts` | NextAuth config with dual identity model |
+| Nostr Events | `src/lib/nostr-events.ts` | Event builders (NIP-23/99/51) |
+| Publishing | `src/lib/publish-service.ts` | Draft-to-Nostr publishing |
+| Relays | `src/lib/nostr-relays.ts` | `getRelays(set)` for relay configuration |
+| Pricing | `src/lib/pricing.ts` | `resolvePriceForContent()` for canonical prices |
+| Caching | `src/lib/cache.ts` | Hierarchical L1/L2 cache with TTL |
+
+### Config System
+
+JSON files in `/config/` control behavior (see `config/README.md`):
+- `auth.json` - Authentication providers and UI
+- `theme.json` - Theme/font defaults and controls
+- `content.json` - Content display, filters, search settings
+- `copy.json` - All user-facing text
+- `payments.json` - Zap presets, purchase UX
+- `nostr.json` - Relay sets
+- `admin.json` - Admin/moderator pubkeys
+
+**Important**: Config files ship to client. Never put secrets here; use environment variables.
+
+## Code Style
+
+1. **Component Structure**:
+   - Pages: `export default function PageName() {}`
+   - Components: `export const ComponentName = () => {}`
+
+2. **Data Access**: Always use adapters (`CourseAdapter`, `ResourceAdapter`, `LessonAdapter`). Never access database or mock data directly.
+
+3. **Imports**: React/Next first, then third-party, then internal (`@/` alias)
+
+4. **Naming**: PascalCase for components/contexts/hooks (prefix hooks with `use`), kebab-case for route directories
+
+## Important Patterns
+
+### Smart Image Handling
+Use `OptimizedImage` component for images from any domain. It auto-handles unknown domains with `unoptimized` prop. Don't add domains to `next.config.ts`.
+
+### Content Routing
+Route by content type, not UI variant:
+```typescript
+if (item.type === 'course') router.push(`/courses/${item.id}`)
+else router.push(`/content/${item.id}`)
+```
+
+### Nostr Event Parsing
+Always use parser functions from `src/data/types.ts`:
+- `parseCourseEvent()` - NIP-51 course lists
+- `parseEvent()` - NIP-23/99 content events
+- `createCourseDisplay()` / `createResourceDisplay()` - merge DB + Nostr
+
+## ESLint
+
+Flat config in `eslint.config.mjs`:
+- Extends `next/core-web-vitals` and `next/typescript`
+- **Disabled**: `no-unused-vars`, `no-explicit-any`
+- **React Hooks**: `rules-of-hooks` (error), `exhaustive-deps` (warn)
+
+## Environment Variables
 
 **Required:**
-- `DATABASE_URL` - PostgreSQL connection string
-- `NEXTAUTH_SECRET` - Secret for JWT encryption
-- `NEXTAUTH_URL` - Application URL (e.g., http://localhost:3000)
-
-**Docker (when using docker-compose):**
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Database credentials
+- `DATABASE_URL` - PostgreSQL connection
+- `NEXTAUTH_SECRET` - JWT encryption secret
+- `NEXTAUTH_URL` - App URL (e.g., http://localhost:3000)
 
 **Optional:**
 - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` - GitHub OAuth
+- `GITHUB_LINK_CLIENT_ID`, `GITHUB_LINK_CLIENT_SECRET` - Account linking OAuth
+- `EMAIL_SERVER_*`, `EMAIL_FROM` - Email magic links (Nodemailer)
 - `KV_REST_API_URL`, `KV_REST_API_TOKEN` - Vercel KV for view counters
 
-## Code Style Guidelines
+## Common Pitfalls
 
-1. **Component Structure**:
-   - Use function declarations for pages: `export default function PageName() {}`
-   - Use arrow functions for components: `export const ComponentName = () => {}`
-
-2. **Import Organization**:
-   - React/Next imports first, then third-party, then internal (`@/` alias preferred)
-   - Delete unused imports even if linting permits
-
-3. **Data Access**:
-   - ALWAYS use adapters (CourseAdapter, ResourceAdapter, etc.)
-   - NEVER access mock data or database directly
-
-4. **Naming**: Components/contexts/hooks use PascalCase (hooks prefixed with `use`), route directories use kebab-case
-
-## Smart Image Optimization
-- **OptimizedImage Component**: Automatically handles images from any domain without manual configuration
-- **Seamless Fallback**: Uses `unoptimized` prop for unknown domains
-- **Pre-configured Domains**: Unsplash, GitHub avatars, YouTube thumbnails, DiceBear, DigitalOcean Spaces
-
-## Git Workflow
-
-- **Always run**: `npm run lint` and `npm run build` before committing
-- **Database changes**: Run `npx prisma generate` after schema changes
-- **Commit style**: Short, imperative, lowercase subjects (e.g., `add feature`, `fix bug`)
-
-## Purchase & Sales Implementation Details
-
-### Payment Architecture
-The platform uses **NIP-57 zaps as the sole payment rail** with intelligent aggregation:
-
-1. **Zap Aggregation**: User's zaps for a piece of content sum toward the sticker price
-2. **Auto-claiming**: When `viewerZapTotalSats >= priceSats`, purchase is automatically created
-3. **Privacy-First**: NIP-07 users can opt for anonymous zaps while maintaining purchase records
-4. **Non-authenticated Zaps**: Logged-out users can send zaps (tips only), but purchase claiming requires sign-in
-
-### Purchase Schema Fields
-The `Purchase` model includes:
-- `userId`, `courseId`, `resourceId` - Purchase relationships
-- `amountPaid` - Total sats paid (may exceed price if user over-zapped)
-- `paymentType` - Payment method: "zap" (default), "manual", "comped", "refund"
-- `zapReceiptId` - Optional NIP-57 zap receipt event ID for audit/dedupe
-- `invoice` - Optional bolt11 invoice string captured at purchase time
-- **Unique constraint**: `(userId, courseId, resourceId)` prevents duplicate purchases
-
-### Price Resolution
-- Prefer database prices (`Resource.price`, `Course.price`)
-- Nostr events can also indicate pricing via NIP-99 kind `30402` or `price` tag
-- Helper: `resolvePriceForContent({ resourceId?, courseId? })` returns canonical price
-
-### Integration Points
-1. **useInteractions Hook**: Surfaces `viewerZapTotalSats` and zap receipt tracking
-2. **usePurchaseEligibility Hook**: Monitors eligibility and auto-claims when threshold met
-3. **PurchaseDialog Component**: Complete purchase UX with zap sender integration
-4. **Content Gating**: Check `Purchase` presence before showing premium content
-
-## Common Pitfalls to Avoid
-
-1. **Don't add domains to next.config.ts** - Use OptimizedImage component instead
-2. **Don't create new mock data files** - Use existing JSON structure
-3. **Don't bypass the adapter pattern** - Always use adapters for data access
-4. **Don't ignore TypeScript errors** - Fix them properly
-5. **Don't skip cache invalidation** - Update caches when data changes
-6. **Don't create files unless necessary** - Prefer editing existing files
-7. **Don't bypass purchase validation** - Always use `/api/purchases/claim` for creating purchases
-8. **Don't assume zaps equal purchases** - Purchases must be explicitly claimed via the API
+1. **Don't bypass adapters** - Always use `CourseAdapter`, `ResourceAdapter`, etc.
+2. **Don't add image domains** - Use `OptimizedImage` component instead
+3. **Don't create purchases directly** - Use `/api/purchases/claim` API
+4. **Don't assume zaps = purchases** - Purchases must be explicitly claimed
+5. **Don't put secrets in config/** - Use environment variables
+6. **Don't skip build/lint** - Always run before committing

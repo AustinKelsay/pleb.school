@@ -374,7 +374,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8281 0.078 309.73)",
       "--chart-4": "oklch(0.8611 0.0504 198.03)",
       "--chart-5": "oklch(0.947 0.0212 309.77)",
-      "--radius": "1rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.278 0.0277 258.85)",
       "--sidebar-primary": "oklch(0.5709 0.1808 306.89)",
@@ -528,7 +527,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8632 0.1432 207.1)",
       "--chart-4": "oklch(0.8501 0.0455 218.77)",
       "--chart-5": "oklch(0.9536 0.0508 205.46)",
-      "--radius": "0.5rem",
       "--sidebar": "oklch(0.9717 0.0038 259.34)",
       "--sidebar-foreground": "oklch(0.2561 0.018 266.26)",
       "--sidebar-primary": "oklch(0.5512 0.1177 218.91)",
@@ -604,7 +602,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.7319 0.2017 39.84)",
       "--chart-4": "oklch(0.8245 0.1307 40.37)",
       "--chart-5": "oklch(0.9441 0.0382 42.16)",
-      "--radius": "0.3rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.274 0.0116 285.83)",
       "--sidebar-primary": "oklch(0.5827 0.2187 36.98)",
@@ -660,7 +657,6 @@ export const completeThemes: CompleteTheme[] = [
     borderRadius: "0.65rem",
     style: "default",
     lightColors: {
-      "--radius": "0.65rem",
       "--background": "oklch(1 0 0)",
       "--foreground": "oklch(0.141 0.005 285.823)",
       "--card": "oklch(1 0 0)",
@@ -991,7 +987,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8655 0.0799 208.55)",
       "--chart-4": "oklch(0.8107 0.0998 22.73)",
       "--chart-5": "oklch(0.9579 0.0282 206.94)",
-      "--radius": "1rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2783 0.0505 265.5)",
       "--sidebar-primary": "oklch(0.4924 0.0665 220.5)",
@@ -1145,7 +1140,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.274 0.008 286.03)",
       "--chart-4": "oklch(0.705 0.012 286.07)",
       "--chart-5": "oklch(0.871 0.008 286.29)",
-      "--radius": "0.5rem",
       "--sidebar": "oklch(0.967 0.0027 286.38)",
       "--sidebar-foreground": "oklch(0.274 0.008 286.03)",
       "--sidebar-primary": "oklch(0.141 0.004 285.83)",
@@ -1299,7 +1293,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8719 0.1829 125.59)",
       "--chart-4": "oklch(0.8565 0.0734 182)",
       "--chart-5": "oklch(0.9676 0.0628 121.5)",
-      "--radius": "0.5rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.269 0 0)",
       "--sidebar-primary": "oklch(0.8719 0.1829 125.59)",
@@ -1998,7 +1991,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.845 0.143 164.98)",
       "--chart-4": "oklch(0.8576 0.1202 192.38)",
       "--chart-5": "oklch(0.95 0.052 163.05)",
-      "--radius": "0.75rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2742 0.0208 165.96)",
       "--sidebar-primary": "oklch(0.765 0.177 163.22)",
@@ -2074,7 +2066,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8522 0.1484 177.84)",
       "--chart-4": "oklch(0.8208 0.0278 242.12)",
       "--chart-5": "oklch(0.9511 0.0547 177.24)",
-      "--radius": "0.5rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2738 0.021 286.32)",
       "--sidebar-primary": "oklch(0.5276 0.1072 182.22)",
@@ -2208,7 +2199,6 @@ export const completeThemes: CompleteTheme[] = [
     borderRadius: "0.65rem",
     style: "new-york",
     lightColors: {
-      "--radius": "0.65rem",
       "--background": "oklch(1 0 0)",
       "--foreground": "oklch(0.141 0.005 285.823)",
       "--card": "oklch(1 0 0)",
@@ -2305,7 +2295,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8269 0.0952 337.34)",
       "--chart-4": "oklch(0.8628 0.1057 208.83)",
       "--chart-5": "oklch(0.9501 0.0231 334)",
-      "--radius": "0.5rem",
       "--sidebar": "oklch(0.9703 0.0084 281.74)",
       "--sidebar-foreground": "oklch(0.2638 0.0399 288.01)",
       "--sidebar-primary": "oklch(0.5787 0.1955 343.4)",
@@ -3139,7 +3128,6 @@ export const completeThemes: CompleteTheme[] = [
     borderRadius: "0.65rem",
     style: "default",
     lightColors: {
-      "--radius": "0.65rem",
       "--background": "oklch(1 0 0)",
       "--foreground": "oklch(0.141 0.005 285.823)",
       "--card": "oklch(1 0 0)",
@@ -3314,7 +3302,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.719 0.1257 347.27)",
       "--chart-4": "oklch(0.8233 0.0748 344.64)",
       "--chart-5": "oklch(0.9477 0.0176 340.95)",
-      "--radius": "0.5rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2707 0.0378 336.77)",
       "--sidebar-primary": "oklch(0.5314 0.1384 355.11)",
@@ -3390,7 +3377,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.7135 0.1879 7.69)",
       "--chart-4": "oklch(0.8131 0.1129 5.67)",
       "--chart-5": "oklch(0.9429 0.0283 5.52)",
-      "--radius": "1rem",
       "--sidebar": "oklch(0.9567 0.0021 34.31)",
       "--sidebar-foreground": "oklch(0.2686 0.0032 34.85)",
       "--sidebar-primary": "oklch(0.5827 0.2418 12.23)",
@@ -3446,7 +3432,6 @@ export const completeThemes: CompleteTheme[] = [
     borderRadius: "0.65rem",
     style: "default",
     lightColors: {
-      "--radius": "0.65rem",
       "--background": "oklch(1 0 0)",
       "--foreground": "oklch(0.141 0.005 285.823)",
       "--card": "oklch(1 0 0)",
@@ -3601,7 +3586,6 @@ export const completeThemes: CompleteTheme[] = [
     borderRadius: "0.65rem",
     style: "new-york",
     lightColors: {
-      "--radius": "0.65rem",
       "--background": "oklch(1 0 0)",
       "--foreground": "oklch(0.141 0.005 285.823)",
       "--card": "oklch(1 0 0)",
@@ -3698,7 +3682,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8561 0.0302 188.27)",
       "--chart-4": "oklch(0.8228 0.0645 38.19)",
       "--chart-5": "oklch(0.9514 0.0117 187.62)",
-      "--radius": "0.75rem",
       "--sidebar": "oklch(0.9685 0.0021 197.03)",
       "--sidebar-foreground": "oklch(0.2759 0.0032 202.42)",
       "--sidebar-primary": "oklch(0.4646 0.0189 197.03)",
@@ -3774,7 +3757,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.7527 0.1062 232.98)",
       "--chart-4": "oklch(0.815 0.0757 230.32)",
       "--chart-5": "oklch(0.9521 0.0193 232.19)",
-      "--radius": "1rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2779 0.0189 236.17)",
       "--sidebar-primary": "oklch(0.815 0.0757 230.32)",
@@ -3928,7 +3910,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.886 0.0954 93.22)",
       "--chart-4": "oklch(0.8552 0.0989 62.61)",
       "--chart-5": "oklch(0.966 0.0343 97.5)",
-      "--radius": "1rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2686 0.0441 67.04)",
       "--sidebar-primary": "oklch(0.7374 0.1036 74.05)",
@@ -4082,7 +4063,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8122 0.1073 293.99)",
       "--chart-4": "oklch(0.8362 0.114 51.61)",
       "--chart-5": "oklch(0.9444 0.0281 294.99)",
-      "--radius": "1rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2753 0.0327 278.01)",
       "--sidebar-primary": "oklch(0.5197 0.2712 293.31)",
@@ -4158,7 +4138,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8603 0.0731 158.6)",
       "--chart-4": "oklch(0.8292 0.0422 332)",
       "--chart-5": "oklch(0.9564 0.0234 159.23)",
-      "--radius": "0.5rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.279 0.0299 260.05)",
       "--sidebar-primary": "oklch(0.5315 0.0694 156.19)",
@@ -4624,7 +4603,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.2686 0 23.43)",
       "--chart-4": "oklch(0.7084 0 23.42)",
       "--chart-5": "oklch(0.8696 0 23.46)",
-      "--radius": "0rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2686 0 23.43)",
       "--sidebar-primary": "oklch(0.1458 0 22.58)",
@@ -4700,7 +4678,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.8242 0.1178 344.61)",
       "--chart-4": "oklch(0.8178 0.0799 299.66)",
       "--chart-5": "oklch(0.9492 0.0277 340.92)",
-      "--radius": "0.3rem",
       "--sidebar": "oklch(0.9701 0.0035 220.38)",
       "--sidebar-foreground": "oklch(0.2779 0.0162 226.51)",
       "--sidebar-primary": "oklch(0.4478 0.1828 355.91)",
@@ -4834,7 +4811,6 @@ export const completeThemes: CompleteTheme[] = [
     borderRadius: "0.65rem",
     style: "default",
     lightColors: {
-      "--radius": "0.65rem",
       "--background": "oklch(1 0 0)",
       "--foreground": "oklch(0.141 0.005 285.823)",
       "--card": "oklch(1 0 0)",
@@ -5009,7 +4985,6 @@ export const completeThemes: CompleteTheme[] = [
       "--chart-3": "oklch(0.2729 0.026 151.57)",
       "--chart-4": "oklch(0.7064 0.0283 150.5)",
       "--chart-5": "oklch(0.8683 0.0189 149.2)",
-      "--radius": "0.3rem",
       "--sidebar": "oklch(1 0 0)",
       "--sidebar-foreground": "oklch(0.2729 0.026 151.57)",
       "--sidebar-primary": "oklch(0.1382 0.0185 151.74)",
@@ -5065,7 +5040,6 @@ export const completeThemes: CompleteTheme[] = [
     borderRadius: "0.65rem",
     style: "default",
     lightColors: {
-      "--radius": "0.65rem",
       "--background": "oklch(1 0 0)",
       "--foreground": "oklch(0.141 0.005 285.823)",
       "--card": "oklch(1 0 0)",
@@ -5234,12 +5208,12 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean = false
   // Apply border radius
   root.style.setProperty('--radius', theme.borderRadius)
   
-  // Determine which font to use
-  const fontToUse = fontOverride || theme.fontFamily
+  // Determine which font to use - look up fontFamily from config, don't use raw value
   const fontConfig = fontOverride ? availableFonts.find(f => f.value === fontOverride) : null
+  const fontToUse = fontConfig?.fontFamily || theme.fontFamily
   const fontWeight = fontConfig?.fontWeight || theme.fontWeight
   const googleFontUrl = fontConfig?.googleFontUrl || theme.googleFontUrl
-  
+
   // Apply font family
   root.style.setProperty('--font-family', fontToUse)
   
