@@ -32,7 +32,7 @@ Instead of hardcoding colors, spacing, or other design tokens, we use CSS variab
 
 ### 3. **Complete Theme Packages**
 Each theme in our system is a **complete design package** that includes:
-- **Color Palette**: Primary, secondary, accent, background, foreground, sidebar, and semantic colors (31 CSS variables)
+- **Color Palette**: Primary, secondary, accent, background, foreground, sidebar, and semantic colors (32 CSS variables)
 - **Typography**: Font family, weights, and Google Fonts URL
 - **Border Radius**: Consistent corner rounding via `borderRadius` property
 - **Style Variant**: Default or New York shadcn style
@@ -71,7 +71,7 @@ When creating new components:
 
 ### 1. **Theme Configuration** (`src/lib/theme-config.ts`)
 Contains 65 complete theme definitions, each with:
-- Light and dark color schemes (31 OKLCh color variables each)
+- Light and dark color schemes (32 OKLCh color variables each)
 - Associated font configuration with Google Fonts URL
 - Border radius preference
 - Style variant (default or new-york)
@@ -101,7 +101,7 @@ Defines the CSS variable structure with OKLCh color space:
   --foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  /* ... 31 color variables total */
+  /* ... 32 color variables total */
 }
 ```
 
@@ -122,7 +122,7 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean, fontOv
   const root = document.documentElement
   const colors = isDark ? theme.darkColors : theme.lightColors
 
-  // 1. Apply all 31 color CSS variables
+  // 1. Apply all 32 color CSS variables
   Object.entries(colors).forEach(([key, value]) => {
     root.style.setProperty(key, value)
   })
@@ -150,7 +150,7 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean, fontOv
 
 ## CSS Variables Reference
 
-### Color Variables (31 total, set for both light and dark modes)
+### Color Variables (32 total, set for both light and dark modes)
 
 **Core Colors:**
 - `--background`, `--foreground`
@@ -269,8 +269,8 @@ interface CompleteTheme {
   googleFontUrl?: string                    // Optional Google Fonts URL
   borderRadius: string                      // Border radius (e.g., "0.375rem")
   style: "default" | "new-york"             // Visual style preset
-  lightColors: Record<string, string>       // 31 CSS color variables for light mode
-  darkColors: Record<string, string>        // 31 CSS color variables for dark mode
+  lightColors: Record<string, string>       // 32 CSS color variables for light mode
+  darkColors: Record<string, string>        // 32 CSS color variables for dark mode
 }
 ```
 
