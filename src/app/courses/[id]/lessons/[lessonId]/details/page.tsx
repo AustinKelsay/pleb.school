@@ -218,8 +218,11 @@ function LessonContent({
 
   const loading = lessonLoading || courseLoading || lessonsDataLoading
 
-  const interactionData = useCommentThreads(resourceNote?.id, { enabled: Boolean(resourceNote?.id) })
-  const resourcePurchased = true // course lessons are considered unlocked once inside the course
+  const resourceRequiresPurchase = Boolean((lesson?.resource as any)?.requiresPurchase)
+  const resourceUnlockedViaCourse = Boolean((lesson?.resource as any)?.unlockedViaCourse)
+  const resourcePurchased = !resourceRequiresPurchase || resourceUnlockedViaCourse
+
+  const interactionData = useCommentThreads(resourceNote?.id, { enabled: Boolean(resourceNote?.id) && resourcePurchased })
   const [isFullWidth, setIsFullWidth] = useState(false)
 
   if (!resolvedCourse || !resolvedLesson) {
@@ -254,6 +257,30 @@ function LessonContent({
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">Lesson content not available</p>
+      </div>
+    )
+  }
+
+  if (!resourcePurchased) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Premium lesson</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-muted-foreground">
+              This lesson is locked. Purchase the course or unlock via your enrollment to view the content.
+            </p>
+            <div className="flex gap-2">
+              <Button asChild>
+                <Link href={`/courses/${resolvedCourseId}`}>
+                  View Course
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
