@@ -7,6 +7,8 @@ import { Course, Resource } from '@/data/types'
 import { CourseWithNote, ResourceWithNote } from '@/lib/db-adapter'
 import { parseCourseEvent, parseEvent } from '@/data/types'
 
+export type MatchedField = 'title' | 'description' | 'content' | 'tags'
+
 export interface SearchResult {
   id: string
   type: 'course' | 'resource'
@@ -21,6 +23,7 @@ export interface SearchResult {
   matchScore: number
   keyword: string // Store the original search keyword for highlighting
   tags?: string[] // All tags from Nostr events
+  matchedFields?: MatchedField[] // Which fields contained the keyword (optional for legacy code paths)
   highlights: {
     title?: string
     description?: string

@@ -21,8 +21,8 @@ The pleb.school demo shows how to run a self-hosted Next.js 15 stack where brand
 ## 🛠️ **Technology Stack**
 
 ### **Core Framework**
-- **Next.js 15.5.4** - Full-stack React framework
-- **React 19** - Latest React with concurrent features
+- **Next.js 15.5.7** - Full-stack React framework
+- **React 19.2.1** - Latest React with concurrent features
 - **TypeScript 5** - Type-safe development with strict mode
 - **Turbopack** - Next-generation bundler
 

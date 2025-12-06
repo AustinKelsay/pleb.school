@@ -174,6 +174,61 @@ export function ContentPageSkeleton() {
   )
 }
 
+// SearchContentCard skeleton - horizontal layout matching search results
+export function SearchCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="flex gap-4 p-4">
+        {/* Image skeleton */}
+        <div className="flex-shrink-0">
+          <Skeleton className="w-24 h-24 rounded-lg" />
+        </div>
+
+        {/* Content skeleton */}
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Title and badge row */}
+          <div className="flex items-start justify-between gap-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-6 w-20 rounded-md" />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-5/6" />
+            <Skeleton className="h-3 w-4/6" />
+          </div>
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-5 w-16 rounded-full" />
+            ))}
+          </div>
+
+          {/* Metadata row */}
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Search results skeleton - multiple search cards
+export function SearchResultsSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-1">
+      {Array.from({ length: count }).map((_, i) => (
+        <SearchCardSkeleton key={i} />
+      ))}
+    </div>
+  )
+}
+
 // ContentCard skeleton that matches the shape of ContentCard component
 export function ContentCardSkeleton() {
   return (

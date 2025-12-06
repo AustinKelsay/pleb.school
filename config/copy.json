@@ -163,7 +163,7 @@
       "badge": "Nostr-native open education stack",
       "title": {
         "line1": "Launch your learning hub",
-        "line2": "Built with",
+        "line2": "Built for",
         "useAnimated": true,
         "animatedWords": ["Bitcoin", "Lightning", "Nostr", "AI"],
         "staticWord": "Bitcoin",

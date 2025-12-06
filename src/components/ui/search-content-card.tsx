@@ -4,13 +4,14 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardDescription, CardTitle } from "@/components/ui/card"
 import { OptimizedImage } from "@/components/ui/optimized-image"
 import { HighlightText } from "@/components/ui/highlight-text"
-import { 
-  BookOpen, 
+import {
+  BookOpen,
   Clock,
   User,
   Calendar,
   Lock,
-  Unlock
+  Unlock,
+  Search
 } from "lucide-react"
 import type { ContentItem } from "@/data/types"
 import { contentTypeIcons } from "@/data/config"
@@ -21,6 +22,14 @@ interface SearchContentCardProps {
   searchKeyword?: string
   onTagClick?: (tag: string) => void
   className?: string
+}
+
+// Human-readable labels for matched fields
+const matchedFieldLabels: Record<string, string> = {
+  title: 'title',
+  description: 'description',
+  content: 'body',
+  tags: 'tags'
 }
 
 function formatTimeAgo(dateString: string): string {
@@ -62,7 +71,7 @@ export function SearchContentCard({
       <div className="flex gap-4 p-4">
         {/* Image Section */}
         <div className="flex-shrink-0">
-          <div className="relative w-24 h-18 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 rounded-lg overflow-hidden">
+          <div className="relative w-24 h-24 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 rounded-lg overflow-hidden">
             {/* Actual image if available */}
             {item.image || ('thumbnailUrl' in item && item.thumbnailUrl) ? (
               <OptimizedImage 
@@ -137,15 +146,39 @@ export function SearchContentCard({
           {item.topics && item.topics.length > 0 && (
             <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
               {item.topics.map((topic, index) => (
-                <Badge 
-                  key={index} 
+                <Badge
+                  key={index}
                   variant="outline"
                   className="text-xs cursor-pointer hover:bg-accent transition-colors"
                   onClick={() => onTagClick?.(topic)}
                 >
-                  {topic}
+                  {searchKeyword ? (
+                    <HighlightText text={topic} highlight={searchKeyword} />
+                  ) : (
+                    topic
+                  )}
                 </Badge>
               ))}
+            </div>
+          )}
+
+          {/* Match indicator - shows where keyword was found */}
+          {searchKeyword && item.matchedFields && item.matchedFields.length > 0 && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Search className="h-3 w-3 text-primary/60" />
+              <span>
+                Matched in{' '}
+                {item.matchedFields.map((field, idx) => (
+                  <span key={field}>
+                    <span className="font-medium text-primary/80">
+                      {matchedFieldLabels[field] || field}
+                    </span>
+                    {idx < item.matchedFields!.length - 1 && (
+                      <span>{idx === item.matchedFields!.length - 2 ? ' and ' : ', '}</span>
+                    )}
+                  </span>
+                ))}
+              </span>
             </div>
           )}
 

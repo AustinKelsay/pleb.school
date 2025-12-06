@@ -38,6 +38,12 @@ Example (dark + clean‑slate):
 Homepage sections (courses, videos, documents), filters (price/category/sort), pagination and search options, and global labels (categories, sort/price labels).
 - `contentPage.includeLessonResources.{videos,documents}` lets you keep lesson-linked resources discoverable on `/content` while leaving homepage carousels untouched. Defaults to `true` for both so lessons don't disappear from the library once added to a course.
 - `contentPage.imageFetch.{relaySet,maxConcurrentFetches}` sets which relay set to use for note preview images on `/content` and caps concurrent fetches to avoid flooding relays.
+- `search.{minKeywordLength,timeout,limit,relaySet}` configures Nostr search behavior:
+  - `minKeywordLength`: Minimum characters before search executes (default: 3)
+  - `timeout`: Relay query timeout in ms (default: 15000)
+  - `limit`: Max events to fetch (default: 100)
+  - `relaySet`: Which relay set from `nostr.json` to use (default: 'default')
+- **Search filters by admin pubkeys**: Content is discovered by querying Nostr for events authored by pubkeys listed in `admin.json` (admins + moderators). This ensures search only returns content published by your platform's authorized creators.
 
 ### 🔤 `copy.json` — Site Copy & Text
 All user‑facing strings for navigation, homepage, about page, content pages, error/empty states, cards, and lessons.
