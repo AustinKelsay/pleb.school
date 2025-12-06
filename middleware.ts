@@ -11,6 +11,10 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import nostrConfig from './config/nostr.json'
 
+interface NostrConfig {
+  relays?: Record<string, string[]>
+}
+
 export function middleware(request: NextRequest) {
   const response = NextResponse.next()
 
@@ -23,15 +27,15 @@ export function middleware(request: NextRequest) {
 
   // Add CSP header for enhanced security
   const isDevelopment = process.env.NODE_ENV === 'development'
-  
+
   // In development, allow unsafe directives for Turbopack hot reloading
   // In production, remove unsafe directives for better security
-  const scriptSrc = isDevelopment 
+  const scriptSrc = isDevelopment
     ? "'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live"
     : "'self' https://vercel.live"
-    
+
   // Build connect-src from configured relays plus required analytics endpoints
-  const relaySets = (nostrConfig as any)?.relays ?? {}
+  const relaySets = (nostrConfig as NostrConfig)?.relays ?? {}
   const relayList = new Set<string>(
     [
       ...(relaySets.default ?? []),
@@ -39,7 +43,7 @@ export function middleware(request: NextRequest) {
       ...(relaySets.profile ?? []),
       ...(relaySets.zapThreads ?? []),
       ...(relaySets.custom ?? []),
-      ...(process.env.ALLOWED_RELAYS ? process.env.ALLOWED_RELAYS.split(',') : []),
+      ...(process.env.ALLOWED_RELAYS ? process.env.ALLOWED_RELAYS.split(',').map(r => r.trim()) : []),
     ].filter(Boolean)
   )
 

@@ -188,16 +188,23 @@ export async function GET(
     const purchases = Array.isArray(resource.purchases) ? resource.purchases : []
 
     const hasPurchased = purchases.some((p) => {
+      // Align with resources endpoint: only treat snapshot as valid when > 0
       const hasSnapshot = p.priceAtPurchase !== null && p.priceAtPurchase !== undefined && p.priceAtPurchase > 0
-      const snapshot = hasSnapshot ? p.priceAtPurchase! : resource.price
-      const required = Math.min(snapshot, resource.price)
+      const snapshot = hasSnapshot ? p.priceAtPurchase! : resource.price ?? 0
+      const currentPrice = Number.isFinite(resource.price) ? resource.price ?? 0 : 0
+      const required = Math.min(snapshot, currentPrice)
       return p.amountPaid >= required
     })
+
+    const lessonsForAccess = resource.lessons.map((lesson) => ({
+      courseId: lesson.courseId,
+      course: lesson.course ? { id: lesson.course.id, price: lesson.course.price } : null,
+    }))
 
     const courseAccess = await checkCourseUnlockViaLessons({
       userId,
       resourceId: resource.id,
-      lessons: resource.lessons as any,
+      lessons: lessonsForAccess,
     })
 
     const unlockedViaCourse = courseAccess.unlockedViaCourse
