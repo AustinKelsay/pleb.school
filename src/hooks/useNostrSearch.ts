@@ -36,6 +36,7 @@ type SearchConfig = {
   limit: number
   minKeywordLength: number
   relaySet?: RelaySet
+  dTagBatchSize?: number
 }
 
 type AdminPubkeyConfig = {
@@ -71,6 +72,19 @@ function isAuthorizedSearchAuthor(pubkey?: string): boolean {
   return normalized ? AUTHORIZED_SEARCH_AUTHOR_SET.has(normalized) : false
 }
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  if (size <= 0) return [arr]
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size))
+  }
+  return chunks
+}
+
 // Get search config with defaults
 function getSearchConfig(): SearchConfig {
   const searchConfig = (contentConfig as any).search || {}
@@ -79,6 +93,7 @@ function getSearchConfig(): SearchConfig {
     limit: searchConfig.limit ?? 100,
     minKeywordLength: searchConfig.minKeywordLength ?? 3,
     relaySet: searchConfig.relaySet as RelaySet | undefined,
+    dTagBatchSize: searchConfig.dTagBatchSize ?? 500,
   }
 }
 
@@ -191,6 +206,7 @@ function calculateMatchScore(keyword: string, title: string, description: string
   const lowerTitle = title.toLowerCase()
   const lowerDescription = description.toLowerCase()
   const lowerContent = content.toLowerCase()
+  const escapedLowerKeyword = escapeRegExp(lowerKeyword)
 
   let score = 0
   const matchedFields: MatchedField[] = []
@@ -210,14 +226,14 @@ function calculateMatchScore(keyword: string, title: string, description: string
   // Description matching
   if (lowerDescription.includes(lowerKeyword)) {
     matchedFields.push('description')
-    const matches = lowerDescription.match(new RegExp(lowerKeyword, 'g'))
+    const matches = lowerDescription.match(new RegExp(escapedLowerKeyword, 'g'))
     score += (matches?.length || 1) * 8
   }
 
   // Content matching
   if (lowerContent.includes(lowerKeyword)) {
     matchedFields.push('content')
-    const matches = lowerContent.match(new RegExp(lowerKeyword, 'g'))
+    const matches = lowerContent.match(new RegExp(escapedLowerKeyword, 'g'))
     score += (matches?.length || 1) * 3
   }
 
@@ -238,7 +254,7 @@ function calculateMatchScore(keyword: string, title: string, description: string
   }
 
   // Word boundary matches (whole word) - bonus points
-  const wordBoundaryRegex = new RegExp(`\\b${lowerKeyword}\\b`, 'gi')
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(lowerKeyword)}\\b`, 'gi')
   if (wordBoundaryRegex.test(title)) {
     score += 25
   }
@@ -258,7 +274,7 @@ function calculateMatchScore(keyword: string, title: string, description: string
 function highlightKeyword(text: string, keyword: string): string {
   if (!text || !keyword) return text
   
-  const regex = new RegExp(`(${keyword})`, 'gi')
+  const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi')
   return text.replace(regex, '<mark>$1</mark>')
 }
 
@@ -377,20 +393,39 @@ async function searchNostrContent(
     return []
   }
 
+  const dTagBatchSize = config.dTagBatchSize && config.dTagBatchSize > 0 ? config.dTagBatchSize : 500
+  const idBatches = chunkArray(databaseIds, dTagBatchSize)
+
   try {
     console.log(`Searching Nostr for keyword: "${keyword}" in ${databaseIds.length} database items`)
 
-    // Step 2: Query Nostr using 'd' tags for only database-backed content
-    const events = await relayPool.querySync(
-      searchRelays,
-      {
-        kinds: [30004, 30023, 30402],
-        "#d": databaseIds,
-        authors: AUTHORIZED_SEARCH_AUTHORS,
-        limit: config.limit
-      },
-      { timeout: config.timeout }
+    // Step 2: Query Nostr using 'd' tags for only database-backed content, batching to avoid oversized filters
+    const batchedEvents = await Promise.all(
+      idBatches.map(batch =>
+        relayPool.querySync(
+          searchRelays,
+          {
+            kinds: [30004, 30023, 30402],
+            "#d": batch,
+            authors: AUTHORIZED_SEARCH_AUTHORS,
+            limit: config.limit
+          },
+          { timeout: config.timeout }
+        )
+      )
     )
+
+    // Deduplicate events by id across batches
+    const eventMap = new Map<string, NostrEvent>()
+    for (const batch of batchedEvents) {
+      for (const event of batch) {
+        if (!eventMap.has(event.id)) {
+          eventMap.set(event.id, event)
+        }
+      }
+    }
+
+    const events = Array.from(eventMap.values())
 
     console.log(`Found ${events.length} events from Nostr, filtering by keyword "${keyword}"`)
 
@@ -421,10 +456,10 @@ async function searchNostrContent(
 
     console.log(`Found ${deduplicatedResults.length} matching results for "${keyword}"`)
 
-    // Sort by match score (highest first)
+    // Sort by match score (highest first) and enforce overall limit across batches
     deduplicatedResults.sort((a, b) => b.matchScore - a.matchScore)
 
-    return deduplicatedResults
+    return deduplicatedResults.slice(0, config.limit)
 
   } catch (error) {
     console.error('Error searching Nostr content:', error)
@@ -518,18 +553,36 @@ export function useNostrSearchByKind(
       if (databaseIds.length === 0) return []
 
       try {
-        const events = await relayPool.querySync(
-          searchRelays,
-          {
-            kinds,
-            "#d": databaseIds,
-            authors: AUTHORIZED_SEARCH_AUTHORS,
-            limit: config.limit
-          },
-          { timeout: config.timeout }
+        const dTagBatchSize = config.dTagBatchSize && config.dTagBatchSize > 0 ? config.dTagBatchSize : 500
+        const idBatches = chunkArray(databaseIds, dTagBatchSize)
+
+        const batchedEvents = await Promise.all(
+          idBatches.map(batch =>
+            relayPool.querySync(
+              searchRelays,
+              {
+                kinds,
+                "#d": batch,
+                authors: AUTHORIZED_SEARCH_AUTHORS,
+                limit: config.limit
+              },
+              { timeout: config.timeout }
+            )
+          )
         )
 
-        const results: SearchResult[] = []
+        const eventMap = new Map<string, NostrEvent>()
+        for (const batch of batchedEvents) {
+          for (const event of batch) {
+            if (!eventMap.has(event.id)) {
+              eventMap.set(event.id, event)
+            }
+          }
+        }
+
+        const events = Array.from(eventMap.values())
+
+        const resultsMap = new Map<string, SearchResult>()
 
         for (const event of events) {
           if (!isAuthorizedSearchAuthor(event.pubkey)) continue
@@ -544,11 +597,16 @@ export function useNostrSearchByKind(
 
           // Only include results with matchScore > 0
           if (searchResult && searchResult.matchScore > 0) {
-            results.push(searchResult)
+            const existing = resultsMap.get(searchResult.id)
+            if (!existing || searchResult.matchScore > existing.matchScore) {
+              resultsMap.set(searchResult.id, searchResult)
+            }
           }
         }
 
-        return results.sort((a, b) => b.matchScore - a.matchScore)
+        const sortedResults = Array.from(resultsMap.values()).sort((a, b) => b.matchScore - a.matchScore)
+
+        return sortedResults.slice(0, config.limit)
 
       } catch (error) {
         console.error('Error searching Nostr by kind:', error)
