@@ -138,7 +138,7 @@ async function fetchDatabaseContentIds(): Promise<string[]> {
       ids.push(
         ...items
           .map((item: { id?: string }) => item.id)
-          .filter((id): id is string => Boolean(id))
+          .filter((id: string | undefined): id is string => Boolean(id))
       )
 
       const pagination = json.pagination
