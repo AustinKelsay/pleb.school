@@ -150,7 +150,7 @@ function SummaryStrip({ stats }: { stats: PurchaseStats | null }) {
     { label: "Unlocked", value: stats.unlockedCount.toLocaleString() },
     { label: "Partial", value: stats.partialCount.toLocaleString() },
     { label: "Refunded", value: stats.refundCount.toLocaleString() },
-    { label: "Avg ticket", value: formatSats(stats.averageTicketSats) }
+    { label: "Avg purchase", value: formatSats(stats.averageTicketSats) }
   ]
 
   return (

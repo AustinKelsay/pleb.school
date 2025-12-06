@@ -493,6 +493,8 @@ export interface ContentItem {
   additionalLinks: AdditionalLink[]
   // Nostr event ID for zapthreads integration
   noteId?: string
+  // Search-related fields
+  matchedFields?: ('title' | 'description' | 'content' | 'tags')[]
   purchases?: Array<{
     id: string
     amountPaid?: number
