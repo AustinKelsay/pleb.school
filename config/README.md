@@ -37,21 +37,36 @@ Example (dark + clean‑slate):
 ### 📝 `content.json` — Content Display
 Homepage sections (courses, videos, documents), filters (price/category/sort), pagination and search options, and global labels (categories, sort/price labels).
 - `contentPage.includeLessonResources.{videos,documents}` lets you keep lesson-linked resources discoverable on `/content` while leaving homepage carousels untouched. Defaults to `true` for both so lessons don't disappear from the library once added to a course.
+- `contentPage.imageFetch.{relaySet,maxConcurrentFetches}` sets which relay set to use for note preview images on `/content` and caps concurrent fetches to avoid flooding relays.
+- `search.{minKeywordLength,timeout,limit,relaySet}` configures Nostr search behavior:
+  - `minKeywordLength`: Minimum characters before search executes (default: 3)
+  - `timeout`: Relay query timeout in ms (default: 15000)
+  - `limit`: Max events to fetch (default: 100)
+  - `relaySet`: Which relay set from `nostr.json` to use (default: 'default')
+- **Search filters by admin pubkeys**: Content is discovered by querying Nostr for events authored by pubkeys listed in `admin.json` (admins + moderators). This ensures search only returns content published by your platform's authorized creators.
 
 ### 🔤 `copy.json` — Site Copy & Text
 All user‑facing strings for navigation, homepage, about page, content pages, error/empty states, cards, and lessons.
 
 - `site.*` controls global title/description/brand name.
 - `homepage.*` powers the landing page hero, stats, sections, and CTA.
+- `homepage.hero.title.useAnimated` toggles the rotating hero keywords; when `false`, the title uses `homepage.hero.title.staticWord` (or the first `animatedWords` entry) as a static label.
+- `search.*` drives search page title/description, input placeholder, tab labels, summary, and empty/error messages.
+- `verifyEmail.*` covers the email verification page titles, labels, button text, and errors.
+- `about.steps.*` fills the three “make it yours” step cards.
+- `payments.purchaseDialog` and `payments.zapDialog` hold toasts/status text for Lightning payments and zaps.
 - `about.*` powers the About page hero, three feature pillars, and the “make it your own” CTA. This is the place to explain how your forked platform works (who it’s for, how Nostr/Lightning are used, and how to configure the stack) without touching React components.
 
+### 💸 `payments.json` — Payments & Zap UX
+Zap presets, minimums, privacy toggle behavior, note byte limits, zap QR auto-show (`zap.autoShowQr`), recent zap list size, purchase min zap, auto-close timing, purchase QR auto-show, and progress basis (`server` vs `serverPlusViewer`). Client-safe; no secrets.
+
 ### ⚡ `nostr.json` — Nostr Relays & NIPs
-Relay sets and event type mapping. The app now reads relays from this file everywhere.
+Relay sets and event type mapping. Relay access flows through `getRelays(set)`; `default` is used as the fallback when a set is empty or missing.
 
 - Relay sets: `default`, `content` (optional), `profile` (optional), `zapThreads` (new), `custom`.
 - Runtime: `src/lib/nostr-relays.ts` provides `getRelays(set)` and `DEFAULT_RELAYS`.
-- Fetch/publish services aligned to config; API publish routes accept `relaySet`.
-- ZapThreads widget uses the `zapThreads` set by default.
+- Fetch/publish services that accept `relaySet` can use these names; otherwise they fall back to `default`.
+- ZapThreads widget prefers the `zapThreads` set when present; otherwise it falls back to `default`.
 
 ### 🛡️ `admin.json` — Admin & Moderator
 Pubkey lists (npub or hex) and permission flags. `features.*` are advisory until wired; admin-utils reads admins/moderators and normalizes keys.

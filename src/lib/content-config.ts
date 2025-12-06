@@ -1,4 +1,5 @@
 import contentConfig from "../../config/content.json"
+import type { RelaySet } from "@/lib/nostr-relays"
 
 export type PriceFilter = "all" | "free" | "paid"
 export type SortOption = "newest" | "oldest" | "price-low" | "price-high" | "popular"
@@ -49,6 +50,10 @@ export interface ContentPageConfig {
   includeLessonResources?: {
     videos: boolean
     documents: boolean
+  }
+  imageFetch?: {
+    relaySet?: RelaySet
+    maxConcurrentFetches?: number
   }
 }
 

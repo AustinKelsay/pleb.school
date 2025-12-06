@@ -23,11 +23,18 @@
     "homepage.hero.badge": "Small label shown above the main headline",
     "homepage.hero.title.line1": "First line of the hero title",
     "homepage.hero.title.line2": "Second line prefix before animated words",
+    "homepage.hero.title.useAnimated": "Toggle rotating animated words on/off in the hero title",
     "homepage.hero.animatedWords": "Array of words that cycle through in the animated title portion",
+    "homepage.hero.title.staticWord": "Word to display when animation is disabled (defaults to first animatedWords entry)",
     "homepage.hero.title.line3": "Final line of the hero title",
     "homepage.hero.description": "One-paragraph description below the title",
     "homepage.hero.buttons.startLearning": "Primary CTA button text",
     "homepage.hero.buttons.watchDemo": "Secondary CTA button text",
+    "search": "Search page hero, tabs, empty/error states, and summary text",
+    "verifyEmail": "Email verification page titles, labels, errors, and buttons",
+    "about.steps": "Three cards under the About page “How to make it yours” section",
+    "payments.purchaseDialog": "Toasts and statuses for purchase/zap-to-unlock flow",
+    "payments.zapDialog": "Toasts and statuses for standalone zap dialog",
     "homepage.stats": "Statistics section displaying platform metrics with values, labels, and optional icons. You can add, remove, or reorder stats here.",
     "homepage.stats.*.value": "Displayed metric value (e.g., '2,500+')",
     "homepage.stats.*.label": "Short label describing the metric (e.g., 'Students')",
@@ -89,6 +96,20 @@
       "title": "Run your own Nostr-native course & content platform",
       "description": "pleb.school is a forkable, configuration-driven platform. Swap branding, themes, and relays to launch your own education hub, then deploy it to Vercel or your own infrastructure without rewriting the core architecture."
     },
+    "steps": {
+      "fork": {
+        "title": "1. Fork & clone",
+        "description": "Create your own repository and clone it locally. Keep upstream changes in a branch if you want to stay close to the reference implementation."
+      },
+      "configure": {
+        "title": "2. Configure branding & relays",
+        "description": "Update config/copy.json, config/content.json, and config/nostr.json to match your brand, navigation, content sections, and relay setup."
+      },
+      "deploy": {
+        "title": "3. Deploy your instance",
+        "description": "Point your environment variables at your Postgres instance and Nostr relays, then deploy to Vercel, Fly.io, or your preferred platform."
+      }
+    },
     "sections": {
       "creators": {
         "title": "For creators & communities",
@@ -142,8 +163,10 @@
       "badge": "Nostr-native open education stack",
       "title": {
         "line1": "Launch your learning hub",
-        "line2": "Built with",
+        "line2": "Built for",
+        "useAnimated": true,
         "animatedWords": ["Bitcoin", "Lightning", "Nostr", "AI"],
+        "staticWord": "Bitcoin",
         "line3": "Own your platform"
       },
       "description": "pleb.school is the reference deployment of a configurable, open source education stack. Fork it, point it at your own relays and database, and run a fully branded Nostr-native course and content platform for your community.",
@@ -200,6 +223,42 @@
         "title": "Documents",
         "description": "Long-form documents, guides, and reference notes rendered from markdown and Nostr events."
       }
+    }
+  },
+  "search": {
+    "title": "Search Content",
+    "description": "Search courses and resources from Nostr relays",
+    "inputPlaceholder": "Search Nostr content... (min 3 characters)",
+    "emptyPrompt": "Please enter at least 3 characters to search",
+    "error": "Failed to search. Please try again.",
+    "tabs": {
+      "all": "All",
+      "courses": "Courses",
+      "resources": "Resources"
+    },
+    "summary": {
+      "prefix": "Found",
+      "resultSingular": "result",
+      "resultPlural": "results",
+      "for": "for"
+    }
+  },
+  "verifyEmail": {
+    "title": "Verify Your Email",
+    "description": "Enter the 6-digit code we sent to confirm your email.",
+    "codeLabel": "Verification Code",
+    "codePlaceholder": "Enter the 6-digit code",
+    "noRefError": "Invalid verification link.",
+    "errors": {
+      "invalidToken": "Invalid or used verification code.",
+      "tokenExpired": "Verification code expired. Request a new one.",
+      "tokenMismatch": "Code does not match. Try again.",
+      "generic": "Verification failed. Please try again.",
+      "network": "Network error. Please try again."
+    },
+    "buttons": {
+      "submit": "Verify Email",
+      "submitting": "Verifying..."
     }
   },
   "subscribe": {
@@ -347,6 +406,69 @@
     "types": {
       "videoPreview": "Video Preview",
       "resourcePreview": "Resource Preview"
+    }
+  },
+  "payments": {
+    "purchaseDialog": {
+      "autoClaim": {
+        "unlockedTitle": "Unlocked! 🎉",
+        "unlockedDescription": "Your zaps unlocked this content",
+        "recordedTitle": "Payment recorded",
+        "recordedDescription": "{amount} sats recorded",
+        "claimFailedTitle": "Claim failed"
+      },
+      "validation": {
+        "signInRequired": "Sign in required",
+        "invalidAmountTitle": "Invalid amount",
+        "invalidAmountDescription": "Minimum {min} sats"
+      },
+      "send": {
+        "paidTitle": "Payment sent",
+        "paidDescription": "Recording purchase...",
+        "invoiceReadyTitle": "Invoice ready",
+        "invoiceReadyDescription": "Pay to unlock",
+        "unlockedTitle": "Unlocked!",
+        "unlockedDescription": "Enjoy!",
+        "recordedTitle": "Recorded",
+        "recordedDescription": "{amount} sats saved",
+        "waitingTitle": "Waiting for receipt",
+        "waitingDescription": "Will unlock when confirmed",
+        "failedTitle": "Failed",
+        "failedDescription": "{error}",
+        "claimSignInTitle": "Sign in first",
+        "claimSuccessTitle": "Unlocked!",
+        "claimSuccessDescription": "Past zaps verified",
+        "claimNoneTitle": "No receipts found",
+        "copyTitle": "Copied!",
+        "copyFailedTitle": "Copy failed"
+      }
+    },
+    "zapDialog": {
+      "invalidAmountTitle": "Invalid amount",
+      "invalidAmountRange": "Choose between {min}–{max} sats",
+      "invalidAmountMinimum": "Minimum {min} sat",
+      "successPaidTitle": "Zap sent ⚡",
+      "successPaidDescription": "Thanks for the support!",
+      "invoiceReadyTitle": "Invoice ready",
+      "invoiceReadyDescription": "Pay with your Lightning wallet",
+      "failedTitle": "Zap failed",
+      "failedDescription": "{error}",
+      "copiedTitle": "Copied!",
+      "copyFailedTitle": "Copy failed",
+      "retryPaidTitle": "Zap paid!",
+      "retryPaidDescription": "Thanks!",
+      "retryFailedTitle": "WebLN failed",
+      "retryFailedDescription": "Pay manually below",
+      "status": {
+        "resolving": "Resolving...",
+        "signing": "Signing...",
+        "requestingInvoice": "Getting invoice...",
+        "paying": "Paying...",
+        "invoiceReady": "Ready to pay",
+        "invoiceReadyWeblnFailed": "WebLN failed",
+        "success": "Sent!",
+        "error": "Failed"
+      }
     }
   },
   "contentTypes": {
