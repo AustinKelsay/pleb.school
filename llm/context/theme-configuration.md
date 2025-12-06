@@ -23,10 +23,10 @@ Instead of hardcoding colors, spacing, or other design tokens, we use CSS variab
   color: white;
 }
 
-/* ✅ Use CSS variables (OKLCh color space) */
+/* ✅ Use CSS variables (values are already OKLCh) */
 .component {
-  background-color: oklch(var(--primary));
-  color: oklch(var(--primary-foreground));
+  background-color: var(--primary);
+  color: var(--primary-foreground);
 }
 ```
 
