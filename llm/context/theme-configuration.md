@@ -133,6 +133,8 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean, fontOv
   // 3. Look up font family from config (not raw value)
   const fontConfig = fontOverride ? availableFonts.find(f => f.value === fontOverride) : null
   const fontToUse = fontConfig?.fontFamily || theme.fontFamily
+  const fontWeight = fontConfig?.fontWeight || theme.fontWeight
+  const googleFontUrl = fontConfig?.googleFontUrl || theme.googleFontUrl
 
   // 4. Apply font family as CSS variable AND to body
   root.style.setProperty('--font-family', fontToUse)
