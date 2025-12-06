@@ -6,8 +6,10 @@ import { Container } from "@/components/layout/container"
 import { Section } from "@/components/layout/section"
 import { SearchContentCard } from "@/components/ui/search-content-card"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Loader2 } from "lucide-react"
+import { Search, Home, Loader2 } from "lucide-react"
+import { SearchResultsSkeleton } from "@/components/ui/content-skeleton"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useNostrSearch } from "@/hooks/useNostrSearch"
 import type { ContentItem } from '@/data/types'
@@ -64,6 +66,7 @@ function SearchContent() {
         topics: result.tags || [result.category || ''].filter(Boolean),
         additionalLinks: [],
         noteId: undefined,
+        matchedFields: result.matchedFields,
       }
       return contentItem
     })
@@ -104,6 +107,17 @@ function SearchContent() {
     <Container className="py-8">
       <Section>
         <div className="space-y-6">
+          {/* Home Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/')}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <Home className="h-4 w-4" />
+            Home
+          </Button>
+
           {/* Search Header */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">{searchCopy?.title ?? "Search Content"}</h1>
@@ -175,9 +189,7 @@ function SearchContent() {
             )}
             
             {isLoading && (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
+              <SearchResultsSkeleton count={4} />
             )}
             
             {!isLoading && filteredResults.length > 0 && (
@@ -230,8 +242,18 @@ export default function SearchPage() {
     <Suspense fallback={
       <Container className="py-8">
         <Section>
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="space-y-6">
+            <div className="h-9 w-16" /> {/* Back button placeholder */}
+            <div className="text-center space-y-2">
+              <div className="h-9 w-48 mx-auto rounded bg-muted animate-pulse" />
+              <div className="h-4 w-64 mx-auto rounded bg-muted animate-pulse" />
+            </div>
+            <div className="max-w-2xl mx-auto">
+              <div className="h-12 w-full rounded bg-muted animate-pulse" />
+            </div>
+            <div className="mt-8">
+              <SearchResultsSkeleton count={4} />
+            </div>
           </div>
         </Section>
       </Container>

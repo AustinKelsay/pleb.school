@@ -2,12 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useSnstrContext } from '@/contexts/snstr-context'
-import { NostrEvent, RelayPool, decodePublicKey } from 'snstr'
+import { NostrEvent, RelayPool } from 'snstr'
 import { parseCourseEvent, parseEvent } from '@/data/types'
-import { SearchResult } from '@/lib/search'
+import { SearchResult, MatchedField } from '@/lib/search'
 import { getRelays, type RelaySet } from '@/lib/nostr-relays'
-import adminConfig from '../../config/admin.json'
+import { normalizeHexPubkey } from '@/lib/nostr-keys'
 import contentConfig from '../../config/content.json'
+import adminConfig from '../../config/admin.json'
 
 // Options for the hook
 export interface UseNostrSearchOptions {
@@ -37,6 +38,39 @@ type SearchConfig = {
   relaySet?: RelaySet
 }
 
+type AdminPubkeyConfig = {
+  admins?: { pubkeys?: string[] }
+  moderators?: { pubkeys?: string[] }
+}
+
+function getAuthorizedSearchAuthors(): string[] {
+  const { admins, moderators } = adminConfig as AdminPubkeyConfig
+  const configuredPubkeys = [
+    ...(admins?.pubkeys ?? []),
+    ...(moderators?.pubkeys ?? [])
+  ]
+
+  const normalized = configuredPubkeys
+    .map(normalizeHexPubkey)
+    .filter((pubkey): pubkey is string => Boolean(pubkey))
+
+  const unique = Array.from(new Set(normalized))
+
+  if (unique.length === 0) {
+    console.warn('Nostr search disabled: no admin/moderator pubkeys configured')
+  }
+
+  return unique
+}
+
+const AUTHORIZED_SEARCH_AUTHORS = getAuthorizedSearchAuthors()
+const AUTHORIZED_SEARCH_AUTHOR_SET = new Set(AUTHORIZED_SEARCH_AUTHORS)
+
+function isAuthorizedSearchAuthor(pubkey?: string): boolean {
+  const normalized = normalizeHexPubkey(pubkey || '')
+  return normalized ? AUTHORIZED_SEARCH_AUTHOR_SET.has(normalized) : false
+}
+
 // Get search config with defaults
 function getSearchConfig(): SearchConfig {
   const searchConfig = (contentConfig as any).search || {}
@@ -53,30 +87,92 @@ function resolveSearchRelays(relaySet: RelaySet | undefined, fallbackRelays: str
   return configuredRelays.length ? configuredRelays : fallbackRelays
 }
 
-// Convert npub to hex format for Nostr author queries
-function npubToHex(pubkey: string): string | null {
-  try {
-    if (pubkey.startsWith('npub1')) {
-      return decodePublicKey(pubkey as `npub1${string}`)
-    } else if (/^[a-f0-9]{64}$/i.test(pubkey)) {
-      return pubkey.toLowerCase()
-    }
-  } catch (error) {
-    console.error('Error converting pubkey:', error)
+// Cache database IDs to avoid refetching on every keystroke
+const DATABASE_ID_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+let cachedDatabaseIds: string[] | null = null
+let cachedDatabaseIdsTimestamp = 0
+let inflightDatabaseIdsPromise: Promise<string[]> | null = null
+
+/**
+ * Fetch all content IDs from the database with simple in-memory caching.
+ * This prevents multiple paginated requests on every search keystroke.
+ */
+async function fetchDatabaseContentIds(): Promise<string[]> {
+  const now = Date.now()
+  if (cachedDatabaseIds && now - cachedDatabaseIdsTimestamp < DATABASE_ID_CACHE_TTL_MS) {
+    return cachedDatabaseIds
   }
-  return null
-}
 
-// Get admin pubkeys as hex for Nostr author queries
-function getAdminPubkeysHex(): string[] {
-  const allPubkeys = [
-    ...adminConfig.admins.pubkeys,
-    ...adminConfig.moderators.pubkeys,
-  ]
+  if (inflightDatabaseIdsPromise) {
+    return inflightDatabaseIdsPromise
+  }
 
-  return allPubkeys
-    .map(npubToHex)
-    .filter((hex): hex is string => hex !== null)
+  const PAGE_SIZE = 200
+  const MAX_PAGES = 50
+
+  const collectIds = async (
+    baseUrl: string,
+    dataKey: 'courses' | 'resources',
+    extraParams = ''
+  ): Promise<string[]> => {
+    const ids: string[] = []
+    let page = 1
+    let hasNext = true
+
+    while (hasNext && page <= MAX_PAGES) {
+      const url = `${baseUrl}?page=${page}&pageSize=${PAGE_SIZE}${extraParams}`
+      const res = await fetch(url)
+
+      if (!res.ok) {
+        console.error(`Failed to fetch ${dataKey} page ${page}`)
+        break
+      }
+
+      const json = await res.json()
+      const items = Array.isArray(json.data)
+        ? json.data
+        : Array.isArray(json[dataKey])
+          ? json[dataKey]
+          : []
+
+      ids.push(
+        ...items
+          .map((item: { id?: string }) => item.id)
+          .filter((id): id is string => Boolean(id))
+      )
+
+      const pagination = json.pagination
+      if (pagination && typeof pagination.hasNext === 'boolean') {
+        hasNext = pagination.hasNext
+      } else {
+        hasNext = items.length === PAGE_SIZE
+      }
+
+      page += 1
+    }
+
+    return ids
+  }
+
+  inflightDatabaseIdsPromise = (async () => {
+    try {
+      const [courseIds, resourceIds] = await Promise.all([
+        collectIds('/api/courses/list', 'courses'),
+        collectIds('/api/resources/list', 'resources', '&includeLessonResources=true')
+      ])
+
+      cachedDatabaseIds = [...courseIds, ...resourceIds]
+      cachedDatabaseIdsTimestamp = Date.now()
+      return cachedDatabaseIds
+    } catch (error) {
+      console.error('Error fetching database content IDs:', error)
+      return []
+    } finally {
+      inflightDatabaseIdsPromise = null
+    }
+  })()
+
+  return inflightDatabaseIdsPromise
 }
 
 // Query keys factory for better cache management
@@ -88,41 +184,60 @@ export const nostrSearchQueryKeys = {
 
 /**
  * Calculate match score based on keyword relevance
+ * Returns both the score and which fields matched
  */
-function calculateMatchScore(keyword: string, title: string, description: string, content: string): number {
+function calculateMatchScore(keyword: string, title: string, description: string, content: string, tags: string[]): { score: number; matchedFields: MatchedField[] } {
   const lowerKeyword = keyword.toLowerCase()
   const lowerTitle = title.toLowerCase()
   const lowerDescription = description.toLowerCase()
   const lowerContent = content.toLowerCase()
-  
+
   let score = 0
-  
-  // Exact match in title (highest score)
-  if (lowerTitle === lowerKeyword) {
-    score += 100
+  const matchedFields: MatchedField[] = []
+
+  // Title matching
+  if (lowerTitle.includes(lowerKeyword)) {
+    matchedFields.push('title')
+    if (lowerTitle === lowerKeyword) {
+      score += 100  // Exact match
+    } else if (lowerTitle.startsWith(lowerKeyword)) {
+      score += 50  // Starts with
+    } else {
+      score += 30  // Contains
+    }
   }
-  // Title starts with keyword
-  else if (lowerTitle.startsWith(lowerKeyword)) {
-    score += 50
-  }
-  // Title contains keyword
-  else if (lowerTitle.includes(lowerKeyword)) {
-    score += 30
-  }
-  
-  // Description contains keyword
+
+  // Description matching
   if (lowerDescription.includes(lowerKeyword)) {
+    matchedFields.push('description')
     const matches = lowerDescription.match(new RegExp(lowerKeyword, 'g'))
     score += (matches?.length || 1) * 8
   }
-  
-  // Content contains keyword
+
+  // Content matching
   if (lowerContent.includes(lowerKeyword)) {
+    matchedFields.push('content')
     const matches = lowerContent.match(new RegExp(lowerKeyword, 'g'))
     score += (matches?.length || 1) * 3
   }
-  
-  // Word boundary matches (whole word)
+
+  // Tag matching
+  let tagMatched = false
+  for (const tag of tags) {
+    const lowerTag = tag.toLowerCase()
+    if (lowerTag === lowerKeyword) {
+      score += 40  // Exact tag match
+      tagMatched = true
+    } else if (lowerTag.includes(lowerKeyword)) {
+      score += 20  // Partial tag match
+      tagMatched = true
+    }
+  }
+  if (tagMatched) {
+    matchedFields.push('tags')
+  }
+
+  // Word boundary matches (whole word) - bonus points
   const wordBoundaryRegex = new RegExp(`\\b${lowerKeyword}\\b`, 'gi')
   if (wordBoundaryRegex.test(title)) {
     score += 25
@@ -133,8 +248,8 @@ function calculateMatchScore(keyword: string, title: string, description: string
   if (wordBoundaryRegex.test(content)) {
     score += 5
   }
-  
-  return score
+
+  return { score, matchedFields }
 }
 
 /**
@@ -153,19 +268,20 @@ function highlightKeyword(text: string, keyword: string): string {
 function courseEventToSearchResult(event: NostrEvent, keyword: string): SearchResult | null {
   try {
     const parsedEvent = parseCourseEvent(event)
-    
+
     const title = parsedEvent.title || parsedEvent.name || ''
     const description = parsedEvent.description || ''
     const content = parsedEvent.content || ''
-    
+    const tags = parsedEvent.topics || []
+
     // Skip if no searchable content
-    if (!title && !description && !content) return null
-    
-    const score = calculateMatchScore(keyword, title, description, content)
-    
+    if (!title && !description && !content && tags.length === 0) return null
+
+    const { score, matchedFields } = calculateMatchScore(keyword, title, description, content, tags)
+
     // Only include results with a score > 0
     if (score <= 0) return null
-    
+
     return {
       id: parsedEvent.d || event.id,
       type: 'course',
@@ -180,6 +296,7 @@ function courseEventToSearchResult(event: NostrEvent, keyword: string): SearchRe
       matchScore: score,
       keyword,
       tags: parsedEvent.topics || [],
+      matchedFields,
       highlights: {
         title: highlightKeyword(title, keyword),
         description: highlightKeyword(description, keyword)
@@ -197,19 +314,20 @@ function courseEventToSearchResult(event: NostrEvent, keyword: string): SearchRe
 function resourceEventToSearchResult(event: NostrEvent, keyword: string): SearchResult | null {
   try {
     const parsedEvent = parseEvent(event)
-    
+
     const title = parsedEvent.title || ''
     const description = parsedEvent.summary || ''
     const content = parsedEvent.content || ''
-    
+    const tags = parsedEvent.topics || []
+
     // Skip if no searchable content
-    if (!title && !description && !content) return null
-    
-    const score = calculateMatchScore(keyword, title, description, content)
-    
+    if (!title && !description && !content && tags.length === 0) return null
+
+    const { score, matchedFields } = calculateMatchScore(keyword, title, description, content, tags)
+
     // Only include results with a score > 0
     if (score <= 0) return null
-    
+
     return {
       id: parsedEvent.d || event.id,
       type: 'resource',
@@ -224,6 +342,7 @@ function resourceEventToSearchResult(event: NostrEvent, keyword: string): Search
       matchScore: score,
       keyword,
       tags: parsedEvent.topics || [],
+      matchedFields,
       highlights: {
         title: highlightKeyword(title, keyword),
         description: highlightKeyword(description, keyword)
@@ -237,7 +356,7 @@ function resourceEventToSearchResult(event: NostrEvent, keyword: string): Search
 
 /**
  * Search Nostr events for content matching keywords
- * Queries content from admin/moderator pubkeys and filters by keyword client-side
+ * Uses database-first approach: fetches IDs from database, then queries Nostr with those IDs
  */
 async function searchNostrContent(
   keyword: string,
@@ -248,47 +367,49 @@ async function searchNostrContent(
   const searchRelays = resolveSearchRelays(config.relaySet, relays)
 
   if (!keyword || keyword.length < config.minKeywordLength) return []
+  if (AUTHORIZED_SEARCH_AUTHORS.length === 0) return []
 
-  const adminPubkeys = getAdminPubkeysHex()
+  // Step 1: Get all content IDs from database
+  const databaseIds = await fetchDatabaseContentIds()
 
-  if (adminPubkeys.length === 0) {
-    console.warn('No admin pubkeys configured - search will return no results')
+  if (databaseIds.length === 0) {
+    console.warn('No content found in database - search will return no results')
     return []
   }
 
   try {
-    console.log(`Searching Nostr for keyword: "${keyword}" from ${adminPubkeys.length} admin author(s)`)
+    console.log(`Searching Nostr for keyword: "${keyword}" in ${databaseIds.length} database items`)
 
-    // Fetch events from admin authors - this queries real content published by admins
+    // Step 2: Query Nostr using 'd' tags for only database-backed content
     const events = await relayPool.querySync(
       searchRelays,
       {
         kinds: [30004, 30023, 30402],
-        authors: adminPubkeys,
+        "#d": databaseIds,
+        authors: AUTHORIZED_SEARCH_AUTHORS,
         limit: config.limit
       },
       { timeout: config.timeout }
     )
 
-    console.log(`Found ${events.length} events from admin authors, filtering by keyword "${keyword}"`)
+    console.log(`Found ${events.length} events from Nostr, filtering by keyword "${keyword}"`)
 
-    // Use a Map to deduplicate results by ID (d tag value)
+    // Step 3: Client-side keyword matching
     const resultsMap = new Map<string, SearchResult>()
 
-    // Process each event and do client-side keyword matching
     for (const event of events) {
+      if (!isAuthorizedSearchAuthor(event.pubkey)) continue
+
       let searchResult: SearchResult | null = null
 
       if (event.kind === 30004) {
-        // Course event
         searchResult = courseEventToSearchResult(event, keyword)
       } else if (event.kind === 30023 || event.kind === 30402) {
-        // Resource event (free or paid)
         searchResult = resourceEventToSearchResult(event, keyword)
       }
 
-      if (searchResult) {
-        // Only keep the result with the highest match score for each ID
+      // Only include results with matchScore > 0 (keyword actually matches)
+      if (searchResult && searchResult.matchScore > 0) {
         const existingResult = resultsMap.get(searchResult.id)
         if (!existingResult || searchResult.matchScore > existingResult.matchScore) {
           resultsMap.set(searchResult.id, searchResult)
@@ -296,10 +417,9 @@ async function searchNostrContent(
       }
     }
 
-    // Convert Map to array
     const deduplicatedResults = Array.from(resultsMap.values())
 
-    console.log(`Processed ${deduplicatedResults.length} unique search results (${events.length - deduplicatedResults.length} duplicates removed)`)
+    console.log(`Found ${deduplicatedResults.length} matching results for "${keyword}"`)
 
     // Sort by match score (highest first)
     deduplicatedResults.sort((a, b) => b.matchScore - a.matchScore)
@@ -316,7 +436,7 @@ async function searchNostrContent(
  * Hook for searching content on Nostr relays using React Query
  *
  * Features:
- * - Searches content from admin/moderator pubkeys (configured in admin.json)
+ * - Database-first approach: only searches content that exists in the database
  * - Searches course events (kind 30004) and resource events (kinds 30023, 30402)
  * - Uses existing parser functions for consistent data structure
  * - Returns results compatible with existing search UI
@@ -366,7 +486,7 @@ export function useNostrSearch(
 
 /**
  * Hook for searching specific event kinds on Nostr
- * Also filters by admin pubkeys for content relevance
+ * Uses database-first approach: only searches content that exists in the database
  */
 export function useNostrSearchByKind(
   keyword: string,
@@ -391,16 +511,19 @@ export function useNostrSearchByKind(
     queryKey: [...nostrSearchQueryKeys.search(keyword), kinds],
     queryFn: async () => {
       if (!keyword || keyword.length < config.minKeywordLength) return []
+      if (AUTHORIZED_SEARCH_AUTHORS.length === 0) return []
 
-      const adminPubkeys = getAdminPubkeysHex()
-      if (adminPubkeys.length === 0) return []
+      // Get database IDs first
+      const databaseIds = await fetchDatabaseContentIds()
+      if (databaseIds.length === 0) return []
 
       try {
         const events = await relayPool.querySync(
           searchRelays,
           {
             kinds,
-            authors: adminPubkeys,
+            "#d": databaseIds,
+            authors: AUTHORIZED_SEARCH_AUTHORS,
             limit: config.limit
           },
           { timeout: config.timeout }
@@ -409,6 +532,8 @@ export function useNostrSearchByKind(
         const results: SearchResult[] = []
 
         for (const event of events) {
+          if (!isAuthorizedSearchAuthor(event.pubkey)) continue
+
           let searchResult: SearchResult | null = null
 
           if (event.kind === 30004) {
@@ -417,7 +542,8 @@ export function useNostrSearchByKind(
             searchResult = resourceEventToSearchResult(event, keyword)
           }
 
-          if (searchResult) {
+          // Only include results with matchScore > 0
+          if (searchResult && searchResult.matchScore > 0) {
             results.push(searchResult)
           }
         }
