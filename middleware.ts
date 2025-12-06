@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import nostrConfig from './config/nostr.json'
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next()
@@ -29,13 +30,37 @@ export function middleware(request: NextRequest) {
     ? "'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live"
     : "'self' https://vercel.live"
     
+  // Build connect-src from configured relays plus required analytics endpoints
+  const relaySets = (nostrConfig as any)?.relays ?? {}
+  const relayList = new Set<string>(
+    [
+      ...(relaySets.default ?? []),
+      ...(relaySets.content ?? []),
+      ...(relaySets.profile ?? []),
+      ...(relaySets.zapThreads ?? []),
+      ...(relaySets.custom ?? []),
+      ...(process.env.ALLOWED_RELAYS ? process.env.ALLOWED_RELAYS.split(',') : []),
+    ].filter(Boolean)
+  )
+
+  // Fallback to current known-good relays if config/environment is empty
+  if (relayList.size === 0) {
+    ;['wss://relay.nostr.band', 'wss://nos.lol', 'wss://relay.damus.io'].forEach((r) => relayList.add(r))
+  }
+
+  const connectSrc = [
+    "'self'",
+    'https://vitals.vercel-insights.com',
+    ...Array.from(relayList),
+  ].join(' ')
+
   const cspHeader = `
     default-src 'self';
     script-src ${scriptSrc};
     style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data: https://images.unsplash.com https://avatars.githubusercontent.com https://api.dicebear.com https://i.ytimg.com https://yt3.ggpht.com https://nyc3.digitaloceanspaces.com;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' https://vitals.vercel-insights.com wss://relay.nostr.band wss://nos.lol wss://relay.damus.io;
+    connect-src ${connectSrc};
     media-src 'self';
     object-src 'none';
     base-uri 'self';
