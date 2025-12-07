@@ -12,6 +12,7 @@ import type { Course, Resource } from '@prisma/client'
 import { RelayPool, type NostrEvent } from 'snstr'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import type { AdditionalLink } from '@/types/additional-links'
+import { decryptPrivkey } from './privkey-crypto'
 
 export class RepublishError extends Error {
   constructor(
@@ -224,7 +225,7 @@ export class RepublishService {
       }
     }
 
-    const signingPrivkey = privkey || resource.user.privkey
+    const signingPrivkey = privkey || decryptPrivkey(resource.user.privkey)
 
     if (!signingPrivkey) {
       if (!resource.user.privkey) {
@@ -435,7 +436,7 @@ export class RepublishService {
       }
     }
 
-    const signingPrivkey = privkey || course.user.privkey
+    const signingPrivkey = privkey || decryptPrivkey(course.user.privkey)
 
     if (!signingPrivkey) {
       if (!course.user.privkey) {

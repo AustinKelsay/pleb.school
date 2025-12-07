@@ -21,6 +21,7 @@ import {
 } from '@/lib/nostr-events'
 import { DraftService, CourseDraftService, type CourseDraftWithIncludes } from '@/lib/draft-service'
 import type { Resource, Course, Lesson } from '@prisma/client'
+import { decryptPrivkey } from './privkey-crypto'
 
 // Default relays for publishing are loaded from config via DEFAULT_RELAYS
 
@@ -89,7 +90,7 @@ export class PublishService {
     }
 
     // Use the stored server-side key for signing (ephemeral/OAuth accounts only)
-    const signingPrivkey = user.privkey
+    const signingPrivkey = decryptPrivkey(user.privkey)
     if (!signingPrivkey) {
       throw new PublishError(
         'Private key not available for signing',
@@ -247,7 +248,7 @@ export class PublishService {
       throw new PublishError('User not found', 'USER_NOT_FOUND')
     }
 
-    const signingPrivkey = user.privkey
+    const signingPrivkey = decryptPrivkey(user.privkey)
     if (!signingPrivkey) {
       throw new PublishError(
         'Private key not available for signing',
