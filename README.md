@@ -27,8 +27,8 @@ The pleb.school demo shows how to run a self-hosted Next.js 15 stack where brand
 - **Turbopack** - Next-generation bundler
 
 ### **Architecture & Performance**
-- **Hybrid Data Architecture** - Mock JSON database + Real Nostr events for optimal development experience
-- **Database Adapter Pattern** - Clean data access abstraction with JSON mock + Nostr integration
+- **Data Architecture** - Prisma/Postgres as the source of truth with optional client-side Nostr hydration
+- **Database Adapter Pattern** - Clean data access abstraction with Prisma + Nostr integration
 - **Live Nostr Integration** - Real-time connection to relays (nos.lol, relay.damus.io, relay.primal.net, nostr.land, purplerelay.com, nostr.wine)
 - **Advanced Query Hooks** - TanStack Query with intelligent caching, batch operations, and error boundaries
 - **Hierarchical Caching** - L1 memory cache with 5-minute stale time and automatic invalidation
@@ -79,11 +79,10 @@ src/
 ├── lib/                  # Core utilities & architecture
 │   ├── cache.ts          # ✅ Hierarchical caching system
 │   ├── api-utils.ts      # ✅ API validation & error handling
-│   ├── db-adapter.ts     # ✅ Database adapter pattern with JSON mock + Nostr
+│   ├── db-adapter.ts     # ✅ Database adapter pattern with Prisma + Nostr
 │   ├── theme-config.ts   # ✅ 47 complete theme configurations
 │   └── utils.ts          # ✅ Utilities (cn, clsx, validation)
-├── data/                 # ✅ Hybrid data architecture (Mock DB + Real Nostr)
-│   ├── mockDb/           # JSON mock database files (Course, Resource, Lesson)
+├── data/                 # ✅ Data types + Nostr parsers/config
 │   ├── types.ts          # Database models + Nostr types + Display interfaces
 │   ├── nostr-events.ts   # Real Nostr event data and examples
 │   ├── index.ts          # Centralized data access functions
@@ -254,22 +253,17 @@ npm run lint
 
 ### **🔥 Performance Improvements**
 
-#### **Real Caching System + Mock Database**
+#### **Caching with Prisma + Nostr hydration**
 ```typescript
-// Development: JSON mock database
-const course = coursesDatabase.find(c => c.id === courseId)
+// Server/API: Prisma as source of truth
+const course = await CourseAdapter.findById(courseId)
 
-// + Real Nostr events
-const nostrEvent = await fetchNostrEvent(course.noteId)
+// Client: hydrate Nostr note via snstr RelayPool (d-tag matches course.id)
+const notes = await relayPool.querySync(relays, { "#d": [course.id], kinds: [30004] }, { timeout: 5000 })
+const note = notes[0]
 
-// + Hierarchical caching
-const cache = new DataCache({
-  maxSize: 1000,
-  defaultTtl: 300000 // 5 minutes
-})
-
-// Result: 67% performance improvement
-// JSON read: <1ms, Nostr fetch: <50ms, Cache hit: <1ms
+// Optional: cache in-memory for the session
+memoryCache.set(`course:${course.id}`, { ...course, note }, 5 * 60 * 1000)
 ```
 
 **Features:**
@@ -281,21 +275,11 @@ const cache = new DataCache({
 
 #### **Database Adapter Pattern**
 ```typescript
-// Clean data access with JSON mock + Nostr integration
+// Clean data access with Prisma + optional Nostr enrichment
 export class CourseAdapter {
   static async findById(id: string): Promise<Course | null> {
-    return globalCache.get(`course:${id}`, async () => {
-      // Get from JSON mock database
-      const course = coursesDatabase.find(c => c.id === id)
-      if (!course) return null
-      
-      // Fetch associated Nostr event for rich content
-      if (course.noteId) {
-        const nostrEvent = await fetchNostrEvent(course.noteId)
-        return { ...course, note: nostrEvent }
-      }
-      return course
-    })
+    const course = await prisma.course.findUnique({ where: { id }, include: { user: { select: courseUserSelect } } })
+    return course ? transformCourse(course) : null
   }
 }
 ```
@@ -534,7 +518,7 @@ The platform features a **rich educational ecosystem** with 31 carefully curated
 - **Real Caching**: 67% improvement in data access speed
 - **Bundle Optimization**: Tree shaking and code splitting
 - **Image Optimization**: next/image with AVIF/WebP support
-- **Database Ready**: Easy migration from mock to real data
+- **Database Ready**: Prisma/Postgres is the primary data path
 
 ---
 
@@ -603,13 +587,12 @@ try {
 - `src/hooks/useDocumentsQuery.ts` - Document query hooks with batch Nostr operations
 - `src/hooks/useVideosQuery.ts` - Video query hooks with metadata parsing
 - `src/hooks/useNostr.ts` - Core Nostr integration utilities and helpers
-- `src/lib/db-adapter.ts` - Database adapter pattern with JSON mock + Nostr integration
+- `src/lib/db-adapter.ts` - Database adapter pattern with Prisma + Nostr integration
 - `src/contexts/snstr-context.tsx` - Production Nostr relay pool management
 - `src/contexts/theme-context.tsx` - Custom theme color management with 47 themes
 - `src/lib/cache.ts` - Hierarchical caching system with statistics
 - `src/lib/theme-config.ts` - 47 complete theme configurations
 - `src/data/types.ts` - Complete type system for Database + Nostr + Display interfaces
-- `src/data/mockDb/` - JSON mock database files (Course.json, Resource.json, Lesson.json)
 - `src/data/nostr-events.ts` - Real Nostr event data and examples
 - `src/types/next-auth.d.ts` - Enhanced NextAuth types with complete profile support
 - `src/lib/auth.ts` - Comprehensive authentication with complete profile collection
@@ -621,7 +604,7 @@ try {
 - **Resource Management API**: Complete CRUD operations for resources with access control and validation
 - **Draft-to-Resource Flow**: Seamless conversion of drafts to published resources with Nostr event creation
 - **Mixed Lesson Support**: Courses can contain both draft and published resources, paid and free content
-- **Hybrid Development Architecture**: Perfect blend of JSON mock database + Real Nostr events for rapid development
+- **Hybrid Development Architecture**: Prisma source of truth with optional Nostr hydration
 - **Live Nostr Integration**: Real-time connection to production Nostr relays with automatic fallback handling
 - **Advanced Query Hooks**: Professional-grade TanStack Query implementation with intelligent caching and error boundaries
 - **Batch Data Fetching**: Optimized batch queries using Nostr 'd' tags for sub-50ms response times
@@ -630,7 +613,7 @@ try {
 - **Database Adapter Pattern**: Clean data abstraction with integrated hierarchical caching (CourseAdapter, ResourceAdapter, LessonAdapter)
 - **Lightning Network Integration**: zapthreads for Bitcoin payments and Lightning interactions
 - **Advanced Theme System**: 47 complete color schemes with custom font pairings and runtime switching
-- **Comprehensive Content Library**: 31 educational resources (6 courses, 13 documents, 12 videos) with hybrid data backing
+- **Comprehensive Content Library**: 31 educational resources (6 courses, 13 documents, 12 videos) with Prisma + Nostr backing
 - **Performance Monitoring**: Real-time cache statistics, query performance metrics, and Nostr relay health monitoring
 - **Security Validation**: XSS prevention, input sanitization, rate limiting, and secure Nostr event validation
 - **Error Resilience**: Graceful fallbacks, structured error handling, and automatic retry mechanisms
@@ -641,19 +624,14 @@ try {
 
 ### **Database Integration**
 ```typescript
-// Easy migration from JSON mock to real database
+// Prisma-backed adapter with optional Nostr hydration at the edge/client
 export class DatabaseCourseAdapter {
   async findById(id: string): Promise<Course | null> {
-    // Replace JSON file access with database query
-    const result = await db.course.findUnique({ where: { id } })
-    if (!result) return null
-    
-    // Keep Nostr integration exactly the same
-    if (result.noteId) {
-      const nostrEvent = await fetchNostrEvent(result.noteId)
-      return { ...result, note: nostrEvent }
-    }
-    return result
+    const result = await prisma.course.findUnique({
+      where: { id },
+      include: { user: { select: courseUserSelect } }
+    })
+    return result ? transformCourse(result) : null
   }
 }
 ```
