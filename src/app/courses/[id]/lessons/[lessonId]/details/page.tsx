@@ -454,7 +454,6 @@ let courseInstructorPubkey = ''
             <Badge variant="secondary" className="capitalize">
               {courseCategory}
             </Badge>
-            {/* TODO: Update ResourceActions to work with new data structure */}
             <div className="text-sm text-muted-foreground">
               {resourceIsPremium ? 'Premium' : 'Free'}
             </div>

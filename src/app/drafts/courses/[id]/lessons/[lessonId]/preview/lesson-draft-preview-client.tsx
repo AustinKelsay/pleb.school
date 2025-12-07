@@ -181,10 +181,6 @@ function DraftLessonContent({
     switch (type) {
       case 'video':
         return <Video className="h-4 w-4" />
-      case 'guide':
-        return <BookOpen className="h-4 w-4" />
-      case 'tutorial':
-        return <PlayCircle className="h-4 w-4" />
       default:
         return <FileText className="h-4 w-4" />
     }

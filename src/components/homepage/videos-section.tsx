@@ -32,7 +32,7 @@ export function VideosSection() {
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold">{sectionConfig?.title || 'Videos'}</h2>
             <p className="text-muted-foreground">
-              {sectionConfig?.description || 'Video tutorials and workshops from Bitcoin developers and experts'}
+              {sectionConfig?.description || 'Video lessons and workshops from Bitcoin developers and experts'}
             </p>
           </div>
           
@@ -66,7 +66,7 @@ export function VideosSection() {
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold">{sectionConfig?.title || 'Videos'}</h2>
             <p className="text-muted-foreground">
-              {sectionConfig?.description || 'Video tutorials and workshops from Bitcoin developers and experts'}
+              {sectionConfig?.description || 'Video lessons and workshops from Bitcoin developers and experts'}
             </p>
           </div>
           
@@ -84,7 +84,7 @@ export function VideosSection() {
         <div className="text-center space-y-2">
           <h2 className="text-3xl font-bold">Videos</h2>
           <p className="text-muted-foreground">
-            Video tutorials and workshops from Bitcoin developers and experts
+            Video lessons and workshops from Bitcoin developers and experts
           </p>
         </div>
         

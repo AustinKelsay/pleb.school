@@ -72,7 +72,7 @@ export default async function CreatePage({
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold">Create Resource Draft</h2>
                 <p className="text-sm text-muted-foreground">
-                  Create standalone educational content like tutorials, guides, or videos
+                  Create standalone educational content like documents or videos
                 </p>
               </div>
               <CreateDraftForm />

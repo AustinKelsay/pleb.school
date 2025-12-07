@@ -1,4 +1,4 @@
-# Profile & Settings Implementation Guide
+# Profile & Settings Implementation Reference
 
 ## System Overview
 
@@ -508,7 +508,7 @@ interface UserPreferences {
 }
 ```
 
-## Testing Guidelines
+## Testing Notes
 
 ### Unit Testing
 
@@ -639,7 +639,7 @@ if (process.env.NODE_ENV === 'development') {
 - Sanitized error messages
 - Rate limiting on sensitive endpoints
 
-## Migration Guide
+## Migration Notes
 
 ### From Single to Multi-Account
 

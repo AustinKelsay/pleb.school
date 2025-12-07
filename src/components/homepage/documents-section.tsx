@@ -32,7 +32,7 @@ export function DocumentsSection() {
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold">{sectionConfig?.title || 'Documents'}</h2>
             <p className="text-muted-foreground">
-              {sectionConfig?.description || 'Guides, tutorials, and educational materials for Bitcoin development'}
+              {sectionConfig?.description || 'Documents and educational materials for Bitcoin development'}
             </p>
           </div>
           
@@ -66,7 +66,7 @@ export function DocumentsSection() {
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold">{sectionConfig?.title || 'Documents'}</h2>
             <p className="text-muted-foreground">
-              {sectionConfig?.description || 'Guides, tutorials, and educational materials for Bitcoin development'}
+              {sectionConfig?.description || 'Documents and educational materials for Bitcoin development'}
             </p>
           </div>
           
@@ -84,7 +84,7 @@ export function DocumentsSection() {
         <div className="text-center space-y-2">
           <h2 className="text-3xl font-bold">Documents</h2>
           <p className="text-muted-foreground">
-            Guides, tutorials, and educational materials for Bitcoin development
+            Documents and educational materials for Bitcoin development
           </p>
         </div>
         
