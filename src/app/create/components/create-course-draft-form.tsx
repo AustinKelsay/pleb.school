@@ -11,13 +11,12 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { 
-  X, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  X,
+  AlertCircle,
+  CheckCircle,
   BookOpen,
   Image,
-  DollarSign,
   Tag,
   Plus,
   Loader2,
@@ -26,6 +25,10 @@ import {
   ChevronUp,
   ChevronDown
 } from 'lucide-react'
+import { getCourseIcon } from '@/lib/copy-icons'
+
+const PriceIcon = getCourseIcon('price')
+
 import LessonSelector from './lesson-selector'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { useResourceNotes, type ResourceNoteResult } from '@/hooks/useResourceNotes'
@@ -717,7 +720,7 @@ export default function CreateCourseDraftForm() {
 
           <div className="space-y-2">
             <Label htmlFor="price">
-              <DollarSign className="h-4 w-4 inline-block mr-1" />
+              <PriceIcon className="h-4 w-4 inline-block mr-1" />
               Course Price (in sats)
             </Label>
             <div className="relative">

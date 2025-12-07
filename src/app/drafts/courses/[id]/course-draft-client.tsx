@@ -20,23 +20,25 @@ import {
   resolveDraftLesson,
   type ResolvedDraftLesson,
 } from '@/lib/drafts/lesson-resolution'
-import { 
-  Clock, 
-  BookOpen, 
+import {
+  Clock,
+  BookOpen,
   Tag,
-  GraduationCap,
   Edit,
   Eye,
   Trash2,
   Share,
   FileText,
   Video,
-  DollarSign,
   Loader2,
   AlertCircle,
   CheckCircle2,
   Pencil,
 } from 'lucide-react'
+import { getCourseIcon } from '@/lib/copy-icons'
+
+const EducationIcon = getCourseIcon('education')
+const PriceIcon = getCourseIcon('price')
 
 interface CourseDraftPageClientProps {
   courseId: string
@@ -70,7 +72,7 @@ function DraftCourseLessons({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <GraduationCap className="h-5 w-5" />
+              <EducationIcon className="h-5 w-5" />
               <span>Course Content (Draft)</span>
             </CardTitle>
           </CardHeader>
@@ -101,7 +103,7 @@ function DraftCourseLessons({
         <CardHeader className="pb-3 sm:pb-6">
           <CardTitle className="flex items-center justify-between text-base sm:text-lg">
             <div className="flex items-center space-x-2">
-              <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />
+              <EducationIcon className="h-4 w-4 sm:h-5 sm:w-5" />
               <span>Course Lessons (Draft)</span>
             </div>
             <div className="flex items-center gap-2">
@@ -206,7 +208,7 @@ function DraftCourseLessons({
                         </Badge>
                         {isPremium ? (
                           <Badge variant="secondary" className="text-xs">
-                            <DollarSign className="h-3 w-3 mr-0.5" />
+                            <PriceIcon className="h-3 w-3 mr-0.5" />
                             {lesson.price?.toLocaleString()}
                           </Badge>
                         ) : (

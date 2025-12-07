@@ -71,6 +71,70 @@ Relay sets and event type mapping. Relay access flows through `getRelays(set)`; 
 ### 🛡️ `admin.json` — Admin & Moderator
 Pubkey lists (npub or hex) and permission flags. `features.*` are advisory until wired; admin-utils reads admins/moderators and normalizes keys.
 
+## 🎯 Icon Configuration
+
+Icons throughout the platform are configurable via [lucide-react](https://lucide.dev/icons/). Each config file contains an `icons` section for its relevant UI elements.
+
+### Where icons are configured
+
+| Config File | Icon Categories |
+|-------------|-----------------|
+| `content.json` | Content type icons (course, video, document), category icons |
+| `copy.json` | Navigation, homepage, profile tabs, status, actions, error pages, subscribe/feeds |
+| `auth.json` | Provider icons (email, github, nostr, etc.), security icons, account management |
+| `payments.json` | Interaction icons (zap, heart, comment), payment status icons |
+
+### Icon naming
+
+Icon names must match **lucide-react component names exactly** (PascalCase):
+- ✅ `BookOpen` (correct)
+- ❌ `book-open` (wrong - kebab-case)
+- ❌ `bookopen` (wrong - lowercase)
+
+Browse all available icons at: https://lucide.dev/icons/
+
+### Example: Changing the brand icon
+
+In `config/copy.json`:
+```json
+{
+  "icons": {
+    "navigation": {
+      "brand": "Zap",      // Change to "Bitcoin" or any lucide icon
+      "menu": "Menu",
+      "search": "Search"
+    }
+  }
+}
+```
+
+### Fallback behavior
+
+If an icon name is invalid:
+1. A warning is logged to console (development only)
+2. A default fallback icon is used
+3. The app continues to function normally
+
+### Usage in code
+
+```ts
+// Content icons
+import { getContentTypeIcon, getCategoryIcon } from '@/lib/content-config'
+const CourseIcon = getContentTypeIcon('course')  // Returns BookOpen by default
+
+// Navigation/UI icons
+import { getNavigationIcon, getStatusIcon } from '@/lib/copy-icons'
+const MenuIcon = getNavigationIcon('menu')
+
+// Auth icons
+import { getProviderIcon } from '@/lib/auth-icons'
+const EmailIcon = getProviderIcon('email')
+
+// Payment/interaction icons
+import { getInteractionIcon } from '@/lib/payments-config'
+const ZapIcon = getInteractionIcon('zap')
+```
+
 ## Priority & Overrides
 
 - Auth: config is authoritative for which providers/UI are visible.

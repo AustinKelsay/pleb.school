@@ -1,5 +1,25 @@
 {
+  "icons": {
+    "interactions": {
+      "zap": "Zap",
+      "heart": "Heart",
+      "comment": "MessageCircle"
+    },
+    "status": {
+      "success": "CheckCircle",
+      "pending": "Loader2",
+      "error": "AlertTriangle"
+    },
+    "purchase": {
+      "shieldCheck": "ShieldCheck",
+      "wallet": "Wallet"
+    }
+  },
   "_comments": {
+    "icons": "Icon configuration for payment interactions. Icon names must match lucide-react component names (PascalCase). See https://lucide.dev/icons/",
+    "icons.interactions": "Icons for content interaction buttons (zap, heart/like, comment)",
+    "icons.status": "Icons for payment status indicators (success, pending, error)",
+    "icons.purchase": "Icons for purchase-related UI elements (security badge, wallet)",
     "_overview": "Payments and zap configuration (client-safe). Controls zap presets, limits, and purchase dialog behaviors.",
     "zap.quickAmounts": "Preset zap buttons in sats.",
     "zap.defaultQuickIndex": "Index in quickAmounts to preselect (0-based).",

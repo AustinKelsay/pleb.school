@@ -4,8 +4,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Home, Search, ArrowLeft } from "lucide-react"
 import { copyConfig } from "@/lib/copy"
+import { getNavigationIcon, getErrorIcon } from "@/lib/copy-icons"
+
+// Configurable icons from config/copy.json (resolved at module scope)
+const NotFoundIcon = getErrorIcon('notFound')
+const HomeIcon = getNavigationIcon('home')
+const BackIcon = getNavigationIcon('back')
 
 /**
  * 404 Not Found page component
@@ -20,7 +25,7 @@ export default function NotFound() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Search className="h-6 w-6 text-primary" />
+            <NotFoundIcon className="h-6 w-6 text-primary" />
           </div>
           <CardTitle>{notFoundCopy.title}</CardTitle>
           <CardDescription>{notFoundCopy.description}</CardDescription>
@@ -28,7 +33,7 @@ export default function NotFound() {
         <CardContent className="space-y-3">
           <Button asChild className="w-full">
             <Link href="/">
-              <Home className="mr-2 h-4 w-4" />
+              <HomeIcon className="mr-2 h-4 w-4" />
               {notFoundCopy.buttons.goHome}
             </Link>
           </Button>
@@ -37,7 +42,7 @@ export default function NotFound() {
             className="w-full"
             onClick={() => router.back()}
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <BackIcon className="mr-2 h-4 w-4" />
             {notFoundCopy.buttons.goBack}
           </Button>
         </CardContent>

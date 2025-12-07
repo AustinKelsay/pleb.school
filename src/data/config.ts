@@ -1,11 +1,5 @@
-import { 
-  BookOpen, 
-  Video, 
-  FileText, 
-  Map, 
-  Shield,
-  type LucideIcon
-} from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+import { getContentTypeIcon, getAllContentTypeIcons } from "@/lib/content-config"
 
 /**
  * Centralized UI configuration for consistent display across the application
@@ -14,14 +8,23 @@ import {
 
 /**
  * Icons mapping for different content types
+ * Now powered by configurable icons from config/content.json
+ * @deprecated Use getContentTypeIcon() from @/lib/content-config instead
  */
-export const contentTypeIcons: Record<string, LucideIcon> = {
-  course: BookOpen,
-  video: Video,
-  document: FileText,
-  guide: Map,
-  cheatsheet: Shield,
-}
+export const contentTypeIcons: Record<string, LucideIcon> = new Proxy(
+  {} as Record<string, LucideIcon>,
+  {
+    get(_, prop: string) {
+      return getContentTypeIcon(prop)
+    },
+    ownKeys() {
+      return Object.keys(getAllContentTypeIcons())
+    },
+    getOwnPropertyDescriptor() {
+      return { enumerable: true, configurable: true }
+    }
+  }
+)
 
 /**
  * Badge variants for difficulty levels using standard shadcn badge variants
@@ -40,8 +43,6 @@ export const contentTypeLabels: Record<string, string> = {
   course: "Course",
   video: "Video",
   document: "Document",
-  guide: "Guide",
-  cheatsheet: "Cheat Sheet",
 }
 
 /**
@@ -116,9 +117,10 @@ export const popularTags = [
 
 /**
  * Content type filters for UI
+ * Icons are now resolved from configurable icons in config/content.json
  */
 export const contentTypeFilters = [
-  { type: 'course', icon: BookOpen, label: 'Courses' },
-  { type: 'video', icon: Video, label: 'Videos' },
-  { type: 'document', icon: FileText, label: 'Documents' }
+  { type: 'course', icon: getContentTypeIcon('course'), label: 'Courses' },
+  { type: 'video', icon: getContentTypeIcon('video'), label: 'Videos' },
+  { type: 'document', icon: getContentTypeIcon('document'), label: 'Documents' }
 ] 

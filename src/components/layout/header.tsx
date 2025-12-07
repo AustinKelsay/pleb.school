@@ -14,7 +14,8 @@ import {
   DropdownMenuSubContent,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { Menu, Search, Zap, Settings, Moon, Type, Check, LogOut, UserCircle, Plus } from "lucide-react"
+import { Moon, Type, Check } from "lucide-react"
+import { getNavigationIcon } from "@/lib/copy-icons"
 import { Container } from "./container"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ThemeSelector } from "@/components/theme-selector"
@@ -35,6 +36,15 @@ import { isAnonymousAvatar, isAnonymousUsername } from "@/lib/anonymous-identity
 
 const AVATAR_STORAGE_KEY = "ns.header.avatar"
 const DISPLAY_NAME_STORAGE_KEY = "ns.header.display-name"
+
+// Configurable navigation icons from config/copy.json (resolved at module scope)
+const MenuIcon = getNavigationIcon('menu')
+const SearchIcon = getNavigationIcon('search')
+const BrandIcon = getNavigationIcon('brand')
+const SettingsIcon = getNavigationIcon('settings')
+const ProfileIcon = getNavigationIcon('profile')
+const LogoutIcon = getNavigationIcon('logout')
+const CreateIcon = getNavigationIcon('create')
 
 /**
  * Header component for the main navigation
@@ -297,14 +307,14 @@ export function Header() {
         <div className="flex flex-1 items-center space-x-1 sm:space-x-2">
           <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
-              <Zap className="h-4 w-4 text-primary-foreground" />
+              <BrandIcon className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="hidden sm:block text-xl font-bold">{site.brandName}</span>
           </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
-                <Menu className="h-6 w-6" />
+                <MenuIcon className="h-6 w-6" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
@@ -344,7 +354,7 @@ export function Header() {
                     {shouldShowThemeSelector() && (
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="sm:hidden">
-                          <Settings className="mr-2 h-4 w-4" />
+                          <SettingsIcon className="mr-2 h-4 w-4" />
                           Theme
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="w-64 max-h-80 overflow-y-auto">
@@ -416,7 +426,7 @@ export function Header() {
         {/* Centered Search Bar */}
         <div className="flex flex-none justify-center px-4 lg:px-6">
           <form onSubmit={handleSearch} className="relative hidden w-full max-w-md sm:block">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={navigation.searchPlaceholder}
               className="w-full pl-10"
@@ -431,7 +441,7 @@ export function Header() {
           {/* Search icon - only show on mobile */}
           <Link href="/search" className="sm:hidden">
             <Button variant="ghost" size="icon">
-              <Search className="h-4 w-4" />
+              <SearchIcon className="h-4 w-4" />
             </Button>
           </Link>
           
@@ -469,20 +479,20 @@ export function Header() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="flex items-center">
-                    <UserCircle className="mr-2 h-4 w-4" />
+                    <ProfileIcon className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/profile?tab=settings" className="flex items-center">
-                    <Settings className="mr-2 h-4 w-4" />
+                    <SettingsIcon className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </Link>
                 </DropdownMenuItem>
                 {canCreateContent && (
                   <DropdownMenuItem asChild>
                     <Link href="/create" className="flex items-center">
-                      <Plus className="mr-2 h-4 w-4" />
+                      <CreateIcon className="mr-2 h-4 w-4" />
                       <span>Create</span>
                     </Link>
                   </DropdownMenuItem>
@@ -492,7 +502,7 @@ export function Header() {
                   onClick={handleSignOut}
                   className="flex items-center"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
+                  <LogoutIcon className="mr-2 h-4 w-4" />
                   <span>Sign out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>

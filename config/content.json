@@ -1,5 +1,25 @@
 {
+  "icons": {
+    "contentTypes": {
+      "course": "BookOpen",
+      "video": "Video",
+      "document": "FileText"
+    },
+    "categories": {
+      "bitcoin": "CircleDollarSign",
+      "lightning": "Zap",
+      "nostr": "Rss",
+      "frontend": "Code",
+      "backend": "Server",
+      "mobile": "Smartphone",
+      "security": "Shield",
+      "web3": "Globe"
+    }
+  },
   "_comments": {
+    "icons": "Icon configuration for content types and categories. Icon names must match lucide-react component names (PascalCase). See https://lucide.dev/icons/",
+    "icons.contentTypes": "Icons displayed for each content type (course, video, document)",
+    "icons.categories": "Icons displayed for content category badges and filters",
     "_overview": "Content configuration system - controls how content is displayed across the application, particularly homepage sections and content filtering",
     "_runtime_usage": "Loaded by src/lib/content-config.ts and src/hooks/useContentConfig.ts; JSON must remain valid. Keys should match defined unions: sections ∈ {courses, documents, videos}; price filters ∈ {all, free, paid}; sort ∈ {newest, oldest, price-low, price-high, popular}.",
     "homepage": "Homepage content section configuration - controls which content types appear, their order, filtering, and display settings",

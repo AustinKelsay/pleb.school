@@ -1,5 +1,6 @@
 import contentConfig from "../../config/content.json"
 import type { RelaySet } from "@/lib/nostr-relays"
+import { getIcon, type LucideIcon } from "@/lib/icons-config"
 
 export type PriceFilter = "all" | "free" | "paid"
 export type SortOption = "newest" | "oldest" | "price-low" | "price-high" | "popular"
@@ -153,4 +154,67 @@ export function applyContentFilters<T extends { price: number; category?: string
   
   // Apply max items limit
   return filtered.slice(0, filters.maxItems)
+}
+
+// ============================================================================
+// Icon Configuration
+// ============================================================================
+
+interface IconsConfig {
+  contentTypes: Record<string, string>
+  categories: Record<string, string>
+}
+
+/**
+ * Get icons configuration from content.json
+ */
+export function getIconsConfig(): IconsConfig {
+  return (contentConfig as { icons: IconsConfig }).icons
+}
+
+/**
+ * Get the icon for a content type
+ * @param contentType - Content type key (course, video, document)
+ * @returns LucideIcon component
+ */
+export function getContentTypeIcon(contentType: string): LucideIcon {
+  const icons = getIconsConfig()
+  const iconName = icons.contentTypes[contentType] || "FileText"
+  return getIcon(iconName, "FileText")
+}
+
+/**
+ * Get the icon for a category
+ * @param category - Category key (bitcoin, lightning, nostr, etc.)
+ * @returns LucideIcon component
+ */
+export function getCategoryIcon(category: string): LucideIcon {
+  const icons = getIconsConfig()
+  const iconName = icons.categories[category] || "Tag"
+  return getIcon(iconName, "Tag")
+}
+
+/**
+ * Get all content type icons as a record
+ * Useful for components that need to iterate over all icons
+ */
+export function getAllContentTypeIcons(): Record<string, LucideIcon> {
+  const icons = getIconsConfig()
+  const result: Record<string, LucideIcon> = {}
+  for (const [type, iconName] of Object.entries(icons.contentTypes)) {
+    result[type] = getIcon(iconName, "FileText")
+  }
+  return result
+}
+
+/**
+ * Get all category icons as a record
+ */
+export function getAllCategoryIcons(): Record<string, LucideIcon> {
+  const icons = getIconsConfig()
+  const result: Record<string, LucideIcon> = {}
+  for (const [category, iconName] of Object.entries(icons.categories)) {
+    result[category] = getIcon(iconName, "Tag")
+  }
+  return result
 }

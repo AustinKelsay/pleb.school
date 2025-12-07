@@ -20,24 +20,26 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
-import { 
-  X, 
-  AlertCircle, 
-  CheckCircle, 
-  FileText, 
-  Video, 
-  BookOpen, 
-  FileCode, 
-  Map, 
+import {
+  X,
+  AlertCircle,
+  CheckCircle,
+  FileText,
+  Video,
+  BookOpen,
+  FileCode,
   ScrollText,
   Image,
-  DollarSign,
   Tag,
   Link2,
   Plus,
   Eye,
   Edit
 } from 'lucide-react'
+import { getCourseIcon } from '@/lib/copy-icons'
+
+const PriceIcon = getCourseIcon('price')
+
 import { additionalLinkLabel, normalizeAdditionalLinks } from '@/lib/additional-links'
 import type { AdditionalLink } from '@/types/additional-links'
 
@@ -579,7 +581,7 @@ export default function CreateDraftForm() {
 
           <div className="space-y-2">
             <Label htmlFor="price">
-              <DollarSign className="h-4 w-4 inline-block mr-1" />
+              <PriceIcon className="h-4 w-4 inline-block mr-1" />
               Price (in sats)
             </Label>
             <div className="relative">

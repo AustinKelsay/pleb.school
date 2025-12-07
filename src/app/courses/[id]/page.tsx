@@ -20,14 +20,17 @@ import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { useInteractions } from '@/hooks/useInteractions'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import { resolveUniversalId } from '@/lib/universal-router'
-import { 
-  Clock, 
-  BookOpen, 
+import {
+  Clock,
+  BookOpen,
   Play,
   Tag,
-  ExternalLink,
-  GraduationCap
+  ExternalLink
 } from 'lucide-react'
+import { getCourseIcon } from '@/lib/copy-icons'
+
+const EducationIcon = getCourseIcon('education')
+
 import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseActions } from '@/components/purchase/purchase-actions'
@@ -60,14 +63,14 @@ function formatNpubWithEllipsis(pubkey: string): string {
 
 function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; courseId: string }) {
   const { course } = useCopy()
-  
+
   if (!lessons || lessons.length === 0) {
     return (
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <GraduationCap className="h-5 w-5" />
+              <EducationIcon className="h-5 w-5" />
               <span>{course.labels.courseContent}</span>
             </CardTitle>
           </CardHeader>
@@ -91,7 +94,7 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
           <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
-            <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />
+            <EducationIcon className="h-4 w-4 sm:h-5 sm:w-5" />
             <span>{course.labels.courseLessons}</span>
           </CardTitle>
         </CardHeader>
@@ -506,7 +509,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
             {hasAccess ? (
               <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
                 <Link href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}>
-                  <GraduationCap className="h-5 w-5 mr-2" />
+                  <EducationIcon className="h-5 w-5 mr-2" />
                   Start Learning
                 </Link>
               </Button>
@@ -555,7 +558,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-center">
                     <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/20">
-                      <GraduationCap className="h-10 w-10 text-primary" />
+                      <EducationIcon className="h-10 w-10 text-primary" />
                     </div>
                     <p className="text-lg font-medium text-foreground">Course Preview</p>
                     <p className="text-sm text-muted-foreground capitalize">{category}</p>
