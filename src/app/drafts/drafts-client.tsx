@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { useAllDraftsQuery, useDeleteDraft, type CourseDraft, type ResourceDraft } from '@/hooks/useAllDraftsQuery'
 import { useQueryClient } from '@tanstack/react-query'
-import { 
+import {
   Search,
   Plus,
   BookOpen,
@@ -23,9 +23,11 @@ import {
   Trash2,
   Share,
   Filter,
-  Loader2,
-  DollarSign
+  Loader2
 } from 'lucide-react'
+import { getCourseIcon } from '@/lib/copy-icons'
+
+const PriceIcon = getCourseIcon('price')
 
 // Type guards
 function isCourseDraft(draft: CourseDraft | ResourceDraft): draft is CourseDraft {
@@ -223,7 +225,7 @@ function DraftCard({ draft }: { draft: CourseDraft | ResourceDraft }) {
           <div className="flex-shrink-0 ml-2">
             {isPremium ? (
               <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
-                <DollarSign className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                <PriceIcon className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                 <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
                   {draft.price?.toLocaleString() || '0'} sats
                 </span>

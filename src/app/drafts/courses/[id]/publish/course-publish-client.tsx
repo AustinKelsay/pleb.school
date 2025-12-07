@@ -14,7 +14,7 @@ import { Section } from '@/components/layout/section'
 import { useCourseDraftQuery, type CourseDraft } from '@/hooks/useCourseDraftQuery'
 import { usePublishCourse } from '@/hooks/usePublishDraft'
 import { useQueryClient } from '@tanstack/react-query'
-import { 
+import {
   ArrowLeft,
   Share,
   Check,
@@ -25,10 +25,13 @@ import {
   BookOpen,
   Clock,
   Zap,
-  GraduationCap,
   CheckCircle2,
   Pencil
 } from 'lucide-react'
+import { getCourseIcon } from '@/lib/copy-icons'
+
+const EducationIcon = getCourseIcon('education')
+
 import { useResourceNotes } from '@/hooks/useResourceNotes'
 import { resolveDraftLesson, type ResolvedDraftLesson } from '@/lib/drafts/lesson-resolution'
 import { cn } from '@/lib/utils'
@@ -215,7 +218,7 @@ function CourseSummary({ draftData, lessons }: { draftData: CourseDraft; lessons
       <CardContent className="space-y-4">
         <div className="flex items-start space-x-4">
           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-            <GraduationCap className="h-6 w-6 text-primary" />
+            <EducationIcon className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-lg">{draftData.title}</h3>

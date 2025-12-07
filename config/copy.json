@@ -63,6 +63,10 @@
       "sources": "Rss",
       "alerts": "BellRing",
       "adaptive": "Settings2"
+    },
+    "course": {
+      "price": "DollarSign",
+      "education": "GraduationCap"
     }
   },
   "_comments": {
@@ -76,6 +80,9 @@
     "icons.error": "Icons for error and not-found pages (notFound, serverError, refresh)",
     "icons.subscribe": "Icons for subscribe page highlights",
     "icons.feeds": "Icons for feeds page highlights",
+    "icons.course": "Icons for course-related UI elements (pricing, education indicators)",
+    "icons.course.price": "Icon for price/cost indicators in drafts and lessons",
+    "icons.course.education": "Icon for course/lesson headers and graduation indicators",
     "_overview": "Application copy/text configuration - centralizes all user-facing text for easy customization, branding, and localization",
     "_runtime_usage": "Loaded by multiple UI components (e.g., header, homepage, content pages). Keep JSON valid; this _comments section documents keys without affecting runtime.",
     "site": "Core site information displayed in page titles, meta tags, and navigation branding",

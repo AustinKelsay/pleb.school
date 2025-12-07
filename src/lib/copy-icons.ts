@@ -22,6 +22,7 @@ interface CopyIconsConfig {
   error: Record<string, string>
   subscribe: Record<string, string>
   feeds: Record<string, string>
+  course: Record<string, string>
 }
 
 // ============================================================================
@@ -265,6 +266,32 @@ export function getAllFeedsIcons(): Record<string, LucideIcon> {
   const result: Record<string, LucideIcon> = {}
   for (const [key, iconName] of Object.entries(icons.feeds)) {
     result[key] = getIcon(iconName, "Rss")
+  }
+  return result
+}
+
+// ============================================================================
+// Course Icons
+// ============================================================================
+
+/**
+ * Get a course icon
+ * @param key - Course icon key (price, education)
+ */
+export function getCourseIcon(key: string): LucideIcon {
+  const icons = getCopyIconsConfig()
+  const iconName = icons.course?.[key] || "BookOpen"
+  return getIcon(iconName, "BookOpen")
+}
+
+/**
+ * Get all course icons as a record
+ */
+export function getAllCourseIcons(): Record<string, LucideIcon> {
+  const icons = getCopyIconsConfig()
+  const result: Record<string, LucideIcon> = {}
+  for (const [key, iconName] of Object.entries(icons.course || {})) {
+    result[key] = getIcon(iconName, "BookOpen")
   }
   return result
 }

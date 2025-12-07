@@ -14,14 +14,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { 
-  FileText, 
-  Video, 
-  Plus, 
+import {
+  FileText,
+  Video,
+  Plus,
   Search,
   Loader2,
   Check,
-  DollarSign,
   ImageOff
 } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
