@@ -21,7 +21,6 @@ import { preserveLineBreaks } from '@/lib/text-utils'
 import { 
   Clock, 
   FileText, 
-  Play, 
   ExternalLink,
   Eye,
   BookOpen,
@@ -417,16 +416,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     switch (type) {
       case 'video':
         return <Video className="h-5 w-5" />
-      case 'guide':
-        return <BookOpen className="h-5 w-5" />
-      case 'cheatsheet':
-        return <FileText className="h-5 w-5" />
-      case 'reference':
-        return <FileText className="h-5 w-5" />
-      case 'tutorial':
-        return <Play className="h-5 w-5" />
-      case 'documentation':
-        return <FileText className="h-5 w-5" />
       default:
         return <FileText className="h-5 w-5" />
     }

@@ -88,7 +88,7 @@
       "documents": {
         "enabled": true,
         "title": "Documents",
-        "description": "Guides, tutorials, and educational materials for Bitcoin development",
+        "description": "Documents and educational materials for Bitcoin development",
         "filters": {
           "priceFilter": "all",
           "categories": [],
@@ -108,7 +108,7 @@
       "videos": {
         "enabled": true,
         "title": "Videos",
-        "description": "Video tutorials and workshops from Bitcoin developers and experts",
+        "description": "Video lessons and workshops from Bitcoin developers and experts",
         "filters": {
           "priceFilter": "all",
           "categories": [],

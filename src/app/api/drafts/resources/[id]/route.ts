@@ -16,7 +16,7 @@ const additionalLinksSchema = z
 
 // Validation schemas
 const updateDraftSchema = z.object({
-  type: z.enum(['document', 'video', 'guide', 'tutorial', 'cheatsheet', 'reference']).optional(),
+  type: z.enum(['document', 'video']).optional(),
   title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
   summary: z.string().min(1, 'Summary is required').max(1000, 'Summary too long').optional(),
   content: z.string().optional(),

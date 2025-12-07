@@ -23,7 +23,6 @@ import {
   Eye,
   FileText,
   Video,
-  BookOpen,
   Zap
 } from 'lucide-react'
 import type { AdditionalLink } from '@/types/additional-links'
@@ -197,8 +196,6 @@ function ResourceSummary({ draftData }: { draftData: DraftData }) {
     switch (type) {
       case 'video':
         return <Video className="h-5 w-5" />
-      case 'guide':
-        return <BookOpen className="h-5 w-5" />
       default:
         return <FileText className="h-5 w-5" />
     }

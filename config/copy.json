@@ -215,7 +215,7 @@
         "href": "https://github.com/AustinKelsay/pleb.school"
       },
       "secondary": {
-        "label": "View config guide",
+        "label": "View config docs",
         "href": "https://github.com/AustinKelsay/pleb.school/blob/main/config/README.md"
       }
     }
@@ -304,7 +304,7 @@
       },
       "documents": {
         "title": "Documents",
-        "description": "Long-form documents, guides, and reference notes rendered from markdown and Nostr events."
+        "description": "Long-form documents and reference notes rendered from markdown and Nostr events."
       }
     }
   },
@@ -415,7 +415,7 @@
   },
   "contentLibrary": {
     "title": "Content Library",
-    "description": "Discover courses, video tutorials, implementation guides, API documentation, and quick reference materials for Bitcoin, Lightning, and Nostr development",
+    "description": "Discover courses, videos, and documents for Bitcoin, Lightning, and Nostr development",
     "resultsCounter": "{count} of {total} items",
     "filters": {
       "label": "Filter by:",
@@ -558,13 +558,9 @@
     "course": "Course",
     "video": "Video",
     "document": "Document",
-    "guide": "Guide",
-    "cheatSheet": "Cheat Sheet",
     "courses": "Courses",
     "videos": "Videos",
-    "documents": "Documents",
-    "guides": "Guides",
-    "cheatSheets": "Cheat Sheets"
+    "documents": "Documents"
   },
   "difficulty": {
     "beginner": "Beginner",

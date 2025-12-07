@@ -58,7 +58,7 @@ export function SearchContentCard({
     if (item.type === 'course') {
       router.push(`/courses/${item.id}`)
     } else {
-      // For resources (documents, videos, guides, etc.), navigate to content detail page
+      // For resources (documents or videos), navigate to content detail page
       router.push(`/content/${item.id}`)
     }
   }

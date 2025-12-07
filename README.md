@@ -291,7 +291,7 @@ const handleCardClick = () => {
   if (item.type === 'course') {
     router.push(`/courses/${item.id}`)
   } else {
-    // Documents, videos, guides → /content/[id]
+    // Documents or videos → /content/[id]
     router.push(`/content/${item.id}`)
   }
 }
@@ -477,13 +477,8 @@ if (error instanceof ValidationError) {
 The platform features a **rich educational ecosystem** with 31 carefully curated resources following **NIP-23 (free)** and **NIP-99 (paid)** specifications:
 
 - **Courses (6)**: Structured learning paths with lessons covering Bitcoin development, Lightning Network, Nostr protocol, frontend development, and Lightning API integration
-- **Documents (13)**: Professional-grade educational materials including:
-  - **Implementation Guides**: Step-by-step tutorials for complex integrations
-  - **API References**: Comprehensive documentation with examples and parameters  
-  - **Cheatsheets**: Quick reference materials for developers
-  - **Tutorials**: Hands-on learning content with practical examples
-  - **Documentation**: Technical specifications and best practices
-- **Videos (12)**: High-quality video content ranging from 15-67 minutes covering visual tutorials, deep technical dives, and practical demonstrations
+- **Documents (13)**: Professional-grade educational materials including implementation walk-throughs, API references, and technical specifications
+- **Videos (12)**: High-quality video content ranging from 15-67 minutes covering visual demos, deep technical dives, and practical demonstrations
 
 ### **Content Categories & Expertise**
 - **Bitcoin**: Core protocol development, script programming, node setup, mining pools, transaction mechanics
@@ -967,7 +962,7 @@ Comprehensive documentation is available in the [docs](./docs) directory:
 
 - **[Profile System Architecture](./docs/profile-system-architecture.md)** - Complete architectural overview
 - **[Profile API Reference](./docs/profile-api-reference.md)** - Detailed API documentation
-- **[Profile Implementation Guide](./docs/profile-implementation-guide.md)** - Step-by-step implementation
+- **[Profile Implementation Reference](./llm/implementation/profile-implementation-reference.md)** - Step-by-step implementation
 - **[Documentation Index](./docs/README.md)** - Complete documentation directory
 
 ## 📝 **License**

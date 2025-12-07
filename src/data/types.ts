@@ -442,7 +442,7 @@ export interface ResourceDisplay extends Resource {
   title: string
   description: string
   category: string
-  type: 'document' | 'video' | 'guide' | 'cheatsheet' | 'reference' | 'tutorial' | 'documentation'
+  type: 'document' | 'video'
   instructor: string
   instructorPubkey: string
   rating: number // Deprecated - use engagement metrics instead
