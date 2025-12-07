@@ -28,7 +28,6 @@ import {
   Video,
   BookOpen,
   FileCode,
-  Map,
   ScrollText,
   Image,
   Tag,
