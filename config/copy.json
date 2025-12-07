@@ -1,5 +1,81 @@
 {
+  "icons": {
+    "navigation": {
+      "menu": "Menu",
+      "search": "Search",
+      "settings": "Settings",
+      "profile": "UserCircle",
+      "logout": "LogOut",
+      "home": "Home",
+      "back": "ArrowLeft",
+      "forward": "ArrowRight",
+      "brand": "Zap",
+      "create": "Plus"
+    },
+    "homepage": {
+      "badge": "Sparkles",
+      "startLearning": "BookOpen",
+      "watchDemo": "Video",
+      "ctaPrimary": "Sparkles",
+      "ctaSecondary": "ExternalLink",
+      "visualPrimary": "Eye",
+      "visualSecondary": "Settings",
+      "visualCenter": "Zap"
+    },
+    "about": {
+      "creators": "GitFork",
+      "platform": "Network",
+      "learners": "Settings2"
+    },
+    "profile": {
+      "user": "User",
+      "activity": "Activity",
+      "settings": "Settings",
+      "accounts": "Link2",
+      "content": "FileText",
+      "analytics": "BarChart3"
+    },
+    "status": {
+      "draft": "FileEdit",
+      "edit": "Edit",
+      "preview": "Eye",
+      "share": "Share2",
+      "publish": "Share"
+    },
+    "actions": {
+      "copy": "Copy",
+      "download": "Download",
+      "externalLink": "ExternalLink",
+      "info": "Info"
+    },
+    "error": {
+      "notFound": "AlertCircle",
+      "serverError": "AlertCircle",
+      "refresh": "RefreshCw"
+    },
+    "subscribe": {
+      "badge": "Sparkles",
+      "signal": "BellRing",
+      "creators": "NotebookPen",
+      "perks": "Gift"
+    },
+    "feeds": {
+      "sources": "Rss",
+      "alerts": "BellRing",
+      "adaptive": "Settings2"
+    }
+  },
   "_comments": {
+    "icons": "Icon configuration for UI elements. Icon names must match lucide-react component names (PascalCase). See https://lucide.dev/icons/",
+    "icons.navigation": "Icons for header navigation elements (menu, search, settings, profile, logout, etc.)",
+    "icons.homepage": "Icons for homepage hero section, badges, and CTAs",
+    "icons.about": "Icons for about page feature pillars (creators, platform, learners)",
+    "icons.profile": "Icons for profile page tabs (user, activity, settings, accounts, content, analytics)",
+    "icons.status": "Icons for content status indicators (draft, edit, preview, share, publish)",
+    "icons.actions": "Icons for common action buttons (copy, download, externalLink, info)",
+    "icons.error": "Icons for error and not-found pages (notFound, serverError, refresh)",
+    "icons.subscribe": "Icons for subscribe page highlights",
+    "icons.feeds": "Icons for feeds page highlights",
     "_overview": "Application copy/text configuration - centralizes all user-facing text for easy customization, branding, and localization",
     "_runtime_usage": "Loaded by multiple UI components (e.g., header, homepage, content pages). Keep JSON valid; this _comments section documents keys without affecting runtime.",
     "site": "Core site information displayed in page titles, meta tags, and navigation branding",

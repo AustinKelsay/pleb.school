@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Zap, MessageCircle, Heart } from 'lucide-react'
 import { useSession } from 'next-auth/react'
+import { getInteractionIcon } from '@/lib/payments-config'
 import { createEvent, getEventHash, getPublicKey, signEvent, type NostrEvent } from 'snstr'
 import { Dialog, DialogTrigger } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
@@ -13,6 +13,11 @@ import { normalizeHexPrivkey, normalizeHexPubkey } from '@/lib/nostr-keys'
 import { useZapSender } from '@/hooks/useZapSender'
 import { ZapDialog } from '@/components/zap/zap-dialog'
 import type { LightningRecipient } from '@/types/zap'
+
+// Configurable interaction icons from config/payments.json (resolved at module scope)
+const ZapIcon = getInteractionIcon('zap')
+const CommentIcon = getInteractionIcon('comment')
+const HeartIcon = getInteractionIcon('heart')
 
 function buildReactionTags(
   eventId: string,
@@ -291,7 +296,7 @@ export function InteractionMetrics({
             type="button"
             className={`group flex items-center space-x-1.5 sm:space-x-2 transition-colors cursor-pointer bg-transparent border-0 p-0 ${compact ? '' : ''}`}
           >
-            <Zap className={`${iconSize} transition-colors ${zapGlowClass}`} />
+            <ZapIcon className={`${iconSize} transition-colors ${zapGlowClass}`} />
             <span className="inline-flex items-center justify-center font-medium text-foreground group-hover:text-primary transition-colors">
               {isLoadingZaps ? (
                 <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
@@ -334,7 +339,7 @@ export function InteractionMetrics({
         className="group flex items-center space-x-1.5 sm:space-x-2 transition-colors cursor-pointer bg-transparent border-0 p-0"
         onClick={handleScrollToComments}
       >
-        <MessageCircle className={`${iconSize} text-muted-foreground group-hover:text-blue-500 transition-colors`} />
+        <CommentIcon className={`${iconSize} text-muted-foreground group-hover:text-blue-500 transition-colors`} />
         <span className="inline-flex items-center justify-center font-medium text-foreground group-hover:text-blue-500 transition-colors">
           {isLoadingComments ? (
             <div className="w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></div>
@@ -354,7 +359,7 @@ export function InteractionMetrics({
         className={`group flex items-center space-x-1.5 sm:space-x-2 transition-colors bg-transparent border-0 p-0 ${isReacting ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
         disabled={isReacting}
       >
-        <Heart
+        <HeartIcon
           className={`${iconSize} transition-colors ${likeIconClass} ${showLikeSpinner ? 'opacity-60' : ''}`}
         />
         <span className={`inline-flex items-center justify-center font-medium transition-colors ${likeCountClass}`}>
