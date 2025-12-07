@@ -451,7 +451,6 @@ export interface ResourceDisplay extends Resource {
   currency?: string
   image?: string
   tags: string[]
-  difficulty: 'beginner' | 'intermediate' | 'advanced'
   published: boolean
   topics: string[]
   additionalLinks: AdditionalLink[]
@@ -479,7 +478,6 @@ export interface ContentItem {
   image?: string
   published: boolean
   tags: string[][]
-  difficulty?: 'beginner' | 'intermediate' | 'advanced'
   // Engagement metrics (zaps, comments, likes)
   zapsCount?: number
   commentsCount?: number
@@ -544,7 +542,6 @@ export function createResourceDisplay(resource: Resource, parsedEvent: ParsedRes
     currency: 'sats',
     image: parsedEvent.image || '',
     tags: parsedEvent.topics,
-    difficulty: 'intermediate', // Would need to be inferred or stored
     published: true,
     topics: parsedEvent.topics,
     additionalLinks: parsedEvent.additionalLinks,

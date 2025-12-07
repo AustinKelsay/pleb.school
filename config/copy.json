@@ -156,11 +156,7 @@
     "resource.buttons": "Action buttons for accessing resource content",
     "resource.sidebar": "Resource information sidebar with metadata labels",
     "resource.types": "Labels for different resource preview types",
-    "contentTypes": "Labels for content type classifications (singular and plural forms)",
-    "difficulty": "Difficulty level labels (beginner, intermediate, advanced)",
     "pricing": "Price-related labels and currency units",
-    "categories": "Content category labels matching the available categories in global config",
-    "status": "Status labels for various states (draft, published, enrolled, completed, etc.)",
     "loading": "Loading state text for different contexts and content types",
     "errors": "Error message text for various failure scenarios",
     "errors.general": "Generic error messages with title, description, and retry button text",
@@ -168,9 +164,6 @@
     "errors.specific": "Content-type specific error messages",
     "emptyStates": "Text shown when content sections have no items to display",
     "notFound": "404 page text including title, description, and navigation buttons",
-    "themeSelector": "Theme customization UI labels",
-    "resourceActions": "Action labels for resource interactions (share, resources, premium access)",
-    "contentCards": "Text used within content cards including buttons and duration labels",
     "lessons": "Lesson-specific text including numbering, fallback text, and labels"
   },
   "about": {
@@ -480,11 +473,10 @@
       "author": "Author",
       "type": "Type",
       "category": "Category",
-      "difficulty": "Difficulty",
       "duration": "Duration",
       "views": "Views",
       "created": "Created",
-      "relatedContent": "More resources from the same category and difficulty level coming soon."
+      "relatedContent": "More resources from the same category coming soon."
     },
     "types": {
       "videoPreview": "Video Preview",
@@ -554,45 +546,10 @@
       }
     }
   },
-  "contentTypes": {
-    "course": "Course",
-    "video": "Video",
-    "document": "Document",
-    "courses": "Courses",
-    "videos": "Videos",
-    "documents": "Documents"
-  },
-  "difficulty": {
-    "beginner": "Beginner",
-    "intermediate": "Intermediate", 
-    "advanced": "Advanced"
-  },
   "pricing": {
     "free": "Free",
     "premium": "Premium",
     "sats": "sats"
-  },
-  "categories": {
-    "bitcoin": "Bitcoin",
-    "lightning": "Lightning",
-    "nostr": "Nostr",
-    "frontend": "Frontend",
-    "backend": "Backend",
-    "mobile": "Mobile",
-    "security": "Security",
-    "web3": "Web3"
-  },
-  "status": {
-    "draft": "Draft",
-    "published": "Published",
-    "archived": "Archived",
-    "enrolled": "Enrolled",
-    "completed": "Completed",
-    "inProgress": "In Progress",
-    "notStarted": "Not Started",
-    "pending": "Pending",
-    "failed": "Failed",
-    "refunded": "Refunded"
   },
   "loading": {
     "general": "Loading...",
@@ -629,27 +586,6 @@
     "buttons": {
       "goHome": "Go Home",
       "goBack": "Go Back"
-    }
-  },
-  "themeSelector": {
-    "colorTheme": "Color Theme",
-    "style": "Style",
-    "borderRadius": "Border Radius"
-  },
-  "resourceActions": {
-    "share": "Share",
-    "resources": "Resources",
-    "premiumAccess": "Premium Access"
-  },
-  "contentCards": {
-    "startLearning": "Start Learning",
-    "viewContent": "View Content",
-    "login": "Login",
-    "durations": {
-      "courseShort": "2-4 weeks",
-      "videoShort": "15-30 min",
-      "documentShort": "5-10 min read",
-      "videoMedium": "30 min"
     }
   },
   "lessons": {

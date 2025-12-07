@@ -429,8 +429,7 @@ GET /api/courses?category=frontend&search=react&page=1&limit=10
 ```typescript
 // Advanced search with relevance scoring
 const results = await CourseRepository.search("react", {
-  category: "frontend",
-  difficulty: "intermediate"
+  category: "frontend"
 })
 ```
 
@@ -491,8 +490,7 @@ The platform features a **rich educational ecosystem** with 31 carefully curated
 - **Web3**: DeFi protocol development, smart contract security patterns, blockchain integration
 
 ### **Content Features**
-- **Advanced Search**: Relevance scoring across all content types with intelligent filtering by category, difficulty, and pricing
-- **Skill-Based Learning**: Content organized by difficulty levels (beginner → intermediate → advanced) with clear progression paths
+- **Advanced Search**: Relevance scoring across all content types with intelligent filtering by category and pricing
 - **Flexible Pricing**: Free foundational content (60%) with premium advanced materials (40%) ranging from 8,000-48,000 sats
 - **Rich Metadata**: Comprehensive tagging, instructor profiles with Nostr pubkeys, realistic ratings (4.4-4.9★), and view analytics
 - **NIP Compliance**: Full NIP-23 (free content) and NIP-99 (paid content) specification compliance with proper event IDs and naddr addressing

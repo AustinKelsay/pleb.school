@@ -4,7 +4,7 @@ This file documents what lives in `src/data/`, how it is actually used today, an
 
 ## What’s here
 - `types.ts`: Core domain types (`Course`, `Resource`, `Lesson`, `ContentItem`, etc.) plus Nostr parsers (`parseCourseEvent`, `parseEvent`) and display helpers. These types are widely imported by API routes, hooks, adapters, and UI, so changes are breaking.
-- `config.ts`: UI-facing label maps and icon proxies (content-type icons, difficulty labels, etc.) used by cards and search components.
+- `config.ts`: UI-facing label maps and icon proxies (content-type icons, category labels, etc.) used by cards and search components.
 
 ## Actual data flow (current codepath)
 1) Primary source: PostgreSQL via Prisma through `src/lib/db-adapter.ts`. All API routes (`/api/courses`, `/api/resources`, lessons, profile content, etc.) call this adapter, so running Postgres and migrations is required for the app to work.

@@ -52,7 +52,6 @@ function SearchContent() {
         title: result.title,
         description: result.description,
         category: result.isPremium ? 'Premium' : 'Free',
-        difficulty: 'beginner' as const,
         image: result.image || '',
         tags: [],
         instructor: result.instructor || '',

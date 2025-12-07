@@ -206,15 +206,3 @@ export function getAllContentTypeIcons(): Record<string, LucideIcon> {
   }
   return result
 }
-
-/**
- * Get all category icons as a record
- */
-export function getAllCategoryIcons(): Record<string, LucideIcon> {
-  const icons = getIconsConfig()
-  const result: Record<string, LucideIcon> = {}
-  for (const [category, iconName] of Object.entries(icons.categories)) {
-    result[category] = getIcon(iconName, "Tag")
-  }
-  return result
-}
