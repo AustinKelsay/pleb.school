@@ -32,6 +32,7 @@ import { prisma } from './prisma'
 import type { Prisma, User } from '@prisma/client'
 import { generateKeypair } from 'snstr'
 import { syncUserProfileFromNostr } from './nostr-profile'
+import { encryptPrivkey, decryptPrivkey } from './privkey-crypto'
 
 /**
  * Provider types that can be linked
@@ -238,7 +239,7 @@ export async function linkAccount(
           where: { id: userId },
           data: {
             pubkey: keys.publicKey,
-            privkey: keys.privateKey
+            privkey: encryptPrivkey(keys.privateKey)
           }
         })
       }
@@ -339,7 +340,7 @@ export async function unlinkAccount(
       try {
         const keys = await generateKeypair()
         userUpdates.pubkey = keys.publicKey
-        userUpdates.privkey = keys.privateKey
+        userUpdates.privkey = encryptPrivkey(keys.privateKey)
       } catch (error) {
         console.error('Failed to generate fallback keypair after unlinking Nostr account:', error)
         return { success: false, error: 'Failed to finalize Nostr unlink. Please try again.' }

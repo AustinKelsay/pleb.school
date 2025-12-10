@@ -77,6 +77,7 @@ import {
   shouldSyncFromNostr 
 } from './account-linking'
 import { fetchNostrProfile, syncUserProfileFromNostr } from './nostr-profile'
+import { encryptPrivkey, decryptPrivkey } from './privkey-crypto'
 
 /**
  * Verify NIP07 public key format
@@ -120,7 +121,8 @@ async function findUserByPrivateKey(privateKeyInput: string) {
     throw new Error('No account found for this private key')
   }
 
-  if (!user.privkey || user.privkey !== privateKeyHex) {
+  const storedPrivkey = decryptPrivkey(user.privkey)
+  if (!storedPrivkey || storedPrivkey !== privateKeyHex) {
     throw new Error('Private key mismatch for this account')
   }
 
@@ -347,7 +349,7 @@ if (authConfig.providers.anonymous.enabled) {
             let user = await prisma.user.create({
               data: {
                 pubkey: keys.publicKey,
-                privkey: keys.privateKey, // Store for anonymous accounts
+                privkey: encryptPrivkey(keys.privateKey), // Store for anonymous accounts
                 username: userData.username,
                 avatar: userData.avatar
               }
@@ -445,7 +447,8 @@ if (authConfig.providers.recovery.enabled) {
           }
 
           // Additional security: verify the provided private key matches the stored one
-          if (user.privkey !== privateKeyHex) {
+          const storedPrivkey = decryptPrivkey(user.privkey)
+          if (storedPrivkey !== privateKeyHex) {
             throw new Error('Private key does not match stored key for this account')
           }
 
@@ -580,7 +583,7 @@ export const authOptions: NextAuthOptions = {
               banner: true
             }
           })
-          token.privkey = dbUser?.privkey || undefined
+          token.privkey = dbUser?.privkey ? decryptPrivkey(dbUser.privkey) || undefined : undefined
           // Update token with latest database values (null/undefined overwrites token)
           token.username = dbUser?.username ?? undefined
           token.avatar = dbUser?.avatar ?? undefined
@@ -660,7 +663,10 @@ export const authOptions: NextAuthOptions = {
                 select: { privkey: true }
               })
               if (dbUser?.privkey) {
-                session.user.privkey = dbUser.privkey
+                const decrypted = decryptPrivkey(dbUser.privkey)
+                if (decrypted) {
+                  session.user.privkey = decrypted
+                }
               }
               // If no privkey in database, this is likely a NIP07 user (expected)
             } catch (error) {
@@ -722,7 +728,7 @@ export const authOptions: NextAuthOptions = {
               where: { id: user.id },
               data: {
                 pubkey: keys.publicKey,
-                privkey: keys.privateKey,
+                privkey: encryptPrivkey(keys.privateKey),
               }
             })
             console.log('Generated ephemeral Nostr keypair for OAuth-first user:', user.email || user.username)
@@ -786,7 +792,7 @@ export const authOptions: NextAuthOptions = {
               where: { id: user.id },
               data: {
                 pubkey: keys.publicKey,
-                privkey: keys.privateKey,
+                privkey: encryptPrivkey(keys.privateKey),
               }
             })
             console.log('Generated ephemeral Nostr keypair for OAuth-first user:', user.email || user.username)
