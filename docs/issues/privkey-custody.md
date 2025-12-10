@@ -22,6 +22,7 @@ How to do it:
 - Encrypt `User.privkey` with a server-held key (ideally KMS-managed; minimally an env secret).
 - On privileged server actions that need the custodial key, decrypt in-memory and use it; never return the raw key to the client.
 - Keep decryption and signing inside a narrow helper so logs and errors can’t leak the key.
+- Reject plaintext privkeys when encryption is enabled (one-time warning if any plaintext rows are encountered to catch bad seeds or migrations).
 
 Residual risks (why encryption alone isn’t a silver bullet):
 - If the app still ever sends the decrypted key to the browser, XSS/devtools can grab it.

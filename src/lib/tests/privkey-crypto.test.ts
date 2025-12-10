@@ -96,7 +96,7 @@ describe("privkey-crypto", () => {
     expect(decryptPrivkey(undefined)).toBeNull()
   })
 
-  it("returns stored value when decryption fails", async () => {
+  it("returns null when decryption fails", async () => {
     const { encryptPrivkey, decryptPrivkey } = await loadModuleWithEnv(HEX_KEY)
     const encrypted = encryptPrivkey("tamper-me")!
     const tampered = Buffer.from(encrypted, "base64")
@@ -104,5 +104,20 @@ describe("privkey-crypto", () => {
     const tamperedPayload = tampered.toString("base64")
 
     expect(decryptPrivkey(tamperedPayload)).toBeNull()
+  })
+
+  it("rejects plaintext hex when encryption is enabled (strict)", async () => {
+    const { decryptPrivkey } = await loadModuleWithEnv(HEX_KEY)
+    const result = decryptPrivkey(HEX_PRIVKEY)
+    expect(result).toBeNull()
+    expect(console.warn).toHaveBeenCalledWith(
+      "Plaintext privkey encountered while encryption is enabled; rejecting."
+    )
+  })
+
+  it("returns null for malformed payloads when encryption is enabled", async () => {
+    const { decryptPrivkey } = await loadModuleWithEnv(HEX_KEY)
+    const tooShortPayload = Buffer.from("abc").toString("base64") // decodes to <29 bytes
+    expect(decryptPrivkey(tooShortPayload)).toBeNull()
   })
 })

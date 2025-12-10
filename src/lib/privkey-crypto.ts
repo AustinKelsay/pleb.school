@@ -3,6 +3,7 @@ import crypto from "crypto"
 const MISSING_KEY_MSG = "PRIVKEY_ENCRYPTION_KEY is not set; falling back to plaintext privkey storage. Do not use this in production."
 
 let warnedMissingKey = false
+let warnedPlaintextWithEncryption = false
 
 function getKey(): Buffer | null {
   const secret = process.env.PRIVKEY_ENCRYPTION_KEY
@@ -70,9 +71,9 @@ export function encryptPrivkey(plain: string | null | undefined): string | null 
 
 export function decryptPrivkey(stored: string | null | undefined): string | null {
   if (!stored) return stored ?? null
+  const trimmed = stored.trim()
+  const hexPrivkeyPattern = /^(?:0x)?[0-9a-fA-F]{64}$/
   if (!keyBuffer) {
-    const trimmed = stored.trim()
-    const hexPrivkeyPattern = /^(?:0x)?[0-9a-fA-F]{64}$/
     if (hexPrivkeyPattern.test(trimmed)) {
       return trimmed
     }
@@ -87,11 +88,19 @@ export function decryptPrivkey(stored: string | null | undefined): string | null
   }
 
   try {
-    const payload = Buffer.from(stored, "base64")
+    if (hexPrivkeyPattern.test(trimmed)) {
+      if (!warnedPlaintextWithEncryption) {
+        console.warn("Plaintext privkey encountered while encryption is enabled; rejecting.")
+        warnedPlaintextWithEncryption = true
+      }
+      return null
+    }
+
+    const payload = Buffer.from(trimmed, "base64")
     // Expect iv(12) + tag(16) + ciphertext(>=1)
     if (payload.length < 29) {
-      // Not an encrypted payload; return as-is for backward compatibility
-      return stored
+      console.warn("Stored privkey does not match expected encrypted payload format.")
+      return null
     }
     const iv = payload.subarray(0, 12)
     const tag = payload.subarray(12, 28)

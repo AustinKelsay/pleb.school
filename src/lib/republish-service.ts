@@ -234,7 +234,10 @@ export class RepublishService {
           'PRIVKEY_REQUIRED'
         )
       }
-      throw new RepublishError('Private key unavailable for server-side signing', 'PRIVKEY_REQUIRED')
+      throw new RepublishError(
+        'Stored private key could not be decrypted; provide a valid privkey or ensure PRIVKEY_ENCRYPTION_KEY is correct.',
+        'PRIVKEY_INVALID'
+      )
     }
 
     const draftLike: ResourceEventDraftInput = {
@@ -445,7 +448,10 @@ export class RepublishService {
           'PRIVKEY_REQUIRED'
         )
       }
-      throw new RepublishError('Private key unavailable for server-side signing', 'PRIVKEY_REQUIRED')
+      throw new RepublishError(
+        'Stored private key could not be decrypted; provide a valid privkey or ensure PRIVKEY_ENCRYPTION_KEY is correct.',
+        'PRIVKEY_INVALID'
+      )
     }
 
     const draftLike: CourseEventDraftInput = {
