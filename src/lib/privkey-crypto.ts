@@ -81,9 +81,9 @@ export function decryptPrivkey(stored: string | null | undefined): string | null
     try {
       const payload = Buffer.from(trimmed, "base64")
       const looksEncrypted = payload.length >= 29 // iv(12) + tag(16) + >=1 byte ciphertext
-      return looksEncrypted ? null : stored
+      return looksEncrypted ? null : trimmed
     } catch {
-      return stored
+      return trimmed
     }
   }
 
