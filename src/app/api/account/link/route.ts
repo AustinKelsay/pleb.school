@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
 
     const { provider, providerAccountId, accountData } = validation.data
 
-    // Check if account can be linked
-    const canLink = await canLinkAccount(session.user.id, provider, providerAccountId)
-    if (canLink) {
+    // Check if account can be linked (returns error string or null)
+    const linkError = await canLinkAccount(session.user.id, provider, providerAccountId)
+    if (linkError) {
       return NextResponse.json(
-        { error: canLink },
+        { error: linkError },
         { status: 400 }
       )
     }

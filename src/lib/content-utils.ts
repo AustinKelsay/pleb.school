@@ -3,6 +3,7 @@
  * Handles both documents (markdown) and videos (embedded content)
  */
 
+import DOMPurify from "isomorphic-dompurify"
 // import { nostrFreeContentEvents, nostrPaidContentEvents } from '@/data/nostr-events'
 import { ResourceDisplay, NostrFreeContentEvent, NostrPaidContentEvent } from "@/data/types"
 import { tagsToAdditionalLinks } from "@/lib/additional-links"
@@ -117,11 +118,41 @@ function extractVideoUrl(content: string): string | undefined {
 }
 
 /**
- * Clean HTML content for safe display
+ * Clean HTML content for safe display using DOMPurify
+ * Removes XSS vectors including script tags, event handlers, javascript: URLs
  */
 export function sanitizeContent(content: string): string {
-  // Remove script tags for security
-  return content.replace(/<script[^>]*>.*?<\/script>/gi, '')
+  return DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: [
+      // Structure
+      "div", "span", "p", "br", "hr",
+      // Headings
+      "h1", "h2", "h3", "h4", "h5", "h6",
+      // Lists
+      "ul", "ol", "li",
+      // Text formatting
+      "strong", "em", "b", "i", "u", "s", "code", "pre", "blockquote",
+      // Links and media
+      "a", "img", "iframe", "video", "source", "audio",
+      // Tables
+      "table", "thead", "tbody", "tr", "th", "td",
+    ],
+    ALLOWED_ATTR: [
+      // Common
+      "class", "id", "style",
+      // Links
+      "href", "target", "rel",
+      // Media
+      "src", "alt", "title", "width", "height",
+      // iframes (for YouTube/Vimeo embeds)
+      "frameborder", "allowfullscreen", "allow", "loading",
+      // Tables
+      "colspan", "rowspan",
+    ],
+    ALLOW_DATA_ATTR: false,
+    // Block dangerous protocols
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  })
 }
 
 /**

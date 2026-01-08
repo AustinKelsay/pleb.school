@@ -328,7 +328,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    const body = await request.json().catch(() => null)
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return badRequest("Invalid JSON body")
+    }
     const parsed = payloadSchema.safeParse(body)
     if (!parsed.success) {
       return badRequest("Validation failed", parsed.error.issues)
@@ -497,178 +502,194 @@ export async function POST(request: NextRequest) {
       verifiedZapReceiptId = zapReceiptId
     }
 
-    // Prevent zap receipt reuse across purchases
-    if (requestZapProof?.zapReceiptJson) {
-      const receiptList = Array.isArray(requestZapProof.zapReceiptJson)
-        ? requestZapProof.zapReceiptJson
-        : [requestZapProof.zapReceiptJson]
-      const receiptIds = receiptList
-        .map((r: any) => (r?.id ? String(r.id) : null))
-        .filter(Boolean) as string[]
-      const normalizedReceiptIds = receiptIds.map((id) => id.toLowerCase())
+    // Wrap duplicate check and purchase creation/update in a serializable transaction
+    // to prevent race conditions where concurrent requests could both pass duplicate checks
+    const result = await prisma.$transaction(async (tx) => {
+      // Prevent zap receipt reuse across purchases
+      if (requestZapProof?.zapReceiptJson) {
+        const receiptList = Array.isArray(requestZapProof.zapReceiptJson)
+          ? requestZapProof.zapReceiptJson
+          : [requestZapProof.zapReceiptJson]
+        const receiptIds = receiptList
+          .map((r: any) => (r?.id ? String(r.id) : null))
+          .filter(Boolean) as string[]
+        const normalizedReceiptIds = receiptIds.map((id) => id.toLowerCase())
 
-      if (normalizedReceiptIds.length > 0) {
-        // Check explicit column case-insensitively (unique index handles atomicity/race)
-        const existingByReceipt = await prisma.$queryRaw<{ userid: string }[]>`
-          SELECT "userId" as userid
-          FROM "Purchase"
-          WHERE "zapReceiptId" IS NOT NULL
-            AND lower("zapReceiptId") = ANY(${normalizedReceiptIds})
-          LIMIT 1
-        `
-        const existing = existingByReceipt[0]
-        if (existing && existing.userid !== session.user.id) {
-          return NextResponse.json(
-            { error: "zapReceiptId already used by another user" },
-            { status: 409 }
-          )
-        }
-
-        // Case-insensitive JSONB receipt check (handles array or single object storage)
-        for (const id of normalizedReceiptIds) {
-          const conflicts = await prisma.$queryRaw<{ userid: string }[]>`
+        if (normalizedReceiptIds.length > 0) {
+          // Check explicit column case-insensitively (unique index handles atomicity/race)
+          const existingByReceipt = await tx.$queryRaw<{ userid: string }[]>`
             SELECT "userId" as userid
-            FROM "Purchase",
-                 LATERAL jsonb_array_elements(
-                   CASE
-                     WHEN jsonb_typeof("zapReceiptJson") = 'array' THEN "zapReceiptJson"
-                     ELSE jsonb_build_array("zapReceiptJson")
-                   END
-                 ) AS receipt(elem)
-            WHERE "zapReceiptJson" IS NOT NULL
-              AND jsonb_typeof(receipt.elem) = 'object'
-              AND lower(receipt.elem->>'id') = ${id}
+            FROM "Purchase"
+            WHERE "zapReceiptId" IS NOT NULL
+              AND lower("zapReceiptId") = ANY(${normalizedReceiptIds})
             LIMIT 1
           `
-          const conflict = conflicts[0]
-          if (conflict && conflict.userid !== session.user.id) {
-            return NextResponse.json(
-              { error: "zapReceiptId already used by another user" },
-              { status: 409 }
-            )
+          const existing = existingByReceipt[0]
+          if (existing && existing.userid !== session.user.id) {
+            return {
+              error: "zapReceiptId already used by another user",
+              status: 409
+            }
+          }
+
+          // Case-insensitive JSONB receipt check (handles array or single object storage)
+          for (const id of normalizedReceiptIds) {
+            const conflicts = await tx.$queryRaw<{ userid: string }[]>`
+              SELECT "userId" as userid
+              FROM "Purchase",
+                   LATERAL jsonb_array_elements(
+                     CASE
+                       WHEN jsonb_typeof("zapReceiptJson") = 'array' THEN "zapReceiptJson"
+                       ELSE jsonb_build_array("zapReceiptJson")
+                     END
+                   ) AS receipt(elem)
+              WHERE "zapReceiptJson" IS NOT NULL
+                AND jsonb_typeof(receipt.elem) = 'object'
+                AND lower(receipt.elem->>'id') = ${id}
+              LIMIT 1
+            `
+            const conflict = conflicts[0]
+            if (conflict && conflict.userid !== session.user.id) {
+              return {
+                error: "zapReceiptId already used by another user",
+                status: 409
+              }
+            }
           }
         }
       }
-    }
 
-    const existingPurchase = await prisma.purchase.findFirst({
-      where: {
-        userId: session.user.id,
-        courseId: courseId ? courseId : null,
-        resourceId: resourceId ? resourceId : null
-      }
-    })
+      const existingPurchase = await tx.purchase.findFirst({
+        where: {
+          userId: session.user.id,
+          courseId: courseId ? courseId : null,
+          resourceId: resourceId ? resourceId : null
+        }
+      })
 
-    if (existingPurchase) {
-      const usedReceipts = collectUsedReceiptIds(existingPurchase)
-      const incomingReceipts = requestZapProof?.zapReceiptJson
-        ? (Array.isArray(requestZapProof.zapReceiptJson)
-            ? requestZapProof.zapReceiptJson
-            : [requestZapProof.zapReceiptJson])
-        : []
+      if (existingPurchase) {
+        const usedReceipts = collectUsedReceiptIds(existingPurchase)
+        const incomingReceipts = requestZapProof?.zapReceiptJson
+          ? (Array.isArray(requestZapProof.zapReceiptJson)
+              ? requestZapProof.zapReceiptJson
+              : [requestZapProof.zapReceiptJson])
+          : []
 
-      const newReceipts = incomingReceipts.filter(
-        (r: any) => r?.id && !usedReceipts.has(String(r.id).toLowerCase())
-      )
+        const newReceipts = incomingReceipts.filter(
+          (r: any) => r?.id && !usedReceipts.has(String(r.id).toLowerCase())
+        )
 
-      const newAmount = newReceipts.reduce((sum, r) => {
-        const id = r?.id ? String(r.id).toLowerCase() : null
-        const validated = id ? validatedReceipts.find((vr) => vr.id.toLowerCase() === id) : undefined
-        const amt = validated ? validated.amountSats : 0
-        return sum + amt
-      }, 0)
+        const newAmount = newReceipts.reduce((sum, r) => {
+          const id = r?.id ? String(r.id).toLowerCase() : null
+          const validated = id ? validatedReceipts.find((vr) => vr.id.toLowerCase() === id) : undefined
+          const amt = validated ? validated.amountSats : 0
+          return sum + amt
+        }, 0)
 
-      const amountToAdd =
-        resolvedPaymentType === "zap"
-          ? (requestZapProof?.zapReceiptJson ? (newReceipts.length > 0 ? newAmount : 0) : verifiedAmountSats)
-          : verifiedAmountSats
+        const amountToAdd =
+          resolvedPaymentType === "zap"
+            ? (requestZapProof?.zapReceiptJson ? (newReceipts.length > 0 ? newAmount : 0) : verifiedAmountSats)
+            : verifiedAmountSats
 
-      if (amountToAdd <= 0) {
-        return NextResponse.json({
+        if (amountToAdd <= 0) {
+          return {
+            success: true,
+            data: {
+              purchase: existingPurchase,
+              created: false,
+              alreadyOwned: true,
+              amountCredited: existingPurchase.amountPaid,
+              priceSats,
+              zapTotalSats
+            }
+          }
+        }
+
+        const zapRequestJsonInput = (
+          requestZapProof?.zapRequestJson ?? (existingPurchase.zapRequestJson ?? undefined)
+        ) as Prisma.InputJsonValue | undefined
+
+        const updatedAmount = existingPurchase.amountPaid + amountToAdd
+        const mergedZapReceipts = mergeReceipts(
+          existingPurchase.zapReceiptJson,
+          requestZapProof?.zapReceiptJson
+        ) as Prisma.InputJsonValue | undefined
+        const updated = await tx.purchase.update({
+          where: { id: existingPurchase.id },
+          data: {
+            amountPaid: updatedAmount,
+            // Preserve existing snapshot, but fill it if missing
+            priceAtPurchase:
+              existingPurchase.priceAtPurchase !== null && existingPurchase.priceAtPurchase !== undefined && existingPurchase.priceAtPurchase > 0
+                ? existingPurchase.priceAtPurchase
+                : priceSats,
+            paymentType: resolvedPaymentType,
+            zapReceiptId: existingPurchase.zapReceiptId ?? verifiedZapReceiptId,
+            invoice: verifiedInvoice ?? existingPurchase.invoice,
+            // Persist the exact artifacts we validated to avoid future relay fetches.
+            zapReceiptJson: mergedZapReceipts,
+            zapRequestJson: zapRequestJsonInput
+          }
+        })
+
+        return {
           success: true,
           data: {
-            purchase: existingPurchase,
+            purchase: updated,
             created: false,
             alreadyOwned: true,
-            amountCredited: existingPurchase.amountPaid,
+            amountCredited: updatedAmount,
             priceSats,
             zapTotalSats
           }
-        })
+        }
       }
 
-      const zapRequestJsonInput = (
-        requestZapProof?.zapRequestJson ?? (existingPurchase.zapRequestJson ?? undefined)
-      ) as Prisma.InputJsonValue | undefined
+      const createdZapReceiptJson = requestZapProof?.zapReceiptJson as Prisma.InputJsonValue | undefined
+      const createdZapRequestJson = requestZapProof?.zapRequestJson as Prisma.InputJsonValue | undefined
 
-      const updatedAmount = existingPurchase.amountPaid + amountToAdd
-      const mergedZapReceipts = mergeReceipts(
-        existingPurchase.zapReceiptJson,
-        requestZapProof?.zapReceiptJson
-      ) as Prisma.InputJsonValue | undefined
-      const updated = await prisma.purchase.update({
-        where: { id: existingPurchase.id },
+      const created = await tx.purchase.create({
         data: {
-          amountPaid: updatedAmount,
-          // Preserve existing snapshot, but fill it if missing
-          priceAtPurchase:
-            existingPurchase.priceAtPurchase !== null && existingPurchase.priceAtPurchase !== undefined && existingPurchase.priceAtPurchase > 0
-              ? existingPurchase.priceAtPurchase
-              : priceSats,
+          userId: session.user.id,
+          courseId: courseId ?? null,
+          resourceId: resourceId ?? null,
+          // Only trust server-verified zap values; sum all verified receipts we processed in this call.
+          amountPaid: verifiedAmountSats,
+          // Snapshot the resolved price at claim time to avoid future price drifts affecting access
+          priceAtPurchase: priceSats,
           paymentType: resolvedPaymentType,
-          zapReceiptId: existingPurchase.zapReceiptId ?? verifiedZapReceiptId,
-          invoice: verifiedInvoice ?? existingPurchase.invoice,
-          // Persist the exact artifacts we validated to avoid future relay fetches.
-          zapReceiptJson: mergedZapReceipts,
-          zapRequestJson: zapRequestJsonInput
+          zapReceiptId: verifiedZapReceiptId,
+          invoice: verifiedInvoice,
+          // Store proof of payment alongside the purchase for offline audits.
+          zapReceiptJson: createdZapReceiptJson,
+          zapRequestJson: createdZapRequestJson
         }
       })
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        purchase: updated,
-        created: false,
-          alreadyOwned: true,
-          amountCredited: updatedAmount,
+      return {
+        success: true,
+        data: {
+          purchase: created,
+          created: true,
+          alreadyOwned: false,
+          amountCredited: created.amountPaid,
           priceSats,
           zapTotalSats
         }
-      })
+      }
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+    })
+
+    // Handle transaction result
+    if ('error' in result) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status }
+      )
     }
 
-    const createdZapReceiptJson = requestZapProof?.zapReceiptJson as Prisma.InputJsonValue | undefined
-    const createdZapRequestJson = requestZapProof?.zapRequestJson as Prisma.InputJsonValue | undefined
-
-    const created = await prisma.purchase.create({
-      data: {
-        userId: session.user.id,
-        courseId: courseId ?? null,
-        resourceId: resourceId ?? null,
-        // Only trust server-verified zap values; sum all verified receipts we processed in this call.
-        amountPaid: verifiedAmountSats,
-        // Snapshot the resolved price at claim time to avoid future price drifts affecting access
-        priceAtPurchase: priceSats,
-        paymentType: resolvedPaymentType,
-        zapReceiptId: verifiedZapReceiptId,
-        invoice: verifiedInvoice,
-        // Store proof of payment alongside the purchase for offline audits.
-        zapReceiptJson: createdZapReceiptJson,
-        zapRequestJson: createdZapRequestJson
-      }
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        purchase: created,
-        created: true,
-        alreadyOwned: false,
-        amountCredited: created.amountPaid,
-        priceSats,
-        zapTotalSats
-      }
-    })
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Failed to claim purchase", error)
 

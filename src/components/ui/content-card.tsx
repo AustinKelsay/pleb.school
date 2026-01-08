@@ -175,8 +175,8 @@ export function ContentCard({
   const isPurchased = purchasedCount > 0
 
   return (
-    <Card 
-      className={`overflow-hidden transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer group ${className}`}
+    <Card
+      className={`overflow-hidden transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer group flex flex-col h-full ${className}`}
       onClick={handleCardClick}
     >
       {/* Thumbnail/Image Area - 16:9 aspect ratio like YouTube */}
@@ -338,11 +338,14 @@ export function ContentCard({
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 flex-grow flex flex-col">
         {/* Description */}
         <CardDescription className="text-sm leading-relaxed line-clamp-3 mb-4">
           {item.description}
         </CardDescription>
+
+        {/* Spacer pushes remaining content to bottom */}
+        <div className="flex-grow" />
 
         {/* Stats Row */}
         <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">

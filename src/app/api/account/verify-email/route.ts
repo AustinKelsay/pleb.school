@@ -37,14 +37,22 @@ export async function POST(request: NextRequest) {
 
     // Check expiration
     if (verificationToken.expires < new Date()) {
-      try { await prisma.verificationToken.delete({ where: { token: verificationToken.token } }) } catch {}
+      try {
+        await prisma.verificationToken.delete({ where: { token: verificationToken.token } })
+      } catch (error) {
+        console.error('Failed to delete expired verification token:', error)
+      }
       return NextResponse.json({ error: 'token_expired' }, { status: 400 })
     }
 
     // Identifier format: link:<userId>:<email>
     const parts = verificationToken.identifier.split(':')
     if (parts.length !== 3 || parts[0] !== 'link') {
-      try { await prisma.verificationToken.delete({ where: { token: verificationToken.token } }) } catch {}
+      try {
+        await prisma.verificationToken.delete({ where: { token: verificationToken.token } })
+      } catch (error) {
+        console.error('Failed to delete invalid verification token:', error)
+      }
       return NextResponse.json({ error: 'invalid_token_format' }, { status: 400 })
     }
 
@@ -65,7 +73,11 @@ export async function POST(request: NextRequest) {
     )
 
     // Cleanup token regardless of success
-    try { await prisma.verificationToken.delete({ where: { token: verificationToken.token } }) } catch {}
+    try {
+      await prisma.verificationToken.delete({ where: { token: verificationToken.token } })
+    } catch (error) {
+      console.error('Failed to delete verification token after linking:', error)
+    }
 
     if (!result.success) {
       return NextResponse.json({ error: result.error || 'linking_failed' }, { status: 400 })
