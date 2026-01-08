@@ -277,7 +277,7 @@ describe("resolvePriceForContent", () => {
   })
 
   describe("edge cases", () => {
-    it("handles negative Nostr price hint", async () => {
+    it("rejects negative Nostr price hint", async () => {
       mockResourceFindUnique.mockResolvedValue({
         id: "res-1",
         price: null,
@@ -291,8 +291,8 @@ describe("resolvePriceForContent", () => {
         nostrPriceHint: -100,
       })
 
-      // Negative numbers are finite, so they pass the check
-      expect(result?.price).toBe(-100)
+      // Negative prices are invalid and fall back to 0
+      expect(result?.price).toBe(0)
     })
 
     it("handles Infinity Nostr price hint", async () => {

@@ -166,12 +166,14 @@ describe("extractPlainText", () => {
     expect(result).toBe("Use const x = 1 syntax")
   })
 
-  it("removes code blocks (partial - current implementation)", () => {
+  it("removes code blocks completely", () => {
     const input = "Text before\n```javascript\nconst x = 1;\n```\nText after"
     const result = extractPlainText(input)
-    // Current implementation doesn't fully handle triple backticks - leaves partial content
-    expect(result).toContain("Text before")
-    expect(result).toContain("Text after")
+    // Note: leaves blank line where code block was, which is fine
+    expect(result).toBe("Text before\n\nText after")
+    expect(result).not.toContain("```")
+    expect(result).not.toContain("javascript")
+    expect(result).not.toContain("const x = 1")
   })
 
   it("removes markdown links but keeps text", () => {
@@ -180,11 +182,10 @@ describe("extractPlainText", () => {
     expect(result).toBe("Check this link out")
   })
 
-  it("removes markdown images but keeps alt text (with leading !)", () => {
+  it("removes markdown images but keeps alt text", () => {
     const input = "See ![alt text](https://example.com/image.png) here"
     const result = extractPlainText(input)
-    // Current regex leaves the ! prefix - minor bug
-    expect(result).toBe("See !alt text here")
+    expect(result).toBe("See alt text here")
   })
 })
 

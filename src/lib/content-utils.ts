@@ -138,8 +138,8 @@ export function sanitizeContent(content: string): string {
       "table", "thead", "tbody", "tr", "th", "td",
     ],
     ALLOWED_ATTR: [
-      // Common
-      "class", "id", "style",
+      // Common (no "style" to prevent CSS injection/UI redressing)
+      "class", "id",
       // Links
       "href", "target", "rel",
       // Media
@@ -159,8 +159,11 @@ export function sanitizeContent(content: string): string {
  * Extract plain text content from markdown/HTML
  */
 export function extractPlainText(content: string): string {
+  // Remove multi-line fenced code blocks first (before other text-cleaning steps)
+  const withoutCodeBlocks = content.replace(/```[\s\S]*?```/gs, '')
+  
   // Remove HTML tags
-  const withoutHtml = content.replace(/<[^>]*>/g, '')
+  const withoutHtml = withoutCodeBlocks.replace(/<[^>]*>/g, '')
   
   // Remove markdown syntax
   const withoutMarkdown = withoutHtml
@@ -168,9 +171,8 @@ export function extractPlainText(content: string): string {
     .replace(/\*\*(.*?)\*\*/g, '$1')  // Remove bold
     .replace(/\*(.*?)\*/g, '$1')  // Remove italic
     .replace(/`(.*?)`/g, '$1')  // Remove inline code
-    .replace(/```[\s\S]*?```/g, '')  // Remove code blocks
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // Remove links
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')  // Remove images
+    .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '$1')  // Remove images (must run before link replacement)
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')  // Remove links
   
   return withoutMarkdown.trim()
 }
