@@ -192,15 +192,45 @@ export async function linkAccount(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Check if account can be linked
-    const canLink = await canLinkAccount(userId, provider, providerAccountId)
-    if (canLink) {
-      return { success: false, error: canLink }
+    let normalizedAccountId: string
+    try {
+      normalizedAccountId = normalizeProviderAccountId(provider, providerAccountId)
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Invalid account identifier' }
     }
 
-    const normalizedAccountId = normalizeProviderAccountId(provider, providerAccountId)
-
+    // All validation and creation inside transaction to prevent race conditions
     await prisma.$transaction(async tx => {
+      // Check if this provider/account combination already exists (inside transaction)
+      const existingAccount = await tx.account.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider,
+            providerAccountId: normalizedAccountId
+          }
+        }
+      })
+
+      if (existingAccount) {
+        if (existingAccount.userId === userId) {
+          throw new Error('ALREADY_LINKED_SELF')
+        } else {
+          throw new Error('ALREADY_LINKED_OTHER')
+        }
+      }
+
+      // Check if user already has this provider type linked
+      const userAccounts = await tx.account.findMany({
+        where: {
+          userId,
+          provider
+        }
+      })
+
+      if (userAccounts.length > 0) {
+        throw new Error('PROVIDER_ALREADY_LINKED')
+      }
+
       const user = await tx.user.findUnique({
         where: { id: userId },
         select: {
@@ -255,10 +285,19 @@ export async function linkAccount(
 
     return { success: true }
   } catch (error) {
-    console.error('Failed to link account:', error)
-    if (error instanceof Error && error.message === 'USER_NOT_FOUND') {
-      return { success: false, error: 'User not found' }
+    if (error instanceof Error) {
+      switch (error.message) {
+        case 'USER_NOT_FOUND':
+          return { success: false, error: 'User not found' }
+        case 'ALREADY_LINKED_SELF':
+          return { success: false, error: 'This account is already linked to your profile' }
+        case 'ALREADY_LINKED_OTHER':
+          return { success: false, error: 'This account is already linked to another user' }
+        case 'PROVIDER_ALREADY_LINKED':
+          return { success: false, error: `You already have a ${provider} account linked` }
+      }
     }
+    console.error('Failed to link account:', error)
     return { success: false, error: 'Failed to link account' }
   }
 }
@@ -272,7 +311,7 @@ export async function unlinkAccount(
   provider: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get user with all accounts
+    // Get user with all accounts first (outside transaction for initial validation)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { accounts: true }
@@ -281,9 +320,6 @@ export async function unlinkAccount(
     if (!user) {
       return { success: false, error: 'User not found' }
     }
-
-    const wasNostrPrimary = user.primaryProvider === 'nostr'
-    const wasNostrProfileSource = user.profileSource === 'nostr'
 
     // Check if this is the last account
     if (user.accounts.length <= 1) {
@@ -296,16 +332,24 @@ export async function unlinkAccount(
       return { success: false, error: 'Account not found' }
     }
 
-    // Delete the account link
-    await prisma.account.delete({
-      where: { id: accountToUnlink.id }
-    })
-
-    // Prepare any required user updates (email cleanup, primary provider swap, etc.)
-    const remainingAccounts = user.accounts.filter(a => a.provider !== provider)
-    const userUpdates: Prisma.UserUpdateInput = {}
-    const hasRemainingNostrFirst = remainingAccounts.some(a => isNostrFirstProvider(a.provider))
+    // Pre-generate keypair if needed (before transaction to avoid async issues)
     const shouldGenerateEphemeralKeys = provider === 'nostr' && !user.privkey
+    let newKeypair: { publicKey: string; privateKey: string } | null = null
+    if (shouldGenerateEphemeralKeys) {
+      try {
+        newKeypair = await generateKeypair()
+      } catch (error) {
+        console.error('Failed to generate fallback keypair:', error)
+        return { success: false, error: 'Failed to finalize Nostr unlink. Please try again.' }
+      }
+    }
+
+    // Prepare user updates
+    const wasNostrPrimary = user.primaryProvider === 'nostr'
+    const wasNostrProfileSource = user.profileSource === 'nostr'
+    const remainingAccounts = user.accounts.filter(a => a.provider !== provider)
+    const hasRemainingNostrFirst = remainingAccounts.some(a => isNostrFirstProvider(a.provider))
+    const userUpdates: Prisma.UserUpdateInput = {}
 
     if (provider === 'email' && (user.email || user.emailVerified)) {
       userUpdates.email = null
@@ -336,23 +380,24 @@ export async function unlinkAccount(
       userUpdates.profileSource = 'oauth'
     }
 
-    if (shouldGenerateEphemeralKeys) {
-      try {
-        const keys = await generateKeypair()
-        userUpdates.pubkey = keys.publicKey
-        userUpdates.privkey = encryptPrivkey(keys.privateKey)
-      } catch (error) {
-        console.error('Failed to generate fallback keypair after unlinking Nostr account:', error)
-        return { success: false, error: 'Failed to finalize Nostr unlink. Please try again.' }
-      }
+    if (newKeypair) {
+      userUpdates.pubkey = newKeypair.publicKey
+      userUpdates.privkey = encryptPrivkey(newKeypair.privateKey)
     }
 
-    if (Object.keys(userUpdates).length > 0) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: userUpdates
+    // Execute delete and update atomically in a transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.account.delete({
+        where: { id: accountToUnlink.id }
       })
-    }
+
+      if (Object.keys(userUpdates).length > 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: userUpdates
+        })
+      }
+    })
 
     return { success: true }
   } catch (error) {

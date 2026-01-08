@@ -3,6 +3,7 @@
  * Handles both documents (markdown) and videos (embedded content)
  */
 
+import DOMPurify from "isomorphic-dompurify"
 // import { nostrFreeContentEvents, nostrPaidContentEvents } from '@/data/nostr-events'
 import { ResourceDisplay, NostrFreeContentEvent, NostrPaidContentEvent } from "@/data/types"
 import { tagsToAdditionalLinks } from "@/lib/additional-links"
@@ -117,19 +118,52 @@ function extractVideoUrl(content: string): string | undefined {
 }
 
 /**
- * Clean HTML content for safe display
+ * Clean HTML content for safe display using DOMPurify
+ * Removes XSS vectors including script tags, event handlers, javascript: URLs
  */
 export function sanitizeContent(content: string): string {
-  // Remove script tags for security
-  return content.replace(/<script[^>]*>.*?<\/script>/gi, '')
+  return DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: [
+      // Structure
+      "div", "span", "p", "br", "hr",
+      // Headings
+      "h1", "h2", "h3", "h4", "h5", "h6",
+      // Lists
+      "ul", "ol", "li",
+      // Text formatting
+      "strong", "em", "b", "i", "u", "s", "code", "pre", "blockquote",
+      // Links and media
+      "a", "img", "iframe", "video", "source", "audio",
+      // Tables
+      "table", "thead", "tbody", "tr", "th", "td",
+    ],
+    ALLOWED_ATTR: [
+      // Common (no "style" to prevent CSS injection/UI redressing)
+      "class", "id",
+      // Links
+      "href", "target", "rel",
+      // Media
+      "src", "alt", "title", "width", "height",
+      // iframes (for YouTube/Vimeo embeds)
+      "frameborder", "allowfullscreen", "allow", "loading",
+      // Tables
+      "colspan", "rowspan",
+    ],
+    ALLOW_DATA_ATTR: false,
+    // Block dangerous protocols
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  })
 }
 
 /**
  * Extract plain text content from markdown/HTML
  */
 export function extractPlainText(content: string): string {
+  // Remove multi-line fenced code blocks first (before other text-cleaning steps)
+  const withoutCodeBlocks = content.replace(/```[\s\S]*?```/gs, '')
+  
   // Remove HTML tags
-  const withoutHtml = content.replace(/<[^>]*>/g, '')
+  const withoutHtml = withoutCodeBlocks.replace(/<[^>]*>/g, '')
   
   // Remove markdown syntax
   const withoutMarkdown = withoutHtml
@@ -137,9 +171,8 @@ export function extractPlainText(content: string): string {
     .replace(/\*\*(.*?)\*\*/g, '$1')  // Remove bold
     .replace(/\*(.*?)\*/g, '$1')  // Remove italic
     .replace(/`(.*?)`/g, '$1')  // Remove inline code
-    .replace(/```[\s\S]*?```/g, '')  // Remove code blocks
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // Remove links
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')  // Remove images
+    .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '$1')  // Remove images (must run before link replacement)
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')  // Remove links
   
   return withoutMarkdown.trim()
 }

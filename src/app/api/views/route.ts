@@ -67,7 +67,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}))
+    let body
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    }
     const parsed = postSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid body" }, { status: 400 })
@@ -94,8 +99,8 @@ export async function POST(req: NextRequest) {
         ;(globalThis as any).__dirtyKeys = dirty
         memory.set(dayKey, (memory.get(dayKey) || 0) + 1)
       }
-    } catch {
-      // ignore ancillary errors
+    } catch (error) {
+      console.error("Failed to mark view keys dirty:", error)
     }
     return NextResponse.json({ key: resolvedKey, count })
   } catch (err) {

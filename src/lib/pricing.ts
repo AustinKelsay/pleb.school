@@ -34,7 +34,7 @@ export async function resolvePriceForContent(params: {
     if (!resource) return null
     const hasDbPrice = typeof resource.price === "number" && resource.price >= 0
     const dbPrice = hasDbPrice ? resource.price ?? 0 : undefined
-    const nostrPrice = Number.isFinite(nostrPriceHint) ? nostrPriceHint : undefined
+    const nostrPrice = Number.isFinite(nostrPriceHint) && nostrPriceHint >= 0 ? nostrPriceHint : undefined
     // DB is authoritative; only fall back to Nostr when no DB price exists.
     const resolved = hasDbPrice ? dbPrice! : nostrPrice ?? 0
 
@@ -63,7 +63,7 @@ export async function resolvePriceForContent(params: {
     if (!course) return null
     const hasDbPrice = typeof course.price === "number" && course.price >= 0
     const dbPrice = hasDbPrice ? course.price ?? 0 : undefined
-    const nostrPrice = Number.isFinite(nostrPriceHint) ? nostrPriceHint : undefined
+    const nostrPrice = Number.isFinite(nostrPriceHint) && nostrPriceHint >= 0 ? nostrPriceHint : undefined
     // DB is authoritative; only fall back to Nostr when no DB price exists.
     const resolved = hasDbPrice ? dbPrice! : nostrPrice ?? 0
 
