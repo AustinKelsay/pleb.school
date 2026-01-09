@@ -22,7 +22,6 @@ export interface LessonWithResource extends Lesson {
   description?: string
   type?: string
   isPremium?: boolean
-  duration?: string
 }
 
 export interface LessonsQueryResult {
@@ -69,18 +68,18 @@ function parseLessonFromNote(note?: NostrEvent): {
     return {}
   }
 
-  const title = note.tags.find(tag => tag[0] === 'title')?.[1] || 
+  const title = note.tags.find(tag => tag[0] === 'title')?.[1] ||
                 note.tags.find(tag => tag[0] === 'name')?.[1]
-  const description = note.tags.find(tag => tag[0] === 'summary')?.[1] || 
+  const description = note.tags.find(tag => tag[0] === 'summary')?.[1] ||
                      note.tags.find(tag => tag[0] === 'description')?.[1] ||
                      note.tags.find(tag => tag[0] === 'about')?.[1]
   const type = note.tags.find(tag => tag[0] === 't' && tag[1] === 'video') ? 'video' : 'document'
-  
+
   return {
     title,
     description,
     type,
-    isPremium: false // Will be determined by resource price
+    isPremium: false, // Will be determined by resource price
   }
 }
 
@@ -187,8 +186,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
       title,
       description: parsedData.description,
       type: parsedData.type || 'document',
-      isPremium,
-      duration: '30 min' // Default duration, could be enhanced later
+      isPremium
     }
   })
 
@@ -303,8 +301,7 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
       title,
       description: parsedData.description,
       type: parsedData.type || 'document',
-      isPremium,
-      duration: '30 min' // Default duration, could be enhanced later
+      isPremium
     }
   })
 
@@ -439,8 +436,7 @@ export function useLessonQuery(lessonId: string, options: UseLessonsQueryOptions
         title,
         description: parsedData.description,
         type: parsedData.type || 'document',
-        isPremium,
-        duration: '30 min'
+        isPremium
       }
     },
     enabled: enabled && !!lessonId,

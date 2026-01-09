@@ -473,7 +473,7 @@ export default function CreateDraftForm() {
                 </p>
                 {errors.videoUrl && <p className="text-sm text-destructive">{errors.videoUrl}</p>}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="content">
                   Additional Content <span className="text-muted-foreground">(Optional)</span>

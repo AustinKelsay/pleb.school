@@ -1,7 +1,8 @@
 /**
  * Send Email Verification for Account Linking
- * 
- * Sends a verification email to link an email address to an existing account
+ *
+ * Sends a verification email to link an email address to an existing account.
+ * Rate limited to 3 emails per address per hour to prevent spam.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -10,6 +11,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { sanitizeEmail } from '@/lib/api-utils'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import crypto from 'crypto'
 import nodemailer from 'nodemailer'
 
@@ -29,6 +31,26 @@ export async function POST(request: NextRequest) {
     const { email } = body
 
     const normalizedEmail = sanitizeEmail(String(email || ''))
+
+    // Rate limit by email address to prevent spam
+    const rateLimit = await checkRateLimit(
+      `send-verify:${normalizedEmail.toLowerCase()}`,
+      RATE_LIMITS.EMAIL_SEND.limit,
+      RATE_LIMITS.EMAIL_SEND.windowSeconds
+    )
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many verification emails requested. Please try again later.',
+          retryAfter: rateLimit.resetIn
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.resetIn) }
+        }
+      )
+    }
     const isValidEmail = z.string().email('Invalid email address').max(254).safeParse(normalizedEmail).success
     if (!isValidEmail) {
       return NextResponse.json(

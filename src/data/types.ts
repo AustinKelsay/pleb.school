@@ -178,7 +178,6 @@ export interface ParsedResourceEvent {
   tags: string[][]
   videoUrl?: string
   category?: string
-  duration?: string
 }
 
 // ============================================================================
@@ -294,7 +293,6 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
     tags: event.tags,
     videoUrl: undefined,
     category: undefined,
-    duration: undefined,
   }
 
   if (event.tags) {
@@ -348,9 +346,6 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
           break
         case "video":
           eventData.videoUrl = tag[1] || ""
-          break
-        case "duration":
-          eventData.duration = tag[1] || ""
           break
         case "p":
           eventData.authorPubkey = tag[1] || ""
@@ -454,7 +449,6 @@ export interface ResourceDisplay extends Resource {
   published: boolean
   topics: string[]
   additionalLinks: AdditionalLink[]
-  duration?: string
   thumbnailUrl?: string
   videoUrl?: string
   // Engagement metrics (zaps, comments, likes)
@@ -484,7 +478,6 @@ export interface ContentItem {
   likesCount?: number
   createdAt: string
   updatedAt: string
-  duration?: string
   enrollmentCount?: number
   viewCount?: number
   topics: string[]
@@ -544,8 +537,7 @@ export function createResourceDisplay(resource: Resource, parsedEvent: ParsedRes
     tags: parsedEvent.topics,
     published: true,
     topics: parsedEvent.topics,
-    additionalLinks: parsedEvent.additionalLinks,
-    duration: parsedEvent.duration
+    additionalLinks: parsedEvent.additionalLinks
   }
 }
 

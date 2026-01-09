@@ -242,7 +242,9 @@ await sendEmail({
 - **Single Use**: Tokens must be invalidated immediately after use
 - **No Logging**: Never log full request URLs containing tokens
 - **HTTPS Only**: Always use HTTPS for verification links
-- **Rate Limiting**: Implement rate limiting on verification endpoints
+- **Rate Limiting**: ✅ Implemented via `src/lib/rate-limit.ts`:
+  - `/api/account/verify-email`: 5 attempts per ref per hour
+  - `/api/account/send-link-verification`: 3 emails per address per hour
 
 #### Implementing the Verification Page (example)
 
@@ -637,7 +639,7 @@ if (process.env.NODE_ENV === 'development') {
 ### Data Protection
 - No private keys in responses
 - Sanitized error messages
-- Rate limiting on sensitive endpoints
+- ✅ Rate limiting on email verification endpoints (see `src/lib/rate-limit.ts`)
 
 ## Migration Notes
 

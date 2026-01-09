@@ -26,7 +26,6 @@ interface CourseDraft {
   draftType: 'course'
   category: string
   lessonCount: number
-  estimatedDuration: number
 }
 
 interface ResourceDraft {
@@ -44,7 +43,6 @@ interface ResourceDraft {
   updatedAt: string
   draftType: 'resource'
   category: string
-  estimatedReadTime: number
 }
 
 type CombinedDraft = CourseDraft | ResourceDraft

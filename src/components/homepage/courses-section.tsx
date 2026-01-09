@@ -130,7 +130,6 @@ function CourseCard({ course }: { course: CourseWithNote }) {
     title: course.note?.tags.find(tag => tag[0] === "name")?.[1] || `Course ${course.id}`,
     description: course.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
     category: course.price > 0 ? 'Premium' : 'Free',
-    duration: '2-4 weeks',
     image: course.note?.tags.find(tag => tag[0] === "image")?.[1] || '',
     href: `/courses/${course.id}`,
     tags: course.note?.tags || [],

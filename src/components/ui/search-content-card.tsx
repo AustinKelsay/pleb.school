@@ -6,7 +6,6 @@ import { OptimizedImage } from "@/components/ui/optimized-image"
 import { HighlightText } from "@/components/ui/highlight-text"
 import {
   BookOpen,
-  Clock,
   User,
   Calendar,
   Lock,
@@ -192,14 +191,6 @@ export function SearchContentCard({
               <div className="flex items-center gap-1">
                 <User className="h-3 w-3" />
                 <span>{item.instructor}</span>
-              </div>
-            )}
-            
-            {/* Duration for videos */}
-            {item.duration && (
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                <span>{item.duration}</span>
               </div>
             )}
             

@@ -22,7 +22,6 @@ import { VideoPlayer } from '@/components/ui/video-player'
 import {
   ArrowLeft,
   ArrowRight,
-  Clock,
   User,
   Calendar,
   PlayCircle,
@@ -102,17 +101,6 @@ function DraftLessonMetadata({
 }: {
   lessonData: ResolvedDraftLesson
 }) {
-  const getReadingTime = (content: string | undefined): number | null => {
-    if (!content) return null
-    const words = content.trim().split(/\s+/).length
-    if (!words) return null
-    const wordsPerMinute = 200
-    return Math.ceil(words / wordsPerMinute)
-  }
-
-  const readingTime =
-    lessonData.type !== 'video' ? getReadingTime(lessonData.content) : null
-
   return (
     <div className="flex items-center flex-wrap gap-4 sm:gap-6 text-sm text-muted-foreground">
       <div className="flex items-center space-x-1">
@@ -124,13 +112,6 @@ function DraftLessonMetadata({
         <Calendar className="h-4 w-4" />
         <span>Lesson {lessonData.index + 1}</span>
       </div>
-
-      {readingTime && (
-        <div className="flex items-center space-x-1">
-          <Clock className="h-4 w-4" />
-          <span>{readingTime} min read</span>
-        </div>
-      )}
 
       {lessonData.type === 'video' && lessonData.videoUrl && (
         <div className="flex items-center space-x-1">

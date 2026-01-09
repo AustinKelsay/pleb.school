@@ -15,7 +15,6 @@ import { VideoPlayer } from '@/components/ui/video-player'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { encodePublicKey } from 'snstr'
 import { 
-  Clock, 
   Eye, 
   FileText, 
   ArrowLeft, 
@@ -81,19 +80,6 @@ function ContentMetadata({ draftData }: { draftData: DraftData }) {
     })
   }
 
-  const getReadingTime = (content: string): number => {
-    const wordsPerMinute = 200
-    const words = content.trim().split(/\s+/).length
-    return Math.ceil(words / wordsPerMinute)
-  }
-
-  const additionalContent = draftData.content?.trim()
-  const readingTime = draftData.type !== 'video'
-    ? getReadingTime(draftData.content)
-    : additionalContent
-      ? getReadingTime(additionalContent)
-      : null
-
   return (
     <div className="space-y-4">
       {/* Basic metadata */}
@@ -115,13 +101,6 @@ function ContentMetadata({ draftData }: { draftData: DraftData }) {
           <Eye className="h-4 w-4" />
           <span>Draft Preview</span>
         </div>
-        
-        {readingTime && (
-          <div className="flex items-center space-x-1">
-            <Clock className="h-4 w-4" />
-            <span>{readingTime} min read</span>
-          </div>
-        )}
       </div>
     </div>
   )

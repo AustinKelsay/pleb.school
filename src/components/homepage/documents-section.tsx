@@ -133,7 +133,6 @@ function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
                 document.note?.tags.find(tag => tag[0] === "description")?.[1] ||
                 document.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
     category: document.price > 0 ? 'Premium' : 'Free',
-    duration: '5-10 min read',
     image: document.note?.tags.find(tag => tag[0] === "image")?.[1] || '',
     href: `/content/${document.id}`,
     tags: document.note?.tags || [],

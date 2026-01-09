@@ -19,7 +19,6 @@ import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { useInteractions } from '@/hooks/useInteractions'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import { 
-  Clock, 
   FileText, 
   ExternalLink,
   Eye,
@@ -359,8 +358,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                  formatNpubWithEllipsis(event.pubkey)
   const type = parsedEvent.type || 'document'
   // Views are tracked via /api/views and Vercel KV
-  const trimmedDuration = parsedEvent.duration?.trim()
-  const duration = type === 'video' ? (trimmedDuration ? trimmedDuration : undefined) : undefined
   const isCourseContent = idResult?.contentType === 'course' || event.kind === 30004
   // Mirror the premium logic from ResourceContentView so gating stays consistent.
   const isPremiumFromParsed = parsedEvent.isPremium === true
@@ -505,12 +502,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   <ViewsText ns="content" id={resourceId} />
                 </div>
                 
-                {duration && (
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <span>{duration}</span>
-                  </div>
-                )}
               </div>
 
               {requiresPreviewGate && (
@@ -696,12 +687,6 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                     <h4 className="font-semibold mb-2">Category</h4>
                     <p className="text-sm text-muted-foreground capitalize">{topics[0] || 'general'}</p>
                   </div>
-                  {duration && (
-                    <div>
-                      <h4 className="font-semibold mb-2">Duration</h4>
-                      <p className="text-sm text-muted-foreground">{duration}</p>
-                    </div>
-                  )}
                   <div>
                     <h4 className="font-semibold mb-2">Views</h4>
                     <p className="text-sm text-muted-foreground">
