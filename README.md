@@ -203,7 +203,6 @@ docker compose up app   # Full stack
 | `ALLOWED_ORIGINS` | No | CORS allowed origins (comma-separated) |
 | `KV_REST_API_URL` | No | Vercel KV (view counters and rate limiting) |
 | `KV_REST_API_TOKEN` | No | Vercel KV (view counters and rate limiting) |
-| `KV_REST_API_READ_ONLY_TOKEN` | No | Vercel KV read-only (view counters and rate limiting) |
 | `VIEWS_CRON_SECRET` | No | View counter flush auth |
 
 ## Tech Stack
