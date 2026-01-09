@@ -83,6 +83,9 @@ model User {
 ## Security & Validation
 - All mutating routes enforce authenticated sessions via `getServerSession`.
 - Email verification tokens are single-use, expire after 60 minutes, and are deleted on success or expiry.
+- **Rate limiting** (via `src/lib/rate-limit.ts` using Vercel KV with in-memory fallback):
+  - `POST /api/account/verify-email`: 5 attempts per ref per hour (prevents brute force on 6-digit codes)
+  - `POST /api/account/send-link-verification`: 3 emails per address per hour (prevents spam)
 - GitHub linking uses signed state values with strict length checks, schema validation, and session/user matching to mitigate tampering.
 - `canLinkAccount` prevents hijacking by rejecting provider duplications and cross-user reuse.
 - `unlinkAccount` prohibits removing the last provider so every account retains at least one sign-in path.

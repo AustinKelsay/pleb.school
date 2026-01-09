@@ -117,6 +117,12 @@ export class PurchaseAdapter {
       createdAt: purchase.createdAt
     }))
   }
+
+  static async countByCourse(courseId: string): Promise<number> {
+    return prisma.purchase.count({
+      where: { courseId }
+    })
+  }
 }
 
 // Pagination options for query functions

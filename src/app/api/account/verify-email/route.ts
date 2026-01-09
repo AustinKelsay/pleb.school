@@ -3,12 +3,15 @@
  *
  * Verifies a short code (token) against a lookup reference (ref) and links the
  * email address embedded in the verification token identifier to the user.
+ *
+ * Rate limited to 5 attempts per ref to prevent brute force attacks on 6-digit codes.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { linkAccount } from '@/lib/account-linking'
 import { sanitizeEmail } from '@/lib/api-utils'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { z } from 'zod'
 
 const VerifySchema = z.object({
@@ -25,6 +28,27 @@ export async function POST(request: NextRequest) {
     }
 
     const { ref, token } = parsed.data
+
+    // Rate limit by ref to prevent brute force on 6-digit codes
+    const rateLimit = await checkRateLimit(
+      `verify-email:${ref}`,
+      RATE_LIMITS.EMAIL_VERIFY.limit,
+      RATE_LIMITS.EMAIL_VERIFY.windowSeconds
+    )
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        {
+          error: 'too_many_attempts',
+          message: 'Too many verification attempts. Please request a new code.',
+          retryAfter: rateLimit.resetIn
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.resetIn) }
+        }
+      )
+    }
 
     // Find verification token by lookupId (ref)
     const verificationToken = await prisma.verificationToken.findFirst({

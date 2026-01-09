@@ -9,13 +9,11 @@ type EnhancedCourseDraft = CourseDraftWithIncludes & {
   draftType: 'course'
   category: string
   lessonCount: number
-  estimatedDuration: number
 }
 
 type EnhancedResourceDraft = DraftWithIncludes & {
   draftType: 'resource'
   category: string
-  estimatedReadTime: number
 }
 
 type CombinedDraft = EnhancedCourseDraft | EnhancedResourceDraft
@@ -85,8 +83,7 @@ export async function GET(request: NextRequest) {
         ...draft,
         draftType: 'course',
         category: draft.topics[0] || 'general',
-        lessonCount: draft.draftLessons?.length || 0,
-        estimatedDuration: (draft.draftLessons?.length || 0) * 30 // 30 min per lesson
+        lessonCount: draft.draftLessons?.length || 0
       }))
       if (type === 'course') {
         totalCount = courseResult.pagination.totalItems
@@ -98,8 +95,7 @@ export async function GET(request: NextRequest) {
       resourceDrafts = resourceResult.data.map(draft => ({
         ...draft,
         draftType: 'resource',
-        category: draft.topics[0] || 'general',
-        estimatedReadTime: Math.ceil(draft.content?.split(' ').length / 200) || 5 // 200 words per minute
+        category: draft.topics[0] || 'general'
       }))
       if (type === 'resource') {
         totalCount = resourceResult.pagination.totalItems

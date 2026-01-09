@@ -14,7 +14,6 @@ export const CourseCreateSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
   description: z.string().min(1, 'Description is required').max(2000, 'Description too long'),
   category: z.string().min(1, 'Category is required'),
-  duration: z.string().optional(),
   instructor: z.string().optional(),
   image: z.string().url('Invalid image URL').optional(),
 })

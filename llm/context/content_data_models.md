@@ -128,6 +128,7 @@ export const parseEvent = event => {
     published_at: '',
     topics: [], // Added to hold all topics
     type: 'document', // Default type
+    duration: '', // Video duration (e.g., "10 min", "1h 30m")
   };
 
   // Iterate over the tags array to extract data
@@ -179,6 +180,9 @@ export const parseEvent = event => {
         break;
       case 'r':
         eventData.additionalLinks.push(tag[1]);
+        break;
+      case 'duration':
+        eventData.duration = tag[1];
         break;
       default:
         break;

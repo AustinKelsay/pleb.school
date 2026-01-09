@@ -13,7 +13,6 @@ vi.mock("@/data/types", () => ({
 import {
   sanitizeContent,
   extractPlainText,
-  getEstimatedReadingTime,
   formatContentForDisplay,
   extractVideoBodyMarkdown,
 } from "../content-utils"
@@ -186,39 +185,6 @@ describe("extractPlainText", () => {
     const input = "See ![alt text](https://example.com/image.png) here"
     const result = extractPlainText(input)
     expect(result).toBe("See alt text here")
-  })
-})
-
-describe("getEstimatedReadingTime", () => {
-  it("returns 1 minute for short content", () => {
-    const input = "Hello world" // 2 words
-    const result = getEstimatedReadingTime(input)
-    expect(result).toBe(1)
-  })
-
-  it("calculates reading time based on 200 wpm", () => {
-    // 400 words should take 2 minutes
-    const words = Array(400).fill("word").join(" ")
-    const result = getEstimatedReadingTime(words)
-    expect(result).toBe(2)
-  })
-
-  it("rounds up partial minutes", () => {
-    // 250 words = 1.25 minutes, should round to 2
-    const words = Array(250).fill("word").join(" ")
-    const result = getEstimatedReadingTime(words)
-    expect(result).toBe(2)
-  })
-
-  it("handles markdown content", () => {
-    const input = "# Title\n\nThis is **bold** and *italic* content with a [link](url)."
-    const result = getEstimatedReadingTime(input)
-    expect(result).toBeGreaterThan(0)
-  })
-
-  it("handles empty content", () => {
-    const result = getEstimatedReadingTime("")
-    expect(result).toBe(0)
   })
 })
 

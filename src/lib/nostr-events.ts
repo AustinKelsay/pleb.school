@@ -184,7 +184,7 @@ export function createResourceEvent(
   // Add additional links as 'r' tags
   const normalizedLinks = normalizeAdditionalLinks(draft.additionalLinks)
   tags.push(...additionalLinksToTags(normalizedLinks))
-  
+
   // Create and sign the event using snstr's createEvent
   // This is for server-side signing only (OAuth users)
   const event = createEvent({
@@ -192,7 +192,7 @@ export function createResourceEvent(
     content: formattedContent,
     tags
   }, privateKey) as NostrEvent
-  
+
   return event
 }
 
@@ -299,7 +299,7 @@ export function createUnsignedResourceEvent(
   // Add additional links as 'r' tags
   const normalizedLinks = normalizeAdditionalLinks(draft.additionalLinks)
   tags.push(...additionalLinksToTags(normalizedLinks))
-  
+
   return {
     pubkey,
     created_at: Math.floor(Date.now() / 1000),

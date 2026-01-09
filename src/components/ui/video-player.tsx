@@ -18,7 +18,6 @@ interface VideoPlayerProps {
   url?: string
   title?: string
   videoUrl?: string
-  duration?: string
   thumbnailUrl?: string
   className?: string
 }
@@ -109,18 +108,10 @@ function extractVideoSource(content: string | undefined): string | null {
 /**
  * Video controls component
  */
-const VideoControls = ({ videoUrl, duration }: { videoUrl?: string; duration?: string }) => {
-  const durationLabel = duration?.trim()
-  const shouldShowDuration = Boolean(durationLabel && durationLabel !== '—')
-
+const VideoControls = ({ videoUrl }: { videoUrl?: string }) => {
   return (
     <div className="flex items-center justify-between p-4 bg-muted/50 border-t">
       <div className="flex items-center space-x-2">
-        {shouldShowDuration && (
-          <Badge variant="outline" className="text-xs">
-            {durationLabel}
-          </Badge>
-        )}
         <Badge variant="secondary" className="text-xs">
           Video
         </Badge>
@@ -294,7 +285,6 @@ export function VideoPlayer({
   url,
   title, 
   videoUrl, 
-  duration, 
   thumbnailUrl, 
   className = '' 
 }: VideoPlayerProps) {
@@ -345,7 +335,7 @@ export function VideoPlayer({
           </div>
         )}
         
-        <VideoControls videoUrl={effectiveUrl} duration={duration} />
+        <VideoControls videoUrl={effectiveUrl} />
       </CardContent>
     </Card>
   )

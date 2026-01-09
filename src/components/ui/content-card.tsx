@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { OptimizedImage } from "@/components/ui/optimized-image"
 import {
   BookOpen,
-  Clock,
   User,
   Users,
   Zap,
@@ -32,8 +31,8 @@ interface HomepageItem {
   description: string
   icon: React.ComponentType<{ className?: string }>
   gradient: string
-  duration?: string
   type?: string
+  enrollmentCount?: number
 }
 
 interface ContentCardProps {
@@ -164,6 +163,9 @@ export function ContentCard({
   const zapTotalSats = zapInsights?.totalSats ?? 0
   const isPremium = isContent && (item as ContentItem).price > 0
   const price = isContent ? (item as ContentItem).price : 0
+  const showEnrollmentCount = !isContent && 'enrollmentCount' in item
+    && typeof item.enrollmentCount === 'number'
+    && item.enrollmentCount > 0
   const purchasedCount = isContent && Array.isArray((item as ContentItem).purchases)
     ? (item as ContentItem).purchases!.filter((p) => {
         const snapshot = p.priceAtPurchase
@@ -347,26 +349,16 @@ export function ContentCard({
         {/* Spacer pushes remaining content to bottom */}
         <div className="flex-grow" />
 
-        {/* Stats Row */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-          <div className="flex items-center gap-4">
-            {/* Duration for videos */}
-            {isContent && item.duration && (
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                <span>{item.duration}</span>
-              </div>
-            )}
-            
-            {/* Enrollment count for courses */}
-            {!isContent && 'enrollmentCount' in item && typeof item.enrollmentCount === 'number' && item.enrollmentCount > 0 && (
+        {showEnrollmentCount && typeof item.enrollmentCount === 'number' && (
+          <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
                 <Users className="h-3 w-3" />
                 <span>{item.enrollmentCount.toLocaleString()}</span>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Time ago and instructor */}
         <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">

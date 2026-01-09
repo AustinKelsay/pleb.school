@@ -488,7 +488,6 @@ let courseInstructorPubkey = ''
                 title={content.title}
                 url={playbackUrl}
                 videoUrl={playbackUrl}
-                duration="30 min"
                 thumbnailUrl={resourceImage}
               />
               {videoBodyMarkdown && (

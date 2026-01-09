@@ -23,7 +23,6 @@ import {
   Loader2,
   Eye,
   BookOpen,
-  Clock,
   Zap,
   CheckCircle2,
   Pencil
@@ -44,7 +43,6 @@ interface DraftLessonDisplay {
   id: string
   title: string
   index: number
-  duration: string
   isPremium: boolean
   contentType?: string
   image?: string
@@ -200,15 +198,6 @@ function PublishStatus({
 function CourseSummary({ draftData, lessons }: { draftData: CourseDraft; lessons: ResolvedDraftLesson[] }) {
   const isPremium = (draftData.price ?? 0) > 0
   const lessonCount = lessons.length
-  const estimatedDuration = lessonCount * 30 // 30 minutes per lesson
-
-  const formatDuration = (minutes: number): string => {
-    if (minutes < 60) return `${minutes} min`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    if (mins === 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
-    return `${hours}h ${mins}m`
-  }
 
   return (
     <Card>
@@ -232,10 +221,6 @@ function CourseSummary({ draftData, lessons }: { draftData: CourseDraft; lessons
           <div>
             <h4 className="font-medium text-sm">Lessons</h4>
             <p className="text-sm text-muted-foreground">{lessonCount} lessons</p>
-          </div>
-          <div>
-            <h4 className="font-medium text-sm">Duration</h4>
-            <p className="text-sm text-muted-foreground">{formatDuration(estimatedDuration)}</p>
           </div>
           <div>
             <h4 className="font-medium text-sm">Price</h4>
@@ -265,7 +250,6 @@ function CourseSummary({ draftData, lessons }: { draftData: CourseDraft; lessons
           <h4 className="font-medium text-sm mb-3">Lessons to be published</h4>
           <div className="space-y-2">
             {lessons.map(lesson => {
-              const durationLabel = '30 min'
               const StatusIcon = lesson.status === 'published' ? CheckCircle2 : Pencil
               const statusLabel = lesson.status === 'published' ? 'Published lesson' : 'Draft lesson'
               const statusClass =
@@ -281,10 +265,6 @@ function CourseSummary({ draftData, lessons }: { draftData: CourseDraft; lessons
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{lesson.title}</p>
                     <div className="flex items-center flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {durationLabel}
-                      </span>
                       <Badge variant="outline" className="text-xs">
                         {lesson.isPremium ? 'Premium' : 'Free'}
                       </Badge>

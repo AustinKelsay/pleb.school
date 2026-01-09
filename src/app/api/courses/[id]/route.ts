@@ -108,16 +108,24 @@ export async function GET(
 
 /**
  * PUT /api/courses/[id] - Update a specific course
+ * Only the course owner or admin can update
  */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const courseId = id;
-    const body = await request.json();
-    
+
     if (!courseId) {
       return NextResponse.json(
         { error: 'Invalid course ID' },
@@ -125,15 +133,43 @@ export async function PUT(
       );
     }
 
+    // Fetch the course to check ownership
+    const course = await CourseAdapter.findById(courseId);
+    if (!course) {
+      return NextResponse.json(
+        { error: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check authorization: must be owner or admin
+    const isOwner = course.userId === session.user.id;
+
+    // Check if user is admin via role
+    const { prisma } = await import('@/lib/prisma');
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { role: true }
+    });
+    const isAdmin = user?.role?.admin || false;
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
     const updatedCourse = await CourseAdapter.update(courseId, body);
-    
+
     return NextResponse.json(
       { course: updatedCourse, message: 'Course updated successfully' }
     );
   } catch (error) {
     console.error('Error updating course:', error);
     return NextResponse.json(
-      { error: 'Failed to update course', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to update course' },
       { status: 500 }
     );
   }
@@ -141,15 +177,24 @@ export async function PUT(
 
 /**
  * DELETE /api/courses/[id] - Delete a specific course
+ * Only the course owner or admin can delete
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const courseId = id;
-    
+
     if (!courseId) {
       return NextResponse.json(
         { error: 'Invalid course ID' },
@@ -157,12 +202,48 @@ export async function DELETE(
       );
     }
 
-    const deleted = await CourseAdapter.delete(courseId);
-    
-    if (!deleted) {
+    // Fetch the course to check ownership and dependencies
+    const course = await CourseAdapter.findById(courseId);
+    if (!course) {
       return NextResponse.json(
         { error: 'Course not found' },
         { status: 404 }
+      );
+    }
+
+    // Check authorization: must be owner or admin
+    const isOwner = course.userId === session.user.id;
+
+    // Check if user is admin via role
+    const { prisma } = await import('@/lib/prisma');
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { role: true }
+    });
+    const isAdmin = user?.role?.admin || false;
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // Check if course has been purchased before deleting
+    const purchaseCount = await PurchaseAdapter.countByCourse(courseId)
+    if (purchaseCount > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete course that has been purchased' },
+        { status: 409 }
+      );
+    }
+
+    const deleted = await CourseAdapter.delete(courseId);
+
+    if (!deleted) {
+      return NextResponse.json(
+        { error: 'Failed to delete course' },
+        { status: 500 }
       );
     }
 
@@ -172,7 +253,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting course:', error);
     return NextResponse.json(
-      { error: 'Failed to delete course', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to delete course' },
       { status: 500 }
     );
   }

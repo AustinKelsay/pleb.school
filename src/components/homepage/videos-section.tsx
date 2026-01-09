@@ -133,7 +133,6 @@ function VideoCard({ video }: { video: VideoResourceWithNote }) {
                 video.note?.tags.find(tag => tag[0] === "description")?.[1] ||
                 video.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
     category: video.price > 0 ? 'Premium' : 'Free',
-    duration: '15-30 min',
     image: video.note?.tags.find(tag => tag[0] === "image")?.[1] || '',
     href: `/content/${video.id}`,
     tags: video.note?.tags || [],

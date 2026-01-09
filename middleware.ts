@@ -78,18 +78,19 @@ export function middleware(request: NextRequest) {
   // Handle API routes with environment-aware CORS
   if (request.nextUrl.pathname.startsWith('/api/')) {
     // Configure CORS based on environment
-    const allowedOrigins = process.env.ALLOWED_ORIGINS 
-      ? process.env.ALLOWED_ORIGINS.split(',')
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
       : ['http://localhost:3000', 'http://127.0.0.1:3000'] // Development defaults
-    
+
     const origin = request.headers.get('origin')
-    const isAllowedOrigin = !origin || allowedOrigins.includes(origin)
-    
+    // Only allow explicitly configured origins - no bypass for missing origin header
+    const isAllowedOrigin = origin && allowedOrigins.includes(origin)
+
     if (isAllowedOrigin) {
-      response.headers.set('Access-Control-Allow-Origin', origin || '*')
+      response.headers.set('Access-Control-Allow-Origin', origin)
       response.headers.set('Access-Control-Allow-Credentials', 'true')
     }
-    
+
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     

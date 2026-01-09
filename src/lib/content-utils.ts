@@ -178,16 +178,6 @@ export function extractPlainText(content: string): string {
 }
 
 /**
- * Get estimated reading time for content
- */
-export function getEstimatedReadingTime(content: string): number {
-  const plainText = extractPlainText(content)
-  const words = plainText.split(/\s+/).filter(word => word.length > 0).length
-  const wordsPerMinute = 200 // Average reading speed
-  return Math.ceil(words / wordsPerMinute)
-}
-
-/**
  * Format content for display (remove excessive whitespace, etc.)
  */
 export function formatContentForDisplay(content: string): string {

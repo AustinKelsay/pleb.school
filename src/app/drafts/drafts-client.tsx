@@ -34,10 +34,6 @@ function isCourseDraft(draft: CourseDraft | ResourceDraft): draft is CourseDraft
   return draft.draftType === 'course'
 }
 
-function isResourceDraft(draft: CourseDraft | ResourceDraft): draft is ResourceDraft {
-  return draft.draftType === 'resource'
-}
-
 /**
  * Draft card component - styled to match content-card.tsx
  */
@@ -58,14 +54,6 @@ function DraftCard({ draft }: { draft: CourseDraft | ResourceDraft }) {
     if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`
     if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)}mo ago`
     return `${Math.floor(diffInSeconds / 31536000)}y ago`
-  }
-
-  const formatDuration = (minutes: number): string => {
-    if (minutes < 60) return `${minutes} min`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    if (mins === 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
-    return `${hours}h ${mins}m`
   }
 
   const getTypeIcon = (type: string) => {
@@ -109,6 +97,7 @@ function DraftCard({ draft }: { draft: CourseDraft | ResourceDraft }) {
   const editUrl = isCourseDraft(draft) ? `/create?type=course&draft=${draft.id}` : `/create?type=resource&draft=${draft.id}`
   const publishUrl = `${draftUrl}/publish`
   const TypeIcon = getTypeIcon(type)
+  const showLessonCount = isCourseDraft(draft)
 
   const handleCardClick = () => {
     router.push(draftUrl)
@@ -247,32 +236,16 @@ function DraftCard({ draft }: { draft: CourseDraft | ResourceDraft }) {
         </CardDescription>
 
         {/* Stats Row */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-          <div className="flex items-center gap-4">
-            {/* Duration/Read time */}
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span>
-                {isCourseDraft(draft) && draft.estimatedDuration 
-                  ? formatDuration(draft.estimatedDuration)
-                  : isResourceDraft(draft) && draft.type === 'video'
-                    ? '30 min'
-                    : isResourceDraft(draft)
-                      ? `${draft.estimatedReadTime} min read`
-                      : '30 min'
-                }
-              </span>
-            </div>
-            
-            {/* Lesson count for courses */}
-            {isCourseDraft(draft) && (
+        {showLessonCount && (
+          <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
                 <BookOpen className="h-3 w-3" />
                 <span>{draft.lessonCount} lessons</span>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Time ago */}
         <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">

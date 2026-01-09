@@ -21,7 +21,6 @@ import {
   type ResolvedDraftLesson,
 } from '@/lib/drafts/lesson-resolution'
 import {
-  Clock,
   BookOpen,
   Tag,
   Edit,
@@ -414,15 +413,6 @@ export function CourseDraftPageClient({ courseId }: CourseDraftPageClientProps) 
   const isPremium = (draftData.price ?? 0) > 0
   const currency = 'sats'
   const lessonCount = resolvedLessons.length
-  const estimatedDuration = lessonCount * 30 // 30 minutes per lesson
-
-  const formatDuration = (minutes: number): string => {
-    if (minutes < 60) return `${minutes} min`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    if (mins === 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
-    return `${hours}h ${mins}m`
-  }
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -485,13 +475,6 @@ export function CourseDraftPageClient({ courseId }: CourseDraftPageClientProps) 
                   <BookOpen className="h-5 w-5 text-muted-foreground" />
                   <span>{lessonCount} lessons</span>
                 </div>
-
-                {estimatedDuration > 0 && (
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <span>{formatDuration(estimatedDuration)}</span>
-                  </div>
-                )}
               </div>
 
               <div className="hidden lg:block">
@@ -580,12 +563,6 @@ export function CourseDraftPageClient({ courseId }: CourseDraftPageClientProps) 
                     <h4 className="font-semibold mb-2">Lessons</h4>
                     <p className="text-sm text-muted-foreground">{lessonCount} lessons</p>
                   </div>
-                  {estimatedDuration > 0 && (
-                    <div>
-                      <h4 className="font-semibold mb-2">Duration</h4>
-                      <p className="text-sm text-muted-foreground">{formatDuration(estimatedDuration)}</p>
-                    </div>
-                  )}
                   <div>
                     <h4 className="font-semibold mb-2">Price</h4>
                     <p className="text-sm text-muted-foreground">

@@ -28,7 +28,6 @@ import {
   ArrowLeft,
   BookOpen,
   Calendar,
-  Clock,
   ExternalLink,
   Eye,
   FileText,
@@ -71,73 +70,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
   }
 }
 
-function humanizeSeconds(totalSeconds: number): string | null {
-  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return null
-  }
-
-  const roundedSeconds = Math.round(totalSeconds)
-  if (roundedSeconds < 60) {
-    return `${roundedSeconds}s`
-  }
-
-  const minutes = Math.floor(roundedSeconds / 60)
-  const seconds = roundedSeconds % 60
-  if (seconds === 0) {
-    return `${minutes} min`
-  }
-
-  return `${minutes}m ${seconds}s`
-}
-
-function formatDurationLabel(rawDuration?: string | number | null): string | null {
-  if (rawDuration === undefined || rawDuration === null) {
-    return null
-  }
-
-  if (typeof rawDuration === 'number') {
-    return humanizeSeconds(rawDuration)
-  }
-
-  const trimmed = rawDuration.trim()
-  if (!trimmed) {
-    return null
-  }
-
-  if (/^\d+(\.\d+)?$/.test(trimmed)) {
-    return humanizeSeconds(Number(trimmed))
-  }
-
-  const minuteMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*m(?:in|ins)?/i)
-  if (minuteMatch) {
-    const minutes = parseFloat(minuteMatch[1])
-    return minutes ? `${Math.round(minutes)} min` : null
-  }
-
-  const clockMatch = trimmed.match(/^(\d+):(\d{1,2})$/)
-  if (clockMatch) {
-    const minutes = Number(clockMatch[1])
-    const seconds = Number(clockMatch[2])
-    if (!Number.isNaN(minutes) && !Number.isNaN(seconds)) {
-      return seconds ? `${minutes}m ${seconds}s` : `${minutes} min`
-    }
-  }
-
-  return trimmed
-}
-
-function resolveVideoDurationLabel(
-  event: NostrEvent,
-  parsedEvent: ReturnType<typeof parseEvent>
-): string | null {
-  if (parsedEvent.type !== 'video') {
-    return null
-  }
-
-  const durationTag = event.tags?.find?.((tag) => tag[0] === 'duration')?.[1]
-  const rawVideoDuration = parsedEvent.duration || durationTag || null
-  return formatDurationLabel(rawVideoDuration)
-}
 
 interface ContentMetadataProps {
   event: NostrEvent
@@ -200,14 +132,6 @@ function ContentMetadata({
     })
   }
 
-  const getReadingTime = (content: string): number => {
-    const wordsPerMinute = 200
-    const words = content.trim().split(/\s+/).length
-    return Math.ceil(words / wordsPerMinute)
-  }
-
-  const readingTime = parsedEvent.type !== 'video' ? getReadingTime(event.content) : null
-
   const {
     commentMetrics,
     interactions,
@@ -243,7 +167,6 @@ function ContentMetadata({
     Boolean(parsedEvent.price && parseFloat(parsedEvent.price) > 0)
   const isPremium = Boolean(derivedPremiumFlag)
 
-  const videoDurationLabel = resolveVideoDurationLabel(event, parsedEvent)
   const lockable = isPremium && resourceIdIsUuid && priceSats > 0
   const hasAccess = !lockable || serverPurchased
   const canPurchase = lockable
@@ -272,17 +195,10 @@ function ContentMetadata({
           <ViewsText ns="content" id={resourceKey} notation="compact" />
         </div>
 
-        {readingTime && (
-          <div className="flex items-center space-x-1">
-            <Clock className="h-4 w-4" />
-            <span>{readingTime} min read</span>
-          </div>
-        )}
-
         {parsedEvent.type === 'video' && (
           <div className="flex items-center space-x-1">
             <Play className="h-4 w-4" />
-            <span>{videoDurationLabel ?? '—'}</span>
+            <span>Video</span>
           </div>
         )}
       </div>
@@ -783,7 +699,6 @@ export function ResourceContentView({
   const resourceIdIsUuid = uuidRegex.test(resourceId)
   const lockable = isPremium && resourceIdIsUuid && priceSats > 0
   const canPurchase = lockable
-  const videoDurationLabel = resolveVideoDurationLabel(event, parsedEvent)
   const videoUrl = resolveVideoPlaybackUrl(parsedEvent.videoUrl, event.content, type)
   const videoBodyMarkdown = type === 'video' ? extractVideoBodyMarkdown(event.content) : ''
 
@@ -877,7 +792,6 @@ export function ResourceContentView({
                 url={videoUrl}
                 content={event.content}
                 title={title}
-                duration={videoDurationLabel ?? '—'}
               />
               {videoBodyMarkdown && (
                 <div className="prose prose-lg max-w-none">

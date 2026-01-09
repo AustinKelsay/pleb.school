@@ -378,10 +378,13 @@ Sends verification email for account linking.
 - Subject: "Verify your email to link your account"
 - Contains a link to `/verify-email?ref=...` and a 6-digit code valid for 60 minutes
 
+**Rate Limit**: 3 requests per email address per hour
+
 **Error Responses**:
 - `400 Bad Request` - Invalid email format
 - `409 Conflict` - Email already linked
 - `401 Unauthorized` - No valid session
+- `429 Too Many Requests` - Rate limit exceeded (includes `Retry-After` header)
 - `500 Internal Server Error` - Failed to send email
 
 ### POST /api/account/verify-email
@@ -393,6 +396,8 @@ Completes email linking by verifying a short code (token) with a lookup referenc
 { "ref": "<lookupId>", "token": "123456" }
 ```
 
+**Rate Limit**: 5 attempts per ref per hour (prevents brute force on 6-digit codes)
+
 **Response**: `200 OK`
 ```json
 { "success": true }
@@ -400,6 +405,7 @@ Completes email linking by verifying a short code (token) with a lookup referenc
 
 **Error Responses**:
 - `400 Bad Request` with `error` set to `invalid_token`, `token_expired`, `token_mismatch`, or `invalid_token_format`
+- `429 Too Many Requests` with `error` set to `too_many_attempts` (includes `Retry-After` header)
 - `500 Internal Server Error` with `error` set to `verification_error`
 
 ### GET /verify-email (Page)

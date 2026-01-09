@@ -21,7 +21,6 @@ import { useInteractions } from '@/hooks/useInteractions'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import { resolveUniversalId } from '@/lib/universal-router'
 import {
-  Clock,
   BookOpen,
   Play,
   Tag,
@@ -117,10 +116,6 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
                         {lessonTitle}
                       </h4>
                       <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
-                        <div className="flex items-center space-x-1 flex-shrink-0">
-                          <Clock className="h-3 w-3 flex-shrink-0" />
-                          <span className="whitespace-nowrap">{lesson.duration || '30 min'}</span>
-                        </div>
                         <Badge variant="secondary" className="text-xs flex-shrink-0">
                           {isPremium ? getCopy('pricing.premium') : getCopy('pricing.free')}
                         </Badge>
@@ -331,9 +326,6 @@ function CoursePageContent({ courseId }: { courseId: string }) {
 
   const id = courseId
   const lessonCount = lessonsData.length
-  
-  // Estimate total duration based on lesson count
-  const estimatedDuration = lessonCount * 30 // 30 minutes per lesson
 
   // Parse data from database and Nostr note
   let title = 'Unknown Course'
@@ -397,14 +389,6 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   // Access requires server-confirmed purchase - don't grant access based on client-side zap totals alone
   // The auto-claim flow in PurchaseCard will set serverPurchased=true after successful API claim
   const hasAccess = !isPremium || serverPurchased
-
-  const formatDuration = (minutes: number): string => {
-    if (minutes < 60) return `${minutes} min`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    if (mins === 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
-    return `${hours}h ${mins}m`
-  }
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -472,12 +456,6 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                   <span>{lessonCount} lessons</span>
                 </div>
 
-                {estimatedDuration > 0 && (
-              <div className="flex items-center space-x-1.5 sm:space-x-2">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                <span>{formatDuration(estimatedDuration)}</span>
-              </div>
-            )}
           </div>
 
           {isPremium && priceSats > 0 && (
@@ -606,12 +584,6 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                     <h4 className="font-semibold mb-2">Lessons</h4>
                     <p className="text-sm text-muted-foreground">{lessonCount} lessons</p>
                   </div>
-                  {estimatedDuration > 0 && (
-                    <div>
-                      <h4 className="font-semibold mb-2">Duration</h4>
-                      <p className="text-sm text-muted-foreground">{formatDuration(estimatedDuration)}</p>
-                    </div>
-                  )}
                   <div>
                     <h4 className="font-semibold mb-2">Price</h4>
                     <p className="text-sm text-muted-foreground">
