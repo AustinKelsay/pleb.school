@@ -1,41 +1,10 @@
 # Content Time Estimates
 
-How read time and video duration are calculated, stored, and displayed across pleb.school.
+How video duration is stored and displayed across pleb.school.
 
 ## Overview
 
-Content time estimates have two distinct handling paths:
-- **Documents**: Read time calculated from content length using 200 WPM
-- **Videos**: Duration manually entered by user, stored in Nostr event tags
-
-## Read Time (Documents)
-
-### Calculation
-
-Located in `src/lib/content-utils.ts`:
-
-```typescript
-export function getEstimatedReadingTime(content: string): number {
-  const plainText = extractPlainText(content)
-  const words = plainText.split(/\s+/).filter(word => word.length > 0).length
-  const wordsPerMinute = 200
-  return Math.ceil(words / wordsPerMinute)
-}
-```
-
-**Algorithm:**
-1. Strip markdown/HTML via `extractPlainText()` (removes code blocks, tags, markdown syntax)
-2. Count words by splitting on whitespace
-3. Divide by 200 WPM (industry standard for technical content)
-4. Round up with `Math.ceil()` - minimum 1 minute
-
-### Display Locations
-
-| Location | Format |
-|----------|--------|
-| Content detail page | "X min read" |
-| Draft previews | "X min read" |
-| Homepage documents section | Calculated from `note.content` |
+Video duration is manually entered by users and stored in Nostr event tags. Read time calculation for documents is not currently implemented.
 
 ## Video Duration
 
@@ -91,26 +60,6 @@ if (draft.type === 'video' && draft.duration) {
 ]
 ```
 
-### Parsing Duration from Events
-
-Located in `src/data/types.ts`:
-
-```typescript
-case "duration":
-  eventData.duration = tag[1] || ""
-  break
-```
-
-Also parsed in `src/hooks/useLessonsQuery.ts`:
-
-```typescript
-function parseLessonFromNote(note?: NostrEvent) {
-  // ...
-  const duration = note.tags.find(tag => tag[0] === 'duration')?.[1]
-  return { title, description, type, isPremium, duration }
-}
-```
-
 ### Duration Formatting
 
 Located in `src/app/content/components/resource-content-view.tsx`:
@@ -159,13 +108,11 @@ When no duration is available, the UI displays `"medium"` as a generic fallback:
 
 | Content Type | Has Duration | Display |
 |--------------|--------------|---------|
-| Document | N/A | Calculated read time ("X min read") |
 | Video | Yes | User-entered duration |
 | Video | No | "medium" |
 
 ### Fallback Locations
 
-- `src/hooks/useLessonsQuery.ts`: `parsedData.duration || 'medium'`
 - `src/app/courses/[id]/page.tsx`: `lesson.duration || 'medium'`
 - `src/app/courses/[id]/lessons/[lessonId]/details/page.tsx`: `content.duration || 'medium'`
 - `src/app/drafts/drafts-client.tsx`: `draft.duration || 'medium'`
@@ -243,11 +190,3 @@ Video duration could potentially be auto-detected from certain sources:
 | Unknown sources | Not possible | N/A |
 
 Current implementation uses manual entry with "medium" fallback for simplicity.
-
-### Read Time Enhancements
-
-Potential improvements:
-- Account for code blocks (slower reading)
-- Adjust for image-heavy content
-- Consider technical vs non-technical content
-- Configurable WPM in content.json config

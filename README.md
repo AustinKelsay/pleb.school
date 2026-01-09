@@ -87,7 +87,7 @@ session?.user?.nostrProfile // Full profile (Nostr-first only)
 
 ## Project Structure
 
-```
+```text
 src/
 ├── app/                      # Next.js App Router
 │   ├── api/                  # API routes
@@ -200,9 +200,10 @@ docker compose up app   # Full stack
 | `GITHUB_LINK_CLIENT_SECRET` | No | Account linking OAuth |
 | `EMAIL_SERVER_*` | No | SMTP settings |
 | `EMAIL_FROM` | No | Sender address |
-| `KV_REST_API_URL` | No | Vercel KV (view counters) |
-| `KV_REST_API_TOKEN` | No | Vercel KV |
-| `KV_REST_API_READ_ONLY_TOKEN` | No | Vercel KV read-only |
+| `ALLOWED_ORIGINS` | No | CORS allowed origins (comma-separated) |
+| `KV_REST_API_URL` | No | Vercel KV (view counters and rate limiting) |
+| `KV_REST_API_TOKEN` | No | Vercel KV (view counters and rate limiting) |
+| `KV_REST_API_READ_ONLY_TOKEN` | No | Vercel KV read-only (view counters and rate limiting) |
 | `VIEWS_CRON_SECRET` | No | View counter flush auth |
 
 ## Tech Stack

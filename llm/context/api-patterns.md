@@ -20,7 +20,6 @@ const CourseCreateSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(2000),
   category: z.string().min(1),
-  duration: z.string().optional(),
   instructor: z.string().optional(),
   image: z.string().url().optional(),
 })
