@@ -7,7 +7,8 @@
  * Note on rehypeRaw: This plugin allows HTML passthrough for rich content embedding
  * (videos, iframes, custom formatting). React's JSX rendering model provides
  * built-in protection against inline script execution and event handler injection.
- * Custom component handlers (links, images) filter props to maintain content safety.
+ * Link handler blocks dangerous URL schemes (javascript:, data:, vbscript:).
+ * Image handler uses OptimizedImage with filtered props.
  */
 
 'use client'
@@ -362,13 +363,16 @@ const MarkdownComponents = {
     </th>
   ),
   
-  // Custom link renderer
+  // Custom link renderer with URL scheme validation
   a: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-    const isExternal = href?.startsWith('http')
-    
+    // Block dangerous URL schemes (javascript:, data:, vbscript:)
+    const isDangerous = href && /^(javascript|data|vbscript):/i.test(href.trim())
+    const safeHref = isDangerous ? '#' : href
+    const isExternal = safeHref?.startsWith('http')
+
     return (
       <a
-        href={href}
+        href={safeHref}
         className="text-primary hover:text-primary/80 underline underline-offset-4 inline-flex items-center gap-1"
         target={isExternal ? '_blank' : undefined}
         rel={isExternal ? 'noopener noreferrer' : undefined}
