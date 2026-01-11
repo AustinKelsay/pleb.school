@@ -43,13 +43,14 @@ The core architectural pattern: **Database stores metadata, Nostr stores content
 - **NIP-23**: Long-form content (kind 30023)
 - **NIP-51**: Lists/courses (kind 30004)
 - **NIP-57**: Zaps (Lightning payments)
+- **NIP-98**: HTTP authentication (login verification, kind 27235)
 - **NIP-99**: Classified listings/paid content (kind 30402)
 
 ### Authentication System
 
 Dual identity architecture in `src/lib/auth.ts`:
 
-**Nostr-first** (NIP07, Anonymous): Nostr profile is source of truth, syncs on every login
+**Nostr-first** (NIP07, Anonymous): Nostr profile is source of truth, syncs on every login. NIP-07 login uses NIP-98 HTTP Auth (kind 27235) for cryptographic pubkey verification.
 **OAuth-first** (Email, GitHub): OAuth profile is authoritative, gets ephemeral Nostr keys for protocol access
 
 All users get Nostr capabilities regardless of login method.

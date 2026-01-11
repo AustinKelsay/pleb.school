@@ -193,7 +193,7 @@ Contains icons for authentication providers, security indicators, and account ma
 
 ### config/payments.json Icons
 
-Contains icons for interaction metrics.
+Contains icons for interaction metrics, payment status, and purchase UI.
 
 ```json
 {
@@ -202,6 +202,15 @@ Contains icons for interaction metrics.
       "zap": "Zap",
       "heart": "Heart",
       "comment": "MessageCircle"
+    },
+    "status": {
+      "success": "CheckCircle",
+      "pending": "Loader2",
+      "error": "AlertTriangle"
+    },
+    "purchase": {
+      "shieldCheck": "ShieldCheck",
+      "wallet": "Wallet"
     }
   }
 }
@@ -248,6 +257,8 @@ Each category also has `getAll<Category>Icons()` returning `Record<string, Lucid
 | Function | Keys | Default Fallback |
 |----------|------|------------------|
 | `getInteractionIcon(key)` | zap, heart, comment | Zap |
+| `getPaymentStatusIcon(key)` | success, pending, error | Info |
+| `getPurchaseIcon(key)` | shieldCheck, wallet | ShieldCheck |
 
 ### From icons-config.ts (Core Utilities)
 
@@ -293,7 +304,6 @@ export function Header() {
 - Icons resolve once, not on every render
 - React can optimize these constants
 - Declarative at top of file
-- Required by ESLint rule `react-hooks/static-components`
 
 ### Component-Level Resolution
 
@@ -498,6 +508,19 @@ Object.entries(allIcons).map(([key, Icon]) => (
 | heart | Heart | Like/heart |
 | comment | MessageCircle | Comment bubble |
 
+### Payment Status Icons (payments.json)
+| Key | Icon | Usage |
+|-----|------|-------|
+| success | CheckCircle | Success status |
+| pending | Loader2 | Pending/in-progress |
+| error | AlertTriangle | Error status |
+
+### Purchase Icons (payments.json)
+| Key | Icon | Usage |
+|-----|------|-------|
+| shieldCheck | ShieldCheck | Purchase security badge |
+| wallet | Wallet | Wallet/payment badge |
+
 ---
 
 ## Non-Configurable Icons
@@ -685,4 +708,4 @@ npm run build && npm run lint
 
 ---
 
-*Generated: 2025-12-06*
+*Generated: 2026-01-10*

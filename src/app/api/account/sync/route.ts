@@ -7,7 +7,52 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { fetchNostrProfile } from '@/lib/nostr-profile'
+import { sanitizeEmail } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
+
+// Validation constants for Nostr profile fields
+const MAX_USERNAME_LENGTH = 256
+const MAX_URL_LENGTH = 2048
+const MAX_NIP05_LENGTH = 320
+const MAX_LUD16_LENGTH = 320
+
+function validateUsername(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  if (trimmed.length === 0 || trimmed.length > MAX_USERNAME_LENGTH) return undefined
+  return trimmed.replace(/[\x00-\x1F\x7F]/g, '').replace(/\s+/g, ' ')
+}
+
+function validateImageUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  if (trimmed.length === 0 || trimmed.length > MAX_URL_LENGTH) return undefined
+  try {
+    const url = new URL(trimmed)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
+    return trimmed
+  } catch {
+    return undefined
+  }
+}
+
+function validateNip05(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim().toLowerCase()
+  if (trimmed.length === 0 || trimmed.length > MAX_NIP05_LENGTH) return undefined
+  const nip05Regex = /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+  if (!nip05Regex.test(trimmed)) return undefined
+  return trimmed
+}
+
+function validateLud16(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim().toLowerCase()
+  if (trimmed.length === 0 || trimmed.length > MAX_LUD16_LENGTH) return undefined
+  const lud16Regex = /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+  if (!lud16Regex.test(trimmed)) return undefined
+  return trimmed
+}
 
 /**
  * Shape of allowed user profile updates coming from provider syncs.
@@ -131,27 +176,20 @@ export async function POST(request: NextRequest) {
     
     let updates: UpdateUserPayload = {}
     
-    switch (provider) {
-      case 'nostr':
+  switch (provider) {
+    case 'nostr':
         if (account?.providerAccountId) {
           const nostrProfile = await fetchNostrProfile(account.providerAccountId)
           if (nostrProfile) {
             const nextUpdates: UpdateUserPayload = {}
-            const name = typeof (nostrProfile as Record<string, unknown>).name === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).name) 
-              : undefined
-            const picture = typeof (nostrProfile as Record<string, unknown>).picture === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).picture) 
-              : undefined
-            const banner = typeof (nostrProfile as Record<string, unknown>).banner === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).banner) 
-              : undefined
-            const nip05 = typeof (nostrProfile as Record<string, unknown>).nip05 === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).nip05) 
-              : undefined
-            const lud16 = typeof (nostrProfile as Record<string, unknown>).lud16 === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).lud16) 
-              : undefined
+            const profile = nostrProfile as Record<string, unknown>
+
+            // Apply validation to all profile fields from Nostr
+            const name = validateUsername(profile.name)
+            const picture = validateImageUrl(profile.picture)
+            const banner = validateImageUrl(profile.banner)
+            const nip05 = validateNip05(profile.nip05)
+            const lud16 = validateLud16(profile.lud16)
 
             if (name) nextUpdates.username = name
             if (picture) nextUpdates.avatar = picture
@@ -239,6 +277,27 @@ export async function POST(request: NextRequest) {
             }
           } catch (error) {
             console.error('Failed to fetch GitHub profile:', error)
+          }
+        }
+        break
+
+      case 'email':
+        if (!account?.providerAccountId) {
+          return NextResponse.json(
+            { error: 'Email account is missing an identifier' },
+            { status: 400 }
+          )
+        }
+        {
+          const normalizedEmail = sanitizeEmail(account.providerAccountId)
+          const currentUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { email: true }
+          })
+          if (!currentUser?.email) {
+            updates = { email: normalizedEmail }
+          } else if (currentUser.email !== normalizedEmail) {
+            updates = { email: normalizedEmail }
           }
         }
         break

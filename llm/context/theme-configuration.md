@@ -70,7 +70,7 @@ When creating new components:
 ## How the Theme System Works
 
 ### 1. **Theme Configuration** (`src/lib/theme-config.ts`)
-Contains 65 complete theme definitions, each with:
+Contains 64 complete theme definitions, each with:
 - Light and dark color schemes (32 OKLCh color variables each)
 - Associated font configuration with Google Fonts URL
 - Border radius preference
@@ -179,10 +179,10 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean, fontOv
 ## Benefits of This Approach
 
 1. **Consistency**: All components share the same design tokens
-2. **Flexibility**: Switch between 65 themes instantly
+2. **Flexibility**: Switch between 64 themes instantly
 3. **Maintainability**: Update colors in one place, affect entire app
 4. **Performance**: CSS variables are highly optimized by browsers
-5. **Accessibility**: Themes include proper contrast ratios
+5. **Accessibility**: Centralized tokens make contrast auditing possible (not automatically enforced)
 6. **User Preference**: Respects system dark mode and user choices
 7. **No Build-Time Overhead**: Themes switch at runtime without rebuilds
 
@@ -246,7 +246,7 @@ config/
   └── theme.json              # User configuration (UI visibility + defaults)
 src/
   ├── lib/
-  │   ├── theme-config.ts     # 65 theme definitions + applyCompleteTheme()
+  │   ├── theme-config.ts     # 64 theme definitions + applyCompleteTheme()
   │   ├── theme-ui-config.ts  # Config reader + validation helpers
   │   └── utils.ts            # cn() utility
   ├── contexts/
@@ -308,69 +308,13 @@ Set default theme, font, or dark mode settings:
 }
 ```
 
-## Available Themes (65 total)
+## Available Themes (64 total)
 
-You can set `defaults.theme` to any of these theme values:
+You can set `defaults.theme` to any of these values (from `completeThemes` in `src/lib/theme-config.ts`):
 
-### Basic Themes
-- `"default"` - Clean default theme with system fonts
-- `"neutral"`, `"stone"`, `"zinc"`, `"gray"`, `"slate"` - Neutral color variants
-- `"red"`, `"rose"`, `"orange"`, `"green"`, `"blue"`, `"yellow"`, `"violet"` - Color themes
+`amber-minimal`, `amethyst`, `amethyst-haze`, `astral`, `blaze`, `blue`, `bold-tech`, `bubblegum`, `caffeine`, `calypso`, `candyland`, `canvas`, `catppuccin`, `citrus`, `claude`, `claymorphism`, `clean-slate`, `cosmic-night`, `cyberpunk`, `default`, `doom64`, `elegant-luxury`, `emerald`, `forest`, `graphite`, `green`, `miami`, `midnight-bloom`, `mocha-mousse`, `modern-minimal`, `mono`, `nature`, `neo-brutalism`, `neutral`, `northern-lights`, `notebook`, `ocean-breeze`, `orange`, `perpetuity`, `quick-pink`, `razzmatazz`, `red`, `retro-arcade`, `rose`, `santa-fe`, `sky`, `soft-pop`, `solar`, `solar-dusk`, `spooky`, `spring-bouquet`, `starry-night`, `stone`, `sunset-horizon`, `supabase`, `twitter`, `typewriter`, `underground`, `vercel`, `violet`, `violet-bloom`, `xanadu`, `yellow`, `zinc`.
 
-### Specialty Themes
-- `"amber-minimal"` - Minimal amber design with Inter
-- `"amethyst"` - Purple gem colors with modern styling
-- `"amethyst-haze"` - Purple amethyst colors
-- `"astral"` - Cosmic purple theme with ethereal styling
-- `"blaze"` - Warm orange/red theme with vibrant colors
-- `"bold-tech"` - Bold technology theme with Space Mono font
-- `"bubblegum"` - Playful bubblegum colors
-- `"caffeine"` - Coffee-inspired browns
-- `"calypso"` - Tropical teal theme with modern styling
-- `"candyland"` - Sweet candy colors
-- `"canvas"` - Canvas theme with modern styling
-- `"catppuccin"` - Popular pastel theme
-- `"citrus"` - Bright yellow/green theme with modern styling
-- `"claude"` - Claude AI inspired colors
-- `"claymorphism"` - Soft clay-like design
-- `"clean-slate"` - Ultra-minimal design with Inter font
-- `"cosmic-night"` - Deep space colors with Orbitron font
-- `"cyberpunk"` - Neon cyberpunk aesthetic
-- `"doom64"` - Dark gaming theme
-- `"elegant-luxury"` - Sophisticated design with Playfair Display
-- `"emerald"` - Rich green theme with modern styling
-- `"forest"` - Deep green theme with modern styling
-- `"graphite"` - Industrial graphite grays
-- `"miami"` - Vibrant pink/magenta theme with modern styling
-- `"midnight-bloom"` - Dark elegance with Lora font
-- `"mocha-mousse"` - Warm coffee browns with Merriweather
-- `"modern-minimal"` - Ultra-clean design with Poppins
-- `"mono"` - Monochrome black and white
-- `"nature"` - Earth-tone greens and browns
-- `"neo-brutalism"` - Bold brutalist design with Space Grotesk
-- `"northern-lights"` - Aurora-inspired blues with Nunito
-- `"notebook"` - Paper-like notebook design
-- `"ocean-breeze"` - Ocean blues with Open Sans
-- `"perpetuity"` - Timeless classic design
-- `"quick-pink"` - Bright pink theme with modern styling
-- `"razzmatazz"` - Bold magenta theme with modern styling
-- `"retro-arcade"` - 80s neon colors with Press Start 2P
-- `"santa-fe"` - Southwest orange theme with modern styling
-- `"sky"` - Light blue theme with modern styling
-- `"soft-pop"` - Gentle pastels with Quicksand
-- `"solar"` - Bright yellow/orange theme with modern styling
-- `"solar-dusk"` - Sunset oranges with Raleway
-- `"spooky"` - Halloween orange/black theme with modern styling
-- `"spring-bouquet"` - Fresh green/pink dual-color theme
-- `"starry-night"` - Deep navy with Crimson Text
-- `"sunset-horizon"` - Warm gradients with Source Sans Pro
-- `"supabase"` - Supabase brand colors
-- `"twitter"` - Twitter brand colors
-- `"typewriter"` - Classic black/white theme with modern styling
-- `"underground"` - Dark purple theme with modern styling
-- `"vercel"` - Vercel brand colors
-- `"violet-bloom"` - Rich violets with Libre Baskerville
-- `"xanadu"` - Earthy green theme with modern styling
+Descriptions live inline in `src/lib/theme-config.ts`.
 
 ## Available Fonts (24 total)
 
@@ -487,7 +431,7 @@ This allows users to customize their experience while still respecting config de
 The pleb.school theme system represents a modern approach to application theming that prioritizes:
 
 ### **Developer Experience**
-- Write components once, support 65 themes automatically
+- Write components once, support 64 themes automatically
 - No need to think about colors when building features
 - Consistent patterns across the entire codebase
 - Easy onboarding for developers familiar with shadcn/ui

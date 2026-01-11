@@ -1,75 +1,19 @@
 /**
  * OAuth Account Linking Callback Endpoint
- * 
+ *
  * Handles OAuth callbacks for account linking (GitHub, etc.)
- * Processes the OAuth response and links the account
+ * Processes the OAuth response and links the account.
+ *
+ * Security: State parameter is cryptographically verified to prevent CSRF attacks.
+ * States are signed with HMAC-SHA256 and expire after 10 minutes.
+ * See src/lib/oauth-state.ts for implementation details.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { linkAccount } from '@/lib/account-linking'
-import { z } from 'zod'
-
-/**
- * Valid maximum size constraints for the OAuth state value
- */
-const MAX_STATE_PARAM_LENGTH = 4096
-const MAX_STATE_DECODED_BYTES = 4096
-
-/**
- * Schema describing the expected structure of the decoded OAuth state object.
- * We only support linking GitHub currently, so the provider is restricted.
- */
-const OAuthStateSchema = z.object({
-  action: z.literal('link'),
-  userId: z.string().min(1).max(128),
-  provider: z.literal('github')
-}).strict()
-
-/**
- * Normalize a base64/base64url string to standard base64 by replacing URL-safe
- * characters and fixing padding.
- */
-function normalizeBase64Input(input: string): string {
-  let normalized = input.replace(/-/g, '+').replace(/_/g, '/')
-  const pad = normalized.length % 4
-  if (pad === 2) normalized += '=='
-  else if (pad === 3) normalized += '='
-  else if (pad !== 0) throw new Error('Invalid base64 length')
-  return normalized
-}
-
-/**
- * Validate that an input string looks like base64/base64url and is reasonably sized.
- */
-function assertValidBase64Shape(input: string): void {
-  if (typeof input !== 'string' || input.length === 0) throw new Error('Missing state')
-  if (input.length > MAX_STATE_PARAM_LENGTH) throw new Error('State too large')
-  // Allow both base64 and base64url alphabets; restrict '=' padding to the end
-  const base64Like = /^[A-Za-z0-9+/_-]+={0,2}$/
-  if (!base64Like.test(input)) throw new Error('Invalid characters in state')
-}
-
-/**
- * Safely decode, size-check, and schema-validate the OAuth state value.
- */
-function validateAndParseState(stateParam: string) {
-  assertValidBase64Shape(stateParam)
-  const normalized = normalizeBase64Input(stateParam)
-  const decodedBuffer = Buffer.from(normalized, 'base64')
-  if (decodedBuffer.byteLength === 0) throw new Error('Empty decoded state')
-  if (decodedBuffer.byteLength > MAX_STATE_DECODED_BYTES) throw new Error('Decoded state too large')
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(decodedBuffer.toString('utf8'))
-  } catch {
-    throw new Error('State is not valid JSON')
-  }
-  const result = OAuthStateSchema.safeParse(parsed)
-  if (!result.success) throw new Error('State schema validation failed')
-  return result.data
-}
+import { verifySignedState } from '@/lib/oauth-state'
 
 export async function GET(request: NextRequest) {
   try {
@@ -91,18 +35,19 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Decode and validate state
-    let stateData
-    try {
-      stateData = validateAndParseState(state)
-    } catch (validationError) {
-      console.warn('Invalid OAuth state:', validationError)
+    // Verify cryptographic signature, expiry, and decode state
+    // This prevents CSRF attacks where an attacker crafts a state with victim's userId
+    const stateResult = verifySignedState(state)
+    if (!stateResult.valid) {
+      console.warn('OAuth state verification failed:', stateResult.error)
       return NextResponse.redirect(
         `${process.env.NEXTAUTH_URL}/profile?tab=accounts&error=invalid_state`
       )
     }
 
-    // Verify the action is for linking
+    const stateData = stateResult.data
+
+    // Verify the action is for linking (should always be true after schema validation)
     if (stateData.action !== 'link') {
       return NextResponse.redirect(
         `${process.env.NEXTAUTH_URL}/profile?tab=accounts&error=invalid_action`
@@ -110,6 +55,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is still logged in and matches the state
+    // This is a secondary check - the signature already proves the state was created
+    // by our server for this specific user, but we verify they're still logged in
     const session = await getServerSession(authOptions)
     if (!session?.user?.id || session.user.id !== stateData.userId) {
       return NextResponse.redirect(
@@ -134,8 +81,24 @@ export async function GET(request: NextRequest) {
         })
       })
 
+      // Verify response status and Content-Type before parsing JSON
+      if (!tokenResponse.ok) {
+        console.error('OAuth token exchange failed:', { status: tokenResponse.status })
+        return NextResponse.redirect(
+          `${process.env.NEXTAUTH_URL}/profile?tab=accounts&error=token_exchange_failed`
+        )
+      }
+
+      const tokenContentType = tokenResponse.headers.get('content-type') || ''
+      if (!tokenContentType.includes('application/json')) {
+        console.error('OAuth token response has unexpected Content-Type:', { contentType: tokenContentType })
+        return NextResponse.redirect(
+          `${process.env.NEXTAUTH_URL}/profile?tab=accounts&error=token_exchange_failed`
+        )
+      }
+
       const tokenData = await tokenResponse.json()
-      
+
       if (!tokenData.access_token) {
         return NextResponse.redirect(
           `${process.env.NEXTAUTH_URL}/profile?tab=accounts&error=token_exchange_failed`
@@ -150,8 +113,24 @@ export async function GET(request: NextRequest) {
         }
       })
 
+      // Verify response status and Content-Type before parsing JSON
+      if (!userResponse.ok) {
+        console.error('GitHub user fetch failed:', { status: userResponse.status })
+        return NextResponse.redirect(
+          `${process.env.NEXTAUTH_URL}/profile?tab=accounts&error=user_fetch_failed`
+        )
+      }
+
+      const userContentType = userResponse.headers.get('content-type') || ''
+      if (!userContentType.includes('application/json')) {
+        console.error('GitHub user response has unexpected Content-Type:', { contentType: userContentType })
+        return NextResponse.redirect(
+          `${process.env.NEXTAUTH_URL}/profile?tab=accounts&error=user_fetch_failed`
+        )
+      }
+
       const githubUser = await userResponse.json()
-      
+
       if (!githubUser.id) {
         return NextResponse.redirect(
           `${process.env.NEXTAUTH_URL}/profile?tab=accounts&error=user_fetch_failed`

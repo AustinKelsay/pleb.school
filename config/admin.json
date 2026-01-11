@@ -14,7 +14,8 @@
       "editOwnResource": true,
       "deleteResource": true,
       "manageUsers": true,
-      "viewAnalytics": true,
+      "viewOwnAnalytics": true,
+      "viewPlatformAnalytics": true,
       "moderateContent": true,
       "manageNostrEvents": true
     }
@@ -31,7 +32,8 @@
       "editOwnResource": true,
       "deleteResource": false,
       "manageUsers": false,
-      "viewAnalytics": false,
+      "viewOwnAnalytics": true,
+      "viewPlatformAnalytics": false,
       "moderateContent": true,
       "manageNostrEvents": false
     }
@@ -60,7 +62,8 @@
     "permissions.editOwnResource": "Allow editing only resources created by the user",
     "permissions.deleteResource": "Allow deleting resources",
     "permissions.manageUsers": "Allow managing user accounts and roles",
-    "permissions.viewAnalytics": "Allow viewing platform analytics and statistics",
+    "permissions.viewOwnAnalytics": "Allow viewing analytics for own content (courses/resources created by this user)",
+    "permissions.viewPlatformAnalytics": "Allow viewing all platform-wide analytics and statistics (admin only)",
     "permissions.moderateContent": "Allow moderating user-generated content",
     "permissions.manageNostrEvents": "Allow managing Nostr event publishing and relay configuration",
     "features": "Admin system feature toggles (informational; currently not enforced in runtime unless explicitly checked in UI/controllers)",
@@ -81,7 +84,8 @@
           "editAnyResource": true,
           "deleteResource": true,
           "manageUsers": true,
-          "viewAnalytics": true,
+          "viewOwnAnalytics": true,
+          "viewPlatformAnalytics": true,
           "moderateContent": true,
           "manageNostrEvents": true
         }
@@ -104,7 +108,8 @@
           "editOwnResource": true,
           "deleteResource": false,
           "manageUsers": false,
-          "viewAnalytics": false,
+          "viewOwnAnalytics": true,
+          "viewPlatformAnalytics": false,
           "moderateContent": false,
           "manageNostrEvents": false
         }

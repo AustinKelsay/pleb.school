@@ -27,6 +27,9 @@ import {
   clearPersistedAnonymousIdentity,
   getPersistedAnonymousIdentity,
   persistAnonymousIdentity,
+  hasLegacyPersistedIdentity,
+  getLegacyIdentityForMigration,
+  hasAnyPersistedAnonymousIdentity,
 } from '@/lib/anonymous-client-storage'
 import { cn } from '@/lib/utils'
 import { NostrichIcon } from '@/components/icons/nostrich-icon'
@@ -84,19 +87,21 @@ export default function SignInPage() {
     : copy.anonymousCard.description
 
   useEffect(() => {
-    setHasPersistedAnonymousIdentity(Boolean(getPersistedAnonymousIdentity()?.privkey))
+    // Check for either new token format or legacy privkey format
+    setHasPersistedAnonymousIdentity(hasAnyPersistedAnonymousIdentity())
   }, [])
 
-  // Cache the anonymous identity (privkey, pubkey) after a successful anon login
+  // Cache the anonymous identity (reconnect token) after a successful anon login
   const persistAnonymousSessionIdentity = useCallback(async () => {
     try {
       const session = await getSession()
-      if (session?.provider !== 'anonymous' || !session.user?.privkey) {
+      if (session?.provider !== 'anonymous' || !session.user?.reconnectToken) {
         return
       }
 
+      // Store the secure reconnect token (not the private key)
       persistAnonymousIdentity({
-        privkey: session.user.privkey,
+        reconnectToken: session.user.reconnectToken,
         pubkey: session.user.pubkey,
         userId: session.user.id,
       })
@@ -140,7 +145,8 @@ export default function SignInPage() {
     }
   }, [email, callbackUrl, copy.messages.emailError, copy.messages.emailSent, copy.messages.genericError])
 
-  // Handle NIP07 Nostr sign in
+  // Handle NIP07 Nostr sign in with NIP-98 authentication
+  // See: https://nips.nostr.com/98
   const handleNostrSignIn = useCallback(async () => {
     setIsNostrLoading(true)
     setError('')
@@ -151,12 +157,30 @@ export default function SignInPage() {
         return
       }
 
-      // Get user's public key from the extension
-      const pubkey = await (window as NostrWindow).nostr!.getPublicKey()
+      const nostr = (window as NostrWindow).nostr!
 
-      // Authenticate with NextAuth using just the public key
+      // 1. Get user's public key from the extension
+      const pubkey = await nostr.getPublicKey()
+
+      // 2. Create NIP-98 authentication event (kind 27235)
+      // This proves ownership of the pubkey via cryptographic signature
+      const authEventTemplate = {
+        kind: 27235,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['u', `${window.location.origin}/api/auth/callback/nostr`],
+          ['method', 'POST']
+        ],
+        content: ''
+      }
+
+      // 3. Sign the event with NIP-07 extension
+      const signedAuthEvent = await nostr.signEvent(authEventTemplate)
+
+      // 4. Authenticate with NextAuth using pubkey + signed NIP-98 event
       const result = await signIn('nostr', {
         pubkey,
+        authEvent: JSON.stringify(signedAuthEvent),
         callbackUrl,
         redirect: false,
       })
@@ -192,7 +216,7 @@ export default function SignInPage() {
     }
   }, [callbackUrl, copy.messages.githubError, copy.messages.genericError])
 
-  // Handle Anonymous sign in
+  // Handle Anonymous sign in with secure token-based reconnection
   const handleAnonymousSignIn = useCallback(async () => {
     setIsAnonymousLoading(true)
     setError('')
@@ -200,19 +224,36 @@ export default function SignInPage() {
 
     try {
       const retryableAnonErrors = new Set(['CredentialsSignin', 'ANON_INVALID_KEY'])
-      const persistedIdentity = getPersistedAnonymousIdentity()
-      const attemptExistingIdentity = Boolean(persistedIdentity?.privkey)
+
+      // Check for new token format first, then legacy privkey for migration
+      const tokenIdentity = getPersistedAnonymousIdentity()
+      const legacyIdentity = getLegacyIdentityForMigration()
+      const attemptExistingIdentity = Boolean(tokenIdentity?.reconnectToken || legacyIdentity?.privkey)
       setHasPersistedAnonymousIdentity(attemptExistingIdentity)
 
-      // Helper ensures we only duplicate the signIn argument building once
-      const attemptAnonymousSignIn = (privateKey?: string) =>
+      // Helper for anonymous sign in with either token or legacy privkey
+      const attemptAnonymousSignIn = (reconnectToken?: string, privateKey?: string) =>
         signIn('anonymous', {
           callbackUrl,
           redirect: false,
+          ...(reconnectToken ? { reconnectToken } : {}),
           ...(privateKey ? { privateKey } : {}),
         })
 
-      let result = await attemptAnonymousSignIn(persistedIdentity?.privkey)
+      let result
+
+      // First try token-based reconnection (new secure path)
+      if (tokenIdentity?.reconnectToken) {
+        result = await attemptAnonymousSignIn(tokenIdentity.reconnectToken)
+      }
+      // Fall back to legacy privkey migration
+      else if (legacyIdentity?.privkey) {
+        result = await attemptAnonymousSignIn(undefined, legacyIdentity.privkey)
+      }
+      // No existing identity, create new account
+      else {
+        result = await attemptAnonymousSignIn()
+      }
 
       if (result?.error && attemptExistingIdentity) {
         if (!retryableAnonErrors.has(result.error)) {
@@ -224,7 +265,7 @@ export default function SignInPage() {
         setAnonymousResumeFailed(true)
         setMessage('Refreshing your anonymous identity…')
         setError('')
-        // Clear the stale identity and try again without a private key
+        // Clear the stale identity and try again with a fresh account
         clearPersistedAnonymousIdentity()
         setHasPersistedAnonymousIdentity(false)
         result = await attemptAnonymousSignIn()
@@ -234,7 +275,7 @@ export default function SignInPage() {
         setError(copy.messages.anonymousError || copy.messages.genericError)
         setMessage('')
       } else {
-        // Success - redirect will be handled by NextAuth
+        // Success - persist the new reconnect token
         await persistAnonymousSessionIdentity()
         setAnonymousResumeFailed(false)
         setHasPersistedAnonymousIdentity(true)

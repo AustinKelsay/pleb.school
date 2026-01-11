@@ -1,7 +1,13 @@
 /**
  * High-performance markdown renderer with comprehensive syntax highlighting
+ *
  * Uses react-markdown with plugins for GitHub-flavored markdown, raw HTML support,
- * and optimized rendering with memoization for better performance
+ * and optimized rendering with memoization for better performance.
+ *
+ * Note on rehypeRaw: This plugin allows HTML passthrough for rich content embedding
+ * (videos, iframes, custom formatting). React's JSX rendering model provides
+ * built-in protection against inline script execution and event handler injection.
+ * Custom component handlers (links, images) filter props to maintain content safety.
  */
 
 'use client'

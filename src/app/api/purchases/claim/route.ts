@@ -13,6 +13,7 @@ import {
 import type { NostrEvent } from "snstr"
 
 import { authOptions } from "@/lib/auth"
+import { auditLog } from "@/lib/audit-logger"
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { resolvePriceForContent } from "@/lib/pricing"
@@ -35,11 +36,13 @@ const payloadSchema = z.object({
   zapReceiptJson: z.union([z.any(), z.array(z.any())]).optional(),
   zapRequestJson: z.any().optional(),
   invoice: z.string().trim().min(1).optional(),
-  paymentPreimage: z.string().trim().min(1).optional(),
+  // paymentPreimage field removed - was accepted but never stored or validated
   nostrPrice: z.number().int().nonnegative().optional(),
   relayHints: z.array(z.string().trim().min(1)).optional(),
   // Full zap total is optional context for the caller; not persisted separately.
-  zapTotalSats: z.number().int().nonnegative().optional()
+  zapTotalSats: z.number().int().nonnegative().optional(),
+  // Admin-only field for audit trail when recording non-zap purchases
+  adminReason: z.string().trim().min(1).max(500).optional()
 })
 
 function badRequest(message: string, details?: unknown) {
@@ -186,6 +189,17 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
     throw new Error("Zap receipt signature is invalid.")
   }
 
+  // Reject stale zap receipts to prevent replay attacks
+  const MAX_RECEIPT_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+  const receiptAgeMs = Date.now() - (zapReceipt.created_at * 1000)
+  if (receiptAgeMs > MAX_RECEIPT_AGE_MS) {
+    throw new Error("Zap receipt is too old. Receipts must be less than 24 hours old.")
+  }
+  if (receiptAgeMs < -5 * 60 * 1000) {
+    // Allow 5 minutes of clock skew into the future
+    throw new Error("Zap receipt timestamp is in the future.")
+  }
+
   const bolt11 = findTag(zapReceipt, "bolt11")
   const descriptionJson = findTag(zapReceipt, "description")
   if (!bolt11 || !descriptionJson) {
@@ -322,8 +336,10 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
 }
 
 export async function POST(request: NextRequest) {
+  // Get session outside try block so it's available in catch for audit logging
+  const session = await getServerSession(authOptions)
+
   try {
-    const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
@@ -348,10 +364,10 @@ export async function POST(request: NextRequest) {
       zapReceiptJson,
       zapRequestJson,
       invoice,
-      paymentPreimage,
       zapTotalSats,
       nostrPrice,
-      relayHints: rawRelayHints
+      relayHints: rawRelayHints,
+      adminReason
     } = parsed.data
     const relayHints = sanitizeRelayHints(rawRelayHints)
     const priceHint = Number.isFinite(nostrPrice) ? Number(nostrPrice) : 0
@@ -386,6 +402,23 @@ export async function POST(request: NextRequest) {
     })
     if (!priceResolution) {
       return NextResponse.json({ error: "Content not found" }, { status: 404 })
+    }
+
+    // SECURITY: Reject claims where price is derived from client-supplied nostrPrice hint.
+    // This prevents attackers from bypassing payment by sending nostrPrice: 0 for content
+    // where the database price is null/missing. The database is the canonical source of truth
+    // for pricing, and claims MUST use database-verified prices.
+    if (priceResolution.priceSource === "nostr") {
+      console.warn('Purchase claim rejected: price source is nostr hint, not database', {
+        contentId: priceResolution.id,
+        contentType: priceResolution.type,
+        nostrPriceHint: priceResolution.nostrPriceHint,
+        userId: session.user.id
+      })
+      return badRequest(
+        "Content price could not be verified from the database. " +
+        "This content may not be properly configured for purchases."
+      )
     }
 
     // Zap claims must be bound to a specific identifier: prefer noteId, but allow pubkey-only content.
@@ -497,6 +530,26 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         )
       }
+
+      // Require adminReason for audit trail on admin-initiated claims
+      if (!adminReason) {
+        return badRequest("Admin claims require a reason for the audit trail.")
+      }
+
+      // Audit log the admin action with reason
+      auditLog(
+        session.user.id,
+        'purchase.admin_claim',
+        {
+          contentId: resourceId || courseId,
+          contentType: resourceId ? 'resource' : 'course',
+          paymentType,
+          amountPaid,
+          reason: adminReason
+        },
+        request
+      )
+
       verifiedAmountSats = amountPaid
       verifiedInvoice = invoice
       verifiedZapReceiptId = zapReceiptId
@@ -689,21 +742,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Audit log successful purchase claim
+    auditLog(session.user.id, 'purchase.claim', {
+      resourceId: resourceId ?? null,
+      courseId: courseId ?? null,
+      amountPaid: result.data.amountCredited,
+      priceSats: result.data.priceSats,
+      paymentType,
+      created: result.data.created
+    }, request)
+
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Failed to claim purchase", error)
+    // Log full error server-side but return generic message to client
+    // This prevents leaking implementation details through error messages
+    console.error("Failed to claim purchase:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    })
 
-    // Handle common Prisma FK/unique errors gracefully
+    // Audit log failed purchase claim (only if session is available)
+    if (session?.user?.id) {
+      auditLog(session.user.id, 'purchase.claim.failed', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }, request)
+    }
+
+    // Handle common Prisma FK/unique errors gracefully (these are safe to expose)
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2003') {
-        return NextResponse.json({ error: 'Related content not found (foreign key failed).' }, { status: 404 })
+        return NextResponse.json({ error: 'Related content not found.' }, { status: 404 })
       }
       if (error.code === 'P2002') {
         return NextResponse.json({ error: 'Purchase already exists.' }, { status: 409 })
       }
     }
 
-    const message = error instanceof Error ? error.message : 'Failed to claim purchase'
-    return NextResponse.json({ error: message }, { status: 500 })
+    // Return generic error message to avoid leaking implementation details
+    return NextResponse.json({ error: 'Failed to claim purchase. Please try again.' }, { status: 500 })
   }
 }

@@ -7,6 +7,13 @@ import { Course, Resource } from '@/data/types'
 import { CourseWithNote, ResourceWithNote } from '@/lib/db-adapter'
 import { parseCourseEvent, parseEvent } from '@/data/types'
 
+/**
+ * Escape special regex characters to prevent ReDoS attacks
+ */
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export type MatchedField = 'title' | 'description' | 'content' | 'tags'
 
 export interface SearchResult {
@@ -56,12 +63,12 @@ function calculateMatchScore(keyword: string, title: string, description: string
   // Description contains keyword
   if (lowerDescription.includes(lowerKeyword)) {
     // Count occurrences
-    const matches = lowerDescription.match(new RegExp(lowerKeyword, 'g'))
+    const matches = lowerDescription.match(new RegExp(escapeRegExp(lowerKeyword), 'g'))
     score += (matches?.length || 1) * 5
   }
   
   // Word boundary matches (whole word)
-  const wordBoundaryRegex = new RegExp(`\\b${lowerKeyword}\\b`, 'gi')
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(lowerKeyword)}\\b`, 'gi')
   if (wordBoundaryRegex.test(title)) {
     score += 20
   }
@@ -78,7 +85,7 @@ function calculateMatchScore(keyword: string, title: string, description: string
 function highlightKeyword(text: string, keyword: string): string {
   if (!text || !keyword) return text
   
-  const regex = new RegExp(`(${keyword})`, 'gi')
+  const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi')
   return text.replace(regex, '<mark>$1</mark>')
 }
 

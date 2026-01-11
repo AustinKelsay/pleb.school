@@ -1,201 +1,133 @@
-model Course {
-    id          String       @id
-    userId      String
-    user        User         @relation(fields: [userId], references: [id])
-    price       Int          @default(0)
-    lessons     Lesson[]
-    purchases   Purchase[]
-    noteId      String?      @unique
-    submissionRequired Boolean @default(false)
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
-    userCourses UserCourse[]
-    badge       Badge?
+# Content Data Models
+
+## Database Models (Prisma)
+
+```prisma
+model Resource {
+  id           String        @id // Client generates UUID
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  lessons      Lesson[]
+  draftLessons DraftLesson[]
+  price        Int           @default(0)
+  purchases    Purchase[]
+  noteId       String?       @unique
+  videoId      String?
+  videoUrl     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
 }
 
+model Course {
+  id                 String       @id
+  userId             String
+  user               User         @relation(fields: [userId], references: [id])
+  price              Int          @default(0)
+  lessons            Lesson[]
+  purchases          Purchase[]
+  noteId             String?      @unique
+  submissionRequired Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  userCourses        UserCourse[]
+  badge              Badge?
 
-model Resource {
-    id           String        @id // Client generates UUID
-    userId       String
-    user         User          @relation(fields: [userId], references: [id])
-    lessons      Lesson[]
-    draftLessons DraftLesson[]
-    price        Int           @default(0)
-    purchases    Purchase[]
-    noteId       String?       @unique
-    videoId      String?
-    createdAt    DateTime      @default(now())
-    updatedAt    DateTime      @updatedAt
+  @@index([userId])
+}
+
+model Draft {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  type            String
+  title           String
+  summary         String
+  content         String
+  image           String?
+  price           Int?          @default(0)
+  topics          String[]
+  additionalLinks Json          @default(dbgenerated("'[]'::jsonb"))
+  videoUrl        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  draftLessons    DraftLesson[]
+  lessons         Lesson[]
+}
+
+model CourseDraft {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  draftLessons DraftLesson[]
+  title        String
+  summary      String
+  image        String?
+  price        Int?          @default(0)
+  topics       String[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Lesson {
-    id          String       @id @default(uuid())
-    courseId    String?
-    course      Course?      @relation(fields: [courseId], references: [id])
-    resourceId  String?
-    resource    Resource?    @relation(fields: [resourceId], references: [id])
-    draftId     String?
-    draft       Draft?       @relation(fields: [draftId], references: [id])
-    index       Int
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
-    userLessons UserLesson[]
+  id          String       @id @default(uuid())
+  courseId    String?
+  course      Course?      @relation(fields: [courseId], references: [id])
+  resourceId  String?
+  resource    Resource?    @relation(fields: [resourceId], references: [id])
+  draftId     String?
+  draft       Draft?       @relation(fields: [draftId], references: [id])
+  index       Int
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  userLessons UserLesson[]
+
+  @@unique([courseId, index])
+  @@unique([courseId, resourceId])
+  @@unique([draftId, index])
+  @@index([courseId])
+  @@index([resourceId])
 }
 
-export const parseCourseEvent = event => {
-  // Initialize an object to store the extracted data
-  const eventData = {
-    id: event.id,
-    pubkey: event.pubkey || '',
-    content: event.content || '',
-    kind: event.kind || '',
-    name: '',
-    description: '',
-    image: '',
-    published_at: '',
-    created_at: event.created_at,
-    topics: [],
-    d: '',
-    tags: event.tags,
-    type: 'course',
-  };
+model DraftLesson {
+  id            String      @id @default(uuid())
+  courseDraftId String
+  courseDraft   CourseDraft @relation(fields: [courseDraftId], references: [id])
+  resourceId    String?
+  resource      Resource?   @relation(fields: [resourceId], references: [id])
+  draftId       String?
+  draft         Draft?      @relation(fields: [draftId], references: [id])
+  index         Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  // Iterate over the tags array to extract data
-  event.tags.forEach(tag => {
-    switch (
-      tag[0] // Check the key in each key-value pair
-    ) {
-      case 'name':
-        eventData.name = tag[1];
-        break;
-      case 'title':
-        eventData.name = tag[1];
-        break;
-      case 'description':
-        eventData.description = tag[1];
-        break;
-      case 'about':
-        eventData.description = tag[1];
-        break;
-      case 'image':
-        eventData.image = tag[1];
-        break;
-      case 'picture':
-        eventData.image = tag[1];
-        break;
-      case 'published_at':
-        eventData.published_at = tag[1];
-        break;
-      case 'd':
-        eventData.d = tag[1];
-        break;
-      case 'price':
-        eventData.price = tag[1];
-        break;
-      // How do we get topics / tags?
-      case 'l':
-        // Grab index 1 and any subsequent elements in the array
-        tag.slice(1).forEach(topic => {
-          eventData.topics.push(topic);
-        });
-        break;
-      case 'r':
-        eventData.additionalLinks.push(tag[1]);
-        break;
-      case 't':
-        eventData.topics.push(tag[1]);
-        break;
-      default:
-        break;
-    }
-  });
+  @@unique([courseDraftId, index])
+}
+```
 
-  return eventData;
-};
+## Nostr Parsing (src/data/types.ts)
 
+Key parsing helpers used across the app:
 
-export const parseEvent = event => {
-  // Initialize an object to store the extracted data
-  const eventData = {
-    id: event.id,
-    pubkey: event.pubkey || '',
-    content: event.content || '',
-    kind: event.kind || '',
-    additionalLinks: [],
-    title: '',
-    summary: '',
-    image: '',
-    published_at: '',
-    topics: [], // Added to hold all topics
-    type: 'document', // Default type
-    duration: '', // Video duration (e.g., "10 min", "1h 30m")
-  };
+```typescript
+export function parseCourseEvent(event: NostrCourseListEvent | NostrEvent): ParsedCourseEvent {
+  // Reads tags: title/name, description/about, image/picture, published_at, price, currency,
+  // instructor + p (instructor pubkey), topics from l/t, and "d" identifier.
+  // Adds category = first topic; isPremium = price > 0; additionalLinks from "r" tags.
+}
 
-  // Iterate over the tags array to extract data
-  event.tags.forEach(tag => {
-    switch (
-      tag[0] // Check the key in each key-value pair
-    ) {
-      case 'title':
-        eventData.title = tag[1];
-        break;
-      case 'summary':
-        eventData.summary = tag[1];
-        break;
-      case 'description':
-        eventData.summary = tag[1];
-        break;
-      case 'name':
-        eventData.title = tag[1];
-        break;
-      case 'image':
-        eventData.image = tag[1];
-        break;
-      case 'published_at':
-        eventData.published_at = tag[1];
-        break;
-      case 'author':
-        eventData.author = tag[1];
-        break;
-      case 'price':
-        eventData.price = tag[1];
-        break;
-      // How do we get topics / tags?
-      case 'l':
-        // Grab index 1 and any subsequent elements in the array
-        tag.slice(1).forEach(topic => {
-          eventData.topics.push(topic);
-        });
-        break;
-      case 'd':
-        eventData.d = tag[1];
-        break;
-      case 't':
-        if (tag[1] === 'video') {
-          eventData.type = 'video';
-          eventData.topics.push(tag[1]);
-        } else if (!['plebdevs', 'plebschool'].includes(tag[1] || '')) {
-          eventData.topics.push(tag[1]);
-        }
-        break;
-      case 'r':
-        eventData.additionalLinks.push(tag[1]);
-        break;
-      case 'duration':
-        eventData.duration = tag[1];
-        break;
-      default:
-        break;
-    }
-  });
+export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent | NostrEvent): ParsedResourceEvent {
+  // Reads tags: title/name, summary/description, image, published_at, author, price, currency,
+  // topics from l/t, "video" tag for videoUrl, p for author pubkey, "d" identifier.
+  // Sets type=video when t=video; derives category from topics; falls back to created_at for published_at.
+  // If type=video and no videoUrl tag, extracts from content HTML.
+}
+```
 
-  // if published_at is an empty string, then set it to event.created_at
-  if (!eventData.published_at) {
-    eventData.published_at = event.created_at;
-  }
+## NIP Reference (Snapshot)
 
-  return eventData;
-};
+The remainder of this document embeds NIP excerpts and example events for reference. Treat it as a static snapshot; verify against upstream NIP docs before protocol changes.
 
 NIP-01
 ======

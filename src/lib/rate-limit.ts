@@ -135,6 +135,15 @@ export const RATE_LIMITS = {
   // Send verification email: 3 per email per hour (prevents spam)
   EMAIL_SEND: { limit: 3, windowSeconds: 3600 }, // 3 emails per hour per address
 
+  // Auth magic link: 5 per email per 15 minutes (prevents email flooding)
+  AUTH_MAGIC_LINK: { limit: 5, windowSeconds: 900 }, // 5 magic links per 15 min per email
+
+  // Nostr auth: 10 attempts per pubkey per minute (prevents enumeration)
+  AUTH_NOSTR: { limit: 10, windowSeconds: 60 }, // 10 attempts per minute per pubkey
+
+  // Anonymous auth: 20 new accounts per hour (prevents mass account creation)
+  AUTH_ANONYMOUS: { limit: 20, windowSeconds: 3600 }, // 20 new anonymous accounts per hour (global)
+
   // General API rate limit (can be used for other endpoints)
   API_GENERAL: { limit: 100, windowSeconds: 60 } // 100 requests per minute
 } as const

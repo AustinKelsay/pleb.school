@@ -39,6 +39,11 @@ const EnrollmentSchema = z.object({
 })
 ```
 
+Additional schemas in `src/lib/api-utils.ts`:
+- `CourseIdSchema` for route params (parses and validates numeric IDs)
+- `NewsletterSchema` for email-only submissions
+- `RatingSchema` for course rating inputs
+
 ## Error Classes
 
 Structured error types with proper HTTP status codes:
@@ -82,6 +87,9 @@ const result = validateFormData(EnrollmentSchema, formData)
 // Validate query params
 const result = validateSearchParams(CourseFilterSchema, url.searchParams)
 ```
+
+Also available:
+- `validateCourseId(id)` returns `{ success, courseId }` or `{ success: false, error }`.
 
 ## Error Handling
 
@@ -200,5 +208,36 @@ export type CourseCreateData = z.infer<typeof CourseCreateSchema>
 export type CourseUpdateData = z.infer<typeof CourseUpdateSchema>
 export type CourseFilters = z.infer<typeof CourseFilterSchema>
 export type EnrollmentData = z.infer<typeof EnrollmentSchema>
+export type NewsletterData = z.infer<typeof NewsletterSchema>
+export type RatingData = z.infer<typeof RatingSchema>
 export type SearchData = z.infer<typeof SearchSchema>
 ```
+
+## Audit Logging
+
+Security-sensitive operations are logged via `src/lib/audit-logger.ts`:
+
+```typescript
+import { auditLog } from '@/lib/audit-logger'
+
+// Log sensitive operations with structured data
+auditLog(userId, 'account.link', {
+  provider: 'github',
+  success: true
+}, request)
+
+// Available actions:
+// - account.link, account.link.initiate, account.unlink
+// - account.primary.change
+// - purchase.claim, purchase.claim.failed
+// - purchase.admin_claim (requires adminReason)
+```
+
+Audit events are logged as structured JSON with:
+- Timestamp, userId, action, details
+- IP address and user-agent from request headers
+- Format: `[AUDIT] {"timestamp":"...","userId":"...","action":"...","details":{...}}`
+
+Used in: account linking/unlinking, primary provider changes, purchase claims.
+
+**Admin Claims:** Admin-initiated purchases (manual, comped, refund) require an `adminReason` field and are logged with `purchase.admin_claim` action including the reason for audit purposes.

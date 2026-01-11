@@ -53,6 +53,29 @@ const YOUTUBE_REGEX = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\
 const VIMEO_REGEX = /vimeo\.com\/(?:video\/)?(\d+)/
 const DIRECT_VIDEO_REGEX = /\.(mp4|webm|mov|m4v|mkv)(?:\?.*)?$/i
 
+/**
+ * Validate video URL uses https:// protocol for security
+ * Returns the URL if valid, null if invalid
+ */
+function validateVideoUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  if (!trimmed) return null
+
+  try {
+    const parsed = new URL(trimmed)
+    // Only allow https:// for security
+    if (parsed.protocol !== 'https:') {
+      console.warn('Video URL rejected: must use https://', { url: trimmed })
+      return null
+    }
+    return trimmed
+  } catch {
+    console.warn('Video URL rejected: invalid URL format', { url: trimmed })
+    return null
+  }
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, char => {
     switch (char) {
@@ -120,7 +143,8 @@ function formatDraftContent(
   }
 
   const title = draft.title?.trim() || 'Video Resource'
-  const videoUrl = draft.videoUrl?.trim()
+  // Validate video URL requires https:// for security
+  const videoUrl = validateVideoUrl(draft.videoUrl)
   const body = draft.content?.trim()
 
   const sections: string[] = [`# ${title}`]
@@ -177,8 +201,10 @@ export function createResourceEvent(
     tags.push(['t', draft.type])
   }
   
-  if (draft.type === 'video' && draft.videoUrl) {
-    tags.push(['video', draft.videoUrl])
+  // Validate video URL requires https:// for security
+  const validatedVideoUrl = draft.type === 'video' ? validateVideoUrl(draft.videoUrl) : null
+  if (validatedVideoUrl) {
+    tags.push(['video', validatedVideoUrl])
   }
 
   // Add additional links as 'r' tags
@@ -291,9 +317,11 @@ export function createUnsignedResourceEvent(
   if (draft.type) {
     tags.push(['t', draft.type])
   }
-  
-  if (draft.type === 'video' && draft.videoUrl) {
-    tags.push(['video', draft.videoUrl])
+
+  // Validate video URL requires https:// for security
+  const validatedVideoUrl = draft.type === 'video' ? validateVideoUrl(draft.videoUrl) : null
+  if (validatedVideoUrl) {
+    tags.push(['video', validatedVideoUrl])
   }
 
   // Add additional links as 'r' tags

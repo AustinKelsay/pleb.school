@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { unlinkAccount } from '@/lib/account-linking'
+import { auditLog } from '@/lib/audit-logger'
 import { z } from 'zod'
 
 const UnlinkAccountSchema = z.object({
@@ -42,6 +43,13 @@ export async function POST(request: NextRequest) {
     // Unlink the account
     const result = await unlinkAccount(session.user.id, provider)
 
+    // Audit log account unlinking
+    auditLog(session.user.id, 'account.unlink', {
+      provider,
+      success: result.success,
+      error: result.error
+    }, request)
+
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || 'Failed to unlink account' },
@@ -49,9 +57,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: `Successfully unlinked ${provider} account` 
+      message: `Successfully unlinked ${provider} account`
     })
   } catch (error) {
     console.error('Account unlinking error:', error)
