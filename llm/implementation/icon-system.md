@@ -204,9 +204,9 @@ Contains icons for interaction metrics, payment status, and purchase UI.
       "comment": "MessageCircle"
     },
     "status": {
-      "success": "CheckCircle",
+      "success": "CircleCheck",
       "pending": "Loader2",
-      "error": "AlertTriangle"
+      "error": "TriangleAlert"
     },
     "purchase": {
       "shieldCheck": "ShieldCheck",
@@ -511,9 +511,9 @@ Object.entries(allIcons).map(([key, Icon]) => (
 ### Payment Status Icons (payments.json)
 | Key | Icon | Usage |
 |-----|------|-------|
-| success | CheckCircle | Success status |
+| success | CircleCheck | Success status |
 | pending | Loader2 | Pending/in-progress |
-| error | AlertTriangle | Error status |
+| error | TriangleAlert | Error status |
 
 ### Purchase Icons (payments.json)
 | Key | Icon | Usage |

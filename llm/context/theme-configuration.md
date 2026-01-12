@@ -308,11 +308,11 @@ Set default theme, font, or dark mode settings:
 }
 ```
 
-## Available Themes (64 total)
+## Available Themes (66 total)
 
 You can set `defaults.theme` to any of these values (from `completeThemes` in `src/lib/theme-config.ts`):
 
-`amber-minimal`, `amethyst`, `amethyst-haze`, `astral`, `blaze`, `blue`, `bold-tech`, `bubblegum`, `caffeine`, `calypso`, `candyland`, `canvas`, `catppuccin`, `citrus`, `claude`, `claymorphism`, `clean-slate`, `cosmic-night`, `cyberpunk`, `default`, `doom64`, `elegant-luxury`, `emerald`, `forest`, `graphite`, `green`, `miami`, `midnight-bloom`, `mocha-mousse`, `modern-minimal`, `mono`, `nature`, `neo-brutalism`, `neutral`, `northern-lights`, `notebook`, `ocean-breeze`, `orange`, `perpetuity`, `quick-pink`, `razzmatazz`, `red`, `retro-arcade`, `rose`, `santa-fe`, `sky`, `soft-pop`, `solar`, `solar-dusk`, `spooky`, `spring-bouquet`, `starry-night`, `stone`, `sunset-horizon`, `supabase`, `twitter`, `typewriter`, `underground`, `vercel`, `violet`, `violet-bloom`, `xanadu`, `yellow`, `zinc`.
+`amber-minimal`, `amethyst`, `amethyst-haze`, `astral`, `blaze`, `blue`, `bold-tech`, `bubblegum`, `caffeine`, `calypso`, `candyland`, `canvas`, `catppuccin`, `citrus`, `claude`, `claymorphism`, `clean-slate`, `cosmic-night`, `cyberpunk`, `default`, `doom64`, `elegant-luxury`, `emerald`, `forest`, `graphite`, `gray`, `green`, `miami`, `midnight-bloom`, `mocha-mousse`, `modern-minimal`, `mono`, `nature`, `neo-brutalism`, `neutral`, `northern-lights`, `notebook`, `ocean-breeze`, `orange`, `perpetuity`, `quick-pink`, `razzmatazz`, `red`, `retro-arcade`, `rose`, `santa-fe`, `sky`, `slate`, `soft-pop`, `solar`, `solar-dusk`, `spooky`, `spring-bouquet`, `starry-night`, `stone`, `sunset-horizon`, `supabase`, `twitter`, `typewriter`, `underground`, `vercel`, `violet`, `violet-bloom`, `xanadu`, `yellow`, `zinc`.
 
 Descriptions live inline in `src/lib/theme-config.ts`.
 

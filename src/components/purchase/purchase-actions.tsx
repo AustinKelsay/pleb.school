@@ -3,7 +3,12 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PurchaseDialog } from "@/components/purchase/purchase-dialog"
-import { ShieldCheck, Zap } from "lucide-react"
+import { Zap } from "lucide-react"
+import { getPurchaseIcon } from "@/lib/payments-config"
+
+// Icon lookup at module level (not during render) to avoid React rules violation
+const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
+
 import type { LightningRecipient } from "@/types/zap"
 import type { ZapReceiptSummary } from "@/hooks/useInteractions"
 
@@ -58,7 +63,7 @@ export function PurchaseActions({
     <div className="flex flex-col gap-3">
       {hasAccess ? (
         <div className="flex items-center gap-2 rounded-md border border-success/20 bg-success/10 px-3 py-2">
-          <ShieldCheck className="h-4 w-4 text-success" />
+          <ShieldCheckIcon className="h-4 w-4 text-success" />
           <span className="text-sm font-medium text-success-foreground">
             You have access to this content
           </span>

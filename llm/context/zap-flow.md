@@ -18,7 +18,7 @@
    - Resolves lightning address / LNURL from `zapTarget` or fetched profile (cached per pubkey).
    - `zapState.status` transitions: `idle → resolving → signing → requesting-invoice → invoice-ready → paying → success|error` with UI status map.
    - Zap request signing merges `zapTarget.relayHints` with configured relays.
-   - LNURL callback invoked with encoded zap request; verifies invoice description hash when present.
+   - LNURL callback invoked with encoded zap request; rejects invoices missing description hash or with hash mismatch (NIP-57 mandatory).
    - Attempts WebLN automatically; exposes retry + error string, and always surfaces invoice for manual pay.
 4. **Invoice handling**
    - Show bolt11 string, allow copy-to-clipboard with toast, and `lightning:` deep link.
