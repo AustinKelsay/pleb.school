@@ -269,6 +269,18 @@ if (authConfig.providers.nostr.enabled) {
             throw new Error('Invalid public key format')
           }
 
+          // Rate limit BEFORE expensive crypto operations
+          const rateLimit = await checkRateLimit(
+            `auth-nostr:${credentials.pubkey}`,
+            RATE_LIMITS.AUTH_NOSTR.limit,
+            RATE_LIMITS.AUTH_NOSTR.windowSeconds
+          )
+
+          if (!rateLimit.success) {
+            console.warn(`Rate limit exceeded for Nostr auth: ${credentials.pubkey.substring(0, 8)}...`)
+            throw new Error('Too many authentication attempts. Please try again later.')
+          }
+
           // ============================================================
           // NIP-98 Authentication - Cryptographic proof of pubkey ownership
           // See: https://nips.nostr.com/98
@@ -340,18 +352,6 @@ if (authConfig.providers.nostr.enabled) {
 
           // NIP-98 validation passed - pubkey ownership verified
           console.log('NIP-98 auth verified for pubkey:', credentials.pubkey.substring(0, 8))
-
-          // Rate limit by pubkey to prevent enumeration attacks
-          const rateLimit = await checkRateLimit(
-            `auth-nostr:${credentials.pubkey}`,
-            RATE_LIMITS.AUTH_NOSTR.limit,
-            RATE_LIMITS.AUTH_NOSTR.windowSeconds
-          )
-
-          if (!rateLimit.success) {
-            console.warn(`Rate limit exceeded for Nostr auth: ${credentials.pubkey.substring(0, 8)}...`)
-            throw new Error('Too many authentication attempts. Please try again later.')
-          }
 
           // Check if user exists or create new user
           let user = await prisma.user.findUnique({
@@ -491,6 +491,9 @@ if (authConfig.providers.anonymous.enabled) {
             console.log('Token-based anonymous reconnection:', matchedUser.id)
 
             // Rotate token on every successful auth (limits stolen token window)
+            // Note: If DB update succeeds but response is lost, client has stale token.
+            // This is an accepted edge case for ephemeral anonymous accounts - user
+            // can create a new anonymous account if this rare scenario occurs.
             const { token: newToken, tokenHash: newTokenHash } = generateReconnectToken()
             await prisma.user.update({
               where: { id: matchedUser.id },

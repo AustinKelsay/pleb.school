@@ -64,6 +64,8 @@ Anonymous users can persist their session across browser restarts using a secure
 3. On success: generate new token, update hash in database
 4. Client stores new rotated token
 
+**Edge Case:** If DB update succeeds but response is lost (network failure), client has stale token and next login fails. This is accepted for ephemeral anonymous accounts - user can create a new anonymous account.
+
 **Legacy Migration:**
 Users with old localStorage format (privkey) are automatically migrated on next login - server validates privkey, generates token, client stores new format.
 
