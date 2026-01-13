@@ -38,13 +38,21 @@ async function flushTotals(): Promise<number> {
   const keys = (await kv.smembers<string[]>("views:dirty")) || []
   if (!keys.length) return 0
 
-  // Fetch counts in parallel
+  // Atomically get and delete counts to prevent TOCTOU race
+  // If increments happen after getdel, they create a new counter and re-add to dirty set
   const pairs = await Promise.all(
-    keys.map(async (k) => [k, (await kv.get<number>(k)) ?? 0] as const)
+    keys.map(async (k) => {
+      // getdel atomically gets the value and deletes the key
+      const val = await kv.getdel<number>(k)
+      return [k, val ?? 0] as const
+    })
   )
 
-  // Upsert into DB
-  for (const [k, count] of pairs) {
+  // Filter out zero counts (key was already flushed or never incremented)
+  const nonZeroPairs = pairs.filter(([, count]) => count > 0)
+
+  // Upsert into DB using INCREMENT semantics to handle concurrent flushes
+  for (const [k, count] of nonZeroPairs) {
     const parsed = parseTotalKey(k)
     if (!parsed) continue
     await prisma.viewCounterTotal.upsert({
@@ -54,20 +62,19 @@ async function flushTotals(): Promise<number> {
         namespace: parsed.namespace,
         entityId: parsed.entityId ?? null,
         path: parsed.path ?? null,
-        total: Number(count) || 0,
+        total: Number(count),
       },
       update: {
-        namespace: parsed.namespace,
-        entityId: parsed.entityId ?? null,
-        path: parsed.path ?? null,
-        total: Number(count) || 0,
+        // INCREMENT by the flushed delta, don't SET to absolute value
+        total: { increment: Number(count) },
       },
     })
   }
 
   // Remove from dirty set after successful upsert
+  // (safe even if key was re-added - new increments will re-add it)
   await kv.srem("views:dirty", ...keys)
-  return keys.length
+  return nonZeroPairs.length
 }
 
 async function flushDaily(): Promise<number> {
@@ -81,10 +88,19 @@ async function flushDaily(): Promise<number> {
       await kv.srem("views:dirty:daily-index", day)
       continue
     }
+
+    // Atomically get and delete counts to prevent TOCTOU race
     const pairs = await Promise.all(
-      dayKeys.map(async (k) => [k, (await kv.get<number>(k)) ?? 0] as const)
+      dayKeys.map(async (k) => {
+        const val = await kv.getdel<number>(k)
+        return [k, val ?? 0] as const
+      })
     )
-    for (const [dk, count] of pairs) {
+
+    // Filter out zero counts
+    const nonZeroPairs = pairs.filter(([, count]) => count > 0)
+
+    for (const [dk, count] of nonZeroPairs) {
       const parsed = parseDailyKey(dk)
       if (!parsed) continue
       const dayDate = new Date(`${parsed.dayISO}T00:00:00.000Z`)
@@ -93,16 +109,18 @@ async function flushDaily(): Promise<number> {
         create: {
           key: parsed.inner.key,
           day: dayDate,
-          count: Number(count) || 0,
+          count: Number(count),
         },
         update: {
-          count: Number(count) || 0,
+          // INCREMENT by the flushed delta, don't SET to absolute value
+          count: { increment: Number(count) },
         },
       })
     }
+
     await kv.srem(setKey, ...dayKeys)
     await kv.srem("views:dirty:daily-index", day)
-    processed += dayKeys.length
+    processed += nonZeroPairs.length
   }
   return processed
 }

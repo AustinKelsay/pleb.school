@@ -327,7 +327,7 @@ if (authConfig.providers.nostr.enabled) {
 
           // 4. Verify timestamp is fresh (asymmetric window: 30s future / 60s past)
           // - Allow 30s future to handle client clock skew
-          // - Allow 60s past per NIP-98 recommendation for event freshness
+          // - Allow 60s past (NIP-98 suggests "reasonable window", we chose 60s)
           const now = Math.floor(Date.now() / 1000)
           const eventAge = now - authEvent.created_at
           if (eventAge < -30 || eventAge > 60) {
@@ -454,12 +454,28 @@ if (authConfig.providers.anonymous.enabled) {
         try {
           // ============================================================
           // Secure token-based reconnection (no private keys in localStorage)
-          // See: llm/context/profile-system-architecture.md
+          // See: llm/context/authentication-system.md
+          //
+          // Priority order for reconnect token:
+          // 1. credentials.reconnectToken (legacy localStorage path, being phased out)
+          // 2. httpOnly cookie 'anon-reconnect-token' (secure path via next/headers)
           // ============================================================
-          if (credentials?.reconnectToken) {
+          const COOKIE_NAME = 'anon-reconnect-token'
+          let cookieToken: string | undefined
+          try {
+            // Access httpOnly cookie via next/headers (App Router context)
+            const { cookies } = await import('next/headers')
+            const cookieStore = await cookies()
+            cookieToken = cookieStore.get(COOKIE_NAME)?.value
+          } catch {
+            // cookies() may not be available in all contexts
+          }
+          const reconnectToken = credentials?.reconnectToken || cookieToken
+
+          if (reconnectToken) {
             // Rate limit by token hash
             const tokenHash = crypto.createHash('sha256')
-              .update(credentials.reconnectToken).digest('hex').substring(0, 16)
+              .update(reconnectToken).digest('hex').substring(0, 16)
             const tokenRateLimit = await checkRateLimit(
               `auth-anon-token:${tokenHash}`,
               RATE_LIMITS.AUTH_NOSTR.limit,
@@ -471,7 +487,7 @@ if (authConfig.providers.anonymous.enabled) {
             }
 
             // Direct O(1) lookup by token hash (indexed unique field)
-            const reconnectTokenHash = hashToken(credentials.reconnectToken)
+            const reconnectTokenHash = hashToken(reconnectToken)
             const matchedUser = await prisma.user.findUnique({
               where: { anonReconnectTokenHash: reconnectTokenHash },
               select: {

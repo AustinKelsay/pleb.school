@@ -23,7 +23,7 @@ The NIP-07 login flow now uses [NIP-98 HTTP Auth](https://nips.nostr.com/98) to 
 1. Parse and validate the NIP-98 event
 2. Verify signature using `snstr.verifySignature()`
 3. Confirm pubkey in signed event matches claimed pubkey
-4. Check timestamp is within 60 seconds (per NIP-98 spec)
+4. Check timestamp is within 60 seconds (NIP-98 suggests "reasonable window", we chose 60s)
 5. Validate URL tag matches callback endpoint
 6. Validate method tag is POST
 
@@ -32,7 +32,7 @@ The NIP-07 login flow now uses [NIP-98 HTTP Auth](https://nips.nostr.com/98) to 
 | Check | What It Prevents |
 |-------|------------------|
 | Signature verification | Impersonation - proves pubkey ownership |
-| 60-second timestamp window | Replay attacks |
+| Timestamp window (60s) | Replay attacks (configurable; 60s follows NIP-98 suggestion) |
 | URL tag validation | Cross-site replay |
 | Method tag validation | Request method confusion |
 
