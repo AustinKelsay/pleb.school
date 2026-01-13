@@ -14,30 +14,37 @@ View counts are stored in Vercel KV for fast increments, then periodically flush
 ## Test Coverage
 
 ### GETDEL Atomicity
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Basic getdel | Key has value | Returns value, deletes key |
 | Non-existent key | Key doesn't exist | Returns null |
 
 ### Race Condition Prevention
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Increment during flush | `incr` after `getdel` | Data not lost (creates new counter) |
 | Multiple increments during flush | 3 `incr` after `getdel` | All increments preserved |
 
 ### INCREMENT vs SET Semantics
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Sequential flushes | 10 views, then 5 views | Total = 15 (not 5) |
-| Concurrent flushes | Two flushes with 10 each | Total = 120 (100 + 10 + 10) |
+| Concurrent flushes | Baseline 100, two flushes with 10 each | Total = 120 (100 + 10 + 10) |
+
+The key insight: using `INCREMENT` instead of `SET` ensures concurrent flushes add to the total rather than overwriting each other.
 
 ### Zero Count Filtering
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Zero count key | Key with value 0 | Skipped |
 | Null/deleted key | Key already flushed | Skipped |
 
 ### Dirty Set Cleanup
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Normal flush | Keys flushed | Removed from dirty set |

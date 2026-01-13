@@ -1,7 +1,7 @@
 # pricing.test.ts
 
 **Location**: `src/lib/tests/pricing.test.ts`
-**Tests**: ~25
+**Tests**: 22
 
 ## Purpose
 
@@ -22,6 +22,7 @@ Resolves price from multiple sources with defined precedence.
 ## Test Coverage
 
 ### Basic Resolution
+
 | Scenario | DB Price | Nostr Price | Result |
 |----------|----------|-------------|--------|
 | DB price set | 1000 | 500 | 1000 |
@@ -30,13 +31,12 @@ Resolves price from multiple sources with defined precedence.
 | Zero DB price | 0 | 500 | 0 |
 
 ### Edge Cases
+
 | Test | Input | Expected |
 |------|-------|----------|
-| Negative price | -100 | 0 (clamped) |
-| String price | "1000" | 1000 (coerced) |
-| NaN price | NaN | 0 |
-| Infinity | Infinity | 0 |
-| Very large | 999999999 | capped |
+| Negative price | -100 | 0 (invalid, falls back) |
+| NaN price | NaN | 0 (not finite, falls back) |
+| Infinity | Infinity | 0 (not finite, falls back) |
 
 ### Course Pricing
 - Course price applies to entire course

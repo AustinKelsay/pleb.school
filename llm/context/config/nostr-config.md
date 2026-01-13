@@ -4,13 +4,13 @@ Deep-dive reference for `config/nostr.json` - relay sets, event types, and Nostr
 
 ## File Location
 
-```
+```text
 config/nostr.json
 ```
 
 ## Accessor File
 
-```
+```text
 src/lib/nostr-relays.ts
 ```
 

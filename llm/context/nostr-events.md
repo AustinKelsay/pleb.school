@@ -206,11 +206,10 @@ const parsed = parseEvent(event)
 The parser determines content type from tags:
 
 ```typescript
-// Video detection
-if (tags.includes(['t', 'video'])) type = 'video'
+// Video detection - check for ['t', 'video'] tag
+if (tags.some(t => t[0] === 't' && t[1] === 'video')) type = 'video'
 // Or if videoUrl tag exists
-if (tags.find(t => t[0] === 'video')) type = 'video'
-
+else if (tags.find(t => t[0] === 'video')) type = 'video'
 // Default to document
 else type = 'document'
 ```

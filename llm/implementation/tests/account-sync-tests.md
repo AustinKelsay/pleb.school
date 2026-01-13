@@ -16,12 +16,14 @@ Triggers synchronization of user's linked accounts.
 ## Test Coverage
 
 ### Authentication
+
 | Test | Session | Expected |
 |------|---------|----------|
 | Authenticated | Valid session | 200 OK |
 | Unauthenticated | No session | 401 Unauthorized |
 
 ### Sync Behavior
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Has linked accounts | User with GitHub + Email | Syncs all accounts |
@@ -29,6 +31,7 @@ Triggers synchronization of user's linked accounts.
 | Nostr account linked | User with NIP-07 | Triggers Nostr profile sync |
 
 ### Error Handling
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | DB error | Prisma throws | 500 Internal Server Error |

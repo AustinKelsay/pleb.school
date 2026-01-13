@@ -281,12 +281,14 @@ const ip = await getClientIp()
 // Returns: "1.2.3.4" or "unknown" if unavailable
 
 // Checks headers in order:
-// 1. X-Forwarded-For (first IP in chain)
-// 2. X-Real-IP
+// 1. x-real-ip (Vercel's canonical header - preferred)
+// 2. x-forwarded-for (first IP in chain - fallback)
 // 3. Falls back to "unknown"
 ```
 
-**Note:** Returns `"unknown"` when headers are unavailable (e.g., some server contexts). Unknown IPs still hit the global rate limit.
+**Trust model:** On Vercel, these headers are set by the edge network and cannot be spoofed by clients. On self-hosted deployments, ensure a trusted reverse proxy sets these headers.
+
+**Note:** Returns `"unknown"` when headers are unavailable. Unknown IPs still hit the global rate limit.
 
 ## Best Practices
 

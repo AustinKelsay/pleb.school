@@ -129,23 +129,26 @@ function checkRateLimitMemory(
  * Extract client IP from request headers (for use in App Router context)
  *
  * Uses next/headers to access request headers. Returns 'unknown' if IP cannot be determined.
- * Handles X-Forwarded-For (first IP in chain) and X-Real-IP headers.
+ *
+ * Trust model: On Vercel, these headers are set by the edge network and cannot be spoofed.
+ * On self-hosted deployments, ensure a trusted reverse proxy sets these headers.
  */
 export async function getClientIp(): Promise<string> {
   try {
     const { headers } = await import('next/headers')
     const headerStore = await headers()
 
-    // X-Forwarded-For may contain multiple IPs; take the first (original client)
+    // x-real-ip: Vercel's canonical client IP header (preferred)
+    const realIp = headerStore.get('x-real-ip')
+    if (realIp) return realIp
+
+    // x-forwarded-for: Standard proxy header (fallback)
+    // Take first IP (original client) - proxies append, not prepend
     const forwardedFor = headerStore.get('x-forwarded-for')
     if (forwardedFor) {
       const firstIp = forwardedFor.split(',')[0]?.trim()
       if (firstIp) return firstIp
     }
-
-    // Fallback to X-Real-IP
-    const realIp = headerStore.get('x-real-ip')
-    if (realIp) return realIp
 
     return 'unknown'
   } catch {
