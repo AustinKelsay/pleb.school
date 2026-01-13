@@ -91,7 +91,7 @@ Icons throughout the platform are configurable via [lucide-react](https://lucide
 |-------------|-----------------|
 | `content.json` | Content type icons (course, video, document), category icons |
 | `copy.json` | Navigation, homepage, profile tabs, status, actions, error pages |
-| `auth.json` | Provider icons (email, github, nostr, etc.), security icons |
+| `auth.json` | Provider icons (email, GitHub, nostr, etc.), security icons |
 | `payments.json` | Interaction icons (zap, heart, comment), payment status icons |
 
 ### Icon naming

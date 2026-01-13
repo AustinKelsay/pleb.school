@@ -22,8 +22,8 @@ Merges profile data based on `profileSource` setting.
 
 ### Nostr-first user
 - **Setup**: User with `profileSource: "nostr"`, Nostr profile data
-- **Expected**: All display fields come from Nostr profile
-- **Verifies**: Nostr profile completely overrides OAuth data for display
+- **Expected**: Display fields come from Nostr profile, except email which always comes from OAuth (see Field Priority Matrix)
+- **Verifies**: `username`, `avatar` come from Nostr; `email` still sourced from OAuth; Nostr-only fields (`nip05`, `lud16`, `banner`) from Nostr
 
 ### OAuth-first without Nostr profile
 - **Setup**: User with `profileSource: "oauth"`, GitHub data available, `fetchNostrProfile` returns `null` (no Nostr account or profile not found)
