@@ -69,6 +69,18 @@ import crypto from 'crypto'
 
 const prisma = new PrismaClient()
 
+// Validate and parse encryption key from env var
+function getKeyFromEnv(envVar: string): Buffer {
+  const value = process.env[envVar]
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${envVar}`)
+  }
+  if (!/^[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error(`${envVar} must be a 64-character hex string (256-bit key)`)
+  }
+  return Buffer.from(value, 'hex')
+}
+
 // Decryption with specific key
 function decryptWithKey(stored: string, key: Buffer): string | null {
   try {
@@ -97,8 +109,9 @@ function encryptWithKey(plain: string, key: Buffer): string {
 }
 
 async function rotateKeys() {
-  const oldKey = Buffer.from(process.env.PRIVKEY_ENCRYPTION_KEY!, 'hex')
-  const newKey = Buffer.from(process.env.NEW_PRIVKEY_ENCRYPTION_KEY!, 'hex')
+  // Validate keys upfront - fail fast if misconfigured
+  const oldKey = getKeyFromEnv('PRIVKEY_ENCRYPTION_KEY')
+  const newKey = getKeyFromEnv('NEW_PRIVKEY_ENCRYPTION_KEY')
 
   const users = await prisma.user.findMany({
     where: { privkey: { not: null } },
@@ -107,30 +120,44 @@ async function rotateKeys() {
 
   console.log(`Rotating keys for ${users.length} users...`)
 
+  // Strategy: Continue-on-error
+  // - Maximizes successful rotations even if some users fail
+  // - Failed users retain old encryption (still valid with old key)
+  // - Re-run script after fixing failures to complete rotation
+  // Alternative: Use prisma.$transaction for all-or-nothing atomicity
   let success = 0
-  let failed = 0
+  const failed: string[] = []
 
   for (const user of users) {
     if (!user.privkey) continue
 
-    const decrypted = decryptWithKey(user.privkey, oldKey)
-    if (!decrypted) {
-      console.error(`Failed to decrypt for user ${user.id}`)
-      failed++
-      continue
+    try {
+      const decrypted = decryptWithKey(user.privkey, oldKey)
+      if (!decrypted) {
+        console.error(`Failed to decrypt for user ${user.id}`)
+        failed.push(user.id)
+        continue
+      }
+
+      const reEncrypted = encryptWithKey(decrypted, newKey)
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { privkey: reEncrypted }
+      })
+
+      success++
+    } catch (err) {
+      console.error(`Error processing user ${user.id}:`, err)
+      failed.push(user.id)
     }
-
-    const reEncrypted = encryptWithKey(decrypted, newKey)
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { privkey: reEncrypted }
-    })
-
-    success++
   }
 
-  console.log(`Complete: ${success} rotated, ${failed} failed`)
+  console.log(`Complete: ${success} rotated, ${failed.length} failed`)
+  if (failed.length > 0) {
+    console.log(`Failed user IDs: ${failed.join(', ')}`)
+    process.exitCode = 1 // Signal partial failure
+  }
 }
 
 rotateKeys()

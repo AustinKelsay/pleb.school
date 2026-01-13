@@ -366,8 +366,8 @@ const { viewCount, incrementView } = useViews({
   contentType: 'resource' // or 'course'
 })
 
-// Increment on page load
-useEffect(() => { incrementView() }, [])
+// Increment on page load (incrementView should be memoized in the hook)
+useEffect(() => { incrementView() }, [incrementView])
 ```
 
 ### usePrefetch / usePrefetchContent

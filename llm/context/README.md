@@ -37,8 +37,20 @@ Reference documentation for pleb.school's architecture, systems, and patterns. T
 
 | Document | Description |
 |----------|-------------|
-| [config-system.md](./config-system.md) | JSON configuration files overview |
+| [config-system.md](./config-system.md) | JSON configuration files overview (master reference) |
 | [theme-configuration.md](./theme-configuration.md) | Theme and font configuration system |
+| [config/](./config/) | Deep-dive documentation for each config file |
+
+### Config Deep-Dive Documents
+
+| Document | Config File | Description |
+|----------|-------------|-------------|
+| [auth-config.md](./config/auth-config.md) | `auth.json` | Authentication providers, session, UI |
+| [content-config.md](./config/content-config.md) | `content.json` | Homepage sections, filters, search |
+| [copy-config.md](./config/copy-config.md) | `copy.json` | User-facing text, navigation icons |
+| [payments-config.md](./config/payments-config.md) | `payments.json` | Zap presets, purchase UX |
+| [nostr-config.md](./config/nostr-config.md) | `nostr.json` | Relay sets, protocol settings |
+| [admin-config.md](./config/admin-config.md) | `admin.json` | Admin pubkeys, permissions |
 
 ## Infrastructure
 
