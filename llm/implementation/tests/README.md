@@ -7,29 +7,29 @@ Index of test files and their coverage. Tests use Vitest with mocking.
 | File | Location | Tests | Coverage Area |
 |------|----------|-------|---------------|
 | [auth.test.ts](./auth-tests.md) | `src/lib/tests/` | 11 | Pubkey validation |
-| [account-linking.test.ts](./account-linking-tests.md) | `src/lib/tests/` | ~30 | Provider classification |
+| [account-linking.test.ts](./account-linking-tests.md) | `src/lib/tests/` | 40 | Provider classification |
 | [profile-aggregator.test.ts](./profile-aggregator-tests.md) | `src/lib/tests/` | 2 | Profile merging |
-| [pricing.test.ts](./pricing-tests.md) | `src/lib/tests/` | ~25 | Price resolution |
-| [anon-reconnect-token.test.ts](./anon-reconnect-token-tests.md) | `src/lib/tests/` | ~15 | Token generation/verification |
-| [content-utils.test.ts](./content-utils-tests.md) | `src/lib/tests/` | ~25 | XSS sanitization |
+| [pricing.test.ts](./pricing-tests.md) | `src/lib/tests/` | 22 | Price resolution |
+| [anon-reconnect-token.test.ts](./anon-reconnect-token-tests.md) | `src/lib/tests/` | 15 | Token generation/verification |
+| [content-utils.test.ts](./content-utils-tests.md) | `src/lib/tests/` | 32 | XSS sanitization |
 | [publish-service.test.ts](./publish-service-tests.md) | `src/lib/tests/` | 1 | Privkey handling |
 | [republish-service.test.ts](./republish-service-tests.md) | `src/lib/tests/` | 2 | Privkey handling |
-| [privkey-crypto.test.ts](./privkey-crypto-tests.md) | `src/lib/tests/` | ~10 | AES-256-GCM encryption |
-| [oauth-state.test.ts](./oauth-state-tests.md) | `src/lib/tests/` | ~20 | CSRF prevention |
-| [account-sync.test.ts](./account-sync-tests.md) | `src/app/api/tests/` | ~10 | Account sync API |
+| [privkey-crypto.test.ts](./privkey-crypto-tests.md) | `src/lib/tests/` | 11 | AES-256-GCM encryption |
+| [oauth-state.test.ts](./oauth-state-tests.md) | `src/lib/tests/` | 19 | CSRF prevention |
+| [account-sync.test.ts](./account-sync-tests.md) | `src/app/api/tests/` | 2 | Account sync API |
 | [profile-sync.test.ts](./profile-sync-tests.md) | `src/app/api/tests/` | 1 | Profile sync API |
 | [flush.test.ts](./flush-tests.md) | `src/app/api/views/tests/` | 10 | View counter flush |
 
 ## Coverage by Domain
 
-### Security (~70 tests)
+### Security (88 tests)
 - **Authentication**: pubkey validation, NIP-98 verification
 - **XSS Prevention**: HTML sanitization, markdown extraction
 - **CSRF Prevention**: OAuth state tokens
 - **Encryption**: AES-256-GCM for private keys
 - **Token Security**: Anonymous reconnect tokens
 
-### Data Integrity (~35 tests)
+### Data Integrity (64 tests)
 - **Pricing**: Resolution logic, vulnerability documentation
 - **Profile Aggregation**: Merging OAuth + Nostr data
 - **Account Linking**: Provider classification, hierarchy

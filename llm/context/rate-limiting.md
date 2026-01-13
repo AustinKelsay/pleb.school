@@ -55,8 +55,11 @@ export const RATE_LIMITS = {
   // Nostr auth: 10 attempts per pubkey per minute (prevents enumeration)
   AUTH_NOSTR: { limit: 10, windowSeconds: 60 },
 
-  // Anonymous auth: 20 new accounts per hour (prevents mass account creation)
-  AUTH_ANONYMOUS: { limit: 20, windowSeconds: 3600 },
+  // Anonymous auth per-IP: 5 per IP per hour (prevents single-source abuse)
+  AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
+
+  // Anonymous auth global: 50 per hour total (backstop for distributed attacks)
+  AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
 
   // General API rate limit
   API_GENERAL: { limit: 100, windowSeconds: 60 }
@@ -156,7 +159,8 @@ Use descriptive, scoped keys:
 `email-send:${email}`
 `magic-link:${email}`
 `nostr-auth:${pubkey}`
-`anonymous-auth:global`  // Global limit
+`auth-anon-new:global`   // Global limit
+`auth-anon-new:ip:{ip}`  // Per-IP limit
 `api:${userId}`
 ```
 
@@ -199,7 +203,7 @@ if (response.status === 429) {
 |----------|-------|-------------|
 | Email magic link | 5/15min | `magic-link:{email}` |
 | NIP-07 login | 10/min | `nostr-auth:{pubkey}` |
-| Anonymous creation | 20/hour | `anonymous-auth:global` |
+| Anonymous creation | 5/hour per IP, 50/hour global | `auth-anon-new:ip:{ip}`, `auth-anon-new:global` |
 
 ### Email Verification
 
@@ -224,6 +228,66 @@ if (!rateLimit.success) return error('Rate limited')
 
 This prevents attackers from consuming rate limit budget without proving key ownership.
 
+## Dual-Bucket Rate Limiting
+
+For endpoints vulnerable to both single-source and distributed attacks, use dual-bucket limiting:
+
+```typescript
+import { checkRateLimit, RATE_LIMITS, getClientIp } from '@/lib/rate-limit'
+
+// Get client IP from request headers
+const clientIp = await getClientIp()
+
+// Check per-IP limit first (stricter)
+const perIpLimit = await checkRateLimit(
+  `auth-anon-new:ip:${clientIp}`,
+  RATE_LIMITS.AUTH_ANONYMOUS_PER_IP.limit,
+  RATE_LIMITS.AUTH_ANONYMOUS_PER_IP.windowSeconds
+)
+
+if (!perIpLimit.success) {
+  throw new Error('Too many attempts from your location')
+}
+
+// Check global limit (backstop for distributed attacks)
+const globalLimit = await checkRateLimit(
+  'auth-anon-new:global',
+  RATE_LIMITS.AUTH_ANONYMOUS_GLOBAL.limit,
+  RATE_LIMITS.AUTH_ANONYMOUS_GLOBAL.windowSeconds
+)
+
+if (!globalLimit.success) {
+  throw new Error('Too many attempts. Please try again later.')
+}
+```
+
+### Why Dual-Bucket?
+
+| Attack Type | Per-IP Defense | Global Defense |
+|-------------|----------------|----------------|
+| Single attacker | ✓ Blocks after 5 attempts | ✗ Not effective alone |
+| Botnet/distributed | ✗ Each IP gets quota | ✓ Caps total throughput |
+| VPN/proxy rotation | ✗ New IP = new quota | ✓ Still limited globally |
+
+The per-IP limit handles the common case (single attacker), while the global limit provides a backstop for sophisticated distributed attacks.
+
+## IP Extraction Helper
+
+```typescript
+import { getClientIp } from '@/lib/rate-limit'
+
+// Uses next/headers to extract client IP
+const ip = await getClientIp()
+// Returns: "1.2.3.4" or "unknown" if unavailable
+
+// Checks headers in order:
+// 1. X-Forwarded-For (first IP in chain)
+// 2. X-Real-IP
+// 3. Falls back to "unknown"
+```
+
+**Note:** Returns `"unknown"` when headers are unavailable (e.g., some server contexts). Unknown IPs still hit the global rate limit.
+
 ## Best Practices
 
 1. **Key Scoping**: Use specific identifiers (email, pubkey, ref) not just IP addresses
@@ -231,6 +295,7 @@ This prevents attackers from consuming rate limit budget without proving key own
 3. **Informative Errors**: Return `Retry-After` header
 4. **Log Abuse**: Monitor for rate limit hits indicating attacks
 5. **Order Correctly**: Verify auth before rate limiting
+6. **Dual-Bucket for Signup**: Use per-IP + global for account creation endpoints
 
 ## Related Documentation
 

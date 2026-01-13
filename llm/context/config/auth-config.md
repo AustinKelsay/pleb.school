@@ -40,7 +40,7 @@ Icons for each authentication provider button.
 | Key | Default | Description |
 |-----|---------|-------------|
 | `email` | `"Mail"` | Email magic link provider |
-| `github` | `"Github"` | GitHub OAuth provider |
+| `github` | `"GitHub"` | GitHub OAuth provider |
 | `nostr` | `"Zap"` | NIP-07 Nostr extension |
 | `anonymous` | `"UserX"` | Anonymous/ephemeral accounts |
 | `recovery` | `"KeyRound"` | Private key recovery |

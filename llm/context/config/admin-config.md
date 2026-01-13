@@ -361,15 +361,27 @@ Admin pubkeys are used to filter search results. Only content authored by admins
 ```typescript
 // From useNostrSearch.ts
 function getAuthorizedSearchAuthors(): string[] {
-  const { admins, moderators } = adminConfig
-  return [
+  const { admins, moderators } = adminConfig as AdminPubkeyConfig
+  const configuredPubkeys = [
     ...(admins?.pubkeys ?? []),
     ...(moderators?.pubkeys ?? [])
-  ].map(normalizeHexPubkey).filter(Boolean)
+  ]
+
+  const normalized = configuredPubkeys
+    .map(normalizeHexPubkey)
+    .filter((pubkey): pubkey is string => Boolean(pubkey))
+
+  const unique = Array.from(new Set(normalized))
+
+  if (unique.length === 0) {
+    console.warn('Nostr search disabled: no admin/moderator pubkeys configured')
+  }
+
+  return unique
 }
 ```
 
-This ensures search only returns content from authorized platform creators.
+This ensures search only returns content from authorized platform creators. The function normalizes pubkeys (handles both npub and hex formats), filters out invalid entries, deduplicates the list, and logs a browser console warning if no valid pubkeys are configured.
 
 ## Important Notes
 
@@ -379,9 +391,17 @@ This ensures search only returns content from authorized platform creators.
 
 3. **Moderators Not in DB**: The database Role model doesn't have a moderator field, so moderators are config-only.
 
-4. **Empty Pubkeys = No Search**: If `admins.pubkeys` and `moderators.pubkeys` are both empty, Nostr search will return no results.
+4. **Empty Pubkeys = No Search**: If `admins.pubkeys` and `moderators.pubkeys` are both empty, Nostr search will return no results. The system logs a browser console warning: `"Nostr search disabled: no admin/moderator pubkeys configured"` when this condition is detected.
 
-5. **Features Are Advisory**: Most feature flags require explicit wiring to enforce.
+5. **Empty Pubkeys Are Allowed**: Intentionally empty pubkeys are allowed at startup - the application will start normally, but search functionality will be disabled until pubkeys are configured. This allows for development/testing scenarios where search may not be needed.
+
+6. **Recovery in Production**: If pubkeys are accidentally cleared or misconfigured in production:
+   - Update `config/admin.json` with the correct pubkey arrays
+   - Restart the application (or trigger a config reload if supported)
+   - The warning will disappear once valid pubkeys are present
+   - No database migration is required - this is a runtime configuration change
+
+7. **Features Are Advisory**: Most feature flags require explicit wiring to enforce.
 
 ## Related Documentation
 

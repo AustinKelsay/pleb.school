@@ -4,7 +4,7 @@ Deep-dive reference for `config/copy.json` - all user-facing text, navigation la
 
 ## File Location
 
-```
+```text
 config/copy.json
 ```
 

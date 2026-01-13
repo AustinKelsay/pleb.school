@@ -78,7 +78,7 @@ import {
 } from './account-linking'
 import { fetchNostrProfile, syncUserProfileFromNostr } from './nostr-profile'
 import { encryptPrivkey, decryptPrivkey } from './privkey-crypto'
-import { checkRateLimit, RATE_LIMITS } from './rate-limit'
+import { checkRateLimit, RATE_LIMITS, getClientIp } from './rate-limit'
 import { generateReconnectToken, hashToken } from './anon-reconnect-token'
 import { createTransport } from 'nodemailer'
 import crypto from 'crypto'
@@ -587,14 +587,32 @@ if (authConfig.providers.anonymous.enabled) {
           // New anonymous account creation with token
           // ============================================================
 
-          // Rate limit new anonymous account creation globally
-          const newAccountRateLimit = await checkRateLimit(
-            'auth-anon-new:global',
-            RATE_LIMITS.AUTH_ANONYMOUS.limit,
-            RATE_LIMITS.AUTH_ANONYMOUS.windowSeconds
+          // Dual-bucket rate limiting: per-IP (primary) + global (backstop)
+          // Per-IP prevents single-source abuse; global prevents distributed attacks
+          const clientIp = await getClientIp()
+
+          // Check per-IP rate limit first (stricter, 5/hour per IP)
+          const perIpRateLimit = await checkRateLimit(
+            `auth-anon-new:ip:${clientIp}`,
+            RATE_LIMITS.AUTH_ANONYMOUS_PER_IP.limit,
+            RATE_LIMITS.AUTH_ANONYMOUS_PER_IP.windowSeconds
           )
 
-          if (!newAccountRateLimit.success) {
+          if (!perIpRateLimit.success) {
+            // Sanitize IP for logging to prevent log injection via control characters
+            const safeIp = clientIp.replace(/[\x00-\x1f\x7f]/g, '')
+            console.warn(`Per-IP rate limit exceeded for anonymous accounts: ${safeIp}`)
+            throw new Error('Too many new accounts created from your location. Please try again later.')
+          }
+
+          // Check global rate limit (looser, 50/hour total as backstop)
+          const globalRateLimit = await checkRateLimit(
+            'auth-anon-new:global',
+            RATE_LIMITS.AUTH_ANONYMOUS_GLOBAL.limit,
+            RATE_LIMITS.AUTH_ANONYMOUS_GLOBAL.windowSeconds
+          )
+
+          if (!globalRateLimit.success) {
             console.warn('Global rate limit exceeded for new anonymous accounts')
             throw new Error('Too many new accounts created. Please try again later.')
           }

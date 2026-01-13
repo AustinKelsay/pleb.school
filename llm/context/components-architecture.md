@@ -4,7 +4,7 @@ React component organization and patterns for pleb.school. Uses Next.js 15 App R
 
 ## Directory Structure
 
-```
+```text
 src/components/
 ├── layout/               # Page layout components
 │   ├── header.tsx

@@ -156,6 +156,9 @@ if (user.privkey && !isNip07User(account?.provider)) {
 
 See [rate-limiting.md](./rate-limiting.md) for full documentation.
 
+### Key Patterns
+
+**Auth-first rate limiting** (NIP-98, NIP-07):
 ```typescript
 // Critical: Rate limit AFTER auth verification
 const isValid = await verifySignature(authEvent)
@@ -164,6 +167,20 @@ if (!isValid) return error('Invalid signature')
 const rateLimit = await checkRateLimit(`nostr-auth:${pubkey}`, 10, 60)
 if (!rateLimit.success) return error('Rate limited')
 ```
+
+**Dual-bucket rate limiting** (Anonymous signup):
+```typescript
+// Per-IP limit (strict) + Global limit (backstop)
+const clientIp = await getClientIp()
+
+const perIpLimit = await checkRateLimit(`auth-anon-new:ip:${clientIp}`, 5, 3600)
+if (!perIpLimit.success) throw new Error('Too many from your location')
+
+const globalLimit = await checkRateLimit('auth-anon-new:global', 50, 3600)
+if (!globalLimit.success) throw new Error('Too many attempts')
+```
+
+Per-IP blocks single attackers (5/hour); global caps total throughput for distributed attacks (50/hour).
 
 ## Audit Logging
 
@@ -240,6 +257,39 @@ const SAFE_ERRORS = {
   INVALID_REQUEST: 'Invalid request'
 }
 ```
+
+## Script Exit Codes
+
+Migration and utility scripts must correctly signal success/failure to callers (CI, shells, orchestrators).
+
+**Pattern**: Use `process.exitCode` for partial failures, then call `process.exit()` without arguments:
+
+```typescript
+async function migrate() {
+  let failed: string[] = []
+
+  for (const item of items) {
+    try {
+      await processItem(item)
+    } catch {
+      failed.push(item.id)
+    }
+  }
+
+  if (failed.length > 0) {
+    console.error(`Failed: ${failed.join(', ')}`)
+    process.exitCode = 1  // Signal partial failure
+  }
+}
+
+migrate()
+  .then(() => process.exit())  // Respects process.exitCode
+  .catch((e) => { console.error(e); process.exit(1) })
+```
+
+**Common mistake**: Using `.then(() => process.exit(0))` overrides any `process.exitCode` set during execution, causing partial failures to appear successful.
+
+**Why it matters**: Silent failures in security-critical scripts (key rotation, credential migration) can leave systems in vulnerable states without alerting operators.
 
 ## OWASP Top 10 Prevention
 

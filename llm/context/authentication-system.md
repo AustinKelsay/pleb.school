@@ -107,13 +107,25 @@ if (methodTag?.[1] !== 'POST') throw new Error('Invalid method')
 
 Anonymous users get a server-generated Nostr keypair for immediate participation.
 
+### Rate Limits
+
+Anonymous account creation uses dual-bucket rate limiting to prevent abuse:
+
+| Bucket | Limit | Purpose |
+|--------|-------|---------|
+| Per-IP | 5/hour | Prevents single-source abuse |
+| Global | 50/hour | Backstop for distributed attacks |
+
+Both limits must pass for account creation. See [rate-limiting.md](./rate-limiting.md) for implementation details.
+
 ### Anonymous Flow
 
 1. Client requests anonymous sign-in
-2. Server generates new keypair: `generateKeypair()`
-3. Private key encrypted: `encryptPrivkey(privkey)`
-4. User created with `primaryProvider: 'anonymous'`
-5. Reconnect token generated for session persistence
+2. **Rate limit check**: Per-IP bucket checked first, then global
+3. Server generates new keypair: `generateKeypair()`
+4. Private key encrypted: `encryptPrivkey(privkey)`
+5. User created with `primaryProvider: 'anonymous'`
+6. Reconnect token generated for session persistence
 
 ### Reconnect Token System
 

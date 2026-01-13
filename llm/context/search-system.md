@@ -142,12 +142,23 @@ if (!keyword || keyword.length < 3) return []
 ## Highlighting
 
 ```typescript
+import { sanitizeContent } from '@/lib/content-utils'
+
 function highlightKeyword(text: string, keyword: string): string {
   const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi')
   return text.replace(regex, '<mark>$1</mark>')
 }
 
-// Render safely
+// Sanitize before highlighting to prevent XSS
+const titleSanitized = sanitizeContent(title)
+const descriptionSanitized = sanitizeContent(description)
+
+highlights: {
+  title: highlightKeyword(titleSanitized, keyword),
+  description: highlightKeyword(descriptionSanitized, keyword)
+}
+
+// Render safely (text is already sanitized before highlighting)
 <div dangerouslySetInnerHTML={{ __html: result.highlights.title }} />
 ```
 

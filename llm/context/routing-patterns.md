@@ -258,6 +258,7 @@ function CourseList({ courses }) {
 
   return courses.map(course => (
     <Link
+      key={course.id}
       href={`/courses/${course.id}`}
       onMouseEnter={() => prefetch(`/courses/${course.id}`)}
     >

@@ -126,6 +126,35 @@ function checkRateLimitMemory(
 }
 
 /**
+ * Extract client IP from request headers (for use in App Router context)
+ *
+ * Uses next/headers to access request headers. Returns 'unknown' if IP cannot be determined.
+ * Handles X-Forwarded-For (first IP in chain) and X-Real-IP headers.
+ */
+export async function getClientIp(): Promise<string> {
+  try {
+    const { headers } = await import('next/headers')
+    const headerStore = await headers()
+
+    // X-Forwarded-For may contain multiple IPs; take the first (original client)
+    const forwardedFor = headerStore.get('x-forwarded-for')
+    if (forwardedFor) {
+      const firstIp = forwardedFor.split(',')[0]?.trim()
+      if (firstIp) return firstIp
+    }
+
+    // Fallback to X-Real-IP
+    const realIp = headerStore.get('x-real-ip')
+    if (realIp) return realIp
+
+    return 'unknown'
+  } catch {
+    // headers() may not be available in all contexts
+    return 'unknown'
+  }
+}
+
+/**
  * Rate limit configurations for different endpoints
  */
 export const RATE_LIMITS = {
@@ -141,8 +170,11 @@ export const RATE_LIMITS = {
   // Nostr auth: 10 attempts per pubkey per minute (prevents enumeration)
   AUTH_NOSTR: { limit: 10, windowSeconds: 60 }, // 10 attempts per minute per pubkey
 
-  // Anonymous auth: 20 new accounts per hour (prevents mass account creation)
-  AUTH_ANONYMOUS: { limit: 20, windowSeconds: 3600 }, // 20 new anonymous accounts per hour (global)
+  // Anonymous auth per-IP: 5 per IP per hour (prevents single-source abuse)
+  AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
+
+  // Anonymous auth global: 50 per hour total (backstop for distributed attacks)
+  AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
 
   // General API rate limit (can be used for other endpoints)
   API_GENERAL: { limit: 100, windowSeconds: 60 } // 100 requests per minute

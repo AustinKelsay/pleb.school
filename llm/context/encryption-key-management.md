@@ -161,7 +161,7 @@ async function rotateKeys() {
 }
 
 rotateKeys()
-  .then(() => process.exit(0))
+  .then(() => process.exit())  // Respects process.exitCode set during execution
   .catch((e) => { console.error(e); process.exit(1) })
 ```
 
