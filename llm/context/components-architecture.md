@@ -193,6 +193,11 @@ Handles images from any domain:
 
 ```typescript
 // src/components/common/optimized-image.tsx
+'use client'
+
+import { useState } from 'react'
+import Image from 'next/image'
+
 export function OptimizedImage({ src, alt, ...props }) {
   // Auto-handles unknown domains with unoptimized prop
   const [error, setError] = useState(false)

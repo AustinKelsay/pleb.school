@@ -10,7 +10,7 @@ interface RouteParams {
 }
 
 const paramsSchema = z.object({
-  id: z.string().uuid('Invalid draft ID')
+  id: z.uuid({ error: 'Invalid draft ID' })
 })
 
 /**

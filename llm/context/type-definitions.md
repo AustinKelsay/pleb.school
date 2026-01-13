@@ -452,9 +452,9 @@ function createCourseDisplay(
 }
 ```
 
-## Zod Schemas
+## Zod Schemas (Zod 4)
 
-API request validation:
+API request validation. Zod 4 uses standalone schemas for common formats:
 
 ```typescript
 // src/lib/api-utils.ts
@@ -465,7 +465,7 @@ const CourseCreateSchema = z.object({
   description: z.string().min(1).max(2000),
   category: z.string().min(1),
   instructor: z.string().optional(),
-  image: z.string().url().optional(),
+  image: z.url({ error: 'Invalid image URL' }).optional(),
 })
 
 const CourseFilterSchema = z.object({
@@ -474,6 +474,11 @@ const CourseFilterSchema = z.object({
   limit: z.coerce.number().min(1).max(100).optional(),
   search: z.string().optional(),
 })
+
+// Common Zod 4 standalone schemas:
+// z.uuid()    - UUID validation (RFC 4122 compliant)
+// z.url()     - URL validation (uses new URL() internally)
+// z.email()   - Email validation
 
 // Infer types from schemas
 type CourseCreateData = z.infer<typeof CourseCreateSchema>

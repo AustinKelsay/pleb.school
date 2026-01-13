@@ -4,17 +4,17 @@ Security implementation patterns for pleb.school. Covers input validation, audit
 
 ## Input Validation
 
-### Zod Schemas
+### Zod Schemas (Zod 4)
 
-All API inputs validated with Zod:
+All API inputs validated with Zod. Zod 4 uses standalone schemas for common formats:
 
 ```typescript
 // src/lib/api-utils.ts
 import { z } from 'zod'
 
 const PurchaseClaimSchema = z.object({
-  resourceId: z.string().uuid().optional(),
-  courseId: z.string().uuid().optional(),
+  resourceId: z.uuid().optional(),           // Zod 4: standalone z.uuid()
+  courseId: z.uuid().optional(),
   amountPaid: z.number().int().nonnegative(),
   zapReceiptId: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   paymentType: z.enum(['zap', 'manual', 'comped', 'refund']).optional()
@@ -41,16 +41,23 @@ function verifyNostrPubkey(pubkey: string): boolean {
 const normalizedPubkey = pubkey.toLowerCase()
 ```
 
-### URL Validation
+### URL Validation (Zod 4)
 
 ```typescript
-const UrlSchema = z.string().url().startsWith('https://')
+// Zod 4: standalone z.url() with refinement for HTTPS
+const UrlSchema = z.url().refine(
+  url => url.startsWith('https://'),
+  { message: 'Must use HTTPS' }
+)
 
 // For images, allow data URIs too
-const ImageUrlSchema = z.string().refine(
-  url => url.startsWith('https://') || url.startsWith('data:image/'),
-  { message: 'Invalid image URL' }
-)
+const ImageUrlSchema = z.union([
+  z.url().refine(url => url.startsWith('https://'), { message: 'Must use HTTPS' }),
+  z.string().refine(url => url.startsWith('data:image/'), { message: 'Invalid image data URI' })
+])
+
+// Data URI security: CSP restricts data: to img-src only (middleware.ts)
+// Data URIs are only rendered via React's <img src>, preventing XSS execution
 ```
 
 ## Cryptographic Verification

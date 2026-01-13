@@ -6,12 +6,12 @@ import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { z } from 'zod'
 
 const additionalLinkSchema = z.object({
-  url: z.string().url('Link must be a valid URL'),
+  url: z.url({ error: 'Link must be a valid URL' }),
   title: z.string().trim().min(1).max(120).optional(),
 })
 
 const additionalLinksSchema = z
-  .array(z.union([z.string().url(), additionalLinkSchema]))
+  .array(z.union([z.url(), additionalLinkSchema]))
   .optional()
 
 // Validation schemas
@@ -20,15 +20,15 @@ const updateDraftSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
   summary: z.string().min(1, 'Summary is required').max(1000, 'Summary too long').optional(),
   content: z.string().optional(),
-  image: z.string().url().optional().or(z.literal('')).optional(),
+  image: z.url().optional().or(z.literal('')),
   price: z.number().int().min(0).optional(),
   topics: z.array(z.string()).min(1, 'At least one topic is required').optional(),
   additionalLinks: additionalLinksSchema,
-  videoUrl: z.string().url().optional()
+  videoUrl: z.url().optional()
 })
 
 const paramsSchema = z.object({
-  id: z.string().uuid('Invalid draft ID')
+  id: z.uuid({ error: 'Invalid draft ID' })
 })
 
 interface RouteParams {

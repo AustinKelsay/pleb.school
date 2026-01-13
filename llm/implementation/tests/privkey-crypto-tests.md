@@ -1,7 +1,7 @@
 # privkey-crypto.test.ts
 
 **Location**: `src/lib/tests/privkey-crypto.test.ts`
-**Tests**: ~10
+**Tests**: 11
 
 ## Purpose
 
@@ -47,8 +47,10 @@ Boolean indicating if encryption is active.
 | Test | Environment | Result |
 |------|-------------|--------|
 | Key provided | Any | Enabled |
-| No key (dev) | development | Enabled (ephemeral key) |
-| No key (prod) | production | Enabled (ephemeral key, warns) |
+| No key (dev) | development | Enabled (ephemeral key, warns) |
+| No key (prod) | production | **Throws error** (fails fast) |
+
+Production requires `PRIVKEY_ENCRYPTION_KEY` - the application will not start without it.
 
 ## Plaintext Rejection
 

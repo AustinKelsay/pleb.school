@@ -19,6 +19,17 @@ Tests that `RepublishService` rejects plaintext private keys when encryption is 
 
 ## Test Implementation
 
+### Constants and Mocks
+
+```typescript
+const HEX_PRIVKEY = "f".repeat(64)  // Plaintext 64-char hex privkey
+
+const mockFindResource = vi.fn()
+const mockFindCourse = vi.fn()
+```
+
+### Tests
+
 ```typescript
 it("rejects plaintext privkeys under encryption for resources", async () => {
   mockFindResource.mockResolvedValue({
@@ -43,11 +54,16 @@ it("rejects plaintext privkeys under encryption for courses", async () => {
 
 ## Mock Strategy
 
+The mock functions are declared outside the `vi.mock` call so tests can configure them:
+
 ```typescript
+const mockFindResource = vi.fn()
+const mockFindCourse = vi.fn()
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    resource: { findUnique: vi.fn(), update: vi.fn() },
-    course: { findUnique: vi.fn(), update: vi.fn() },
+    resource: { findUnique: mockFindResource, update: vi.fn() },
+    course: { findUnique: mockFindCourse, update: vi.fn() },
     $transaction: async (cb) => cb({ ... })
   }
 }))

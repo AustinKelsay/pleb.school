@@ -11,7 +11,7 @@ const updateDraftLessonSchema = z.object({
 })
 
 const paramsSchema = z.object({
-  id: z.string().uuid('Invalid draft lesson ID')
+  id: z.uuid({ error: 'Invalid draft lesson ID' })
 })
 
 interface RouteParams {

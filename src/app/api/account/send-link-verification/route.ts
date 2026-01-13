@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         }
       )
     }
-    const isValidEmail = z.string().email('Invalid email address').max(254).safeParse(normalizedEmail).success
+    const isValidEmail = z.email({ error: 'Invalid email address' }).max(254).safeParse(normalizedEmail).success
     if (!isValidEmail) {
       return NextResponse.json(
         { error: 'Invalid email address' },

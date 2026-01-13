@@ -36,7 +36,7 @@ const BasicProfileSchema = z.object({
       }
       return val
     },
-    z.string().email('Invalid email').optional()
+    z.email({ error: 'Invalid email' }).optional()
   )
 })
 
@@ -56,7 +56,7 @@ const optionalClearingField = (validator: z.ZodTypeAny) =>
 const EnhancedProfileSchema = z.object({
   nip05: optionalClearingField(z.string().min(1, 'NIP05 address required')),
   lud16: optionalClearingField(z.string().min(1, 'Lightning address required')),
-  banner: optionalClearingField(z.string().url('Invalid banner URL'))
+  banner: optionalClearingField(z.url({ error: 'Invalid banner URL' }))
 })
 
 const SignedKind0EventSchema = z.object({

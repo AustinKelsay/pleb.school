@@ -101,10 +101,10 @@ function ContentPage({ contentId }) {
     contentType: 'resource'
   })
 
-  // Increment on mount
+  // Increment on mount (incrementView is stable via useCallback)
   useEffect(() => {
     incrementView()
-  }, [])
+  }, [incrementView])
 
   return <span>{viewCount} views</span>
 }

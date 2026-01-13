@@ -5,14 +5,14 @@ import { RepublishService, RepublishError } from '@/lib/republish-service'
 import { z } from 'zod'
 
 const paramsSchema = z.object({
-  id: z.string().uuid('Invalid course ID'),
+  id: z.uuid({ error: 'Invalid course ID' }),
 })
 
 const republishSchema = z
   .object({
     title: z.string().transform(s => s.trim()).pipe(z.string().min(1, 'Title is required')),
     summary: z.string().transform(s => s.trim()).pipe(z.string().min(1, 'Summary is required')),
-    image: z.string().url().optional().or(z.literal('')).transform(value => {
+    image: z.url().optional().or(z.literal('')).transform(value => {
       const trimmed = value?.trim()
       return trimmed ? trimmed : undefined
     }),

@@ -50,10 +50,10 @@ Merges profile data based on `profileSource` setting.
 - **Verifies**: `profileSource` change triggers correct source precedence; `isNostrFirstProfile()` logic correctly determines priority; field sources reflect the new priority order
 
 ### Conflicting data
-- **Setup**: User has conflicting values for fields like `username`/`avatar` across sources (e.g., GitHub username "alice", Nostr name "bob", DB username "charlie")
-- **Mock**: Multiple sources with different values for same fields; `profileSource: "oauth"` vs `"nostr"` to test deterministic precedence
-- **Expected**: Deterministic precedence based on `profileSource`; OAuth-first: GitHub > DB > Nostr; Nostr-first: Nostr > DB > GitHub; no random or undefined behavior
-- **Verifies**: Field precedence is consistent and predictable; `username` and `avatar` follow the same priority rules; conflicting values resolve deterministically based on source order
+- **Setup**: User has conflicting values for fields like `username`/`avatar` across sources (e.g., GitHub username "alice", Nostr display_name "bob")
+- **Mock**: OAuth and Nostr sources with different values for same fields; `profileSource: "oauth"` vs `"nostr"` to test deterministic precedence
+- **Expected**: Deterministic precedence based on `profileSource`; OAuth-first: OAuth fields win; Nostr-first: Nostr fields win (see Field Priority Matrix below)
+- **Verifies**: Field precedence is consistent and predictable; `username` and `avatar` follow the same priority rules; conflicting values resolve deterministically based on `profileSource`
 
 ## Mock Strategy
 

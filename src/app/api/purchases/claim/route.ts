@@ -27,8 +27,8 @@ import { sanitizeRelayHints } from "@/lib/nostr-relays.server"
 const paymentTypeEnum = z.enum(["zap", "manual", "comped", "refund"])
 
 const payloadSchema = z.object({
-  resourceId: z.string().uuid().optional(),
-  courseId: z.string().uuid().optional(),
+  resourceId: z.uuid().optional(),
+  courseId: z.uuid().optional(),
   amountPaid: z.number().int().nonnegative(),
   paymentType: paymentTypeEnum.optional(),
   zapReceiptId: z.string().trim().min(1).optional(),
