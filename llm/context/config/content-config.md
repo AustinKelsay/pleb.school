@@ -4,13 +4,13 @@ Deep-dive reference for `config/content.json` - homepage sections, content filte
 
 ## File Location
 
-```
+```text
 config/content.json
 ```
 
 ## Accessor File
 
-```
+```text
 src/lib/content-config.ts
 ```
 

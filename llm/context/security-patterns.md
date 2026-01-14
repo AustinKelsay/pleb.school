@@ -68,7 +68,7 @@ const ImageUrlSchema = z.union([
 // src/lib/auth.ts
 import { verifySignature } from 'snstr'
 
-async function verifyNip98Auth(event: NostrEvent, expectedPubkey: string): boolean {
+async function verifyNip98Auth(event: NostrEvent, expectedPubkey: string): Promise<boolean> {
   // 1. Verify signature
   if (!await verifySignature(event)) return false
 

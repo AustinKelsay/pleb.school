@@ -4,7 +4,7 @@ Complete workflow from draft creation through Nostr publishing. Draft services i
 
 ## Overview
 
-```
+```text
 Draft (Database)
     ↓
 Validate Content
@@ -285,7 +285,7 @@ Republishing:
 
 ### Resource Drafts
 
-```
+```text
 GET    /api/drafts/resources         - List user's drafts
 POST   /api/drafts/resources         - Create draft
 GET    /api/drafts/resources/[id]    - Get draft
@@ -297,7 +297,7 @@ POST   /api/drafts/resources/[id]/publish  - Publish
 
 ### Course Drafts
 
-```
+```text
 GET    /api/drafts/courses           - List course drafts
 POST   /api/drafts/courses           - Create course draft
 GET    /api/drafts/courses/[id]      - Get with lessons
@@ -309,7 +309,7 @@ POST   /api/drafts/courses/[id]/publish  - Publish
 
 ### Lesson Drafts
 
-```
+```text
 POST   /api/drafts/lessons           - Add lesson to course
 DELETE /api/drafts/lessons/[id]      - Remove lesson
 POST   /api/drafts/lessons/reorder   - Reorder lessons
