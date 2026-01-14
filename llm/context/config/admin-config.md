@@ -4,13 +4,13 @@ Deep-dive reference for `config/admin.json` - admin/moderator pubkeys and permis
 
 ## File Location
 
-```
+```text
 config/admin.json
 ```
 
 ## Accessor File
 
-```
+```text
 src/lib/admin-utils.ts
 ```
 

@@ -310,8 +310,10 @@ const privkey = decryptPrivkey(user.privkey)
 ### Key Environment Variable
 
 ```env
-PRIVKEY_ENCRYPTION_KEY=your-32-character-minimum-secret
+PRIVKEY_ENCRYPTION_KEY=your-64-character-hex-key
 ```
+
+**Note**: The key must be a 64-character hexadecimal string (representing 32 bytes / 256 bits). Generate with `openssl rand -hex 32`.
 
 ### Signing Mode Detection
 
