@@ -74,11 +74,13 @@ describe("POST /api/account/sync", () => {
     expect(response.status).toBe(200)
     expect(body.success).toBe(true)
     expect(body.updated).toEqual(["email"])
-    expect(mockUserUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "user-1" },
-        data: { email: "user@example.com" },
-      })
-    )
+    expect(mockUserFindUnique).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      select: { email: true },
+    })
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { email: "user@example.com" },
+    })
   })
 })

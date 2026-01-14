@@ -62,6 +62,7 @@ it("backfills email when email provider is linked but user email is missing", as
   const body = await response.json()
 
   expect(response.status).toBe(200)
+  expect(body.success).toBe(true)
   expect(body.updated).toEqual(["email"])
   expect(mockUserUpdate).toHaveBeenCalledWith(
     expect.objectContaining({

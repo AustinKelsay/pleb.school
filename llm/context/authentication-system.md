@@ -84,9 +84,10 @@ const isValid = await verifySignature(event.id, event.sig, event.pubkey)
 // 4. Verify pubkey matches
 if (event.pubkey !== pubkey) throw new Error('Pubkey mismatch')
 
-// 5. Check timestamp (60 second window - NIP-98 suggests "reasonable", we use 60s)
-const age = now - event.created_at
-if (age > 60) throw new Error('Event expired')
+// 5. Check timestamp (asymmetric window: 30s future / 60s past)
+const now = Math.floor(Date.now() / 1000)
+const eventAge = now - event.created_at
+if (eventAge < -30 || eventAge > 60) throw new Error('Event expired')
 
 // 6. Validate URL tag
 const urlTag = event.tags.find(t => t[0] === 'u')
@@ -104,7 +105,7 @@ if (methodTag?.[1] !== 'POST') throw new Error('Invalid method')
 |-------|------------------|
 | Event ID verification | Tag substitution attacks (ensures signed data matches claimed tags) |
 | Signature verification | Impersonation (proves key ownership) |
-| Timestamp window (60s) | Replay attacks (NIP-98 suggests "reasonable window", we use 60s) |
+| Timestamp window (-30s/+60s) | Replay attacks (30s future for clock skew, 60s past) |
 | URL tag validation | Cross-site replay |
 | Method tag validation | Request method confusion |
 

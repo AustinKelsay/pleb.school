@@ -192,27 +192,70 @@ export const ContentCard = ({ item }: { item: CourseDisplay | ResourceDisplay })
 Handles images from any domain:
 
 ```typescript
-// src/components/common/optimized-image.tsx
+// src/components/ui/optimized-image.tsx
 'use client'
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { cn } from '@/lib/utils'
 
-export function OptimizedImage({ src, alt, ...props }) {
-  // Auto-handles unknown domains with unoptimized prop
+interface OptimizedImageProps {
+  src: string
+  alt: string
+  width?: number
+  height?: number
+  className?: string
+  priority?: boolean
+  sizes?: string
+  fill?: boolean
+  fallback?: string
+  placeholder?: 'blur' | 'empty'
+  blurDataURL?: string
+}
+
+const ALLOWED_DOMAINS = [
+  'images.unsplash.com',
+  'avatars.githubusercontent.com',
+  // ... other configured domains
+]
+
+function isAllowedDomain(src: string): boolean {
+  try {
+    const url = new URL(src)
+    return ALLOWED_DOMAINS.includes(url.hostname)
+  } catch {
+    return true  // Local images are allowed
+  }
+}
+
+export function OptimizedImage({
+  src, alt, width, height, className, fill, ...imageProps
+}: OptimizedImageProps) {
   const [error, setError] = useState(false)
 
-  if (error || !src) {
-    return <div className="bg-muted" {...props} />
+  if (error) {
+    // Fallback div only receives div-safe props (className, style)
+    return (
+      <div
+        className={cn("bg-muted text-muted-foreground", className)}
+        style={{ width, height }}
+      >
+        <span className="text-sm">Image unavailable</span>
+      </div>
+    )
   }
 
   return (
     <Image
       src={src}
       alt={alt}
-      unoptimized={!isKnownDomain(src)}
+      width={fill ? undefined : (width || 400)}
+      height={fill ? undefined : (height || 300)}
+      fill={fill}
+      className={className}
+      unoptimized={!isAllowedDomain(src)}
       onError={() => setError(true)}
-      {...props}
+      {...imageProps}
     />
   )
 }
