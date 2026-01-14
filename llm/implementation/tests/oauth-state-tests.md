@@ -9,10 +9,10 @@ Tests CSRF prevention for OAuth flows using state parameter.
 
 ## Functions Tested
 
-### `generateOAuthState(data)`
+### `createSignedState(data)`
 Creates signed state token for OAuth redirect.
 
-### `verifyOAuthState(state)`
+### `verifySignedState(state)`
 Validates state token and extracts data.
 
 ## Test Coverage

@@ -1,41 +1,24 @@
 # account-sync.test.ts
 
 **Location**: `src/app/api/tests/account-sync.test.ts`
-**Tests**: ~10
+**Tests**: 2
 
 ## Purpose
 
-Tests the `/api/account/sync` endpoint which synchronizes linked accounts.
+Tests the `/api/account/sync` endpoint which backfills missing user data from linked accounts.
 
 ## Endpoint Tested
 
 ### `POST /api/account/sync`
 
-Triggers synchronization of user's linked accounts.
+Syncs data from a specific linked provider (e.g., backfills email from email provider).
 
 ## Test Coverage
 
-### Authentication
-
-| Test | Session | Expected |
-|------|---------|----------|
-| Authenticated | Valid session | 200 OK |
+| Test | Scenario | Expected |
+|------|----------|----------|
 | Unauthenticated | No session | 401 Unauthorized |
-
-### Sync Behavior
-
-| Test | Scenario | Expected |
-|------|----------|----------|
-| Has linked accounts | User with GitHub + Email | Syncs all accounts |
-| No linked accounts | User with only primary | Returns success (no-op) |
-| Nostr account linked | User with NIP-07 | Triggers Nostr profile sync |
-
-### Error Handling
-
-| Test | Scenario | Expected |
-|------|----------|----------|
-| DB error | Prisma throws | 500 Internal Server Error |
-| Partial sync failure | One account fails | Continues with others |
+| Email backfill | Email provider linked, user.email null | Updates user.email, returns 200 with `updated: ["email"]` |
 
 ## Mock Strategy
 
@@ -50,8 +33,8 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
-    account: { findMany: vi.fn(), update: vi.fn() }
+    account: { findFirst: vi.fn() },
+    user: { findUnique: vi.fn(), update: vi.fn() }
   }
 }))
 ```
@@ -59,19 +42,33 @@ vi.mock("@/lib/prisma", () => ({
 ## Test Implementation
 
 ```typescript
-it("syncs accounts for authenticated user", async () => {
+it("backfills email when email provider is linked but user email is missing", async () => {
   mockGetServerSession.mockResolvedValue({ user: { id: "user-1" } })
-  mockAccountFindMany.mockResolvedValue([
-    { provider: "github", providerAccountId: "123" },
-    { provider: "email", providerAccountId: "test@example.com" }
-  ])
+  mockAccountFindFirst.mockResolvedValue({
+    id: "acc-1",
+    provider: "email",
+    providerAccountId: "User@example.com",
+  })
+  mockUserFindUnique.mockResolvedValue({ email: null })
+  mockUserUpdate.mockResolvedValue({})
 
   const request = new Request("http://localhost/api/account/sync", {
-    method: "POST"
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider: "email" }),
   })
 
   const response = await POST(request)
+  const body = await response.json()
+
   expect(response.status).toBe(200)
+  expect(body.updated).toEqual(["email"])
+  expect(mockUserUpdate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: { id: "user-1" },
+      data: { email: "user@example.com" },  // normalized to lowercase
+    })
+  )
 })
 ```
 

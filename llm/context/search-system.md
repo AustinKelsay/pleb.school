@@ -185,17 +185,17 @@ export async function searchCourses(formData: FormData) {
 
 ## useNostrSearch Hook
 
-Alternative: Search Nostr relays directly:
+Alternative: Search Nostr relays directly using the React Query-based hook:
 
 ```typescript
-import { useNostrSearch } from '@/hooks/useNostrSearch'
+import { useNostrSearch, useNostrSearchByKind } from '@/hooks/useNostrSearch'
 
-const { search, results, isSearching, error } = useNostrSearch()
+// Basic usage - executes automatically when keyword meets min length (3 chars)
+// Searches kinds 30004 (courses), 30023 (articles), 30402 (paid content)
+const { results, isLoading, isError, error, refetch } = useNostrSearch('bitcoin')
 
-await search({
-  kinds: [30023, 30402],
-  search: 'bitcoin'  // NIP-50 search extension
-})
+// For specific kinds only
+const { results, isLoading } = useNostrSearchByKind('bitcoin', [30023])
 ```
 
 ## Search Page

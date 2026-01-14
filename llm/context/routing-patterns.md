@@ -52,13 +52,16 @@ router.push(`/content/${item.id}`)  // Doesn't distinguish courses
 ### Universal Router Helper
 
 ```typescript
-// Usage example: import from '@/lib/universal-router'
-import { getContentPath } from '@/lib/universal-router'
+import { getUniversalRoute, resolveUniversalId, getRoutePath } from '@/lib/universal-router'
 
-// Returns correct path based on content type
-const path = getContentPath(item)
+// High-level: pass any ID format, get the correct route path
+const path = getUniversalRoute(item.id)
 // Course → /courses/123
 // Resource → /content/456
+
+// Lower-level: resolve ID first, then get route
+const resolved = resolveUniversalId(item.id)  // returns { resolvedId, contentType, ... }
+const route = getRoutePath(resolved)
 ```
 
 ## Dynamic Routes
@@ -113,17 +116,11 @@ function getLessonUrl(courseId: string, lessonId: string): string {
 ### From Nostr Identifiers
 
 ```typescript
-// Convert naddr to route
-async function naddrToPath(naddr: string): Promise<string | null> {
-  const decoded = tryDecodeNaddr(naddr)
-  if (!decoded) return null
+import { getUniversalRoute } from '@/lib/universal-router'
 
-  // Look up content by d-tag
-  const content = await findByDTag(decoded.identifier)
-  if (!content) return null
-
-  return getContentPath(content)
-}
+// Convert naddr to route - getUniversalRoute handles naddr decoding internally
+const path = getUniversalRoute(naddr)
+// Returns /courses/123 or /content/456 based on content type
 ```
 
 ## Protected Routes

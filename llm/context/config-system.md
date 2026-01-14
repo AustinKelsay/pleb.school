@@ -210,7 +210,19 @@ const adminInfo = await getAdminInfo(session)
 const canCreate = await hasPermission(session, 'createCourse')
 ```
 
-**Dual Detection:** Admins are detected by both database `Role.admin` field and config pubkey lists.
+**Dual Detection Logic:**
+
+Detection order for `getAdminInfo`, `isAdmin`, and `hasPermission`:
+1. **Database first**: Check `Role.admin` field in database
+2. **Config second**: Check pubkey against `admins.pubkeys` and `moderators.pubkeys`
+
+Uses OR logic—user is admin/moderator if found in **either** source. The `AdminInfo.source` field indicates which method matched: `'database' | 'config' | 'none'`.
+
+**Source capabilities:**
+- **Database**: Only indicates admin status (`Role.admin` boolean). No moderator distinction.
+- **Config**: Supports both admin (`admins.pubkeys`) and moderator (`moderators.pubkeys`) levels.
+
+**Precedence**: When a user exists in both sources, database takes precedence (checked first, returns early if admin).
 
 ## Icon System
 

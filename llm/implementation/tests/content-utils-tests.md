@@ -47,7 +47,7 @@ Validates and sanitizes URLs.
 | onclick | `<div onclick="...">` | `<div>` |
 | onload | `<img onload="...">` | `<img>` |
 | style (expression) | `<div style="expression(...)">` | `<div>` |
-| data attributes | `<div data-x="y">` | `<div data-x="y">` |
+| data attributes | `<div data-x="y">` | `<div>` |
 
 ### Iframe Sanitization
 | Test | Input | Output |

@@ -150,5 +150,5 @@ function decryptPrivkeyForUser(stored: string, userId: string): string | null {
 
 ## References
 
-- Full documentation: [llm/context/encryption-key-management.md](./llm/context/encryption-key-management.md)
-- Implementation: [src/lib/privkey-crypto.ts](./src/lib/privkey-crypto.ts)
+- Full documentation: [llm/context/encryption-key-management.md](llm/context/encryption-key-management.md)
+- Implementation: [src/lib/privkey-crypto.ts](src/lib/privkey-crypto.ts)
