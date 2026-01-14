@@ -109,30 +109,38 @@ async function verifyNip98Auth(event: NostrEvent, expectedPubkey: string): Promi
 
 ```typescript
 // src/lib/privkey-crypto.ts
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+import crypto from 'crypto'
 
-const ALGORITHM = 'aes-256-gcm'
-const key = Buffer.from(process.env.PRIVKEY_ENCRYPTION_KEY!, 'hex')
+// Key loaded lazily from PRIVKEY_ENCRYPTION_KEY (hex or base64, 32 bytes)
+// Uses ephemeral key in development if not set
 
-export function encryptPrivkey(privkey: string): string {
-  const iv = randomBytes(12)
-  const cipher = createCipheriv(ALGORITHM, key, iv)
-  let encrypted = cipher.update(privkey, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
-  const authTag = cipher.getAuthTag()
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`
+export function encryptPrivkey(plain: string | null): string | null {
+  if (!plain) return null
+  const key = getKeyBuffer()  // 32-byte key from env
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+  const ciphertext = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  // Payload format: base64([iv:12][tag:16][ciphertext])
+  return Buffer.concat([iv, tag, ciphertext]).toString('base64')
 }
 
-export function decryptPrivkey(encrypted: string | null): string | null {
-  if (!encrypted) return null
-  const [ivHex, authTagHex, data] = encrypted.split(':')
-  const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, 'hex'))
-  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'))
-  let decrypted = decipher.update(data, 'hex', 'utf8')
-  decrypted += decipher.final('utf8')
-  return decrypted
+export function decryptPrivkey(stored: string | null): string | null {
+  if (!stored) return null
+  const payload = Buffer.from(stored.trim(), 'base64')
+  // Expect iv(12) + tag(16) + ciphertext(>=1) = minimum 29 bytes
+  if (payload.length < 29) return null
+  const key = getKeyBuffer()
+  const iv = payload.subarray(0, 12)
+  const tag = payload.subarray(12, 28)
+  const ciphertext = payload.subarray(28)
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(tag)
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
 }
 ```
+
+**Payload format**: `base64([iv:12 bytes][tag:16 bytes][ciphertext])` - single base64 string, no delimiters.
 
 ### Timing-Safe Comparison
 

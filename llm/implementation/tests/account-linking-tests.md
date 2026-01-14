@@ -1,7 +1,7 @@
 # account-linking.test.ts
 
 **Location**: `src/lib/tests/account-linking.test.ts`
-**Tests**: ~30
+**Tests**: 40
 
 ## Purpose
 
