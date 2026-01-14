@@ -368,11 +368,12 @@ const relays = getRelays('content')  // or 'profile', 'default', 'zapThreads'
 5. **Render**: Use display object in UI components
 
 ```typescript
-// Example component flow
-const dbCourse = await CourseAdapter.findById(id)
-const note = await useNostr().fetchEvent(dbCourse.noteId)
-const parsed = parseCourseEvent(note)
-const display = createCourseDisplay(dbCourse, parsed)
+// Conceptual flow (pseudocode spanning server/client boundary):
+// 1. Server: dbCourse = await CourseAdapter.findById(id)
+// 2. Client: const { fetchEvent } = useNostr()  // hook at component top level
+//            note = await fetchEvent(dbCourse.noteId)
+// 3. Parse:  parsed = parseCourseEvent(note)
+// 4. Merge:  display = createCourseDisplay(dbCourse, parsed)
 ```
 
 ## Related Documentation
