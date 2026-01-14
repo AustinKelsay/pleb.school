@@ -250,15 +250,15 @@ function deriveUserKey(masterKey: Buffer, userId: string): Buffer {
 **Future Enhancement**:
 ```typescript
 // Current: base64([iv][tag][ciphertext])
-// Better:  v1:base64([iv][tag][ciphertext])
+// Better:  v2:base64([iv][tag][ciphertext])
 
 function encryptPrivkeyV2(plain: string): string {
   const encrypted = encryptPrivkey(plain)
-  return `v1:${encrypted}`
+  return `v2:${encrypted}`
 }
 
 function decryptPrivkeyV2(stored: string): string | null {
-  if (stored.startsWith('v1:')) {
+  if (stored.startsWith('v2:')) {
     return decryptPrivkey(stored.slice(3))
   }
   // Legacy format (no prefix)

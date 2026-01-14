@@ -88,12 +88,12 @@ This decision framework should guide prioritization:
 // Encryption with version prefix
 function encryptPrivkeyV2(plain: string): string {
   const encrypted = encryptPrivkey(plain)  // existing function
-  return `v1:${encrypted}`
+  return `v2:${encrypted}`
 }
 
 // Backward-compatible decryption
 function decryptPrivkeyV2(stored: string): string | null {
-  if (stored.startsWith('v1:')) {
+  if (stored.startsWith('v2:')) {
     return decryptPrivkey(stored.slice(3))
   }
   // Legacy format (no prefix) - existing behavior

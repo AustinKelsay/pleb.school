@@ -281,8 +281,8 @@ const ip = await getClientIp()
 // Returns: "1.2.3.4" or "unknown" if unavailable
 
 // Checks headers in order:
-// 1. x-real-ip (Vercel's canonical header - preferred)
-// 2. x-forwarded-for (first IP in chain - fallback)
+// 1. x-real-ip (set by Vercel edge network, identical to x-forwarded-for)
+// 2. x-forwarded-for (first IP in chain - standard proxy header)
 // 3. Falls back to "unknown"
 ```
 
