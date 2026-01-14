@@ -23,7 +23,7 @@ const publishSchema = z.object({
 })
 
 const paramsSchema = z.object({
-  id: z.uuid({ error: 'Invalid draft ID' })
+  id: z.uuid()
 })
 
 interface RouteParams {

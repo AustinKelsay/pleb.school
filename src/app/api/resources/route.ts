@@ -18,7 +18,7 @@ const createResourceSchema = z.object({
   price: z.number().int().min(0).default(0),
   noteId: z.string().optional(),
   videoId: z.string().optional(),
-  videoUrl: z.url().optional(),
+  videoUrl: z.string().url().optional(),
 })
 
 /**

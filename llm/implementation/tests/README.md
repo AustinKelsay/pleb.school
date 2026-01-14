@@ -13,7 +13,7 @@ Index of test files and their coverage. Tests use Vitest with mocking.
 | [anon-reconnect-token.test.ts](./anon-reconnect-token-tests.md) | `src/lib/tests/` | 15 | Token generation/verification |
 | [content-utils.test.ts](./content-utils-tests.md) | `src/lib/tests/` | 32 | XSS sanitization |
 | [publish-service.test.ts](./publish-service-tests.md) | `src/lib/tests/` | 1 | Privkey handling |
-| [republish-service.test.ts](./republish-service-tests.md) | `src/lib/tests/` | 2 | Privkey handling |
+| [republish-service.test.ts](./republish-service-tests.md) | `src/lib/tests/` | 16 | Privkey handling, event persistence, error handling |
 | [privkey-crypto.test.ts](./privkey-crypto-tests.md) | `src/lib/tests/` | 11 | AES-256-GCM encryption |
 | [oauth-state.test.ts](./oauth-state-tests.md) | `src/lib/tests/` | 19 | CSRF prevention |
 | [account-sync.test.ts](./account-sync-tests.md) | `src/app/api/tests/` | 2 | Account sync API |
@@ -22,20 +22,23 @@ Index of test files and their coverage. Tests use Vitest with mocking.
 
 ## Coverage by Domain
 
-### Security (88 tests)
-- **Authentication**: pubkey validation, NIP-98 verification
-- **XSS Prevention**: HTML sanitization, markdown extraction
-- **CSRF Prevention**: OAuth state tokens
-- **Encryption**: AES-256-GCM for private keys
-- **Token Security**: Anonymous reconnect tokens
+### Security (91 tests)
+- **Authentication**: pubkey validation, NIP-98 verification (11 tests)
+- **XSS Prevention**: HTML sanitization, markdown extraction (32 tests)
+- **CSRF Prevention**: OAuth state tokens (19 tests)
+- **Encryption**: AES-256-GCM for private keys (11 tests)
+- **Token Security**: Anonymous reconnect tokens (15 tests)
+- **Privkey Handling**: Plaintext rejection in publish/republish (3 tests: 1 publish + 2 republish)
 
-### Data Integrity (64 tests)
-- **Pricing**: Resolution logic, vulnerability documentation
-- **Profile Aggregation**: Merging OAuth + Nostr data
-- **Account Linking**: Provider classification, hierarchy
+### Data Integrity (81 tests)
+- **Pricing**: Resolution logic, vulnerability documentation (22 tests)
+- **Profile Aggregation**: Merging OAuth + Nostr data (2 tests)
+- **Account Linking**: Provider classification, hierarchy (40 tests)
+- **Account/Profile Sync**: API endpoints for syncing data (3 tests: 2 account-sync + 1 profile-sync)
+- **Republish Logic**: Event persistence, lesson handling, error scenarios (14 tests)
 
 ### Race Conditions (10 tests)
-- **View Flush**: TOCTOU prevention with GETDEL + INCREMENT
+- **View Flush**: TOCTOU prevention with GETDEL + INCREMENT (10 tests)
 
 ## Running Tests
 

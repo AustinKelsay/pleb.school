@@ -9,14 +9,14 @@ export const dynamic = 'force-dynamic'
 
 // Validation schemas
 const paramsSchema = z.object({
-  id: z.uuid({ error: 'Invalid resource ID' })
+  id: z.uuid()
 })
 
 const updateResourceSchema = z.object({
   price: z.number().int().min(0).optional(),
   noteId: z.string().optional(),
   videoId: z.string().optional(),
-  videoUrl: z.url().optional(),
+  videoUrl: z.string().url().optional(),
 })
 
 interface RouteParams {

@@ -9,7 +9,7 @@ import { z } from 'zod'
 const createCourseDraftSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
   summary: z.string().min(1, 'Summary is required').max(1000, 'Summary too long'),
-  image: z.url().optional().or(z.literal('')),
+  image: z.string().url().optional().or(z.literal('')),
   price: z.number().int().min(0).optional(),
   topics: z.array(z.string()).min(1, 'At least one topic is required')
 })

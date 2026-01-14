@@ -4,7 +4,7 @@ Deep-dive reference for `config/auth.json` - authentication providers, session s
 
 ## File Location
 
-```
+```text
 config/auth.json
 ```
 

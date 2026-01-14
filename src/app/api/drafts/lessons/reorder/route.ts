@@ -6,8 +6,8 @@ import { z } from 'zod'
 
 // Validation schema
 const reorderLessonsSchema = z.object({
-  courseDraftId: z.uuid({ error: 'Invalid course draft ID' }),
-  lessonIds: z.array(z.uuid({ error: 'Invalid lesson ID' })).min(1, 'At least one lesson ID is required')
+  courseDraftId: z.uuid(),
+  lessonIds: z.array(z.uuid()).min(1, 'At least one lesson ID is required')
 })
 
 /**

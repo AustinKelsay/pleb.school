@@ -15,7 +15,7 @@ export const CourseCreateSchema = z.object({
   description: z.string().min(1, 'Description is required').max(2000, 'Description too long'),
   category: z.string().min(1, 'Category is required'),
   instructor: z.string().optional(),
-  image: z.url({ error: 'Invalid image URL' }).optional(),
+  image: z.string().url().optional(),
 })
 
 export const CourseUpdateSchema = CourseCreateSchema.partial()
@@ -40,11 +40,11 @@ export const CourseIdSchema = z.object({
 // Server action schemas
 export const EnrollmentSchema = z.object({
   courseId: z.string().min(1, 'Course ID is required'),
-  email: z.email({ error: 'Invalid email format' }).max(254, 'Email too long'),
+  email: z.email().max(254, 'Email too long'),
 })
 
 export const NewsletterSchema = z.object({
-  email: z.email({ error: 'Invalid email format' }).max(254, 'Email too long'),
+  email: z.email().max(254, 'Email too long'),
 })
 
 export const RatingSchema = z.object({

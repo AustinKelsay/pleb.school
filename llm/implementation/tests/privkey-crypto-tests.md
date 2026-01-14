@@ -21,6 +21,7 @@ Boolean indicating if encryption is active.
 ## Test Coverage
 
 ### Key Format Acceptance
+
 | Test | Key Format | Result |
 |------|------------|--------|
 | Raw hex | `"1a".repeat(32)` | Accepted |
@@ -28,6 +29,7 @@ Boolean indicating if encryption is active.
 | Base64 | `Buffer.from(...).toString("base64")` | Accepted |
 
 ### Encryption Behavior
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Round-trip | Encrypt then decrypt | Returns original |
@@ -36,6 +38,7 @@ Boolean indicating if encryption is active.
 | Different output | Same input twice | Different ciphertext (random IV) |
 
 ### Decryption Failures
+
 | Test | Input | Result |
 |------|-------|--------|
 | Tampered ciphertext | Flipped bit | Returns null |
@@ -44,6 +47,7 @@ Boolean indicating if encryption is active.
 | Plaintext hex | Raw privkey | Returns null + warning |
 
 ### Always-On Encryption
+
 | Test | Environment | Result |
 |------|-------------|--------|
 | Key provided | Any | Enabled |
