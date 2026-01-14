@@ -18,13 +18,13 @@ const MAX_LUD16_LENGTH = 320
 
 /**
  * Validate and sanitize a username from Nostr profile.
- * Returns null if invalid.
+ * Returns undefined if invalid.
  */
-function validateUsername(value: unknown): string | null {
+export function validateUsername(value: unknown): string | undefined {
   const str = asString(value)
-  if (!str) return null
+  if (!str) return undefined
   const trimmed = str.trim()
-  if (trimmed.length === 0 || trimmed.length > MAX_USERNAME_LENGTH) return null
+  if (trimmed.length === 0 || trimmed.length > MAX_USERNAME_LENGTH) return undefined
   // Remove control characters and normalize whitespace
   return trimmed.replace(/[\x00-\x1F\x7F]/g, '').replace(/\s+/g, ' ')
 }
@@ -33,36 +33,36 @@ function validateUsername(value: unknown): string | null {
  * Validate a URL for avatar/banner.
  * Must be http/https and reasonable length.
  */
-function validateImageUrl(value: unknown): string | null {
+export function validateImageUrl(value: unknown): string | undefined {
   const str = asString(value)
-  if (!str) return null
+  if (!str) return undefined
   const trimmed = str.trim()
-  if (trimmed.length === 0 || trimmed.length > MAX_URL_LENGTH) return null
+  if (trimmed.length === 0 || trimmed.length > MAX_URL_LENGTH) return undefined
 
   try {
     const url = new URL(trimmed)
     // Only allow http/https protocols
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return null
+      return undefined
     }
     return trimmed
   } catch {
-    return null
+    return undefined
   }
 }
 
 /**
  * Validate NIP-05 identifier format (user@domain.tld).
  */
-function validateNip05(value: unknown): string | null {
+export function validateNip05(value: unknown): string | undefined {
   const str = asString(value)
-  if (!str) return null
+  if (!str) return undefined
   const trimmed = str.trim().toLowerCase()
-  if (trimmed.length === 0 || trimmed.length > MAX_NIP05_LENGTH) return null
+  if (trimmed.length === 0 || trimmed.length > MAX_NIP05_LENGTH) return undefined
 
   // Basic NIP-05 format validation: local@domain
   const nip05Regex = /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
-  if (!nip05Regex.test(trimmed)) return null
+  if (!nip05Regex.test(trimmed)) return undefined
 
   return trimmed
 }
@@ -70,15 +70,15 @@ function validateNip05(value: unknown): string | null {
 /**
  * Validate LUD-16 lightning address format (user@domain.tld).
  */
-function validateLud16(value: unknown): string | null {
+export function validateLud16(value: unknown): string | undefined {
   const str = asString(value)
-  if (!str) return null
+  if (!str) return undefined
   const trimmed = str.trim().toLowerCase()
-  if (trimmed.length === 0 || trimmed.length > MAX_LUD16_LENGTH) return null
+  if (trimmed.length === 0 || trimmed.length > MAX_LUD16_LENGTH) return undefined
 
   // Lightning address format is same as email
   const lud16Regex = /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
-  if (!lud16Regex.test(trimmed)) return null
+  if (!lud16Regex.test(trimmed)) return undefined
 
   return trimmed
 }

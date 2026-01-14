@@ -68,28 +68,32 @@ const signedEvent = await window.nostr.signEvent(authEvent)
 signIn('nostr', { pubkey, signedEvent: JSON.stringify(signedEvent) })
 ```
 
-### Server Verification (`src/lib/auth.ts:263-332`)
+### Server Verification (`src/lib/auth.ts:263-370`)
 
 ```typescript
 // 1. Parse NIP-98 event
 const event = JSON.parse(signedEvent)
 
-// 2. Verify signature
-const isValid = await verifySignature(event)
+// 2. Verify event ID matches hash of fields (prevents tag substitution attacks)
+const computedId = await getEventHash(event)
+if (computedId !== event.id) throw new Error('Event ID mismatch')
 
-// 3. Verify pubkey matches
+// 3. Verify signature
+const isValid = await verifySignature(event.id, event.sig, event.pubkey)
+
+// 4. Verify pubkey matches
 if (event.pubkey !== pubkey) throw new Error('Pubkey mismatch')
 
-// 4. Check timestamp (60 second window - NIP-98 suggests "reasonable", we use 60s)
+// 5. Check timestamp (60 second window - NIP-98 suggests "reasonable", we use 60s)
 const age = now - event.created_at
 if (age > 60) throw new Error('Event expired')
 
-// 5. Validate URL tag
+// 6. Validate URL tag
 const urlTag = event.tags.find(t => t[0] === 'u')
 if (!urlTag || !urlTag[1].includes('/api/auth/callback/nostr'))
   throw new Error('Invalid URL')
 
-// 6. Validate method tag
+// 7. Validate method tag
 const methodTag = event.tags.find(t => t[0] === 'method')
 if (methodTag?.[1] !== 'POST') throw new Error('Invalid method')
 ```
@@ -98,6 +102,7 @@ if (methodTag?.[1] !== 'POST') throw new Error('Invalid method')
 
 | Check | What It Prevents |
 |-------|------------------|
+| Event ID verification | Tag substitution attacks (ensures signed data matches claimed tags) |
 | Signature verification | Impersonation (proves key ownership) |
 | Timestamp window (60s) | Replay attacks (NIP-98 suggests "reasonable window", we use 60s) |
 | URL tag validation | Cross-site replay |

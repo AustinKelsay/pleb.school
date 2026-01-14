@@ -465,7 +465,7 @@ const CourseCreateSchema = z.object({
   description: z.string().min(1).max(2000),
   category: z.string().min(1),
   instructor: z.string().optional(),
-  image: z.string().url().optional(),  // z.string().url() returns string, z.url() returns URL object
+  image: z.string().url().optional(),  // z.url() and z.string().url() both validate URLs and return strings
 })
 
 const CourseFilterSchema = z.object({

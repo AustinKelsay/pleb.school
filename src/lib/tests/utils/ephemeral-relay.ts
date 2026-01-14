@@ -1,8 +1,12 @@
 /**
- * Ephemeral Relay Utility
- * 
+ * Ephemeral Relay Utility (Test-Only)
+ *
  * Provides an in-memory Nostr relay for testing purposes.
  * Wraps the NostrRelay class from the snstr package.
+ *
+ * This file is intentionally placed in tests/utils/ to ensure it's never
+ * bundled into production code. It accesses an internal snstr module path
+ * which is acceptable for test utilities.
  */
 
 // Use require to access the non-exported ephemeral-relay module

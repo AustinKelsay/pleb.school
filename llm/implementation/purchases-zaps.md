@@ -5,10 +5,10 @@
 - Price resolution: `src/lib/pricing.ts` `resolvePriceForContent` treats the DB price as authoritative and only falls back to the Nostr hint when a DB price is missing. Mismatches are logged via `onMismatch` but not surfaced/blocked in the UI; checkout enforces the DB price while the dialog may briefly show stale hints until refresh (see purchase-gaps.md §3).
 - Content gating: `src/app/api/resources/[id]/route.ts` and `src/app/api/courses/[id]/route.ts` gate paid content using snapshot-aware checks (`min(priceAtPurchase, currentPrice)`); resource access can also unlock via course lessons (`checkCourseUnlockViaLessons`). Resources cannot be deleted if purchases exist (`DELETE` guard).
 
-## Zap Discovery (client)
-- `src/hooks/useInteractions.ts` subscribes to relays for kinds 9735/7/1 with filters on `eventId` or `a` tag; it caps stored receipts (200 total / viewer) rather than retaining full history. There is currently **no server-side receipt fetch fallback**—auto-claim relies on the client’s live relay subscriptions; see purchase-gaps.md §4.
-- `summarizeZapReceipt` parses amount from zap request, invoice, or amount tag (takes max), normalizes payer pubkeys (`pubkey` and `P` tags), extracts notes, and stores `ZapReceiptSummary`.
-- Viewer totals: when payer pubkeys include the session pubkey, increments `viewerZapTotalSats` and keeps up to 200 `viewerZapReceipts`; used for auto-claim. A manual “Unlock with past zaps” button exists, but it still relies on the live receipt feed; see purchase-gaps.md §4 for server-side fetch ideas.
+## Zap Discovery
+- **Client-driven**: `src/hooks/useInteractions.ts` subscribes to relays for kinds 9735/7/1 with filters on `eventId` or `a` tag; it caps stored receipts (200 total / viewer) rather than retaining full history. `summarizeZapReceipt` parses amounts, normalizes payer pubkeys (`pubkey` and `P` tags), and stores `ZapReceiptSummary`. Viewer totals (`viewerZapTotalSats`, up to 200 `viewerZapReceipts`) power live auto-claim eligibility.
+- **Server-side claim-time fetch**: When receipt IDs or relay hints are provided to `/api/purchases/claim`, `validateZapProof` fetches receipts by ID across relay sets (see §Server Claim Pipeline step 4). This supports claiming zaps sent from other clients or when the live feed missed receipts.
+- The "Unlock with past zaps" button still relies on client-side `viewerZapReceipts`; see purchase-gaps.md §4 for additional server-fetch strategies (e.g., background reconciliation).
 
 ## Zap Sending (client)
 - `src/hooks/useZapSender.ts`: resolves lightning details (profile cache + LNURL/Lightning address), fetches LNURL metadata (cached per endpoint), enforces min/max sendable, builds zap request with relay hints and optional `a` tag, and supports three signing paths: server-stored privkey, NIP-07, or generated anonymous keys (used for privacy mode or when no other signer is available).

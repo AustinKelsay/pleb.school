@@ -20,6 +20,8 @@ src/lib/nostr-relays.ts
 {
   "relays": {
     "default": [],
+    "content": [],
+    "profile": [],
     "zapThreads": [],
     "custom": []
   },

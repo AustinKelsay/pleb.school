@@ -32,6 +32,17 @@ src/lib/admin-utils.ts
 }
 ```
 
+**Enforced keys:**
+- `admins` - Full admin privileges; pubkeys checked by `admin-utils.ts`
+- `moderators` - Limited moderation privileges; pubkeys checked by `admin-utils.ts`
+
+**Informational keys (not enforced by parser):**
+- `features` - Feature flags; only enforced if explicitly checked in UI/controllers
+- `_comments` - Human-readable documentation (ignored at runtime)
+- `_examples` - Example configurations for reference only
+
+> **Note:** Keys like `contentCreators` appearing in `_examples` are hypothetical examples showing how the schema could be extended—they are **not** supported by the current parser. Only `admins` and `moderators` are recognized roles.
+
 ## Pubkey Configuration
 
 ### admins.pubkeys
@@ -230,14 +241,16 @@ const canCreate = await hasPermission(session, 'createCourse')
 const canViewAll = await hasPermission(session, 'viewPlatformAnalytics')
 ```
 
-### Client-Side Checks
+### Session-Based Checks (Server Components)
 
-For components that have session data:
+For server components that have session data:
 
 ```typescript
 import { isAdminBySession, isModeratorBySession } from '@/lib/admin-utils'
 
-function AdminButton({ session }) {
+// Server component example
+async function AdminButton() {
+  const session = await getServerSession(authOptions)
   const isAdmin = isAdminBySession(session)
 
   if (!isAdmin) return null
@@ -245,9 +258,12 @@ function AdminButton({ session }) {
 }
 ```
 
-### Get Config Directly
+### Get Config Directly (Server Only)
+
+> **⚠️ Server-only**: `adminConfig`, `getAdminConfig`, and all exports from `@/lib/admin-utils` are server-only because the module imports `prisma`. Do not import in client components (`"use client"`) or client-side code—this will cause build errors.
 
 ```typescript
+// API route or server component only
 import { adminConfig, getAdminConfig } from '@/lib/admin-utils'
 
 const config = getAdminConfig()

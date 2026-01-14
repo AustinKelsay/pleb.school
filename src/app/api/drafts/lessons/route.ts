@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const queryResult = querySchema.safeParse({
-      courseDraftId: searchParams.get('courseDraftId')
+      courseDraftId: searchParams.get('courseDraftId') ?? undefined
     })
 
     if (!queryResult.success) {

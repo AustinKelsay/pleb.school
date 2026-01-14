@@ -42,7 +42,7 @@ All validation failures return a generic "Authentication failed" message to avoi
 
 ### Breaking Change
 
-Existing NIP-07 users must re-authenticate. The extension will prompt for a signature, which is handled transparently by the updated signin page.
+Existing NIP-07 users must re-authenticate. The extension will prompt for a signature, which is handled transparently by the updated sign-in page.
 
 ---
 

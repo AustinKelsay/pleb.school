@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { startEphemeralRelay, stopEphemeralRelay, getRelayUrl, type NostrRelay } from "../utils/ephemeral-relay"
+import { startEphemeralRelay, stopEphemeralRelay, getRelayUrl, type NostrRelay } from "./utils/ephemeral-relay"
 
 const HEX_PRIVKEY = "f".repeat(64)
 const HEX_KEY = "1a".repeat(32)

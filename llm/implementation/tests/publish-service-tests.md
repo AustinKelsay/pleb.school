@@ -23,7 +23,7 @@ Tests that `PublishService` rejects plaintext private keys when encryption is en
 ## Test Implementation
 
 ```typescript
-import { startEphemeralRelay, stopEphemeralRelay, getRelayUrl, type NostrRelay } from "../utils/ephemeral-relay"
+import { startEphemeralRelay, stopEphemeralRelay, getRelayUrl, type NostrRelay } from "./utils/ephemeral-relay"
 
 const HEX_PRIVKEY = "f".repeat(64)
 const HEX_KEY = "1a".repeat(32)
@@ -108,7 +108,7 @@ vi.mock("@/lib/nostr-relays", () => ({
 }))
 ```
 
-**Note**: The test uses an ephemeral in-memory relay from `utils/ephemeral-relay.ts` instead of a hardcoded relay URL. The relay is started in `beforeEach` and stopped in `afterEach`, ensuring each test runs with a fresh relay instance. The mock uses a getter for `DEFAULT_RELAYS` to access the runtime relay URL.
+**Note**: The test uses an ephemeral in-memory relay from `tests/utils/ephemeral-relay.ts` (intentionally placed in the tests directory to prevent production bundling). The relay is started in `beforeEach` and stopped in `afterEach`, ensuring each test runs with a fresh relay instance. The mock uses a getter for `DEFAULT_RELAYS` to access the runtime relay URL.
 
 ## Security Relevance
 

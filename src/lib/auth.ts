@@ -68,7 +68,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import GitHubProvider from 'next-auth/providers/github'
 import { prisma } from './prisma'
 import type { Adapter } from 'next-auth/adapters'
-import { generateKeypair, decodePrivateKey, getPublicKey, verifySignature } from 'snstr'
+import { generateKeypair, decodePrivateKey, getPublicKey, verifySignature, getEventHash } from 'snstr'
 import authConfig from '../../config/auth.json'
 import { 
   isNostrFirstProvider, 
@@ -315,19 +315,33 @@ if (authConfig.providers.nostr.enabled) {
             throw new Error('Authentication failed')
           }
 
-          // 2. Verify signature proves pubkey ownership
-          if (!verifySignature(authEvent.id, authEvent.sig, authEvent.pubkey)) {
+          // 2. Verify event ID is correctly computed from fields (prevents tag substitution attacks)
+          // Without this, an attacker could sign arbitrary data and pair it with fake URL/method tags
+          const computedId = await getEventHash({
+            pubkey: authEvent.pubkey,
+            created_at: authEvent.created_at,
+            kind: authEvent.kind,
+            tags: authEvent.tags,
+            content: authEvent.content
+          })
+          if (computedId !== authEvent.id) {
+            console.warn('NIP-98 event ID mismatch (computed vs provided)')
+            throw new Error('Authentication failed')
+          }
+
+          // 3. Verify signature proves pubkey ownership
+          if (!await verifySignature(authEvent.id, authEvent.sig, authEvent.pubkey)) {
             console.warn('Invalid NIP-98 signature for pubkey:', pubkey.substring(0, 8))
             throw new Error('Authentication failed')
           }
 
-          // 3. Verify signed pubkey matches claimed pubkey (normalize both for comparison)
+          // 4. Verify signed pubkey matches claimed pubkey (normalize both for comparison)
           if (authEvent.pubkey.toLowerCase() !== pubkey) {
             console.warn('NIP-98 pubkey mismatch:', authEvent.pubkey.substring(0, 8), 'vs', pubkey.substring(0, 8))
             throw new Error('Authentication failed')
           }
 
-          // 4. Verify timestamp is fresh (asymmetric window: 30s future / 60s past)
+          // 5. Verify timestamp is fresh (asymmetric window: 30s future / 60s past)
           // - Allow 30s future to handle client clock skew
           // - Allow 60s past (NIP-98 suggests "reasonable window", we chose 60s)
           const now = Math.floor(Date.now() / 1000)
@@ -337,7 +351,7 @@ if (authConfig.providers.nostr.enabled) {
             throw new Error('Authentication failed')
           }
 
-          // 5. Verify URL tag matches expected callback
+          // 6. Verify URL tag matches expected callback
           const urlTag = authEvent.tags.find((t: string[]) => t[0] === 'u')
           const expectedUrl = `${process.env.NEXTAUTH_URL}/api/auth/callback/nostr`
           if (!urlTag || urlTag[1] !== expectedUrl) {
@@ -345,7 +359,7 @@ if (authConfig.providers.nostr.enabled) {
             throw new Error('Authentication failed')
           }
 
-          // 6. Verify method tag is POST
+          // 7. Verify method tag is POST
           const methodTag = authEvent.tags.find((t: string[]) => t[0] === 'method')
           if (!methodTag || methodTag[1] !== 'POST') {
             console.warn('NIP-98 method mismatch. Expected: POST, Got:', methodTag?.[1])

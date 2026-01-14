@@ -66,24 +66,30 @@ const ImageUrlSchema = z.union([
 
 ```typescript
 // src/lib/auth.ts
-import { verifySignature } from 'snstr'
+import { verifySignature, getEventHash } from 'snstr'
 
 async function verifyNip98Auth(event: NostrEvent, expectedPubkey: string): Promise<boolean> {
-  // 1. Verify signature
-  if (!await verifySignature(event)) return false
+  // 1. Verify event ID matches hash of fields (prevents tag substitution attacks)
+  // Critical: Without this, attacker could sign arbitrary data and pair with fake tags
+  const computedId = await getEventHash(event)
+  if (computedId !== event.id) return false
 
-  // 2. Verify pubkey matches claim
+  // 2. Verify signature
+  if (!await verifySignature(event.id, event.sig, event.pubkey)) return false
+
+  // 3. Verify pubkey matches claim
   if (event.pubkey !== expectedPubkey) return false
 
-  // 3. Check timestamp (60s window - our implementation choice per NIP-98 suggestion)
-  const age = Math.floor(Date.now() / 1000) - event.created_at
-  if (age > 60 || age < -60) return false
+  // 4. Check timestamp (asymmetric window: 30s future / 60s past)
+  const now = Math.floor(Date.now() / 1000)
+  const eventAge = now - event.created_at
+  if (eventAge < -30 || eventAge > 60) return false  // allow 30s future, 60s past
 
-  // 4. Validate URL tag
+  // 5. Validate URL tag
   const urlTag = event.tags.find(t => t[0] === 'u')
   if (!urlTag?.[1]?.includes('/api/auth/callback/nostr')) return false
 
-  // 5. Validate method tag
+  // 6. Validate method tag
   const methodTag = event.tags.find(t => t[0] === 'method')
   if (methodTag?.[1] !== 'POST') return false
 

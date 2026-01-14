@@ -9,7 +9,7 @@ Tests XSS sanitization and content extraction utilities.
 
 ## Functions Tested
 
-### `sanitizeHtml(html)`
+### `sanitizeContent(content)`
 Removes dangerous HTML while preserving safe formatting.
 
 ### `extractTextFromMarkdown(markdown)`
