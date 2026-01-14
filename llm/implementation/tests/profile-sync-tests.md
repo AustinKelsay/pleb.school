@@ -44,6 +44,12 @@ it("syncs enhanced fields only for OAuth-first users on Nostr provider", async (
     banner: "https://example.com/banner.jpg"
   })
 
+  const request = new NextRequest("http://localhost/api/profile/sync", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider: "nostr" }),
+  })
+
   const response = await POST(request)
 
   expect(response.status).toBe(200)

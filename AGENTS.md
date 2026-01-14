@@ -38,6 +38,12 @@ Before committing, run `npm run build && npm run lint`.
 - PRs should include: what/why, test commands run, screenshots for UI changes, and any config/env updates.
 - Call out schema changes in `prisma/schema.prisma` and whether `db push` or a migration is needed.
 
+## Documentation Maintenance
+- When making code changes, update relevant LLM documentation in `llm/` directory within reason.
+- **`llm/context/`**: Update architecture docs for system pattern changes, data flow modifications, or new abstractions.
+- **`llm/implementation/`**: Update implementation guides when modifying APIs, services, or core utilities.
+- Update docs for significant changes (architecture, patterns, APIs, behavior); skip for trivial fixes or cosmetic changes.
+
 ## Security & Configuration Tips
 - `config/` is client-visible. Secrets belong in `.env.local`.
 - Required env vars: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`.

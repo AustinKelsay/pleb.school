@@ -37,7 +37,7 @@ Validates state token and extracts data.
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Cross-site state | State from different origin | Rejected |
-| Replay attack | Same state used twice | Second use rejected (if implemented) |
+| Replay attack | Same state used twice | Second use rejected |
 
 ### Expiration
 | Test | Age | Expected |

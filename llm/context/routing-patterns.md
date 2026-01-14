@@ -52,7 +52,7 @@ router.push(`/content/${item.id}`)  // Doesn't distinguish courses
 ### Universal Router Helper
 
 ```typescript
-// src/lib/universal-router.ts
+// Usage example: import from '@/lib/universal-router'
 import { getContentPath } from '@/lib/universal-router'
 
 // Returns correct path based on content type

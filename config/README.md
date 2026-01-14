@@ -101,7 +101,7 @@ Icon names must match **lucide-react component names exactly** (PascalCase):
 - `book-open` (incorrect - kebab-case)
 - `bookopen` (incorrect - lowercase)
 
-Browse all available icons at: https://lucide.dev/icons/
+Browse all available icons at: [Lucide Icons](https://lucide.dev/icons/)
 
 ### Usage in code
 

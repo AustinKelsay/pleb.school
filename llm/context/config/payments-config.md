@@ -4,13 +4,13 @@ Deep-dive reference for `config/payments.json` - zap presets, purchase dialog be
 
 ## File Location
 
-```
+```text
 config/payments.json
 ```
 
 ## Accessor File
 
-```
+```text
 src/lib/payments-config.ts
 ```
 
