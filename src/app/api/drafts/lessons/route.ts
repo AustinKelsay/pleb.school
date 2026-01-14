@@ -7,9 +7,9 @@ import { z } from 'zod'
 
 // Validation schemas
 const createDraftLessonSchema = z.object({
-  courseDraftId: z.string().uuid('Invalid course draft ID'),
-  resourceId: z.string().uuid('Invalid resource ID').optional(),
-  draftId: z.string().uuid('Invalid draft ID').optional(),
+  courseDraftId: z.uuid(),
+  resourceId: z.uuid().optional(),
+  draftId: z.uuid().optional(),
   index: z.number().int().min(0, 'Index must be a non-negative integer')
 }).refine(
   (data) => data.resourceId || data.draftId,
@@ -20,7 +20,7 @@ const createDraftLessonSchema = z.object({
 )
 
 const querySchema = z.object({
-  courseDraftId: z.string().uuid('Invalid course draft ID').optional()
+  courseDraftId: z.uuid().optional()
 })
 
 /**

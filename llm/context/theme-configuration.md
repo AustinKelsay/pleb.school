@@ -472,3 +472,8 @@ By following this principle and leveraging CSS variables through our theme syste
 - Don't put `--radius` in theme color objects (use `borderRadius` property instead)
 
 Remember: The theme system is your friend. Trust it, and it will ensure your components look great in every theme!
+
+## Related Documentation
+
+- [config-system.md](./config-system.md) - Config system overview
+- [config/README.md](./config/) - Deep-dive config documentation index

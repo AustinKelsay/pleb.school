@@ -708,4 +708,14 @@ npm run build && npm run lint
 
 ---
 
-*Generated: 2026-01-10*
+## Related Documentation
+
+- [config-system.md](../context/config-system.md) - Config system overview
+- [auth-config.md](../context/config/auth-config.md) - Auth icons configuration
+- [content-config.md](../context/config/content-config.md) - Content type and category icons
+- [copy-config.md](../context/config/copy-config.md) - Navigation and UI icons
+- [payments-config.md](../context/config/payments-config.md) - Payment interaction icons
+
+---
+
+*Last Updated: 2026-01-13*

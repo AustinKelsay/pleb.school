@@ -9,12 +9,12 @@ import { z } from 'zod'
 const querySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(100).optional().default(50),
-  userId: z.string().uuid().optional(),
+  userId: z.uuid().optional(),
   includeNotes: z.coerce.boolean().optional().default(false),
 })
 
 const createResourceSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   price: z.number().int().min(0).default(0),
   noteId: z.string().optional(),
   videoId: z.string().optional(),

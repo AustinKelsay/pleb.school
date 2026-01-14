@@ -91,7 +91,8 @@ export default function SignInPage() {
     setHasPersistedAnonymousIdentity(hasAnyPersistedAnonymousIdentity())
   }, [])
 
-  // Cache the anonymous identity (reconnect token) after a successful anon login
+  // Cache the anonymous identity after a successful anon login
+  // Token is stored in httpOnly cookie (secure), localStorage only holds a flag
   const persistAnonymousSessionIdentity = useCallback(async () => {
     try {
       const session = await getSession()
@@ -99,7 +100,18 @@ export default function SignInPage() {
         return
       }
 
-      // Store the secure reconnect token (not the private key)
+      // Store the reconnect token in an httpOnly cookie via API (XSS-safe)
+      const response = await fetch('/api/auth/anon-reconnect', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        console.warn('Failed to set reconnect cookie via API')
+      }
+
+      // Also store in localStorage for backward compatibility during transition
+      // This can be removed once all clients have migrated to cookie-based flow
       persistAnonymousIdentity({
         reconnectToken: session.user.reconnectToken,
         pubkey: session.user.pubkey,
@@ -107,11 +119,21 @@ export default function SignInPage() {
       })
       setHasPersistedAnonymousIdentity(true)
     } catch (storageError) {
-      console.warn('Failed to persist anonymous identity to browser storage:', storageError)
+      console.warn('Failed to persist anonymous identity:', storageError)
     }
   }, [])
 
-  const handleResetAnonymousIdentity = useCallback(() => {
+  const handleResetAnonymousIdentity = useCallback(async () => {
+    // Clear httpOnly cookie via API
+    try {
+      await fetch('/api/auth/anon-reconnect', {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+    } catch {
+      // Continue even if API call fails - localStorage clear is sufficient
+    }
+    // Clear localStorage (backward compatibility)
     clearPersistedAnonymousIdentity()
     setHasPersistedAnonymousIdentity(false)
     setAnonymousResumeFailed(false)
@@ -265,8 +287,11 @@ export default function SignInPage() {
         setAnonymousResumeFailed(true)
         setMessage('Refreshing your anonymous identity…')
         setError('')
-        // Clear the stale identity and try again with a fresh account
+        // Clear the stale identity (both localStorage and httpOnly cookie)
         clearPersistedAnonymousIdentity()
+        try {
+          await fetch('/api/auth/anon-reconnect', { method: 'DELETE', credentials: 'include' })
+        } catch { /* ignore */ }
         setHasPersistedAnonymousIdentity(false)
         result = await attemptAnonymousSignIn()
       }

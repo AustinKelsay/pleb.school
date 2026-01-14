@@ -140,6 +140,21 @@ Flat config in `eslint.config.mjs`:
 - `EMAIL_SERVER_*`, `EMAIL_FROM` - Email magic links (Nodemailer)
 - `KV_REST_API_URL`, `KV_REST_API_TOKEN` - Vercel KV for view counters
 
+## Documentation Maintenance
+
+**Critical**: When making code changes, update relevant LLM documentation in `llm/` directory within reason.
+
+- **`llm/context/`**: Update architecture docs when changing system patterns, data flows, or key abstractions
+- **`llm/implementation/`**: Update implementation guides when modifying APIs, services, or core utilities
+- **When to update**: Significant changes to architecture, new patterns, API changes, or behavior modifications
+- **When to skip**: Trivial fixes, typo corrections, or cosmetic changes that don't affect system behavior
+
+Examples of changes requiring doc updates:
+- Modifying authentication flows → update `llm/context/authentication-system.md`
+- Changing data access patterns → update `llm/context/data-architecture.md`
+- Adding new API endpoints → update relevant context docs
+- Changing purchase/zap logic → update `llm/context/purchases-and-zaps.md` or `llm/context/zap-flow.md`
+
 ## Common Pitfalls
 
 1. **Don't bypass adapters** - Always use `CourseAdapter`, `ResourceAdapter`, etc.
@@ -148,3 +163,4 @@ Flat config in `eslint.config.mjs`:
 4. **Don't assume zaps = purchases** - Purchases must be explicitly claimed
 5. **Don't put secrets in config/** - Use environment variables
 6. **Don't skip build/lint** - Always run before committing
+7. **Don't forget documentation** - Update relevant `llm/` docs when making significant code changes

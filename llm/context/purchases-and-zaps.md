@@ -1,6 +1,15 @@
-# Payments & Zaps Overview (2026-01-10)
+# Payments & Zaps Overview
+
+High-level overview of the NIP-57 zap-based purchase system.
+
+**Related Documentation:**
+- [purchases-plan.md](../implementation/purchases-plan.md) - API reference and implementation details
+- [purchases-zaps.md](../implementation/purchases-zaps.md) - Full implementation specification
+- [purchase-gaps.md](../implementation/purchase-gaps.md) - Known edge cases and gaps
+- [hooks-reference.md](./hooks-reference.md) - usePurchaseEligibility, useZapSender, useInteractions
 
 ## Current State
+
 - Purchase flow is live via NIP-57 zaps; entitlement is recorded in `Purchase` rows once the server verifies zap receipts (`src/app/api/purchases/claim/route.ts`).
 - UI gates paid resources/courses on the client and server; purchase dialogs reuse the zap sender flow and auto-claim zaps when totals meet the sticker price.
 - Zap tips can work without a session **if a signer is available** (NIP-07 extension or a generated anonymous keypair—used for privacy mode or as a fallback when no other signer is available). Purchases still require an authenticated session.
