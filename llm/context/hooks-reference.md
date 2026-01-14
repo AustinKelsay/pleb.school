@@ -394,14 +394,20 @@ Debounces a value.
 
 ```typescript
 import { useDebounce } from '@/hooks/use-debounce'
+import { useState, useEffect, useCallback } from 'react'
 
 const [searchTerm, setSearchTerm] = useState('')
 const debouncedSearch = useDebounce(searchTerm, 300)
 
+const performSearch = useCallback((term: string) => {
+  // Search logic here
+  console.log('Searching for:', term)
+}, [])
+
 useEffect(() => {
   // Only fires 300ms after last change
   performSearch(debouncedSearch)
-}, [debouncedSearch])
+}, [debouncedSearch, performSearch])
 ```
 
 ## Mutation Hooks

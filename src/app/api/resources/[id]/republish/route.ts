@@ -6,7 +6,7 @@ import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { z } from 'zod'
 
 const paramsSchema = z.object({
-  id: z.uuid({ error: 'Invalid resource ID' }),
+  id: z.string().uuid({ message: 'Invalid resource ID' }),
 })
 
 const republishSchema = z
@@ -15,7 +15,7 @@ const republishSchema = z
     summary: z.string().trim().min(1, 'Summary is required'),
     content: z.string().default(''),
     price: z.number().int().min(0).default(0),
-    image: z.url().optional().or(z.literal('')).transform(value => {
+    image: z.string().url().optional().or(z.literal('')).transform(value => {
       const trimmed = value?.trim()
       return trimmed ? trimmed : undefined
     }),
