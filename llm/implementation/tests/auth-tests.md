@@ -13,7 +13,9 @@ Tests `verifyNostrPubkey()` function which validates Nostr public keys before au
 | Test | Input | Expected |
 |------|-------|----------|
 | Valid 64-char hex | `"a".repeat(64)` | Valid |
-| Mixed case hex | `"aAbBcCdDeEfF..."` | Valid |
+| Mixed case hex | `"aAbBcCdDeEfF..."` | Valid (normalized to lowercase) |
+
+**Note:** The auth flow uses `normalizeHexPubkey()` to normalize pubkeys to lowercase (per NIP-01) before storage and comparison. This ensures consistency with Nostr event pubkeys which are always lowercase.
 
 ### Invalid Pubkey Rejection
 | Test | Input | Reason |

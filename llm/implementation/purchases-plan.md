@@ -21,7 +21,7 @@ Status: Implemented; keep this as historical context. For current behavior, see 
 ## POST /api/purchases/claim - API Reference
 
 ### Authentication
-Requires authenticated session. Returns `401 Unauthorized` if not logged in.
+Requires an authenticated session. Returns `401 Unauthorized` if not logged in.
 
 ### Request Body Schema
 

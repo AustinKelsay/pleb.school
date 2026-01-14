@@ -80,6 +80,7 @@ import { fetchNostrProfile, syncUserProfileFromNostr } from './nostr-profile'
 import { encryptPrivkey, decryptPrivkey } from './privkey-crypto'
 import { checkRateLimit, RATE_LIMITS, getClientIp } from './rate-limit'
 import { generateReconnectToken, hashToken } from './anon-reconnect-token'
+import { normalizeHexPubkey } from './nostr-keys'
 import { createTransport } from 'nodemailer'
 import crypto from 'crypto'
 
@@ -264,20 +265,21 @@ if (authConfig.providers.nostr.enabled) {
         }
 
         try {
-          // Verify the public key format
-          if (!verifyNostrPubkey(credentials.pubkey)) {
+          // Verify and normalize public key (lowercase hex per NIP-01)
+          const pubkey = normalizeHexPubkey(credentials.pubkey)
+          if (!pubkey) {
             throw new Error('Invalid public key format')
           }
 
           // Rate limit BEFORE expensive crypto operations
           const rateLimit = await checkRateLimit(
-            `auth-nostr:${credentials.pubkey}`,
+            `auth-nostr:${pubkey}`,
             RATE_LIMITS.AUTH_NOSTR.limit,
             RATE_LIMITS.AUTH_NOSTR.windowSeconds
           )
 
           if (!rateLimit.success) {
-            console.warn(`Rate limit exceeded for Nostr auth: ${credentials.pubkey.substring(0, 8)}...`)
+            console.warn(`Rate limit exceeded for Nostr auth: ${pubkey.substring(0, 8)}...`)
             throw new Error('Too many authentication attempts. Please try again later.')
           }
 
@@ -286,7 +288,7 @@ if (authConfig.providers.nostr.enabled) {
           // See: https://nips.nostr.com/98
           // ============================================================
           if (!credentials.authEvent) {
-            console.warn('NIP-98 auth event missing for pubkey:', credentials.pubkey.substring(0, 8))
+            console.warn('NIP-98 auth event missing for pubkey:', pubkey.substring(0, 8))
             throw new Error('Authentication failed')
           }
 
@@ -315,13 +317,13 @@ if (authConfig.providers.nostr.enabled) {
 
           // 2. Verify signature proves pubkey ownership
           if (!verifySignature(authEvent.id, authEvent.sig, authEvent.pubkey)) {
-            console.warn('Invalid NIP-98 signature for pubkey:', credentials.pubkey.substring(0, 8))
+            console.warn('Invalid NIP-98 signature for pubkey:', pubkey.substring(0, 8))
             throw new Error('Authentication failed')
           }
 
-          // 3. Verify signed pubkey matches claimed pubkey
-          if (authEvent.pubkey !== credentials.pubkey) {
-            console.warn('NIP-98 pubkey mismatch:', authEvent.pubkey.substring(0, 8), 'vs', credentials.pubkey.substring(0, 8))
+          // 3. Verify signed pubkey matches claimed pubkey (normalize both for comparison)
+          if (authEvent.pubkey.toLowerCase() !== pubkey) {
+            console.warn('NIP-98 pubkey mismatch:', authEvent.pubkey.substring(0, 8), 'vs', pubkey.substring(0, 8))
             throw new Error('Authentication failed')
           }
 
@@ -351,19 +353,19 @@ if (authConfig.providers.nostr.enabled) {
           }
 
           // NIP-98 validation passed - pubkey ownership verified
-          console.log('NIP-98 auth verified for pubkey:', credentials.pubkey.substring(0, 8))
+          console.log('NIP-98 auth verified for pubkey:', pubkey.substring(0, 8))
 
           // Check if user exists or create new user
           let user = await prisma.user.findUnique({
-            where: { pubkey: credentials.pubkey }
+            where: { pubkey }
           })
 
           if (!user && authConfig.providers.nostr.autoCreateUser) {
             // Create new user with Nostr pubkey (initial minimal data)
             user = await prisma.user.create({
               data: {
-                pubkey: credentials.pubkey,
-                username: `${authConfig.providers.nostr.usernamePrefix}${credentials.pubkey.substring(0, authConfig.providers.nostr.usernameLength)}`,
+                pubkey,
+                username: `${authConfig.providers.nostr.usernamePrefix}${pubkey.substring(0, authConfig.providers.nostr.usernameLength)}`,
               }
             })
             console.log('Created new NIP07 user:', user.id)
@@ -374,7 +376,7 @@ if (authConfig.providers.nostr.enabled) {
           }
 
           // NOSTR-FIRST: Sync profile from Nostr (source of truth) for NIP07 users
-          const syncedUser = await syncUserProfileFromNostr(user.id, credentials.pubkey)
+          const syncedUser = await syncUserProfileFromNostr(user.id, pubkey)
           if (syncedUser) {
             user = syncedUser
           }

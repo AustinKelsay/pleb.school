@@ -79,13 +79,14 @@ Fetches user data internally and aggregates profile data from all linked account
 
 ## Mock Strategy
 
-Since `getAggregatedProfile(userId)` fetches user data internally, the following mocks are used:
+Since `getAggregatedProfile(userId)` fetches user data internally and makes external API calls, the following mocks are used:
 
 ```typescript
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { 
-      findUnique: vi.fn() // Mocked to return user with linked accounts
+      findUnique: vi.fn(), // Mocked to return user with linked accounts
+      update: vi.fn() // Mocked to simulate username/avatar/email updates from getAggregatedProfile
     }
   }
 }))
@@ -93,9 +94,15 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/nostr-profile", () => ({
   fetchNostrProfile: vi.fn() // Mocked to return Nostr profile data or null
 }))
+
+// Mock global.fetch to simulate GitHub API responses
+global.fetch = vi.fn() // Mocked to return GitHub API responses for fetchGitHubProfile calls
 ```
 
-**Note**: `getAggregatedProfile` calls `prisma.user.findUnique({ where: { id: userId }, include: { accounts: true } })` internally, so tests mock this to return the user data structure with linked accounts.
+**Note**: 
+- `getAggregatedProfile` calls `prisma.user.findUnique({ where: { id: userId }, include: { accounts: true } })` internally, so tests mock this to return the user data structure with linked accounts.
+- `getAggregatedProfile` calls `fetchGitHubProfile()` which uses `global.fetch` to call `https://api.github.com/user`, so tests mock `global.fetch` to simulate GitHub API responses.
+- `getAggregatedProfile` calls `prisma.user.update()` to backfill placeholder profile fields (username, avatar, email) when richer data is available from linked providers, so tests mock this to assert username update behavior.
 
 ## Field Priority Matrix
 

@@ -70,7 +70,7 @@ When creating new components:
 ## How the Theme System Works
 
 ### 1. **Theme Configuration** (`src/lib/theme-config.ts`)
-Contains 64 complete theme definitions, each with:
+Contains 67 complete theme definitions, each with:
 - Light and dark color schemes (32 OKLCh color variables each)
 - Associated font configuration with Google Fonts URL
 - Border radius preference
@@ -179,7 +179,7 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean, fontOv
 ## Benefits of This Approach
 
 1. **Consistency**: All components share the same design tokens
-2. **Flexibility**: Switch between 64 themes instantly
+2. **Flexibility**: Switch between 67 themes instantly
 3. **Maintainability**: Update colors in one place, affect entire app
 4. **Performance**: CSS variables are highly optimized by browsers
 5. **Accessibility**: Centralized tokens make contrast auditing possible (not automatically enforced)
@@ -246,7 +246,7 @@ config/
   └── theme.json              # User configuration (UI visibility + defaults)
 src/
   ├── lib/
-  │   ├── theme-config.ts     # 64 theme definitions + applyCompleteTheme()
+  │   ├── theme-config.ts     # 67 theme definitions + applyCompleteTheme()
   │   ├── theme-ui-config.ts  # Config reader + validation helpers
   │   └── utils.ts            # cn() utility
   ├── contexts/
@@ -308,11 +308,11 @@ Set default theme, font, or dark mode settings:
 }
 ```
 
-## Available Themes (64 total)
+## Available Themes (67 total)
 
 You can set `defaults.theme` to any of these values (from `completeThemes` in `src/lib/theme-config.ts`):
 
-`amber-minimal`, `amethyst`, `amethyst-haze`, `astral`, `blaze`, `blue`, `bold-tech`, `bubblegum`, `caffeine`, `calypso`, `candyland`, `canvas`, `catppuccin`, `citrus`, `claude`, `claymorphism`, `clean-slate`, `cosmic-night`, `cyberpunk`, `default`, `doom64`, `elegant-luxury`, `emerald`, `forest`, `graphite`, `green`, `miami`, `midnight-bloom`, `mocha-mousse`, `modern-minimal`, `mono`, `nature`, `neo-brutalism`, `neutral`, `northern-lights`, `notebook`, `ocean-breeze`, `orange`, `perpetuity`, `quick-pink`, `razzmatazz`, `red`, `retro-arcade`, `rose`, `santa-fe`, `sky`, `soft-pop`, `solar`, `solar-dusk`, `spooky`, `spring-bouquet`, `starry-night`, `stone`, `sunset-horizon`, `supabase`, `twitter`, `typewriter`, `underground`, `vercel`, `violet`, `violet-bloom`, `xanadu`, `yellow`, `zinc`.
+`amber-minimal`, `amethyst`, `amethyst-haze`, `astral`, `blaze`, `blue`, `bold-tech`, `bubblegum`, `caffeine`, `calypso`, `candyland`, `canvas`, `catppuccin`, `citrus`, `claude`, `claymorphism`, `clean-slate`, `cosmic-night`, `cyberpunk`, `default`, `doom64`, `elegant-luxury`, `emerald`, `forest`, `graphite`, `gray`, `green`, `miami`, `midnight-bloom`, `mocha-mousse`, `modern-minimal`, `mono`, `nature`, `neo-brutalism`, `neutral`, `new-york`, `northern-lights`, `notebook`, `ocean-breeze`, `orange`, `perpetuity`, `quick-pink`, `razzmatazz`, `red`, `retro-arcade`, `rose`, `santa-fe`, `sky`, `slate`, `soft-pop`, `solar`, `solar-dusk`, `spooky`, `spring-bouquet`, `starry-night`, `stone`, `sunset-horizon`, `supabase`, `twitter`, `typewriter`, `underground`, `vercel`, `violet`, `violet-bloom`, `xanadu`, `yellow`, `zinc`.
 
 Descriptions live inline in `src/lib/theme-config.ts`.
 
@@ -431,7 +431,7 @@ This allows users to customize their experience while still respecting config de
 The pleb.school theme system represents a modern approach to application theming that prioritizes:
 
 ### **Developer Experience**
-- Write components once, support 64 themes automatically
+- Write components once, support 67 themes automatically
 - No need to think about colors when building features
 - Consistent patterns across the entire codebase
 - Easy onboarding for developers familiar with shadcn/ui
