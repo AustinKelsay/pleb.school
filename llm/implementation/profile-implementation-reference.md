@@ -176,7 +176,7 @@ Rendered behavior:
 Email verification uses a lookup ref + 6-digit code stored in `VerificationToken` (identifier `link:${userId}:${email}`). The email contains the code **and** a link to `/verify-email?ref=...`. Codes are single-use and expire after 60 minutes.
 
 ```typescript
-const code = (Math.floor(100000 + Math.random() * 900000)).toString() // 6-digit code
+const code = crypto.randomInt(100000, 1000000).toString() // 6-digit code (cryptographically secure)
 const lookupId = crypto.randomBytes(8).toString('hex')
 const expires = new Date(Date.now() + 3600000)
 
@@ -200,7 +200,9 @@ The verification page is implemented at `src/app/verify-email/page.tsx` and post
 
 - `src/lib/profile-events.ts` exports `PROFILE_UPDATED_EVENT`; client components dispatch it after link/unlink or profile edits.
 - The header (`src/components/layout/header.tsx`) listens for that event, refetches `/api/profile/aggregated`, and updates cached avatar/display name.
-- `LinkedAccountsManager` and `ProfileEditForms` call `dispatchProfileUpdatedEvent` to keep tabs and the header in sync without full-page reloads.
+- `LinkedAccountsManager` and `ProfileEditForms` call `dispatchProfileUpdatedEvent` to keep UI components in sync without full-page reloads.
+
+**Note:** This uses DOM custom events which only propagate within a single browser tab. Other open tabs will see updated data on their next page load or mount, but won't receive real-time updates. Cross-tab sync (via `BroadcastChannel` or `storage` events) is not currently implemented.
 
 ### Provider Data Fetching
 

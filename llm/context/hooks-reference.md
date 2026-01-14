@@ -329,14 +329,34 @@ const { data: session, status } = useSession()
 // session.user includes pubkey, provider, isAdmin, etc.
 ```
 
-### useAdmin
+### useIsAdmin
 
-Checks if current user is an admin.
+Checks if current user is an admin or moderator using session data (fast, config-based).
 
 ```typescript
-import { useAdmin } from '@/hooks/useAdmin'
+import { useIsAdmin } from '@/hooks/useAdmin'
 
-const { isAdmin, isLoading } = useAdmin()
+const { isAdmin, isModerator, hasAdminOrModerator, loading } = useIsAdmin()
+```
+
+### useCanViewOwnAnalytics
+
+Checks if user has permission to view analytics for their own content.
+
+```typescript
+import { useCanViewOwnAnalytics } from '@/hooks/useAdmin'
+
+const { hasPermission: canViewOwnAnalytics, loading } = useCanViewOwnAnalytics()
+```
+
+### useCanViewPlatformAnalytics
+
+Checks if user has permission to view platform-wide analytics (admin/moderator only).
+
+```typescript
+import { useCanViewPlatformAnalytics } from '@/hooks/useAdmin'
+
+const { hasPermission: canViewPlatformAnalytics, loading } = useCanViewPlatformAnalytics()
 ```
 
 ### useContentConfig

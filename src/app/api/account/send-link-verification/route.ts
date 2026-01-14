@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate short code + lookup reference for secure POST verification
-    const code = (Math.floor(100000 + Math.random() * 900000)).toString() // 6-digit code
+    const code = crypto.randomInt(100000, 1000000).toString() // 6-digit code (cryptographically secure)
     const lookupId = crypto.randomBytes(8).toString('hex')
     const expires = new Date(Date.now() + 3600000) // 1 hour from now
 

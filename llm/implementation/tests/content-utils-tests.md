@@ -37,7 +37,7 @@ Validates and sanitizes URLs.
 | `<img src="https://...">` | Yes | Safe images |
 | `<code>`, `<pre>` | Yes | Code blocks |
 | `<strong>`, `<em>` | Yes | Formatting |
-| `<iframe>` | No | Dangerous |
+| `<iframe>` | Yes | Safe embeds (YouTube/Vimeo) — only sanitized src/attrs allowed |
 | `<object>` | No | Dangerous |
 | `<embed>` | No | Dangerous |
 
@@ -48,6 +48,15 @@ Validates and sanitizes URLs.
 | onload | `<img onload="...">` | `<img>` |
 | style (expression) | `<div style="expression(...)">` | `<div>` |
 | data attributes | `<div data-x="y">` | `<div data-x="y">` |
+
+### Iframe Sanitization
+| Test | Input | Output |
+|------|-------|--------|
+| Safe YouTube embed | `<iframe src="https://www.youtube.com/embed/abc123" allowfullscreen>` | Preserved |
+| Safe Vimeo embed | `<iframe src="https://player.vimeo.com/video/123456">` | Preserved |
+| javascript: src | `<iframe src="javascript:alert(1)">` | `<iframe>` (src removed) |
+| Allowed attributes | `frameborder`, `allowfullscreen`, `allow`, `loading` | Preserved |
+| Dangerous attributes | `onload`, `onerror`, etc. | Removed |
 
 ## Markdown Extraction Tests
 
@@ -89,6 +98,6 @@ Validates and sanitizes URLs.
 
 ## Related Files
 
-- `src/lib/content-utils.ts` - Implementation
+- `src/lib/content-utils.ts` - Implementation (`sanitizeContent` function with `ALLOWED_TAGS` and `ALLOWED_ATTR` constants; `ALLOWED_URI_REGEXP` enforces protocol restrictions)
 - Components that render user content
 - [security-patterns.md](../../context/security-patterns.md) - XSS overview

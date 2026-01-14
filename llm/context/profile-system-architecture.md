@@ -67,7 +67,7 @@ Anonymous users can persist their session across browser restarts using a secure
 **Edge Case:** If DB update succeeds but response is lost (network failure), client has stale token and next login fails. This is accepted for ephemeral anonymous accounts - user can create a new anonymous account.
 
 **Legacy Migration:**
-Users with old localStorage format (privkey) are automatically migrated on next login - server validates privkey, generates token, client stores new format.
+Users with old localStorage format (privkey) are automatically migrated on next login - server validates privkey, generates token, client stores new format. This migration is intentionally silent (no user notification) since anonymous accounts are ephemeral and the security upgrade is transparent to users.
 
 ### Profile Source Priority
 
@@ -80,6 +80,29 @@ nostr → current DB profile → oauth providers
 // OAuth-First Priority
 current DB profile → oauth providers → nostr
 ```
+
+#### What is "Current DB Profile"?
+
+The "current DB profile" refers to data stored directly in the `User` table columns:
+- `username`, `displayName`, `avatar`, `email`, `banner`, `nip05`, `lud16`, `pubkey`
+
+This data is populated from:
+1. **Provider syncs** - When users log in, successful provider fetches may backfill empty User columns
+2. **Manual edits** - Users can directly edit profile fields via the settings page
+3. **Registration data** - Initial values set during account creation
+
+In the aggregation logic (`src/lib/profile-aggregator.ts`), current DB profile is represented as a pseudo-provider with `provider: 'current'`. When displayed in the UI, it's labeled as `'profile'` (the source badge shown to users).
+
+**Why "current" sits between nostr and oauth in Nostr-first mode:**
+- Nostr data is fetched live and takes highest priority for Nostr-first users
+- Current DB profile serves as a cached fallback when Nostr fetch fails or fields are missing
+- It also captures manual user edits that should override stale OAuth data
+- OAuth providers are lowest priority since Nostr-first users consider that data secondary
+
+**Interaction with `profileSource`:**
+- `profileSource: 'nostr'` → Uses Nostr-first priority order
+- `profileSource: 'oauth'` → Uses OAuth-first priority order (current DB profile is highest)
+- The `isNostrFirstProfile()` helper determines which order to use based on `profileSource` and `primaryProvider`
 
 ## Data Architecture
 

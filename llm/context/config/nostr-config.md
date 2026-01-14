@@ -336,7 +336,7 @@ const events = await fetchEvents({ relaySet: 'content' })
 
 ## Important Notes
 
-1. **Don't leave empty arrays**: An empty `relays.content` array would cause zero relays to be used. Either omit the key or populate it.
+1. **Empty arrays trigger fallback**: An empty `relays.content` array will fall back to `relays.default` (via `getRelays()` which checks `chosen.length > 0 ? chosen : base`). This is safe but may be confusing—either omit the key entirely or populate it with intended relays.
 
 2. **Default is required**: The `default` relay set is the fallback for everything. Always configure it.
 

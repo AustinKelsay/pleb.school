@@ -5,13 +5,35 @@
 
 ## Purpose
 
-Tests `aggregateProfile()` which merges user data from multiple sources (DB, OAuth, Nostr) into a unified profile.
+Tests `getAggregatedProfile()` which fetches user data and merges profile information from multiple sources (DB, OAuth, Nostr) into a unified profile.
 
 ## Functions Tested
 
-### `aggregateProfile(user, nostrProfile?)`
+### `getAggregatedProfile(userId: string)`
 
-Merges profile data based on `profileSource` setting.
+Fetches user data internally and aggregates profile data from all linked accounts based on `profileSource` priority.
+
+**Parameters:**
+- `userId: string` - The user ID to fetch and aggregate profile data for
+
+**Returns:**
+- `Promise<AggregatedProfile>` - An aggregated profile object containing:
+  - Core fields (`name`, `email`, `username`, `image`, `banner`, `about`) with source tracking
+  - Social links (`website`, `github`, `twitter`, `location`, `company`) with source tracking
+  - Nostr-specific fields (`pubkey`, `nip05`, `lud16`) with source tracking
+  - `linkedAccounts`: Array of all linked account data
+  - `primaryProvider`: The user's primary provider
+  - `profileSource`: The user's profile source preference (`"oauth"` or `"nostr"`)
+  - `totalLinkedAccounts`: Count of linked accounts
+
+**Behavior:**
+- Fetches user data from the database using Prisma (includes linked accounts)
+- Fetches Nostr profile data via `fetchNostrProfile()` for linked Nostr accounts
+- Fetches GitHub profile data via GitHub API for linked GitHub accounts
+- Applies profileSource/nostr merging behavior based on `isNostrFirstProfile()`:
+  - **Nostr-first**: Nostr accounts → current DB profile → OAuth providers
+  - **OAuth-first**: current DB profile → OAuth providers → Nostr accounts
+- Throws `Error('User not found')` if the user doesn't exist
 
 ## Test Coverage
 
@@ -57,18 +79,23 @@ Merges profile data based on `profileSource` setting.
 
 ## Mock Strategy
 
+Since `getAggregatedProfile(userId)` fetches user data internally, the following mocks are used:
+
 ```typescript
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
-    account: { findMany: vi.fn() }
+    user: { 
+      findUnique: vi.fn() // Mocked to return user with linked accounts
+    }
   }
 }))
 
 vi.mock("@/lib/nostr-profile", () => ({
-  fetchNostrProfile: vi.fn()
+  fetchNostrProfile: vi.fn() // Mocked to return Nostr profile data or null
 }))
 ```
+
+**Note**: `getAggregatedProfile` calls `prisma.user.findUnique({ where: { id: userId }, include: { accounts: true } })` internally, so tests mock this to return the user data structure with linked accounts.
 
 ## Field Priority Matrix
 

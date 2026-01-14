@@ -198,6 +198,8 @@ Maximum bytes for purchase dialog zap note:
 The config is validated at import time using Zod schema. Invalid values will cause a parse error.
 
 ```typescript
+const ProgressBasisSchema = z.enum(["server", "serverPlusViewer"])
+
 const PaymentsConfigSchema = z.object({
   zap: z.object({
     quickAmounts: z.array(z.number().positive()),
@@ -216,10 +218,13 @@ const PaymentsConfigSchema = z.object({
     minZap: z.number().positive(),
     autoCloseMs: z.number().int().positive(),
     autoShowQr: z.boolean(),
-    progressBasis: z.enum(["server", "serverPlusViewer"]),
+    progressBasis: ProgressBasisSchema,
     noteMaxBytes: z.number().int().positive()
   })
 })
+
+export type ProgressBasis = z.infer<typeof ProgressBasisSchema>
+export type PaymentsConfig = z.infer<typeof PaymentsConfigSchema>
 ```
 
 ## Usage Examples

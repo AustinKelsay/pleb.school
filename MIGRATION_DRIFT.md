@@ -28,10 +28,12 @@ Create a migration that matches current DB state without changing anything:
 
 ```bash
 # Generate SQL diff between migrations and current DB
+MIGRATION_DIR="prisma/migrations/$(date +%Y%m%d%H%M%S)_baseline"
+mkdir -p "$MIGRATION_DIR"
 npx prisma migrate diff \
   --from-migrations ./prisma/migrations \
   --to-schema-datamodel ./prisma/schema.prisma \
-  --script > prisma/migrations/$(date +%Y%m%d%H%M%S)_baseline/migration.sql
+  --script > "$MIGRATION_DIR/migration.sql"
 
 # Mark as applied without running
 npx prisma migrate resolve --applied <migration_name>
