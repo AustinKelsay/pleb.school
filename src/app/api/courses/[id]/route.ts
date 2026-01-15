@@ -43,7 +43,6 @@ export async function GET(
     }
 
     // Get lessons for this course
-    const { LessonAdapter } = await import('@/lib/db-adapter');
     const lessons = await LessonAdapter.findByCourseId(courseId);
 
     // Fetch purchases for the current user (if authenticated)

@@ -109,6 +109,8 @@ if (methodTag?.[1] !== 'POST') throw new Error('Invalid method')
 | URL tag validation | Cross-site replay |
 | Method tag validation | Request method confusion |
 
+**Note on NIP-98 `payload` tag:** NIP-98 specifies that clients SHOULD include a `payload` tag with the SHA-256 hash of the request body for POST requests, and servers MAY validate it. Our implementation omits this tag—the auth callback body contains only the pubkey and signed event, which are already verified through signature and event ID checks. The payload tag would provide defense-in-depth against body tampering but is not strictly required per spec (SHOULD/MAY language).
+
 ## Anonymous Authentication
 
 Anonymous users get a server-generated Nostr keypair for immediate participation.

@@ -195,7 +195,6 @@ describe('OAuth State Security', () => {
       const originalTimestamp = decoded.timestamp
 
       // Mock Date.now to return a time 11 minutes in the future
-      const originalNow = Date.now
       vi.spyOn(Date, 'now').mockReturnValue(originalTimestamp + 11 * 60 * 1000)
 
       try {
