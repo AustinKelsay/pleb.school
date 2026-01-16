@@ -17,7 +17,7 @@
 
 ## Purchase Eligibility & Dialog
 - Eligibility hook: `src/hooks/usePurchaseEligibility.ts` marks eligible when `viewerZapTotalSats ≥ price` and not already purchased. Auto-claims by POSTing `/api/purchases/claim` with receipt IDs (viewer receipts filtered to matching event/e-tag) and a price hint; cooldown/backoff on repeated failures.
-- Claim payload: `{resourceId|courseId, amountPaid, paymentType (default zap), zapReceiptId(s), invoice?, zapTotalSats, nostrPrice, zapReceiptJson?, zapRequestJson?, paymentPreimage?, relayHints?, allowPastZaps?}`; `amountPaid` defaults to `max(viewerZapTotalSats, price)`. The `allowPastZaps` flag extends the receipt age limit from 24 hours to 1 year for the "Unlock with past zaps" flow.
+- Claim payload: `{resourceId|courseId, amountPaid, paymentType (default zap), zapReceiptId(s), invoice?, zapTotalSats, nostrPrice, zapReceiptJson?, zapRequestJson?, paymentPreimage?, relayHints?, allowPastZaps?}`; `amountPaid` defaults to `max(viewerZapTotalSats, price)`. The `allowPastZaps` flag extends the receipt age limit from 24 hours to 1 year for the "Unlock with past zaps" flow (or uses `MAX_RECEIPT_AGE_MS` env var if set, which overrides both defaults).
 - UI: `src/components/purchase/purchase-dialog.tsx` requires auth, lets the user choose amount, toggle privacy, sends a zap via `useZapSender`, then invokes `claimPurchase`. Auto-claim runs whenever the hook is mounted for locked content. Partial payments are recorded; unlock callbacks only flip UI when `amountPaid` meets the required snapshot price.
 - UI also exposes an “Unlock with past zaps” CTA when eligible, calling `claimPurchase` without sending a new zap.
 

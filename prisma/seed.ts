@@ -139,11 +139,15 @@ async function main() {
   for (const course of ALL_COURSES) {
     const authorPersona = personaByIdMap.get(course.authorPersonaId)
     if (!authorPersona) {
-      console.log(`  ⚠️  Skipping course "${course.title}": author not found`)
+      console.log(`  ⚠️  Skipping course "${course.title}": author persona not found`)
       continue
     }
 
-    const authorUserId = userIdMap.get(course.authorPersonaId)!
+    const authorUserId = userIdMap.get(course.authorPersonaId)
+    if (!authorUserId) {
+      console.log(`  ⚠️  Skipping course "${course.title}": author user ID not found for ${course.authorPersonaId}`)
+      continue
+    }
     console.log(`\n  📖 Course: "${course.title}" by ${authorPersona.displayName}`)
 
     // Track lesson references for the course event
@@ -272,12 +276,11 @@ async function main() {
 
   for (const resource of ALL_STANDALONE) {
     const authorPersona = personaByIdMap.get(resource.authorPersonaId)
-    if (!authorPersona) {
+    const authorUserId = userIdMap.get(resource.authorPersonaId)
+    if (!authorPersona || !authorUserId) {
       console.log(`  ⚠️  Skipping resource "${resource.title}": author not found`)
       continue
     }
-
-    const authorUserId = userIdMap.get(resource.authorPersonaId)!
 
     const event = await createResourceEvent({
       privkey: authorPersona.privkey,

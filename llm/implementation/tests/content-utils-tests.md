@@ -21,6 +21,7 @@ Validates and sanitizes URLs.
 ## XSS Sanitization Tests
 
 ### Script Injection
+
 | Test | Input | Expected Output |
 |------|-------|-----------------|
 | Basic script | `<script>alert(1)</script>` | `` |
@@ -30,6 +31,7 @@ Validates and sanitizes URLs.
 | SVG script | `<svg><script>alert(1)</script></svg>` | `<svg></svg>` |
 
 ### Preserved Elements
+
 | Element | Preserved | Reason |
 |---------|-----------|--------|
 | `<p>`, `<div>` | Yes | Structure |
@@ -42,6 +44,7 @@ Validates and sanitizes URLs.
 | `<embed>` | No | Dangerous |
 
 ### Attribute Sanitization
+
 | Test | Input | Output |
 |------|-------|--------|
 | onclick | `<div onclick="...">` | `<div>` |
@@ -50,6 +53,7 @@ Validates and sanitizes URLs.
 | data attributes | `<div data-x="y">` | `<div>` |
 
 ### Iframe Sanitization
+
 | Test | Input | Output |
 |------|-------|--------|
 | Safe YouTube embed | `<iframe src="https://www.youtube.com/embed/abc123" allowfullscreen>` | Preserved |
@@ -61,6 +65,7 @@ Validates and sanitizes URLs.
 ## Markdown Extraction Tests
 
 ### Text Extraction
+
 | Input | Output |
 |-------|--------|
 | `# Heading` | `Heading` |
@@ -70,6 +75,7 @@ Validates and sanitizes URLs.
 | `> quote` | `quote` |
 
 ### Code Block Handling
+
 | Test | Behavior |
 |------|----------|
 | Fenced blocks | Content preserved as text |
@@ -79,6 +85,7 @@ Validates and sanitizes URLs.
 ## URL Sanitization Tests
 
 ### Allowed Schemes
+
 | URL | Allowed |
 |-----|---------|
 | `https://example.com` | Yes |
@@ -89,6 +96,7 @@ Validates and sanitizes URLs.
 | `vbscript:...` | No |
 
 ### Encoding Attacks
+
 | Test | Input | Blocked |
 |------|-------|---------|
 | Hex encoding | `&#x6A;avascript:` | Yes |

@@ -216,46 +216,55 @@ else type = 'document'
 
 ## Event Building
 
-### buildCourseEvent
+### createCourseEvent
 
 Creates NIP-51 course events for publishing.
 
 ```typescript
 // src/lib/nostr-events.ts
-import { buildCourseEvent } from '@/lib/nostr-events'
+import { createCourseEvent } from '@/lib/nostr-events'
 
-const event = buildCourseEvent({
-  pubkey: userPubkey,
+const courseDraft = {
+  id: 'course-uuid',
+  userId: 'user-id',
   title: 'Course Title',
-  description: 'Course description',
+  summary: 'Course description',
   image: 'https://...',
   topics: ['bitcoin', 'lightning'],
-  price: 2100,
-  lessonIdentifiers: ['30023:pubkey:lesson-1', '30023:pubkey:lesson-2'],
-  dTag: 'course-uuid'
-})
+  price: 2100
+}
+
+const lessonReferences = [
+  { resourceId: 'lesson-1-id', pubkey: 'author-pubkey' },
+  { resourceId: 'lesson-2-id', pubkey: 'author-pubkey' }
+]
+
+const event = createCourseEvent(courseDraft, lessonReferences, privateKey)
 ```
 
-### buildResourceEvent
+### createResourceEvent
 
 Creates NIP-23 (free) or NIP-99 (paid) resource events.
 
 ```typescript
 // src/lib/nostr-events.ts
-import { buildResourceEvent } from '@/lib/nostr-events'
+import { createResourceEvent } from '@/lib/nostr-events'
 
-const event = buildResourceEvent({
-  pubkey: userPubkey,
+const resourceDraft = {
+  id: 'resource-uuid',
+  userId: 'user-id',
+  type: 'video',
   title: 'Resource Title',
   summary: 'Short summary',
   content: 'Full markdown content',
   image: 'https://...',
   topics: ['video', 'beginner'],
-  price: 0,  // 0 = NIP-23, >0 = NIP-99
+  price: 0,  // 0 = NIP-23 (free), >0 = NIP-99 (paid)
   videoUrl: 'https://youtube.com/...',
-  additionalLinks: [{ label: 'Slides', url: 'https://...' }],
-  dTag: 'resource-uuid'
-})
+  additionalLinks: [{ label: 'Slides', url: 'https://...' }]
+}
+
+const event = createResourceEvent(resourceDraft, privateKey)
 ```
 
 ### Event Signing

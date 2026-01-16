@@ -95,7 +95,7 @@ Icons for account management features.
 - `EMAIL_SERVER_SECURE`
 - `EMAIL_FROM`
 
-### github
+### GitHub
 
 ```json
 {

@@ -144,6 +144,16 @@ export interface SeedPersonaWithKeys extends SeedPersona {
 
 ### Deterministic Key Generation
 
+> **⚠️ SECURITY WARNING: Demo/Seed Data Only**
+>
+> The `generateDeterministicKeypair` function below uses a predictable seed (`SEED_PREFIX` + `personaId`) to derive private keys. **This is intentionally insecure** for reproducible demo data.
+>
+> **DO NOT use this pattern for production user accounts.** Anyone who knows the seed pattern can trivially regenerate any private key (e.g., `sha256("pleb.school-demo-seed-v1:satoshi-sensei")`).
+>
+> For real user accounts, use:
+> - Cryptographically secure random key generation (`crypto.randomBytes` or `window.crypto.getRandomValues`)
+> - Hardware security modules (HSM) or key management services (KMS) for sensitive deployments
+
 ```typescript
 export function generateDeterministicKeypair(personaId: string): {
   privkey: string

@@ -132,7 +132,7 @@ Flat config in `eslint.config.mjs`:
 - `DATABASE_URL` - PostgreSQL connection
 - `NEXTAUTH_SECRET` - JWT encryption secret
 - `NEXTAUTH_URL` - App URL (e.g., http://localhost:3000)
-- `PRIVKEY_ENCRYPTION_KEY` - AES-256 key for Nostr private key encryption at rest (32+ chars, set in `.env.local`)
+- `PRIVKEY_ENCRYPTION_KEY` - AES-256 key for Nostr private key encryption at rest. Must be exactly 32 bytes (256 bits): 64 hex chars or 44-char base64. Generate with `openssl rand -hex 32`. Set in `.env.local`.
 
 **Optional:**
 - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` - GitHub OAuth

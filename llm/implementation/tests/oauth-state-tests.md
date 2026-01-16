@@ -18,6 +18,7 @@ Validates state token and extracts data.
 ## Test Coverage
 
 ### State Generation
+
 | Test | Input | Expected |
 |------|-------|----------|
 | Basic data | `{ provider: "github" }` | Returns state string |
@@ -25,6 +26,7 @@ Validates state token and extracts data.
 | Empty object | `{}` | Returns state string |
 
 ### State Verification
+
 | Test | Input | Expected |
 |------|-------|----------|
 | Valid state | Generated state | Returns original data |
@@ -34,12 +36,14 @@ Validates state token and extracts data.
 | Empty string | `""` | Returns null |
 
 ### CSRF Prevention
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Cross-site state | State from different origin | Rejected |
 | Replay attack | Same state used twice | Second use rejected |
 
 ### Expiration
+
 | Test | Age | Expected |
 |------|-----|----------|
 | Fresh | 0 min | Valid |

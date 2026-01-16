@@ -59,7 +59,7 @@ Reference documentation for pleb.school's architecture, systems, and patterns. T
 | [api-patterns.md](./api-patterns.md) | API validation, error handling, response utilities |
 | [caching-patterns.md](./caching-patterns.md) | In-memory caching with TTL and tag invalidation |
 | [encryption-key-management.md](./encryption-key-management.md) | Private key encryption, rotation, and recovery procedures |
-| [rate-limiting.md](./rate-limiting.md) | Rate limiting implementation |
+| [rate-limiting.md](./rate-limiting.md) | Rate-limiting implementation |
 | [security-patterns.md](./security-patterns.md) | Audit logging, input validation, key handling |
 | [view-analytics.md](./view-analytics.md) | Hybrid KV + database view counter system |
 
