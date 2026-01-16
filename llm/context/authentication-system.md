@@ -292,7 +292,7 @@ async jwt({ token, user, account }) {
 async session({ session, token }) {
   session.user.id = token.userId
   session.user.pubkey = token.pubkey
-  session.provider = token.provider
+  session.user.provider = token.provider
   session.user.privkey = token.privkey  // Decrypted value (if present)
   return session
 }

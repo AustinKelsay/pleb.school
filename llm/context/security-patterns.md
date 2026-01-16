@@ -19,8 +19,8 @@ const PurchaseClaimSchema = z.object({
   zapReceiptId: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   paymentType: z.enum(['zap', 'manual', 'comped', 'refund']).optional()
 }).refine(
-  data => data.resourceId || data.courseId,
-  { message: 'Provide either resourceId or courseId' }
+  data => Boolean(data.resourceId) !== Boolean(data.courseId),
+  { message: 'Provide exactly one of resourceId or courseId (not both, not neither)' }
 )
 
 // Usage in route
@@ -85,9 +85,10 @@ async function verifyNip98Auth(event: NostrEvent, expectedPubkey: string): Promi
   const eventAge = now - event.created_at
   if (eventAge < -30 || eventAge > 60) return false  // allow 30s future, 60s past
 
-  // 5. Validate URL tag
+  // 5. Validate URL tag (strict equality, not includes())
   const urlTag = event.tags.find(t => t[0] === 'u')
-  if (!urlTag?.[1]?.includes('/api/auth/callback/nostr')) return false
+  const expectedUrl = `${process.env.NEXTAUTH_URL}/api/auth/callback/nostr`
+  if (!urlTag || urlTag[1] !== expectedUrl) return false
 
   // 6. Validate method tag
   const methodTag = event.tags.find(t => t[0] === 'method')

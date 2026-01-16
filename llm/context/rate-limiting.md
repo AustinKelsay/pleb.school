@@ -246,7 +246,13 @@ const perIpLimit = await checkRateLimit(
 )
 
 if (!perIpLimit.success) {
-  throw new Error('Too many attempts from your location')
+  return Response.json(
+    { error: 'Too many attempts from your location', retryAfter: perIpLimit.resetIn },
+    {
+      status: 429,
+      headers: { 'Retry-After': String(perIpLimit.resetIn) }
+    }
+  )
 }
 
 // Check global limit (backstop for distributed attacks)
@@ -257,7 +263,13 @@ const globalLimit = await checkRateLimit(
 )
 
 if (!globalLimit.success) {
-  throw new Error('Too many attempts. Please try again later.')
+  return Response.json(
+    { error: 'Too many attempts. Please try again later.', retryAfter: globalLimit.resetIn },
+    {
+      status: 429,
+      headers: { 'Retry-After': String(globalLimit.resetIn) }
+    }
+  )
 }
 ```
 

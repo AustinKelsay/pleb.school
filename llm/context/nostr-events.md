@@ -90,7 +90,6 @@ Long-form content for free resources.
     ["summary", "Lesson summary..."],
     ["image", "https://..."],
     ["t", "video"],
-    ["t", "document"],
     ["t", "beginner"],
     ["published_at", "1740871522"],
     ["r", "https://..."]  // Additional links

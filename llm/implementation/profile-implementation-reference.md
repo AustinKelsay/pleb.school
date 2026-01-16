@@ -313,7 +313,8 @@ interface UserPreferences {
 ## Testing Notes
 
 - Unit tests exist for account-linking helpers in `src/lib/tests/account-linking.test.ts`.
-- There are no dedicated tests for profile aggregation or profile API routes yet.
+- Profile aggregation tests in `src/lib/tests/profile-aggregator.test.ts` (tests for `getAggregatedProfile`).
+- Profile sync API tests in `src/app/api/tests/profile-sync.test.ts` (tests for `/api/profile/sync` route).
 - Manual smoke checks recommended: link/unlink providers, email verify flow, GitHub OAuth link, `/api/account/sync`, and `/api/profile/sync`.
 
 ## Troubleshooting

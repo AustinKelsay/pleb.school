@@ -31,11 +31,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     
     // Parse and validate query parameters
+    // Note: searchParams.get() returns null for missing params, but Zod .optional()
+    // expects undefined, so we convert null → undefined with ?? undefined
     const validationResult = querySchema.safeParse({
-      page: searchParams.get('page'),
-      pageSize: searchParams.get('pageSize'),
-      userId: searchParams.get('userId'),
-      includeNotes: searchParams.get('includeNotes'),
+      page: searchParams.get('page') ?? undefined,
+      pageSize: searchParams.get('pageSize') ?? undefined,
+      userId: searchParams.get('userId') ?? undefined,
+      includeNotes: searchParams.get('includeNotes') ?? undefined,
     })
 
     if (!validationResult.success) {

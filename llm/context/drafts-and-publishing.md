@@ -235,7 +235,7 @@ const event = createCourseEvent(courseDraft, lessonIdentifiers, signingPrivkey)
     ...draft.topics.map(topic => ['t', topic]),
     ['price', String(draft.price), 'sats'],  // If paid
     // ONE ['r', url] tag PER additional link
-    ...additionalLinks.map(link => ['r', link.url])
+    ...draft.additionalLinks.map(link => ['r', link.url])
   ],
   content: draft.content,
   pubkey: userPubkey,
