@@ -17,6 +17,8 @@ type ClaimArgs = {
   zapRequestJson?: any
   zapReceiptEvents?: any[]
   relayHints?: string[]
+  // When true, uses extended age limit for "Unlock with past zaps" flow
+  allowPastZaps?: boolean
 }
 
 type Status = "idle" | "pending" | "success" | "error"
@@ -169,6 +171,7 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
         zapReceiptJson: receiptEvents && receiptEvents.length > 0 ? receiptEvents : undefined,
         zapRequestJson: args?.zapRequestJson,
         relayHints: args?.relayHints,
+        allowPastZaps: args?.allowPastZaps,
       }
 
       const res = await fetch("/api/purchases/claim", {

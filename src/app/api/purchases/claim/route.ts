@@ -42,7 +42,10 @@ const payloadSchema = z.object({
   // Full zap total is optional context for the caller; not persisted separately.
   zapTotalSats: z.number().int().nonnegative().optional(),
   // Admin-only field for audit trail when recording non-zap purchases
-  adminReason: z.string().trim().min(1).max(500).optional()
+  adminReason: z.string().trim().min(1).max(500).optional(),
+  // When true, extends receipt age limit for "Unlock with past zaps" flow.
+  // Duplicate protection still applies; this only relaxes the freshness check.
+  allowPastZaps: z.boolean().optional()
 })
 
 function badRequest(message: string, details?: unknown) {
@@ -62,6 +65,8 @@ type ZapValidationContext = {
   allowedPayerPubkeys: string[]
   relayHints?: string[]
   zapReceiptEvent?: NostrEvent
+  // When true, uses extended age limit for "Unlock with past zaps" flow
+  allowPastZaps?: boolean
 }
 
 type ZapValidationResult = {
@@ -151,7 +156,8 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
     sessionPubkey,
     allowedPayerPubkeys,
     relayHints,
-    zapReceiptEvent
+    zapReceiptEvent,
+    allowPastZaps
   } = context
 
   const relayList = Array.from(new Set([
@@ -189,11 +195,23 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
     throw new Error("Zap receipt signature is invalid.")
   }
 
-  // Reject stale zap receipts to prevent replay attacks
-  const MAX_RECEIPT_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+  // Reject stale zap receipts to prevent replay attacks.
+  // Default: 24 hours for fresh zaps, 1 year for "Unlock with past zaps" flow.
+  // Configurable via MAX_RECEIPT_AGE_MS env var (milliseconds).
+  // Note: Duplicate receipt protection (unique zapReceiptId + JSONB checks) is the
+  // primary defense; this age check provides defense-in-depth.
+  const DEFAULT_RECEIPT_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+  const EXTENDED_RECEIPT_AGE_MS = 365 * 24 * 60 * 60 * 1000 // 1 year for past zaps
+  const envMaxAge = process.env.MAX_RECEIPT_AGE_MS
+    ? parseInt(process.env.MAX_RECEIPT_AGE_MS, 10)
+    : null
+  const maxReceiptAgeMs = allowPastZaps
+    ? (envMaxAge ?? EXTENDED_RECEIPT_AGE_MS)
+    : (envMaxAge ?? DEFAULT_RECEIPT_AGE_MS)
   const receiptAgeMs = Date.now() - (zapReceipt.created_at * 1000)
-  if (receiptAgeMs > MAX_RECEIPT_AGE_MS) {
-    throw new Error("Zap receipt is too old. Receipts must be less than 24 hours old.")
+  if (receiptAgeMs > maxReceiptAgeMs) {
+    const ageDescription = allowPastZaps ? "1 year" : "24 hours"
+    throw new Error(`Zap receipt is too old. Receipts must be less than ${ageDescription} old.`)
   }
   if (receiptAgeMs < -5 * 60 * 1000) {
     // Allow 5 minutes of clock skew into the future
@@ -367,7 +385,8 @@ export async function POST(request: NextRequest) {
       zapTotalSats,
       nostrPrice,
       relayHints: rawRelayHints,
-      adminReason
+      adminReason,
+      allowPastZaps
     } = parsed.data
     const relayHints = sanitizeRelayHints(rawRelayHints)
     const priceHint = Number.isFinite(nostrPrice) ? Number(nostrPrice) : 0
@@ -472,7 +491,8 @@ export async function POST(request: NextRequest) {
               expectedEventId: priceResolution.noteId,
               sessionPubkey: normalizedSessionPubkey,
               allowedPayerPubkeys,
-              relayHints
+              relayHints,
+              allowPastZaps
             })
             proofs.push(proof)
           } catch (err) {
@@ -495,7 +515,8 @@ export async function POST(request: NextRequest) {
             expectedEventId: priceResolution.noteId,
             sessionPubkey: normalizedSessionPubkey,
             allowedPayerPubkeys,
-            relayHints
+            relayHints,
+            allowPastZaps
           })
           proofs.push(proof)
         } catch (err) {

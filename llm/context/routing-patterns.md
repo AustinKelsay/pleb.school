@@ -155,7 +155,7 @@ import { isAdmin } from '@/lib/admin-utils'
 
 async function AdminPage() {
   const session = await auth()
-  if (!session?.user?.pubkey || !await isAdmin(session.user.pubkey)) {
+  if (!session?.user?.pubkey || !await isAdmin(session)) {
     redirect('/')
   }
   // Render admin content

@@ -1,4 +1,4 @@
-# Purchase Zap Flow Gaps (open) — 2026-01-10
+# Purchase Zap Flow Gaps (open) — 2026-01-16
 
 ## 1) Receipt-required unlocks (design choice)
 - We now credit purchases only when a zap receipt is verified. If receipts are delayed or only on distant relays, users must retry once they arrive.
@@ -10,8 +10,9 @@
 
 ## 3) Price mismatch visibility
 - When DB and Nostr price hints diverge we log and enforce DB price, but the UI can still show a stale/hinted price until refresh. Users may perceive over/undercharge.
-- Mitigation ideas: surface a “price verified” badge bound to DB price; force client refresh of price on dialog open; or block checkout if the hinted price differs by > threshold and prompt a reload.
+- Mitigation ideas: surface a "price verified" badge bound to DB price; force client refresh of price on dialog open; or block checkout if the hinted price differs by > threshold and prompt a reload.
 
 ## 4) Auto-claim depends on live zap feed
-- Eligibility/auto-claim rely on `viewerZapTotalSats` derived from receipts visible to the current browser session. Zaps sent from other clients on relays we don’t subscribe to won’t trigger auto-claim; the “Unlock with past zaps” button still uses the same live receipt list, so it can fail until receipts propagate.
-- Mitigation ideas: fetch user zap receipts server-side via relay fan-out; persist last-seen receipts per user/content; or add a backend “retry claim” helper that queries a broader relay set.
+- Eligibility/auto-claim rely on `viewerZapTotalSats` derived from receipts visible to the current browser session. Zaps sent from other clients on relays we don't subscribe to won't trigger auto-claim.
+- Mitigation ideas: fetch user zap receipts server-side via relay fan-out; persist last-seen receipts per user/content; or add a backend "retry claim" helper that queries a broader relay set.
+- **Receipt age limit**: ~~The server previously had a hardcoded 24-hour receipt age limit that blocked "Unlock with past zaps" for older receipts.~~ **FIXED**: The claim route now supports `allowPastZaps: boolean` which extends the age limit to 1 year for the manual unlock flow. The default 24-hour limit remains for fresh zap claims (defense-in-depth). Configurable via `MAX_RECEIPT_AGE_MS` env var.

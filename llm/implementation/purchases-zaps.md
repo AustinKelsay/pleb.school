@@ -17,7 +17,7 @@
 
 ## Purchase Eligibility & Dialog
 - Eligibility hook: `src/hooks/usePurchaseEligibility.ts` marks eligible when `viewerZapTotalSats ≥ price` and not already purchased. Auto-claims by POSTing `/api/purchases/claim` with receipt IDs (viewer receipts filtered to matching event/e-tag) and a price hint; cooldown/backoff on repeated failures.
-- Claim payload: `{resourceId|courseId, amountPaid, paymentType (default zap), zapReceiptId(s), invoice?, zapTotalSats, nostrPrice, zapReceiptJson?, zapRequestJson?, paymentPreimage?, relayHints?}`; `amountPaid` defaults to `max(viewerZapTotalSats, price)`.
+- Claim payload: `{resourceId|courseId, amountPaid, paymentType (default zap), zapReceiptId(s), invoice?, zapTotalSats, nostrPrice, zapReceiptJson?, zapRequestJson?, paymentPreimage?, relayHints?, allowPastZaps?}`; `amountPaid` defaults to `max(viewerZapTotalSats, price)`. The `allowPastZaps` flag extends the receipt age limit from 24 hours to 1 year for the "Unlock with past zaps" flow.
 - UI: `src/components/purchase/purchase-dialog.tsx` requires auth, lets the user choose amount, toggle privacy, sends a zap via `useZapSender`, then invokes `claimPurchase`. Auto-claim runs whenever the hook is mounted for locked content. Partial payments are recorded; unlock callbacks only flip UI when `amountPaid` meets the required snapshot price.
 - UI also exposes an “Unlock with past zaps” CTA when eligible, calling `claimPurchase` without sending a new zap.
 
@@ -25,7 +25,7 @@
 1) Auth + payload validation (`zod`, `paymentTypeEnum zap|manual|comped|refund`); exactly one of `resourceId` or `courseId` required.  
 2) Resolve canonical price + identifiers via `resolvePriceForContent`; reject if content missing or lacks both `noteId` and owner pubkey for zap claims.  
 3) Build allowed payer list from session pubkey and derived pubkey (if server has privkey). If none → reject with guidance to link a pubkey.  
-4) Zap validation per receipt (`validateZapProof`): accepts inline receipt events or fetches by ID with relay hints; fans out across `default`, `content`, and `zapThreads` relay sets and retries (6×, 800 ms) for late receipts; verifies receipt/request signatures, invoice vs receipt, description hash vs zap request, amount > 0, recipient matches owner pubkey, event match via `e` or `a` tags, payer (pubkey or `P` tag) matches allowed list, LNURL supports NIP-57 and provider pubkey matches the receipt.  
+4) Zap validation per receipt (`validateZapProof`): accepts inline receipt events or fetches by ID with relay hints; fans out across `default`, `content`, and `zapThreads` relay sets and retries (6×, 800 ms) for late receipts; verifies receipt/request signatures, receipt age (24h default, 1 year with `allowPastZaps`, configurable via `MAX_RECEIPT_AGE_MS` env), invoice vs receipt, description hash vs zap request, amount > 0, recipient matches owner pubkey, event match via `e` or `a` tags, payer (pubkey or `P` tag) matches allowed list, LNURL supports NIP-57 and provider pubkey matches the receipt.  
 4b) No-receipt fallback removed: purchases are only credited when at least one zap receipt is verified. Users must retry once receipts land on relays.
 5) Aggregate verified receipts (multi-receipt allowed); set `verifiedAmountSats` sum, keep representative invoice and zap request.  
 6) Non-zap payment types require admin (`isAdmin`); trust provided amount/invoice.  

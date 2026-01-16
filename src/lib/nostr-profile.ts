@@ -26,7 +26,7 @@ export function validateUsername(value: unknown): string | undefined {
   const trimmed = str.trim()
   if (trimmed.length === 0 || trimmed.length > MAX_USERNAME_LENGTH) return undefined
   // Remove control characters and normalize whitespace
-  return trimmed.replace(/[\x00-\x1F\x7F]/g, '').replace(/\s+/g, ' ')
+  return trimmed.replace(/\p{Cc}/gu, '').replace(/\s+/g, ' ')
 }
 
 /**

@@ -300,7 +300,8 @@ export function PurchaseDialog({
       toast({ title: purchaseCopy?.send?.claimSignInTitle ?? "Sign in first", variant: "destructive" })
       return
     }
-    const claimed = await claimPurchase()
+    // Use allowPastZaps to extend the receipt age limit for unlocking with historical zaps
+    const claimed = await claimPurchase({ allowPastZaps: true })
     if (claimed) {
       toast({
         title: purchaseCopy?.send?.claimSuccessTitle ?? "Unlocked!",

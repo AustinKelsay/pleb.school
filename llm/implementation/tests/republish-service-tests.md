@@ -162,7 +162,7 @@ it("republishes resource with encrypted privkey", async () => {
 ## Why Comprehensive Coverage
 
 Republishing involves multiple code paths:
-- Encrypted privkey decryption
+- Decryption of the encrypted private key
 - Nostr event creation and signing
 - Relay publishing
 - Database transaction updates

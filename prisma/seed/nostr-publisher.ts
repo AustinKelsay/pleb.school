@@ -101,6 +101,35 @@ function escapeHtml(value: string): string {
 }
 
 /**
+ * Sanitize a URL for safe use in markdown links.
+ * Validates protocol and escapes markdown-breaking characters.
+ */
+function sanitizeUrlForMarkdown(url: string): string | null {
+  const trimmed = url.trim()
+
+  // Parse and validate URL
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    return null
+  }
+
+  // Only allow http/https protocols (block javascript:, data:, etc.)
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return null
+  }
+
+  // Use the parsed URL's href (normalized) and escape markdown-breaking characters
+  // Parentheses and brackets can break markdown link syntax
+  return parsed.href
+    .replace(/\\/g, '\\\\')
+    .replace(/\)/g, '%29')
+    .replace(/\]/g, '%5D')
+    .replace(/\[/g, '%5B')
+}
+
+/**
  * Build video embed HTML for YouTube videos
  */
 function buildVideoEmbedHtml(originalUrl: string, title: string): string {
@@ -121,8 +150,13 @@ function buildVideoEmbedHtml(originalUrl: string, title: string): string {
     ].join('\n')
   }
 
-  // Fallback to a simple link
-  return `> Watch the video here: [${sanitizedTitle}](${trimmedUrl})`
+  // Fallback to a simple link with sanitized URL
+  const sanitizedUrl = sanitizeUrlForMarkdown(trimmedUrl)
+  if (!sanitizedUrl) {
+    // Invalid or unsafe URL - return plain text instead of a link
+    return `> Video URL: ${sanitizedTitle}`
+  }
+  return `> Watch the video here: [${sanitizedTitle}](${sanitizedUrl})`
 }
 
 /**
@@ -369,6 +403,8 @@ export async function publishEvent(
   } catch (error) {
     console.error('Error publishing event:', error)
     failedRelays.push(...relays)
+  } finally {
+    await pool.close()
   }
 
   return { event, publishedRelays, failedRelays }

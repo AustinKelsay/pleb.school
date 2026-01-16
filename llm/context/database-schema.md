@@ -8,7 +8,7 @@ The database stores metadata, user data, and relationships. Content (titles, des
 
 ## Model Diagram
 
-```
+```text
 User ─┬─ Account (OAuth providers)
       ├─ Session (auth sessions)
       ├─ Role (admin/subscription)
