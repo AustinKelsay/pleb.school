@@ -1,214 +1,360 @@
 /**
- * Seed script to populate database with initial data
- * Mirrors the structure from the mock JSON files
+ * Demo Seed Script
+ *
+ * Populates the database with demo seed data for the pleb.school demo instance.
+ * Creates users, publishes content to Nostr, and sets up demo state.
+ *
+ * Usage:
+ *   npm run db:seed                    # Normal run (publishes to Nostr)
+ *   SEED_DRY_RUN=true npm run db:seed  # Dry run (skips Nostr publishing)
+ *
+ * Environment variables:
+ *   SEED_DRY_RUN=true   - Skip publishing to Nostr relays (useful for testing)
+ *   PRIVKEY_ENCRYPTION_KEY - Required for encrypting user private keys
  */
 
 import { PrismaClient } from '@prisma/client'
+import { encryptPrivkey } from '../src/lib/privkey-crypto'
+import { getPersonasWithKeys, getAdminPersonas, type SeedPersonaWithKeys } from './seed/personas'
+import {
+  createResourceEvent,
+  createCourseEvent,
+  createProfileEvent,
+  publishEvent,
+  isDryRun,
+  EVENT_KINDS,
+} from './seed/nostr-publisher'
+import { ALL_COURSES, ALL_STANDALONE, type CourseDefinition, type LessonDefinition } from './seed/content'
+import { createDemoState, type DemoStateConfig } from './seed/demo-state'
 
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Starting database seed...')
+  const dryRun = isDryRun()
 
-  // Create a test user first
-  const testUser = await prisma.user.upsert({
-    where: { email: 'test@example.com' },
-    update: {},
-    create: {
-      id: 'test-user-1',
-      email: 'test@example.com',
-      username: 'testuser',
-      pubkey: 'f33c8a9617cb15f705fc70cd461cfd6eaf22f9e24c33eabad981648e5ec6f741',
+  console.log('🌱 Starting enhanced database seed...')
+  if (dryRun) {
+    console.log('⚠️  DRY RUN MODE: Nostr events will be created but NOT published to relays')
+  }
+  console.log('')
+
+  // Track created IDs for demo state
+  const userIdMap = new Map<string, string>()
+  const courseIds: string[] = []
+  const resourceIds: string[] = []
+  const lessonIdsByCourse = new Map<string, string[]>()
+
+  // ============================================================
+  // STEP 1: Create Users
+  // ============================================================
+  console.log('📝 Creating seed users...')
+  const personas = getPersonasWithKeys()
+  const personaByIdMap = new Map<string, SeedPersonaWithKeys>()
+
+  for (const persona of personas) {
+    const encryptedPrivkey = encryptPrivkey(persona.privkey)
+
+    const user = await prisma.user.upsert({
+      where: { pubkey: persona.pubkey },
+      update: {
+        // Update mutable fields on re-run
+        username: persona.username,
+        displayName: persona.displayName,
+        avatar: persona.avatar,
+        banner: persona.banner,
+        nip05: persona.nip05,
+        lud16: persona.lud16,
+      },
+      create: {
+        id: persona.id,
+        pubkey: persona.pubkey,
+        privkey: encryptedPrivkey,
+        username: persona.username,
+        displayName: persona.displayName,
+        email: persona.email,
+        avatar: persona.avatar,
+        banner: persona.banner,
+        nip05: persona.nip05,
+        lud16: persona.lud16,
+        profileSource: persona.profileSource,
+        primaryProvider: persona.primaryProvider,
+      },
+    })
+
+    userIdMap.set(persona.id, user.id)
+    personaByIdMap.set(persona.id, persona)
+    console.log(`  ✅ ${persona.displayName} (${persona.pubkey.slice(0, 8)}...)`)
+  }
+
+  // ============================================================
+  // STEP 2: Create Admin Roles
+  // ============================================================
+  console.log('\n👑 Setting up admin roles...')
+  const adminPersonas = getAdminPersonas()
+
+  for (const adminPersona of adminPersonas) {
+    const userId = userIdMap.get(adminPersona.id)
+    if (userId) {
+      await prisma.role.upsert({
+        where: { userId },
+        update: { admin: true },
+        create: { userId, admin: true },
+      })
+      console.log(`  ✅ ${adminPersona.displayName} is now admin`)
     }
-  })
+  }
 
-  console.log('✅ Created test user')
+  // ============================================================
+  // STEP 3: Publish User Profiles to Nostr
+  // ============================================================
+  console.log('\n👤 Publishing user profiles to Nostr...')
 
-  // Create courses
-  const courses = [
-    {
-      id: 'f538f5c5-1a72-4804-8eb1-3f05cea64874',
-      userId: testUser.id,
-      price: 0,
-      submissionRequired: false,
-      noteId: 'd2797459e3f15491b39225a68146d3ec375f71d01b57cfe3a559179777e20912'
-    },
-    {
-      id: 'f6825391-831c-44da-904a-9ac3d149b7be',
-      userId: testUser.id,
-      price: 50000,
-      submissionRequired: true,
-      noteId: 'be71a57814cf6ac5a1a824546f7e0a891a754df941a07642d1b8022f0e048923'
-    },
-    {
-      id: 'b3a7d9f1-5c8e-4a2b-9f1d-3e7a8b2c4d6e',
-      userId: testUser.id,
-      price: 100000,
-      submissionRequired: false,
-      noteId: 'c3f8d9a2b7e1f4a5b8c2d7e9f1a3b5c7d9e2f4a6'
-    },
-    {
-      id: 'a2b5c8d1-7e9f-4b3c-8d2e-9f3a5b7c9d1e',
-      userId: testUser.id,
-      price: 0,
-      submissionRequired: false,
-      noteId: 'd4f9e0a3c8f2e5b7a9c3d8e0f2a4b6c8e0f3a5b7'
-    },
-    {
-      id: 'c3d6e9f2-8f0a-4c5d-9e3f-0a6b8c3d5e7f',
-      userId: testUser.id,
-      price: 75000,
-      submissionRequired: true,
-      noteId: 'e5f0a1b4d9f3e6c8b0d4e9f5b7c0e2a6f8b2c4d6'
-    },
-    {
-      id: 'd4e7f0a3-9a1b-4d6e-0f4g-1b7c9e4f6g8f',
-      userId: testUser.id,
-      price: 200000,
-      submissionRequired: false,
-      noteId: 'f6a1b5e0a4f6e7d9c1e5f0a8c9e3f5b8d0f6a8c0'
+  for (const persona of personas) {
+    // Skip publishing profile for users without profile data (e.g., anonymous users)
+    if (!persona.about) {
+      console.log(`  ⏭️  ${persona.displayName} (no profile data, skipping)`)
+      continue
     }
-  ]
 
-  for (const course of courses) {
+    const profileEvent = await createProfileEvent({
+      privkey: persona.privkey,
+      name: persona.displayName,
+      about: persona.about,
+      picture: persona.avatar,
+      banner: persona.banner,
+      nip05: persona.nip05,
+      lud16: persona.lud16,
+    })
+
+    const result = await publishEvent(profileEvent)
+    const relayInfo = dryRun ? '(dry-run)' : `${result.publishedRelays.length} relays`
+    console.log(`  📤 ${persona.displayName} profile -> ${relayInfo}`)
+  }
+
+  // ============================================================
+  // STEP 4: Publish Course Content
+  // ============================================================
+  console.log('\n📚 Publishing course content...')
+
+  for (const course of ALL_COURSES) {
+    const authorPersona = personaByIdMap.get(course.authorPersonaId)
+    if (!authorPersona) {
+      console.log(`  ⚠️  Skipping course "${course.title}": author not found`)
+      continue
+    }
+
+    const authorUserId = userIdMap.get(course.authorPersonaId)!
+    console.log(`\n  📖 Course: "${course.title}" by ${authorPersona.displayName}`)
+
+    // Track lesson references for the course event
+    const lessonReferences: Array<{ kind: number; pubkey: string; dTag: string }> = []
+    const courseLessonIds: string[] = []
+
+    // Publish each lesson
+    for (const lesson of course.lessons) {
+      const event = await createResourceEvent({
+        privkey: authorPersona.privkey,
+        dTag: lesson.id,
+        title: lesson.title,
+        summary: lesson.summary,
+        content: lesson.content,
+        image: lesson.image,
+        price: lesson.price,
+        topics: lesson.topics,
+        type: lesson.type,
+        videoUrl: lesson.videoUrl,
+      })
+
+      const result = await publishEvent(event)
+      const relayInfo = dryRun ? '(dry-run)' : `${result.publishedRelays.length} relays`
+      console.log(`    📤 "${lesson.title}" -> ${relayInfo}`)
+
+      // Create resource in database
+      await prisma.resource.upsert({
+        where: { id: lesson.id },
+        update: {
+          userId: authorUserId,
+          price: lesson.price,
+          noteId: event.id,
+          videoId: lesson.type === 'video' ? lesson.id : null,
+          videoUrl: lesson.type === 'video' ? lesson.videoUrl : null,
+        },
+        create: {
+          id: lesson.id,
+          userId: authorUserId,
+          price: lesson.price,
+          noteId: event.id,
+          videoId: lesson.type === 'video' ? lesson.id : null,
+          videoUrl: lesson.type === 'video' ? lesson.videoUrl : null,
+        },
+      })
+
+      resourceIds.push(lesson.id)
+
+      // Track for course event
+      const lessonKind = lesson.price > 0 ? EVENT_KINDS.CLASSIFIED_LISTING : EVENT_KINDS.LONG_FORM_CONTENT
+      lessonReferences.push({
+        kind: lessonKind,
+        pubkey: authorPersona.pubkey,
+        dTag: lesson.id,
+      })
+    }
+
+    // Publish the course event
+    const courseEvent = await createCourseEvent({
+      privkey: authorPersona.privkey,
+      dTag: course.id,
+      title: course.title,
+      description: course.description,
+      image: course.image,
+      price: course.price,
+      topics: course.topics,
+      lessonReferences,
+    })
+
+    const courseResult = await publishEvent(courseEvent)
+    const courseRelayInfo = dryRun ? '(dry-run)' : `${courseResult.publishedRelays.length} relays`
+    console.log(`    📤 Course event -> ${courseRelayInfo}`)
+
+    // Create course in database
     await prisma.course.upsert({
       where: { id: course.id },
-      update: {},
-      create: course
+      update: {
+        userId: authorUserId,
+        price: course.price,
+        noteId: courseEvent.id,
+        submissionRequired: false,
+      },
+      create: {
+        id: course.id,
+        userId: authorUserId,
+        price: course.price,
+        noteId: courseEvent.id,
+        submissionRequired: false,
+      },
     })
+
+    courseIds.push(course.id)
+
+    // Create lesson junction records
+    for (let i = 0; i < course.lessons.length; i++) {
+      const lesson = course.lessons[i]
+      const lessonId = `${course.id}-lesson-${i}`
+
+      await prisma.lesson.upsert({
+        where: {
+          courseId_index: {
+            courseId: course.id,
+            index: i,
+          },
+        },
+        update: {
+          resourceId: lesson.id,
+        },
+        create: {
+          id: lessonId,
+          courseId: course.id,
+          resourceId: lesson.id,
+          index: i,
+        },
+      })
+
+      courseLessonIds.push(lessonId)
+    }
+
+    lessonIdsByCourse.set(course.id, courseLessonIds)
   }
 
-  console.log(`✅ Created ${courses.length} courses`)
+  // ============================================================
+  // STEP 5: Publish Standalone Resources
+  // ============================================================
+  console.log('\n📄 Publishing standalone resources...')
 
-  // Create resources
-  const resources = [
-    // pleb.school Starter Course resources
-    {
-      id: '6d8260b3-c902-46ec-8aed-f3b8c8f1229b',
-      userId: testUser.id,
-      price: 0,
-      noteId: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-      videoId: null
-    },
-    {
-      id: 'f93827ed-68ad-4b5e-af33-f7424b37f0d6',
-      userId: testUser.id,
-      price: 0,
-      noteId: 'd3ac1f40bf07c045e97c43b6cbdf6f274de464d1c9d5a5c04d04d50fc12156c0',
-      videoId: 'starter-lesson-1'
-    },
-    {
-      id: '80aac9d4-8bef-4a92-9ee9-dea1c2d66c3a',
-      userId: testUser.id,
-      price: 0,
-      noteId: '234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1',
-      videoId: 'starter-lesson-2'
-    },
-    {
-      id: '6fe3cb4b-2571-4e3b-9159-db78325ee5cc',
-      userId: testUser.id,
-      price: 0,
-      noteId: '34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12',
-      videoId: 'starter-lesson-3'
-    },
-    {
-      id: 'e5399c72-9b95-46d6-a594-498e673b6c58',
-      userId: testUser.id,
-      price: 0,
-      noteId: '4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123',
-      videoId: 'starter-lesson-4'
-    },
-    {
-      id: 'a3083ab5-0187-4b77-83d1-29ae1f644559',
-      userId: testUser.id,
-      price: 0,
-      noteId: '567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234',
-      videoId: 'starter-lesson-5'
-    },
-    // Standalone resources
-    {
-      id: '6e138ca7-fa4f-470c-9146-fec270a9688e',
-      userId: testUser.id,
-      price: 0,
-      noteId: 'abd1b6682aaccbaf4260b0da05db07caa30977f663e33eb36eacc56d85e62fa7',
-      videoId: 'V_fvmyJ91m0'
-    },
-    {
-      id: 'e25f3d3b-f28b-4edd-a325-380564e6db7d',
-      userId: testUser.id,
-      price: 0,
-      noteId: '758149694299ce464c299f9b97a2c6a3e94536eeeeb939fa981d3b09dbf1cf11',
-      videoId: null
+  for (const resource of ALL_STANDALONE) {
+    const authorPersona = personaByIdMap.get(resource.authorPersonaId)
+    if (!authorPersona) {
+      console.log(`  ⚠️  Skipping resource "${resource.title}": author not found`)
+      continue
     }
-  ]
 
-  for (const resource of resources) {
+    const authorUserId = userIdMap.get(resource.authorPersonaId)!
+
+    const event = await createResourceEvent({
+      privkey: authorPersona.privkey,
+      dTag: resource.id,
+      title: resource.title,
+      summary: resource.summary,
+      content: resource.content,
+      image: resource.image,
+      price: resource.price,
+      topics: resource.topics,
+      type: resource.type,
+      videoUrl: resource.videoUrl,
+    })
+
+    const result = await publishEvent(event)
+    const relayInfo = dryRun ? '(dry-run)' : `${result.publishedRelays.length} relays`
+    const priceInfo = resource.price > 0 ? ` (${resource.price} sats)` : ' (free)'
+    console.log(`  📤 "${resource.title}"${priceInfo} -> ${relayInfo}`)
+
+    // Create resource in database
     await prisma.resource.upsert({
       where: { id: resource.id },
-      update: {},
-      create: resource
-    })
-  }
-
-  console.log(`✅ Created ${resources.length} resources`)
-
-  // Create lessons for courses
-  const lessons = [
-    // pleb.school Starter Course lessons
-    {
-      id: 'lesson-1',
-      courseId: 'f538f5c5-1a72-4804-8eb1-3f05cea64874',
-      resourceId: '6d8260b3-c902-46ec-8aed-f3b8c8f1229b',
-      index: 0
-    },
-    {
-      id: 'lesson-2',
-      courseId: 'f538f5c5-1a72-4804-8eb1-3f05cea64874',
-      resourceId: 'f93827ed-68ad-4b5e-af33-f7424b37f0d6',
-      index: 1
-    },
-    {
-      id: 'lesson-3',
-      courseId: 'f538f5c5-1a72-4804-8eb1-3f05cea64874',
-      resourceId: '80aac9d4-8bef-4a92-9ee9-dea1c2d66c3a',
-      index: 2
-    },
-    {
-      id: 'lesson-4',
-      courseId: 'f538f5c5-1a72-4804-8eb1-3f05cea64874',
-      resourceId: '6fe3cb4b-2571-4e3b-9159-db78325ee5cc',
-      index: 3
-    },
-    {
-      id: 'lesson-5',
-      courseId: 'f538f5c5-1a72-4804-8eb1-3f05cea64874',
-      resourceId: 'e5399c72-9b95-46d6-a594-498e673b6c58',
-      index: 4
-    },
-    {
-      id: 'lesson-6',
-      courseId: 'f538f5c5-1a72-4804-8eb1-3f05cea64874',
-      resourceId: 'a3083ab5-0187-4b77-83d1-29ae1f644559',
-      index: 5
-    }
-  ]
-
-  for (const lesson of lessons) {
-    await prisma.lesson.upsert({
-      where: { 
-        courseId_index: {
-          courseId: lesson.courseId,
-          index: lesson.index
-        }
+      update: {
+        userId: authorUserId,
+        price: resource.price,
+        noteId: event.id,
+        videoId: resource.type === 'video' ? resource.id : null,
+        videoUrl: resource.type === 'video' ? resource.videoUrl : null,
       },
-      update: {},
-      create: lesson
+      create: {
+        id: resource.id,
+        userId: authorUserId,
+        price: resource.price,
+        noteId: event.id,
+        videoId: resource.type === 'video' ? resource.id : null,
+        videoUrl: resource.type === 'video' ? resource.videoUrl : null,
+      },
     })
+
+    resourceIds.push(resource.id)
   }
 
-  console.log(`✅ Created ${lessons.length} lessons`)
+  // ============================================================
+  // STEP 6: Create Demo State
+  // ============================================================
+  console.log('\n🎮 Creating demo state...')
 
+  const demoConfig: DemoStateConfig = {
+    userIdMap,
+    courseIds,
+    resourceIds,
+    lessonIdsByCourse,
+  }
+
+  await createDemoState(prisma, demoConfig)
+
+  // ============================================================
+  // Summary
+  // ============================================================
+  console.log('\n' + '='.repeat(50))
   console.log('🎉 Database seed completed!')
+  console.log('='.repeat(50))
+  console.log(`
+Summary:
+  Users created:     ${personas.length}
+  Courses created:   ${courseIds.length}
+  Resources created: ${resourceIds.length}
+  Admin roles:       ${adminPersonas.length}
+
+${dryRun ? '⚠️  DRY RUN: No events were published to Nostr relays.' : '✅ Events published to Nostr relays.'}
+
+To run with real publishing:
+  npm run db:seed
+
+To run in dry-run mode (no Nostr publishing):
+  SEED_DRY_RUN=true npm run db:seed
+`)
 }
 
 main()

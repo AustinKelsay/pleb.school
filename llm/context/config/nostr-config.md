@@ -56,7 +56,6 @@ src/lib/nostr-relays.ts
       "wss://relay.damus.io",
       "wss://relay.primal.net",
       "wss://nostr.land",
-      "wss://purplerelay.com",
       "wss://nostr.wine"
     ],
     "zapThreads": [
