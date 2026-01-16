@@ -172,7 +172,13 @@ async function main() {
       // Create resource in database
       await prisma.resource.upsert({
         where: { id: lesson.id },
-        update: { noteId: event.id },
+        update: {
+          userId: authorUserId,
+          price: lesson.price,
+          noteId: event.id,
+          videoId: lesson.type === 'video' ? lesson.id : null,
+          videoUrl: lesson.type === 'video' ? lesson.videoUrl : null,
+        },
         create: {
           id: lesson.id,
           userId: authorUserId,
@@ -213,7 +219,12 @@ async function main() {
     // Create course in database
     await prisma.course.upsert({
       where: { id: course.id },
-      update: { noteId: courseEvent.id },
+      update: {
+        userId: authorUserId,
+        price: course.price,
+        noteId: courseEvent.id,
+        submissionRequired: false,
+      },
       create: {
         id: course.id,
         userId: authorUserId,
@@ -237,7 +248,9 @@ async function main() {
             index: i,
           },
         },
-        update: {},
+        update: {
+          resourceId: lesson.id,
+        },
         create: {
           id: lessonId,
           courseId: course.id,
@@ -287,7 +300,13 @@ async function main() {
     // Create resource in database
     await prisma.resource.upsert({
       where: { id: resource.id },
-      update: { noteId: event.id },
+      update: {
+        userId: authorUserId,
+        price: resource.price,
+        noteId: event.id,
+        videoId: resource.type === 'video' ? resource.id : null,
+        videoUrl: resource.type === 'video' ? resource.videoUrl : null,
+      },
       create: {
         id: resource.id,
         userId: authorUserId,
