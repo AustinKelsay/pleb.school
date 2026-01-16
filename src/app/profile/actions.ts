@@ -36,7 +36,7 @@ const BasicProfileSchema = z.object({
       }
       return val
     },
-    z.string().email('Invalid email').optional()
+    z.email().optional()
   )
 })
 

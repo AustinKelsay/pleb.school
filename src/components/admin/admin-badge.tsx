@@ -84,7 +84,7 @@ export function AdminOnly({ children, fallback = null, requireAdmin = false }: A
 interface PermissionCheckProps {
   children: React.ReactNode
   fallback?: React.ReactNode
-  permission: 'createCourse' | 'viewAnalytics' | 'manageUsers' | 'moderateContent'
+  permission: 'createCourse' | 'viewOwnAnalytics' | 'viewPlatformAnalytics' | 'manageUsers' | 'moderateContent'
 }
 
 export function PermissionCheck({ children, fallback = null, permission }: PermissionCheckProps) {

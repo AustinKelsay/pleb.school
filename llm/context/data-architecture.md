@@ -4,7 +4,7 @@ Database adapter pattern for pleb.school. Located in `src/lib/db-adapter.ts`.
 
 ## Overview
 
-Clean data access abstraction using Prisma with optional Nostr event hydration. Server-side adapters handle database operations; client-side hooks fetch Nostr content.
+Clean data access abstraction using Prisma with optional Nostr event hydration. Server-side adapters handle database operations; client-side fetches can hydrate Nostr events (note fetch is client-only in `findByIdWithNote`).
 
 ## Core Adapters
 
@@ -19,8 +19,7 @@ const courses = await CourseAdapter.findAll()
 // Find with pagination
 const { data, pagination } = await CourseAdapter.findAllPaginated({
   page: 1,
-  pageSize: 20,
-  userId: session?.user?.id // Include purchase info
+  pageSize: 20
 })
 
 // Find by ID
@@ -32,10 +31,22 @@ const courseWithNote = await CourseAdapter.findByIdWithNote(id)
 // Find by noteId (Nostr event ID)
 const course = await CourseAdapter.findByNoteId(noteId)
 
-// CRUD
-const created = await CourseAdapter.create({ title, description, ... })
-const updated = await CourseAdapter.update(id, { title: 'New Title' })
+// CRUD (Course has no title/description columns; those live in Nostr events)
+const created = await CourseAdapter.create({
+  userId,
+  price: 0,
+  noteId: null,
+  submissionRequired: false
+})
+const updated = await CourseAdapter.update(id, { price: 2100 })
 const deleted = await CourseAdapter.delete(id)
+
+// Course deletion checks for purchases AND lessons
+// API route blocks deletion if course has associated lessons
+const lessonCount = await LessonAdapter.countByCourse(courseId)
+if (lessonCount > 0) {
+  // Returns 409 Conflict with count of lessons
+}
 ```
 
 ### ResourceAdapter
@@ -61,6 +72,7 @@ const { data, pagination } = await ResourceAdapter.findAllPaginated({
 const resource = await ResourceAdapter.findById(id, userId)
 const resource = await ResourceAdapter.findByNoteId(noteId)
 const resource = await ResourceAdapter.findByVideoId(videoId)
+const resourceWithNote = await ResourceAdapter.findByIdWithNote(id, userId)
 
 // Filter by price
 const freeResources = await ResourceAdapter.findFree()
@@ -78,11 +90,14 @@ import { LessonAdapter } from '@/lib/db-adapter'
 // Find by course
 const lessons = await LessonAdapter.findByCourseId(courseId)
 
+// Count lessons (used for course deletion check)
+const count = await LessonAdapter.countByCourse(courseId)
+
 // Find by resource
 const lessons = await LessonAdapter.findByResourceId(resourceId)
 
 // CRUD
-const lesson = await LessonAdapter.create({ courseId, resourceId, index, title })
+const lesson = await LessonAdapter.create({ courseId, resourceId, draftId, index })
 const updated = await LessonAdapter.update(id, { index: 2 })
 const deleted = await LessonAdapter.delete(id)
 ```
@@ -95,24 +110,67 @@ import { PurchaseAdapter } from '@/lib/db-adapter'
 // Check user purchases
 const coursePurchases = await PurchaseAdapter.findByUserAndCourse(userId, courseId)
 const resourcePurchases = await PurchaseAdapter.findByUserAndResource(userId, resourceId)
+const purchaseCount = await PurchaseAdapter.countByCourse(courseId)
 ```
 
 ## Nostr Event Hydration
 
-Database stores metadata; Nostr stores content. Combine them for display:
+Database stores metadata (price, userId, timestamps); Nostr stores content (title, description, image). The `findByIdWithNote` methods fetch Nostr events **client-side only** - on the server they return `note: null`.
+
+### Server-Only (DB metadata without Nostr content)
 
 ```typescript
-import { CourseAdapter, CourseWithNote } from '@/lib/db-adapter'
-import { createCourseDisplay } from '@/data/types'
+import { CourseAdapter } from '@/lib/db-adapter'
 
-// Server: get course with Nostr event
+// Server component or API route - returns DB fields only
+const course = await CourseAdapter.findById(id, userId)
+// course.price, course.userId, course.noteId available
+// course has NO title/description (those are in Nostr)
+```
+
+### Client-Side Hydration (DB + Nostr merged)
+
+```typescript
+'use client'
+import { CourseAdapter, CourseWithNote } from '@/lib/db-adapter'
+import { createCourseDisplay, parseCourseEvent } from '@/data/types'
+
+// Client component - fetches from Nostr relays
 const courseWithNote: CourseWithNote = await CourseAdapter.findByIdWithNote(id)
 
-// Create display object merging DB + Nostr
+// courseWithNote.note is populated on client, null on server
 if (courseWithNote.note) {
-  const display = createCourseDisplay(courseWithNote, courseWithNote.note)
+  const parsed = parseCourseEvent(courseWithNote.note)  // Extract title, description, image
+  const display = createCourseDisplay(courseWithNote, parsed)  // Merge DB + Nostr
+  // display.title, display.description, display.price all available
 }
 ```
+
+### Resource Hydration Pattern
+
+Resources follow the same pattern with `parseEvent` + `createResourceDisplay`:
+
+```typescript
+'use client'
+import { ResourceAdapter } from '@/lib/db-adapter'
+import { createResourceDisplay, parseEvent } from '@/data/types'
+
+const resourceWithNote = await ResourceAdapter.findByIdWithNote(id, userId)
+
+if (resourceWithNote.note) {
+  const parsed = parseEvent(resourceWithNote.note)
+  const display = createResourceDisplay(resourceWithNote, parsed)
+}
+```
+
+### Server-Side Hydration (requires caching)
+
+For SSR with Nostr content, you'd need to:
+1. Cache Nostr events in the database or Redis
+2. Fetch from cache on server, fall back to client fetch
+3. Or use a server-side Nostr client with relay connections
+
+Currently, the app uses client-side hydration for simplicity.
 
 ## Type Transformations
 

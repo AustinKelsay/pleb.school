@@ -2,6 +2,8 @@
 
 ## Table of Contents
 - [Profile APIs](#profile-apis)
+- [Profile Content APIs](#profile-content-apis)
+- [Profile Nostr APIs](#profile-nostr-apis)
 - [Account Management APIs](#account-management-apis)
 - [Account Preferences APIs](#account-preferences-apis)
 - [Sync APIs](#sync-apis)
@@ -67,7 +69,7 @@ Fetches aggregated profile data from all linked accounts with source tracking.
     "source": "nostr"
   },
   "pubkey": {
-    "value": "npub1...",
+    "value": "f7234bd4c1394dda46d09f35bd384dd30cc552ad5541990f98844fb06676e9ca",
     "source": "nostr"
   },
   "nip05": {
@@ -91,18 +93,21 @@ Fetches aggregated profile data from all linked accounts with source tracking.
         "company": "Bitcoin Corp"
       },
       "isConnected": true,
-      "isPrimary": true
+      "isPrimary": true,
+      "alternatives": {
+        "name": { "value": "John Doe", "source": "github" }
+      }
     },
     {
       "provider": "nostr",
-      "providerAccountId": "npub1...",
+      "providerAccountId": "f7234bd4c1394dda46d09f35bd384dd30cc552ad5541990f98844fb06676e9ca",
       "data": {
         "name": "John Doe",
         "about": "Bitcoin developer",
         "website": "https://johndoe.com",
         "nip05": "john@nostr.example",
         "lud16": "john@getalby.com",
-        "pubkey": "npub1..."
+        "pubkey": "f7234bd4c1394dda46d09f35bd384dd30cc552ad5541990f98844fb06676e9ca"
       },
       "isConnected": true,
       "isPrimary": false
@@ -117,6 +122,65 @@ Fetches aggregated profile data from all linked accounts with source tracking.
 **Error Responses**:
 - `401 Unauthorized` - No valid session
 - `500 Internal Server Error` - Failed to aggregate data
+
+## Profile Content APIs
+
+### GET /api/profile/content
+
+Returns the current user's published courses/resources plus basic revenue stats.
+
+**Authentication**: Required
+
+**Query Parameters**:
+- `type` (optional): `all` | `courses` | `resources` (default `all`)
+- `limit` (optional): max 200 items returned per type
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "resources": [],
+    "courses": [],
+    "stats": {
+      "totalResources": 0,
+      "totalCourses": 0,
+      "paidResources": 0,
+      "freeResources": 0,
+      "paidCourses": 0,
+      "freeCourses": 0,
+      "totalPurchases": 0,
+      "totalRevenueSats": 0,
+      "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+## Profile Nostr APIs
+
+### GET /api/profile/nostr
+
+Fetches the latest Nostr profile metadata for the current session pubkey.
+
+**Authentication**: Required
+
+**Response**: `200 OK`
+```json
+{
+  "profile": {
+    "name": "Alice",
+    "picture": "https://...",
+    "banner": "https://...",
+    "nip05": "alice@nostr.example",
+    "lud16": "alice@getalby.com"
+  }
+}
+```
+
+**Error Responses**:
+- `400 Bad Request` - No Nostr pubkey on the session
+- `500 Internal Server Error` - Relay fetch failed
 
 ## Account Management APIs
 
@@ -141,6 +205,7 @@ Returns all linked accounts for the current user.
 Notes:
 - Provider identifiers are not included here. For `providerAccountId` values, see `/api/profile/aggregated`.
 - `createdAt` is the timestamp when the provider was linked.
+- `profileSource` can be `null` for legacy users; the UI derives a fallback from `primaryProvider`.
 
 ### POST /api/account/link
 
@@ -156,6 +221,10 @@ Links a new account to the current user.
 }
 ```
 
+Notes:
+- `provider` accepts `nostr`, `email`, `github`, or `anonymous` (UI only exposes `nostr`, `email`, `github`).
+- Nostr account IDs must be 64-char hex pubkeys (nsec/npub are rejected here).
+
 **Response**: `200 OK`
 ```json
 {
@@ -165,14 +234,13 @@ Links a new account to the current user.
 ```
 
 **Error Responses**:
-- `400 Bad Request` - Invalid provider or missing data
-- `409 Conflict` - Account already linked to another user
+- `400 Bad Request` - Invalid provider/missing data or account already linked
 - `401 Unauthorized` - No valid session
 
 Linking a Nostr account additionally:
 - Normalises the pubkey, replaces `User.pubkey`, and clears any stored `privkey`.
 - Sets `primaryProvider = 'nostr'` and `profileSource = 'nostr'`.
-- Triggers a Nostr profile sync so name/avatar/nip05/lud16/banner update immediately.
+- Triggers a best-effort Nostr profile sync so name/avatar/nip05/lud16/banner update when relays are reachable.
 
 ### POST /api/account/unlink
 
@@ -186,6 +254,9 @@ Unlinks an account from the current user.
   "provider": "github"
 }
 ```
+
+Notes:
+- `provider` accepts `nostr`, `email`, `github`, `anonymous`, `recovery`.
 
 **Response**: `200 OK`
 ```json
@@ -215,6 +286,9 @@ Fetches user's account preferences.
 }
 ```
 
+Notes:
+- If unset, `primaryProvider` falls back to `session.provider` (or `email`).
+
 ### POST /api/account/preferences
 
 Updates user's account preferences.
@@ -228,6 +302,9 @@ Updates user's account preferences.
   "primaryProvider": "nostr"
 }
 ```
+
+Notes:
+- `primaryProvider` may be set to `"current"` to keep the existing provider while changing `profileSource`.
 
 **Response**: `200 OK`
 ```json
@@ -253,6 +330,9 @@ Changes the user's primary authentication provider.
 { "provider": "nostr" }
 ```
 
+Notes:
+- `provider` accepts `nostr`, `email`, `github`, `anonymous`, `recovery`.
+
 **Response**: `200 OK`
 ```json
 { "success": true, "message": "Successfully changed primary provider to nostr" }
@@ -266,7 +346,7 @@ Changes the user's primary authentication provider.
 
 ### POST /api/account/sync
 
-Syncs profile data from a specific provider.
+Syncs profile data from a specific linked provider (token-aware).
 
 **Authentication**: Required
 
@@ -282,30 +362,68 @@ Syncs profile data from a specific provider.
 {
   "success": true,
   "message": "Profile synced from github",
-  "updated": ["username", "avatar", "email", "location", "company"]
+  "updated": ["username", "avatar", "banner", "email"]
 }
 ```
 
 **Sync Behavior by Provider**:
 
 #### GitHub Sync
-- Fetches latest profile from GitHub API
-- Updates: username, email, avatar, location, company
-- Requires valid access_token
+- Fetches latest profile from GitHub API using stored OAuth tokens.
+- Attempts token refresh on 401; if refresh fails, returns 401 and clears tokens.
+- Updates: username, avatar, banner (from GitHub `bio`), and email when present.
 
 #### Nostr Sync
-- Fetches profile from Nostr relays
-- Updates: username, avatar, banner, nip05, lud16, about
-- Uses relay pool for redundancy
+- Fetches profile from Nostr relays using the linked `providerAccountId` (hex pubkey).
+- Updates: username, avatar, banner, nip05, lud16.
 
 #### Email Sync
-- No external sync (email is static)
-- Returns success with no updates
+- Uses the linked email account’s `providerAccountId` as the source of truth.
+- If `User.email` is missing or differs, it is updated; otherwise returns “No updates found from provider.”
+
+#### Current Sync
+- `provider: "current"` returns success with a no-op message (no updates performed).
 
 **Error Responses**:
 - `400 Bad Request` - Provider not linked or unsupported
 - `401 Unauthorized` - No valid session
 - `500 Internal Server Error` - Sync failed
+
+### POST /api/profile/sync
+
+Profile-aware sync that respects the account's `profileSource` rules.
+
+**Authentication**: Required
+
+**Request Body**:
+```json
+{
+  "provider": "nostr"
+}
+```
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "message": "Successfully synced full profile from Nostr",
+  "profile": {
+    "name": "alice",
+    "email": "alice@example.com",
+    "image": "https://...",
+    "nip05": "alice@nostr.example",
+    "lud16": "alice@getalby.com",
+    "banner": "https://...",
+    "provider": "nostr",
+    "syncedAt": "2025-01-01T00:00:00.000Z"
+  }
+}
+```
+
+Notes:
+- For `nostr`, OAuth-first accounts only update enhanced fields (nip05, lud16, banner); Nostr-first accounts run a full sync.
+- For `github`, the current implementation updates `username` from the linked account’s `providerAccountId` (no live GitHub API call).
+- For `email`, returns success if an email exists; otherwise returns `400`.
 
 ## OAuth Linking APIs
 
@@ -382,7 +500,7 @@ Sends verification email for account linking.
 
 **Error Responses**:
 - `400 Bad Request` - Invalid email format
-- `409 Conflict` - Email already linked
+- `400 Bad Request` - Email already linked
 - `401 Unauthorized` - No valid session
 - `429 Too Many Requests` - Rate limit exceeded (includes `Retry-After` header)
 - `500 Internal Server Error` - Failed to send email
@@ -390,6 +508,8 @@ Sends verification email for account linking.
 ### POST /api/account/verify-email
 
 Completes email linking by verifying a short code (token) with a lookup reference.
+
+**Authentication**: Not required (uses token + ref)
 
 **Request Body**:
 ```json
@@ -404,7 +524,7 @@ Completes email linking by verifying a short code (token) with a lookup referenc
 ```
 
 **Error Responses**:
-- `400 Bad Request` with `error` set to `invalid_token`, `token_expired`, `token_mismatch`, or `invalid_token_format`
+- `400 Bad Request` with `error` set to `invalid_token`, `token_expired`, `token_mismatch`, `invalid_token_format`, or `Invalid request data`
 - `429 Too Many Requests` with `error` set to `too_many_attempts` (includes `Retry-After` header)
 - `500 Internal Server Error` with `error` set to `verification_error`
 
@@ -455,6 +575,15 @@ Updates enhanced profile fields for all account types.
   nip05?: string   // Nostr address (user@domain.com)
   lud16?: string   // Lightning address  
   banner?: string  // Valid URL for banner image
+  signedEvent?: {  // Required for Nostr-first accounts
+    id: string
+    pubkey: string
+    created_at: number
+    kind: 0
+    tags: string[][]
+    content: string
+    sig: string
+  }
 }
 ```
 
@@ -465,13 +594,17 @@ Updates enhanced profile fields for all account types.
   message: string
   updates?: string[]     // Fields that were updated
   isNostrFirst?: boolean // Warning about potential override
+  publishedToNostr?: boolean
+  publishMode?: "server-sign" | "signed-event" | null
+  nostrProfile?: Record<string, any> | null
   errors?: ZodIssue[]    // Validation errors if any
 }
 ```
 
 **Notes**:
 - Available to all users
-- For Nostr-first accounts, may be overridden by next sync
+- For Nostr-first accounts, a signed kind 0 event is required and published to relays; DB fields may still be overridden by future syncs
+- For OAuth-first accounts, DB updates are applied and a best-effort relay publish is attempted
 - URL validation for banner field
 
 ### updateAccountPreferences
@@ -504,15 +637,18 @@ Updates account configuration (profile source, primary provider).
 
 ## Error Handling
 
-All APIs return structured error responses following this format:
+Most profile/account APIs return JSON error payloads like:
 
 ```json
 {
   "error": "Descriptive error message",
-  "code": "ERROR_CODE",
   "details": {} // Optional additional context
 }
 ```
+
+Notes:
+- Some endpoints include `message`, `retryAfter`, or `success` fields in addition to `error`.
+- OAuth linking endpoints (`/api/account/link-oauth`, `/api/account/oauth-callback`) redirect and pass error info via query params.
 
 ### HTTP Status Codes
 
@@ -560,13 +696,13 @@ DATABASE_URL=postgresql://user:pass@host:5432/dbname
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-secret-key-min-32-chars
 
-# Email (for verification via Nodemailer)
-EMAIL_SERVER_HOST=smtp.example.com
-EMAIL_SERVER_PORT=587
-EMAIL_SERVER_USER=user
-EMAIL_SERVER_PASSWORD=pass
-EMAIL_SERVER_SECURE=false
-EMAIL_FROM=noreply@example.com
+# Key encryption (REQUIRED in production)
+# ⚠️ WARNING: Without a stable key, encrypted privkeys become unrecoverable after restart.
+# In dev, an ephemeral key is auto-generated if unset, but anonymous account keypairs
+# will be lost on restart. Use a stable 32-byte key (hex or base64) if you need
+# persistent encrypted privkeys. Ephemeral keys are only safe for throwaway/test data.
+# Generate with: openssl rand -hex 32
+PRIVKEY_ENCRYPTION_KEY=hex-or-base64-32-byte-key
 ```
 
 ### Optional Variables
@@ -580,12 +716,20 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
 GITHUB_LINK_CLIENT_ID=separate-app-client-id
 GITHUB_LINK_CLIENT_SECRET=separate-app-secret
 
+# Email (required only if you enable email linking)
+EMAIL_SERVER_HOST=smtp.example.com
+EMAIL_SERVER_PORT=587
+EMAIL_SERVER_USER=user
+EMAIL_SERVER_PASSWORD=pass
+EMAIL_SERVER_SECURE=false
+EMAIL_FROM=noreply@example.com
+
 # CORS (middleware)
 ALLOWED_ORIGINS=http://localhost:3000
 
-# Cache Configuration
-CACHE_TTL=300000  # 5 minutes in ms
-CACHE_MAX_SIZE=1000
+# Vercel KV (rate limiting + view counters)
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
 ```
 
 ### Development Variables
@@ -593,8 +737,6 @@ CACHE_MAX_SIZE=1000
 ```env
 # Development only
 NODE_ENV=development
-DEBUG=true
-LOG_LEVEL=debug
 ```
 
-Note: Nostr relays used for profile sync are defined in code (relay.nostr.band, nos.lol, relay.damus.io).
+Note: Nostr **profile fetch** uses the fixed relay list in `src/lib/nostr-profile.ts` (relay.nostr.band, nos.lol, damus). Relay publishing uses `getRelays(...)` from `config/nostr.json`.

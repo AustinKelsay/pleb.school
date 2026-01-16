@@ -1,6 +1,10 @@
 /**
  * Production-ready caching layer for the pleb.school application
- * Provides hierarchical caching with memory (L1) and optional Redis (L2) support
+ * 
+ * In-memory only caching with TTL support, oldest-entry (FIFO) eviction when max size
+ * is reached, pattern invalidation, and tagged caching. Uses FIFO eviction rather than
+ * true LRU for simplicity/performance tradeoff and memory predictability. See
+ * llm/context/caching-patterns.md for full details.
  */
 
 export interface CacheEntry<T> {

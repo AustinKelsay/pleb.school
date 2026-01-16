@@ -35,10 +35,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
+    // Convert null → undefined for Zod .optional() compatibility
     const queryResult = querySchema.safeParse({
-      page: searchParams.get('page'),
-      pageSize: searchParams.get('pageSize'),
-      userId: searchParams.get('userId')
+      page: searchParams.get('page') ?? undefined,
+      pageSize: searchParams.get('pageSize') ?? undefined,
+      userId: searchParams.get('userId') ?? undefined
     })
 
     if (!queryResult.success) {

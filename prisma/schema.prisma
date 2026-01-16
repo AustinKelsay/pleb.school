@@ -40,6 +40,9 @@ model User {
   // Account linking fields
   primaryProvider          String? // Track which provider is primary (nostr, email, github, anonymous)
   profileSource            String?                   @default("oauth") // "nostr" or "oauth" - determines profile field priority
+  // Secure reconnect token for anonymous accounts (replaces plaintext privkey in localStorage)
+  // Indexed for O(1) lookup during token-based reconnection
+  anonReconnectTokenHash   String? @unique /// SHA-256 hash of reconnect token for anonymous session persistence
   platformNip05            PlatformNip05?
   platformLightningAddress PlatformLightningAddress?
   userBadges               UserBadge[]

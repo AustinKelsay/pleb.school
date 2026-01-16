@@ -1,15 +1,29 @@
 /**
  * OAuth Account Linking Initiation Endpoint
- * 
+ *
  * Initiates OAuth flow for linking additional accounts (GitHub, etc.)
- * This endpoint generates the OAuth URL with proper state for account linking
+ * This endpoint generates the OAuth URL with proper state for account linking.
+ *
+ * Security:
+ * - Uses POST to prevent CSRF via img tags/prefetch
+ * - State parameter is cryptographically signed to prevent CSRF attacks
+ *
+ * See: llm/implementation/ACCOUNT_LINKING_IMPLEMENTATION.md
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { createSignedState } from '@/lib/oauth-state'
+import { auditLog } from '@/lib/audit-logger'
+import { z } from 'zod'
 
-export async function GET(request: NextRequest) {
+const LinkOAuthSchema = z.object({
+  provider: z.enum(['github'])
+})
+
+// Changed from GET to POST to prevent CSRF attacks via img tags, prefetch, etc.
+export async function POST(request: NextRequest) {
   try {
     // Check authentication
     const session = await getServerSession(authOptions)
@@ -20,16 +34,26 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get provider from query params
-    const searchParams = request.nextUrl.searchParams
-    const provider = searchParams.get('provider')
-    
-    if (!provider || !['github'].includes(provider)) {
+    // Parse and validate request body
+    let body
+    try {
+      body = await request.json()
+    } catch {
       return NextResponse.json(
-        { error: 'Invalid provider' },
+        { error: 'Invalid JSON body' },
         { status: 400 }
       )
     }
+
+    const validation = LinkOAuthSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid provider', details: validation.error.issues },
+        { status: 400 }
+      )
+    }
+
+    const { provider } = validation.data
 
     // For GitHub OAuth
     if (provider === 'github') {
@@ -42,12 +66,19 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      // Create state with user ID and linking flag
-      const state = Buffer.from(JSON.stringify({
+      // Create cryptographically signed state with user ID and linking flag
+      // This prevents CSRF attacks where an attacker could craft a state
+      // with a victim's userId and link their own OAuth account to victim's profile
+      const state = createSignedState({
         userId: session.user.id,
         action: 'link',
         provider: 'github'
-      })).toString('base64')
+      })
+
+      // Audit log OAuth link initiation
+      auditLog(session.user.id, 'account.link.initiate', {
+        provider: 'github'
+      }, request)
 
       // Build GitHub OAuth URL with our custom callback for account linking
       const params = new URLSearchParams({
@@ -58,8 +89,9 @@ export async function GET(request: NextRequest) {
       })
 
       const githubAuthUrl = `https://github.com/login/oauth/authorize?${params.toString()}`
-      
-      return NextResponse.redirect(githubAuthUrl)
+
+      // Return URL instead of redirecting, let client handle navigation
+      return NextResponse.json({ url: githubAuthUrl })
     }
 
     return NextResponse.json(

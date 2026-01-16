@@ -6,7 +6,7 @@ import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { z } from 'zod'
 
 const paramsSchema = z.object({
-  id: z.string().uuid('Invalid resource ID'),
+  id: z.string().uuid({ message: 'Invalid resource ID' }),
 })
 
 const republishSchema = z

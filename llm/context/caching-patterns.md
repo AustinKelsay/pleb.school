@@ -4,13 +4,13 @@ Production-ready caching layer for pleb.school. Located in `src/lib/cache.ts`.
 
 ## Overview
 
-Hierarchical caching with in-memory L1 cache. Supports TTL, LRU eviction, pattern invalidation, and tagged caching.
+In-memory caching only. Supports TTL, oldest-entry eviction when max size is hit (not true LRU), pattern invalidation, and tagged caching. There is no Redis/L2 cache wired up in the current codebase.
 
 ## Core Classes
 
 ### DataCache
 
-Basic cache with TTL and LRU eviction.
+Basic cache with TTL and oldest-entry eviction when `maxSize` is reached.
 
 ```typescript
 import { globalCache } from '@/lib/cache'
@@ -51,7 +51,7 @@ taggedCache.invalidateTag('user:456')
 
 ```typescript
 const cache = new DataCache({
-  maxSize: 1000,     // Max entries before LRU eviction
+  maxSize: 1000,     // Max entries before oldest-entry eviction
   defaultTtl: 300000 // 5 minutes default
 })
 ```

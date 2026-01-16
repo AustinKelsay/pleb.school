@@ -193,7 +193,7 @@ Contains icons for authentication providers, security indicators, and account ma
 
 ### config/payments.json Icons
 
-Contains icons for interaction metrics.
+Contains icons for interaction metrics, payment status, and purchase UI.
 
 ```json
 {
@@ -202,6 +202,15 @@ Contains icons for interaction metrics.
       "zap": "Zap",
       "heart": "Heart",
       "comment": "MessageCircle"
+    },
+    "status": {
+      "success": "CircleCheck",
+      "pending": "Loader2",
+      "error": "TriangleAlert"
+    },
+    "purchase": {
+      "shieldCheck": "ShieldCheck",
+      "wallet": "Wallet"
     }
   }
 }
@@ -248,6 +257,8 @@ Each category also has `getAll<Category>Icons()` returning `Record<string, Lucid
 | Function | Keys | Default Fallback |
 |----------|------|------------------|
 | `getInteractionIcon(key)` | zap, heart, comment | Zap |
+| `getPaymentStatusIcon(key)` | success, pending, error | Info |
+| `getPurchaseIcon(key)` | shieldCheck, wallet | ShieldCheck |
 
 ### From icons-config.ts (Core Utilities)
 
@@ -293,7 +304,6 @@ export function Header() {
 - Icons resolve once, not on every render
 - React can optimize these constants
 - Declarative at top of file
-- Required by ESLint rule `react-hooks/static-components`
 
 ### Component-Level Resolution
 
@@ -498,6 +508,21 @@ Object.entries(allIcons).map(([key, Icon]) => (
 | heart | Heart | Like/heart |
 | comment | MessageCircle | Comment bubble |
 
+### Payment Status Icons (payments.json)
+
+| Key | Icon | Usage |
+|-----|------|-------|
+| success | CircleCheck | Success status |
+| pending | Loader2 | Pending/in-progress |
+| error | TriangleAlert | Error status |
+
+### Purchase Icons (payments.json)
+
+| Key | Icon | Usage |
+|-----|------|-------|
+| shieldCheck | ShieldCheck | Purchase security badge |
+| wallet | Wallet | Wallet/payment badge |
+
 ---
 
 ## Non-Configurable Icons
@@ -685,4 +710,14 @@ npm run build && npm run lint
 
 ---
 
-*Generated: 2025-12-06*
+## Related Documentation
+
+- [config-system.md](../context/config-system.md) - Config system overview
+- [auth-config.md](../context/config/auth-config.md) - Auth icons configuration
+- [content-config.md](../context/config/content-config.md) - Content type and category icons
+- [copy-config.md](../context/config/copy-config.md) - Navigation and UI icons
+- [payments-config.md](../context/config/payments-config.md) - Payment interaction icons
+
+---
+
+Last Updated: 2026-01-13

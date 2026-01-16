@@ -9,12 +9,12 @@ import { z } from 'zod'
 const querySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(100).optional().default(50),
-  userId: z.string().uuid().optional(),
+  userId: z.uuid().optional(),
   includeNotes: z.coerce.boolean().optional().default(false),
 })
 
 const createResourceSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   price: z.number().int().min(0).default(0),
   noteId: z.string().optional(),
   videoId: z.string().optional(),
@@ -31,11 +31,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     
     // Parse and validate query parameters
+    // Note: searchParams.get() returns null for missing params, but Zod .optional()
+    // expects undefined, so we convert null → undefined with ?? undefined
     const validationResult = querySchema.safeParse({
-      page: searchParams.get('page'),
-      pageSize: searchParams.get('pageSize'),
-      userId: searchParams.get('userId'),
-      includeNotes: searchParams.get('includeNotes'),
+      page: searchParams.get('page') ?? undefined,
+      pageSize: searchParams.get('pageSize') ?? undefined,
+      userId: searchParams.get('userId') ?? undefined,
+      includeNotes: searchParams.get('includeNotes') ?? undefined,
     })
 
     if (!validationResult.success) {

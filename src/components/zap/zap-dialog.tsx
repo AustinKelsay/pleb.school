@@ -9,7 +9,6 @@ import {
   ExternalLink, 
   Loader2, 
   QrCode,
-  ShieldCheck,
   Zap 
 } from "lucide-react"
 import { useSession } from "next-auth/react"
@@ -33,7 +32,10 @@ import type { LightningRecipient, ZapSendResult } from "@/types/zap"
 import type { ZapInsights, ZapReceiptSummary } from "@/hooks/useInteractions"
 import type { ZapState } from "@/hooks/useZapSender"
 import { copyConfig } from "@/lib/copy"
-import { getPaymentsConfig } from "@/lib/payments-config"
+import { getPaymentsConfig, getPurchaseIcon } from "@/lib/payments-config"
+
+// Icon lookup at module level (not during render) to avoid React rules violation
+const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
 
 const formatTemplate = (template?: string, vars: Record<string, string | number> = {}) =>
   template?.replace(/\{(\w+)\}/g, (_, key) =>
@@ -310,7 +312,7 @@ export function ZapDialog({
                 className="mt-0.5 h-4 w-4 accent-primary"
               />
               <div className="flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5" />
+                <ShieldCheckIcon className="h-3.5 w-3.5" />
                 <span>Private zap (anonymous signature)</span>
               </div>
             </label>

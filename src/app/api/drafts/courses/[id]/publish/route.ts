@@ -33,7 +33,7 @@ const publishSchema = z.object({
 })
 
 const paramsSchema = z.object({
-  id: z.string().uuid('Invalid course draft ID')
+  id: z.uuid()
 })
 
 interface RouteParams {
@@ -143,6 +143,12 @@ export async function POST(
 
         if (!fullCourseDraft) {
           throw new Error('Course draft not found')
+        }
+
+        // Re-verify ownership inside transaction to prevent TOCTOU race condition
+        // This ensures the ownership check is atomic with the write operation
+        if (fullCourseDraft.userId !== session.user.id) {
+          throw new Error('ACCESS_DENIED')
         }
 
         // Create the course

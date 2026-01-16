@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { Prisma } from '@prisma/client'
+import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { DraftLessonService, CourseDraftService } from '@/lib/draft-service'
-import { z } from 'zod'
 
 // Validation schemas
 const createDraftLessonSchema = z.object({
-  courseDraftId: z.string().uuid('Invalid course draft ID'),
-  resourceId: z.string().uuid('Invalid resource ID').optional(),
-  draftId: z.string().uuid('Invalid draft ID').optional(),
+  courseDraftId: z.uuid(),
+  resourceId: z.uuid().optional(),
+  draftId: z.uuid().optional(),
   index: z.number().int().min(0, 'Index must be a non-negative integer')
 }).refine(
   (data) => data.resourceId || data.draftId,
@@ -20,7 +20,7 @@ const createDraftLessonSchema = z.object({
 )
 
 const querySchema = z.object({
-  courseDraftId: z.string().uuid('Invalid course draft ID').optional()
+  courseDraftId: z.uuid().optional()
 })
 
 /**
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const queryResult = querySchema.safeParse({
-      courseDraftId: searchParams.get('courseDraftId')
+      courseDraftId: searchParams.get('courseDraftId') ?? undefined
     })
 
     if (!queryResult.success) {

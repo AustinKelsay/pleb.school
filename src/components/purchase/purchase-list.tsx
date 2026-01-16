@@ -14,7 +14,6 @@ import {
   Gift,
   Receipt as ReceiptIcon,
   RefreshCw,
-  ShieldCheck,
   User as UserIcon,
   Video,
   Zap
@@ -32,6 +31,11 @@ import { usePurchasesQuery, type PurchasesScope } from "@/hooks/usePurchasesQuer
 import { useResourceNotes } from "@/hooks/useResourceNotes"
 import { useCourseNotes } from "@/hooks/useCourseNotes"
 import { getNoteImage } from "@/lib/note-image"
+import { getPurchaseIcon } from "@/lib/payments-config"
+
+// Icon lookup at module level (not during render) to avoid React rules violation
+const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
+
 import type { PurchaseListItem, PurchaseStats, ReceiptSummary, TraceStep } from "@/types/purchases"
 
 type PurchaseListProps = {
@@ -330,7 +334,7 @@ function PurchaseCard({
   showUser?: boolean 
 }) {
   const [showDetails, setShowDetails] = useState(false)
-  
+
   const progress = useMemo(() => {
     if (purchase.priceSats <= 0) return 100
     return Math.min(100, Math.round((purchase.amountPaid / purchase.priceSats) * 100))
@@ -397,7 +401,7 @@ function PurchaseCard({
                 {/* Privacy zap indicator */}
                 {purchase.isPrivacyZap && (
                   <Badge variant="outline" className="text-xs gap-1 border-primary/50 text-primary">
-                    <ShieldCheck className="h-3 w-3" />
+                    <ShieldCheckIcon className="h-3 w-3" />
                     Private
                   </Badge>
                 )}
@@ -640,7 +644,7 @@ function PurchaseCard({
                       </button>
                       {purchase.isPrivacyZap && (
                         <Badge variant="outline" className="text-[10px] h-4 gap-0.5 border-primary/50 text-primary">
-                          <ShieldCheck className="h-2.5 w-2.5" />
+                          <ShieldCheckIcon className="h-2.5 w-2.5" />
                           Privacy mode
                         </Badge>
                       )}

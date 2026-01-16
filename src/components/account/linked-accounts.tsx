@@ -517,9 +517,37 @@ function LinkProviderButton({ provider, onLinked, isCurrentProvider = false }: L
       setLinking(false)
       return
     } else if (provider === 'github') {
-      // For GitHub, use our OAuth linking flow
-      if (typeof window !== 'undefined') {
-        window.location.href = '/api/account/link-oauth?provider=github'
+      // For GitHub, use our OAuth linking flow via POST for CSRF protection
+      try {
+        const response = await fetch('/api/account/link-oauth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: 'github' })
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to initiate OAuth')
+        }
+
+        const data = await response.json()
+        if (data.url && typeof window !== 'undefined') {
+          window.location.href = data.url
+        } else {
+          console.error('GitHub OAuth response missing URL:', data)
+          toast({
+            title: 'Error',
+            description: 'Failed to initiate GitHub linking: missing redirect URL',
+            variant: 'destructive'
+          })
+        }
+      } catch (error) {
+        console.error('Failed to initiate GitHub OAuth:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to initiate GitHub linking',
+          variant: 'destructive'
+        })
       }
     }
     

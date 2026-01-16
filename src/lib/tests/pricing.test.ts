@@ -331,4 +331,128 @@ describe("resolvePriceForContent", () => {
       expect(result?.price).toBe(0)
     })
   })
+
+  /**
+   * Price Source Security Tests
+   *
+   * These tests document a vulnerability where content with null DB price
+   * falls back to the attacker-controlled nostrPriceHint. An attacker could
+   * send nostrPrice: 0 to bypass payment requirements.
+   *
+   * The fix is in /api/purchases/claim/route.ts which rejects claims where
+   * priceSource === "nostr".
+   *
+   * See: llm/implementation/purchases_plan.md
+   */
+  describe("Zero-Price Fallback Vulnerability", () => {
+    it("documents vulnerability: null DB price with nostrPrice=0 results in free access", async () => {
+      // This test documents the vulnerable scenario
+      // The content has price=null in DB (edge case - schema has default 0)
+      mockResourceFindUnique.mockResolvedValue({
+        id: "vulnerable-resource",
+        price: null,
+        noteId: "note123",
+        userId: "user-1",
+        user: { pubkey: "pubkey123" },
+      } as any)
+
+      // Attacker sends nostrPrice: 0
+      const result = await resolvePriceForContent({
+        resourceId: "vulnerable-resource",
+        nostrPriceHint: 0, // Attacker-controlled value
+      })
+
+      // The resolved price is 0 (attacker's value) and source is "nostr"
+      // This means the claim route MUST reject this to prevent bypass
+      expect(result?.price).toBe(0)
+      expect(result?.priceSource).toBe("nostr")
+
+      // The fix in /api/purchases/claim checks for priceSource === "nostr"
+      // and rejects the claim. This test verifies the detection mechanism.
+    })
+
+    it("shows priceSource=database for properly configured content", async () => {
+      // Properly configured content has DB price
+      mockResourceFindUnique.mockResolvedValue({
+        id: "safe-resource",
+        price: 10000, // 10k sats
+        noteId: "note123",
+        userId: "user-1",
+        user: { pubkey: "pubkey123" },
+      } as any)
+
+      // Even if attacker sends nostrPrice: 0, DB price takes precedence
+      const result = await resolvePriceForContent({
+        resourceId: "safe-resource",
+        nostrPriceHint: 0, // Attacker tries to set 0
+      })
+
+      // DB price is used, attacker's value ignored
+      expect(result?.price).toBe(10000)
+      expect(result?.priceSource).toBe("database")
+    })
+
+    it("shows free content (DB price=0) is safe and uses database source", async () => {
+      // Free content explicitly has price=0 in DB
+      mockResourceFindUnique.mockResolvedValue({
+        id: "free-resource",
+        price: 0, // Intentionally free
+        noteId: "note123",
+        userId: "user-1",
+        user: { pubkey: "pubkey123" },
+      } as any)
+
+      const result = await resolvePriceForContent({
+        resourceId: "free-resource",
+      })
+
+      // Free content uses DB price (0) with source "database"
+      // This is different from the attack scenario where source is "nostr"
+      expect(result?.price).toBe(0)
+      expect(result?.priceSource).toBe("database")
+    })
+
+    it("shows courses are also affected by the vulnerability pattern", async () => {
+      // Courses can also have null prices
+      mockCourseFindUnique.mockResolvedValue({
+        id: "vulnerable-course",
+        price: null,
+        noteId: "course123",
+        userId: "user-1",
+        user: { pubkey: "pubkey123" },
+      } as any)
+
+      const result = await resolvePriceForContent({
+        courseId: "vulnerable-course",
+        nostrPriceHint: 0,
+      })
+
+      // Same vulnerability applies to courses
+      expect(result?.price).toBe(0)
+      expect(result?.priceSource).toBe("nostr")
+    })
+
+    it("returns priceSource=nostr even with valid-looking nostrPrice hint", async () => {
+      // An attacker might send a "reasonable" looking nostrPrice
+      // to make the claim look legitimate, but it's still attacker-controlled
+      mockResourceFindUnique.mockResolvedValue({
+        id: "resource-no-db-price",
+        price: null,
+        noteId: "note123",
+        userId: "user-1",
+        user: { pubkey: "pubkey123" },
+      } as any)
+
+      const result = await resolvePriceForContent({
+        resourceId: "resource-no-db-price",
+        nostrPriceHint: 1000, // Even a "reasonable" value is untrustworthy
+      })
+
+      // The price is from nostr (untrustworthy), not database
+      expect(result?.priceSource).toBe("nostr")
+
+      // The claim route should reject ANY claim where priceSource === "nostr"
+      // because the database is the canonical source of truth for pricing
+    })
+  })
 })

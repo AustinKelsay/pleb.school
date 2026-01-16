@@ -8,13 +8,13 @@ import { z } from 'zod'
 const updateCourseDraftSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
   summary: z.string().min(1, 'Summary is required').max(1000, 'Summary too long').optional(),
-  image: z.string().url().optional().or(z.literal('')).optional(),
+  image: z.string().url().optional().or(z.literal('')),
   price: z.number().int().min(0).optional(),
   topics: z.array(z.string()).min(1, 'At least one topic is required').optional()
 })
 
 const paramsSchema = z.object({
-  id: z.string().uuid('Invalid course draft ID')
+  id: z.uuid()
 })
 
 interface RouteParams {
