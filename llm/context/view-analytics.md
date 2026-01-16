@@ -123,15 +123,16 @@ function ContentPage({ contentId }) {
 ### Increment (Atomic)
 
 ```typescript
-const newCount = await kv.incr(`views:${key}`)
-// Also mark as dirty for later flush
+// key is the full namespaced key, e.g., "views:content:abc"
+const newCount = await kv.incr(key)
+// Mark the SAME full key as dirty for later flush
 await kv.sadd('views:dirty', key)
 ```
 
 ### Get Count
 
 ```typescript
-const count = await kv.get<number>(`views:${key}`) || 0
+const count = await kv.get<number>(key) || 0
 ```
 
 ### Flush to Database (Race-Safe)
@@ -139,12 +140,13 @@ const count = await kv.get<number>(`views:${key}`) || 0
 The flush uses atomic `GETDEL` to prevent TOCTOU race conditions:
 
 ```typescript
-// Get dirty keys from tracking set
+// Get dirty keys from tracking set (these are full keys like "views:content:abc")
 const keys = await kv.smembers('views:dirty')
 
 for (const key of keys) {
   // GETDEL atomically gets value AND deletes key
   // Prevents race: if increment happens after this, it creates new key
+  // IMPORTANT: key must match exactly what was used in kv.incr()
   const count = await kv.getdel<number>(key)
   if (!count) continue
 

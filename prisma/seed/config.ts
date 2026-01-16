@@ -43,7 +43,7 @@ export const PLACEHOLDER_IMAGES = {
 
 // Avatar generation using RoboHash
 export function generateAvatar(personaId: string): string {
-  return `https://robohash.org/${personaId}?set=set4&size=200x200`
+  return `https://robohash.org/${encodeURIComponent(personaId)}?set=set4&size=200x200`
 }
 
 // Banner generation using Unsplash

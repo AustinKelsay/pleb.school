@@ -124,9 +124,10 @@ function sanitizeUrlForMarkdown(url: string): string | null {
   // Parentheses and brackets can break markdown link syntax
   return parsed.href
     .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '%28')
     .replace(/\)/g, '%29')
-    .replace(/\]/g, '%5D')
     .replace(/\[/g, '%5B')
+    .replace(/\]/g, '%5D')
 }
 
 /**

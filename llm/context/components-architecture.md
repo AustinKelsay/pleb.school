@@ -10,10 +10,11 @@ src/components/
 │   ├── header.tsx
 │   ├── main-layout.tsx
 │   └── container.tsx
-├── ui/                   # shadcn/ui base components
+├── ui/                   # shadcn/ui base components + utilities
 │   ├── button.tsx
 │   ├── card.tsx
 │   ├── dialog.tsx
+│   ├── optimized-image.tsx
 │   └── ...
 ├── content/              # Content display components
 │   ├── content-card.tsx
@@ -35,7 +36,6 @@ src/components/
 │   ├── theme-toggle.tsx
 │   └── font-toggle.tsx
 └── common/               # Shared components
-    ├── optimized-image.tsx
     ├── video-player.tsx
     └── markdown-renderer.tsx
 ```

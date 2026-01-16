@@ -92,7 +92,8 @@ export default function SignInPage() {
   }, [])
 
   // Cache the anonymous identity after a successful anon login
-  // Token is stored in httpOnly cookie (secure), localStorage only holds a flag
+  // Token is stored in httpOnly cookie (secure) AND localStorage (for backward compatibility)
+  // localStorage storage can be removed once all clients migrate to cookie-based reconnect flow
   const persistAnonymousSessionIdentity = useCallback(async () => {
     try {
       const session = await getSession()

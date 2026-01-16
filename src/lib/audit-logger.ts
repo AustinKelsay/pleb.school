@@ -61,7 +61,22 @@ export function auditLog(
   }
 
   // Log as structured JSON for easy parsing by log aggregators
-  console.log('[AUDIT]', JSON.stringify(event))
+  // Wrap in try/catch - audit logging must never throw or lose records
+  try {
+    console.log('[AUDIT]', JSON.stringify(event))
+  } catch (err) {
+    // Serialization failed (BigInt, circular ref, etc.) - log safe fallback
+    const safeEvent = {
+      timestamp: event.timestamp,
+      userId: event.userId,
+      action: event.action,
+      ip: event.ip,
+      userAgent: event.userAgent,
+      serializationError: err instanceof Error ? err.message : 'Unknown serialization error',
+      detailsKeys: Object.keys(details)
+    }
+    console.log('[AUDIT]', JSON.stringify(safeEvent))
+  }
 }
 
 /**

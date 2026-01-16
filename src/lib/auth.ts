@@ -132,7 +132,8 @@ async function findUserByPrivateKey(privateKeyInput: string) {
   }
 
   // Security: Use constant-time comparison to prevent timing attacks
-  const storedBuffer = Buffer.from(storedPrivkey, 'utf8')
+  // Normalize stored key to lowercase to match normalized input (handles legacy mixed-case storage)
+  const storedBuffer = Buffer.from(storedPrivkey.toLowerCase(), 'utf8')
   const inputBuffer = Buffer.from(privateKeyHex, 'utf8')
   if (storedBuffer.length !== inputBuffer.length ||
       !crypto.timingSafeEqual(storedBuffer, inputBuffer)) {
@@ -151,8 +152,8 @@ function normalizePrivateKey(input: string): string {
   // If it starts with nsec1, it's a bech32-encoded private key
   if (trimmed.startsWith('nsec1')) {
     try {
-      // Cast to the expected type for snstr
-      return decodePrivateKey(trimmed as `nsec1${string}`)
+      // Cast to the expected type for snstr, normalize to lowercase for consistent comparison
+      return decodePrivateKey(trimmed as `nsec1${string}`).toLowerCase()
     } catch (error) {
       throw new Error('Invalid nsec format')
     }

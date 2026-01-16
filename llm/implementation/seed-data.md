@@ -1,6 +1,6 @@
 # Seed Data System
 
-Complete demo seed data infrastructure for pleb.school. Creates reproducible demo instances with real Nostr events, deterministic keypairs, and sample user progress.
+Complete demo seed data infrastructure for pleb.school. Creates reproducible demo instances with real Nostr events, deterministic key pairs, and sample user progress.
 
 ## Overview
 
@@ -11,7 +11,7 @@ The seed system populates a pleb.school instance with:
 - Demo progress, purchases, and enrollments
 
 **Key Features:**
-- **Deterministic keys**: Same seed always produces same keypairs
+- **Deterministic keys**: Same seed always produces same key pairs
 - **Real Nostr publishing**: Events published to public relays
 - **Idempotent**: Safe to re-run (uses upsert patterns)
 - **Dry-run mode**: Test without publishing to relays
@@ -39,7 +39,7 @@ prisma/
 ├── seed.ts                           # Main entry point
 └── seed/
     ├── config.ts                     # Configuration constants
-    ├── personas.ts                   # User personas and keypair generation
+    ├── personas.ts                   # User personas and key pair generation
     ├── demo-state.ts                 # Demo progress, purchases, enrollments
     ├── nostr-publisher.ts            # Event creation and relay publishing
     └── content/
@@ -53,7 +53,7 @@ prisma/
 |------|---------|
 | `seed.ts` | Main orchestration: users → roles → profiles → content → demo state |
 | `config.ts` | Seed version, relay list, placeholder images/videos, avatar/banner generators |
-| `personas.ts` | 5 demo personas with deterministic keypair generation |
+| `personas.ts` | 5 demo personas with deterministic key pair generation |
 | `nostr-publisher.ts` | Event creation (kind 0, 30023, 30402, 30004) and relay publishing |
 | `demo-state.ts` | Creates sample progress, purchases, enrollments for demo users |
 | `content/` | Course and resource definitions with full markdown content |

@@ -50,7 +50,7 @@ The core architectural pattern: **Database stores metadata, Nostr stores content
 
 Dual identity architecture in `src/lib/auth.ts`:
 
-**Nostr-first** (NIP07, Anonymous): Nostr profile is source of truth, syncs on every login. NIP-07 login uses NIP-98 HTTP Auth (kind 27235) for cryptographic pubkey verification.
+**Nostr-first** (NIP-07, Anonymous): Nostr profile is source of truth, syncs on every login. NIP-07 login uses NIP-98 HTTP Auth (kind 27235) for cryptographic pubkey verification.
 **OAuth-first** (Email, GitHub): OAuth profile is authoritative, gets ephemeral Nostr keys for protocol access
 
 All users get Nostr capabilities regardless of login method.

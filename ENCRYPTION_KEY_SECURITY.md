@@ -86,14 +86,14 @@ This decision framework should guide prioritization:
 
 ```typescript
 // Encryption with version prefix
-function encryptPrivkeyV2(plain: string): string {
+function encryptPrivkeyV1(plain: string): string {
   const encrypted = encryptPrivkey(plain)  // existing function
-  return `v2:${encrypted}`
+  return `v1:${encrypted}`
 }
 
 // Backward-compatible decryption
-function decryptPrivkeyV2(stored: string): string | null {
-  if (stored.startsWith('v2:')) {
+function decryptPrivkeyV1(stored: string): string | null {
+  if (stored.startsWith('v1:')) {
     return decryptPrivkey(stored.slice(3))
   }
   // Legacy format (no prefix) - existing behavior

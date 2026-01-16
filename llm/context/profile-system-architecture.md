@@ -304,13 +304,19 @@ Account linking interface providing:
 
 Badges are rendered via `ProviderBadge` in `enhanced-profile-display.tsx` as outline `Badge` elements with an icon + label. (Provider color values exist in `providerConfig`, but they are not applied in the badge UI today.)
 
-| Provider | Label | Icon |
-|----------|-------|------|
-| Nostr | Nostr | Key |
-| GitHub | GitHub | GitHub |
-| Email | Email | Mail |
-| Profile | Profile | User |
-| Current | Current | User |
+| Provider | Label | Icon | Color |
+|----------|-------|------|-------|
+| nostr | Nostr | Key | blue |
+| github | GitHub | GitHub | gray |
+| email | Email | Mail | green |
+| profile | Profile | User | purple |
+| current | Current | User | orange |
+
+**Note on `profile` vs `current`**: Both refer to the "current DB profile" (data stored in the User table). The difference is contextual:
+- `current` appears as a fallback in `enhanced-profile-display.tsx` when no aggregated profile exists
+- `profile` appears when data flows through `profile-aggregator.ts`, which transforms `source: 'current'` → `source: 'profile'` (line 344)
+
+In practice, most users see `profile` (purple) since aggregation runs on page load. The `current` (orange) badge only appears in edge cases where aggregation hasn't occurred.
 
 ### UI Organization
 

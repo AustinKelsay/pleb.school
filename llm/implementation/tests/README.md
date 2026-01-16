@@ -70,12 +70,36 @@ Many tests manipulate `process.env`:
 ## Known Gaps
 
 Areas lacking test coverage:
-1. Integration tests (API → DB → Nostr)
-2. NIP-07 browser extension mocking
-3. Nostr relay communication
-4. Full authentication flow (signin → session → protected routes)
-5. Purchase/claim flow
-6. View counter increment path
+
+### 1. Integration Tests (API → DB → Nostr)
+End-to-end tests that exercise full request lifecycle with real database operations.
+
+### 2. NIP-07 Browser Extension Mocking
+Client-side tests for `window.nostr` signing flows.
+
+### 3. Nostr Relay Communication
+Tests for relay publish/subscribe, retry logic, and relay hint handling.
+
+### 4. Full Authentication Flow
+Beyond `verifyNostrPubkey` format checks, tests needed for:
+- Signin → session creation → session persistence
+- Protected route access with valid/invalid/expired sessions
+- OAuth callback handling and account linking
+- Anonymous account creation and reconnect token flow
+
+### 5. Purchase/Claim Flow (`/api/purchases/claim`)
+The 800+ line claim route needs integration tests covering:
+- **Signature verification**: Valid/invalid zap receipt signatures, zap request signatures
+- **Replay protection**: Duplicate `zapReceiptId` rejection, JSONB containment checks
+- **Receipt age limits**: 24-hour default, extended 1-year window with `allowPastZaps`, `MAX_RECEIPT_AGE_MS` env override
+- **Pricing validation**: `resolvePriceForContent()` DB vs Nostr price, snapshot pricing (`priceAtPurchase` vs current price)
+- **Payer matching**: Session pubkey, derived pubkey, `P` tag for privacy mode
+- **Multi-receipt aggregation**: Incremental `amountPaid` updates, receipt merging
+- **Admin-only paths**: `manual`, `comped`, `refund` payment types with `isAdmin` check
+- **Edge cases**: Missing `noteId`, no linked pubkey, relay fetch failures/retries
+
+### 6. View Counter Increment Path
+Tests for the increment → flush → persist cycle with race condition scenarios.
 
 ## Related Documentation
 
