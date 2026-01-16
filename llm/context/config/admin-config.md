@@ -159,12 +159,14 @@ Typically limited to content creation and moderation:
 }
 ```
 
+**⚠️ Privacy Notice:** All values in `config/admin.json` are bundled to the client and publicly visible. Never put secrets, personal emails, or PII in config files—use environment variables for sensitive data.
+
 | Feature | Description |
 |---------|-------------|
 | `requireAdminApproval` | Queue content for approval (not wired) |
 | `enableAdminDashboard` | Enable admin dashboard route |
 | `showAdminBadge` | Display admin/mod badges (wired) |
-| `adminContactEmail` | Contact email for admin notices |
+| `adminContactEmail` | Contact email for admin notices. **Use a generic alias (e.g., support@domain.com) or relay address—avoid personal emails since this value is public.** |
 
 **Note:** Most features are advisory. `showAdminBadge` is wired to `AdminBadge` component.
 

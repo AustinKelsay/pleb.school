@@ -13,12 +13,12 @@ High-level overview of the NIP-57 zap-based purchase system.
 - Purchase flow is live via NIP-57 zaps; entitlement is recorded in `Purchase` rows once the server verifies zap receipts (`src/app/api/purchases/claim/route.ts`).
 - UI gates paid resources/courses on the client and server; purchase dialogs reuse the zap sender flow and auto-claim zaps when totals meet the sticker price.
 - Zap tips can work without a session **if a signer is available** (NIP-07 extension or a generated anonymous keypair—used for privacy mode or as a fallback when no other signer is available). Purchases still require an authenticated session.
-- Price source is the database when present; a Nostr price hint is only used as a fallback and for mismatch logging.
+- Price source for claim validation is **always** the database; the claim route (`/api/purchases/claim`) rejects requests if no DB price exists. Nostr price hints are used for display and mismatch logging only—never for claim validation.
 
 ## Data Model & Pricing
 - `prisma/schema.prisma` `Purchase`: `userId`, `courseId?`, `resourceId?`, `amountPaid`, `priceAtPurchase?`, `paymentType` (default `zap`), optional `zapReceiptId` (unique), `invoice`, `zapReceiptJson`, `zapRequestJson`.
 - Unique constraints on `(userId, courseId, resourceId)` plus `(userId, courseId)` and `(userId, resourceId)` enforce one purchase per user/item; zap receipts are additionally guarded by a unique `zapReceiptId` plus JSON containment checks to stop reuse.
-- `resolvePriceForContent` (`src/lib/pricing.ts`) returns the authoritative price, note id, and owner pubkey; DB price beats Nostr price hints and logs mismatches.
+- `resolvePriceForContent` (`src/lib/pricing.ts`) returns the authoritative price, note id, and owner pubkey. DB price is canonical; Nostr price hints are only surfaced for display/mismatch logging and are rejected by the claim route if no DB price exists.
 
 ## User Flows
 - **Send a zap (tip)**: `ZapDialog` + `useZapSender` resolve LNURL/Lightning address, sign zap requests (server key, NIP-07, or anonymous), request invoice, check description hash, attempt WebLN, then surface the invoice/QR for manual pay.

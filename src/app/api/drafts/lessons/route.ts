@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { Prisma } from '@prisma/client'
+import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { DraftLessonService, CourseDraftService } from '@/lib/draft-service'
-import { z } from 'zod'
 
 // Validation schemas
 const createDraftLessonSchema = z.object({

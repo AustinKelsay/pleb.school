@@ -29,7 +29,7 @@ Before committing, run `npm run build && npm run lint`.
 - Use `OptimizedImage` for remote images instead of adding domains to `next.config.ts`.
 
 ## Testing Guidelines
-- Framework: Vitest. Tests live in `src/lib/tests/` and follow `*.test.ts`.
+- Framework: Vitest. Tests follow the `*.test.ts` naming convention, are primarily located in `src/lib/tests`, but may also be found in other places (e.g., `src/app/api/tests` and `src/app/api/views/tests`).
 - Cover new utility logic and purchase/auth flows with unit tests when touched.
 - Run `npm run test` locally; no explicit coverage threshold is enforced.
 

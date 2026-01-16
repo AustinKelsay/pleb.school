@@ -94,6 +94,7 @@ model User {
 GitHub OAuth linking uses HMAC-signed state values to prevent CSRF attacks. Implementation in `src/lib/oauth-state.ts`:
 
 **Security Properties:**
+
 | Property | Implementation |
 |----------|----------------|
 | Algorithm | HMAC-SHA256 |

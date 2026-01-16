@@ -84,7 +84,9 @@ current DB profile → oauth providers → nostr
 #### What is "Current DB Profile"?
 
 The "current DB profile" refers to data stored directly in the `User` table columns:
-- `username`, `displayName`, `avatar`, `email`, `banner`, `nip05`, `lud16`, `pubkey`
+- `username`, `avatar`, `email`, `banner`, `nip05`, `lud16`, `pubkey`
+
+> **Note**: The schema also has a `displayName` column, but it's currently unused by the profile aggregator.
 
 This data is populated from:
 1. **Provider syncs** - When users log in, successful provider fetches may backfill empty User columns
@@ -92,6 +94,28 @@ This data is populated from:
 3. **Registration data** - Initial values set during account creation
 
 In the aggregation logic (`src/lib/profile-aggregator.ts`), current DB profile is represented as a pseudo-provider with `provider: 'current'`. When displayed in the UI, it's labeled as `'profile'` (the source badge shown to users).
+
+**Aggregator field mapping** (see `src/lib/profile-aggregator.ts` lines 309-324):
+```typescript
+const currentData: LinkedAccountData = {
+  provider: 'current',
+  providerAccountId: user.id,
+  data: {
+    name: user.username,      // username used for display name
+    username: user.username,
+    email: user.email,
+    image: user.avatar,       // avatar → image
+    banner: user.banner,
+    nip05: user.nip05,
+    lud16: user.lud16,
+    pubkey: user.pubkey
+  },
+  isConnected: true,
+  isPrimary: true
+}
+```
+
+This mapping means `username` serves double duty as both the username and display name for the "current" profile source.
 
 **Why "current" sits between nostr and oauth in Nostr-first mode:**
 - Nostr data is fetched live and takes highest priority for Nostr-first users

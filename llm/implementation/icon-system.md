@@ -509,6 +509,7 @@ Object.entries(allIcons).map(([key, Icon]) => (
 | comment | MessageCircle | Comment bubble |
 
 ### Payment Status Icons (payments.json)
+
 | Key | Icon | Usage |
 |-----|------|-------|
 | success | CircleCheck | Success status |
@@ -516,6 +517,7 @@ Object.entries(allIcons).map(([key, Icon]) => (
 | error | TriangleAlert | Error status |
 
 ### Purchase Icons (payments.json)
+
 | Key | Icon | Usage |
 |-----|------|-------|
 | shieldCheck | ShieldCheck | Purchase security badge |
@@ -718,4 +720,4 @@ npm run build && npm run lint
 
 ---
 
-*Last Updated: 2026-01-13*
+Last Updated: 2026-01-13

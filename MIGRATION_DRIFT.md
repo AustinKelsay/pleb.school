@@ -36,7 +36,7 @@ npx prisma migrate diff \
   --script > "$MIGRATION_DIR/migration.sql"
 
 # Mark as applied without running
-npx prisma migrate resolve --applied <migration_name>
+npx prisma migrate resolve --applied "$(basename "$MIGRATION_DIR")"
 ```
 
 ### Option 2: Reset and Migrate (Dev environments only)

@@ -40,17 +40,17 @@ Fetches user data internally and aggregates profile data from all linked account
 ### OAuth-first user with Nostr profile available
 - **Setup**: User with `profileSource: "oauth"`, GitHub data, and fetched Nostr profile
 - **Expected**: OAuth fields take priority, Nostr-only fields (nip05, lud16, banner) merged in
-- **Verifies**: `email`, `avatar`, `username` come from OAuth; `nip05`, `lud16`, `banner` from Nostr
+- **Verifies**: `email`, `image`, `username` come from OAuth; `nip05`, `lud16`, `banner` from Nostr
 
 ### Nostr-first user
 - **Setup**: User with `profileSource: "nostr"`, Nostr profile data
 - **Expected**: Display fields come from Nostr profile, except email which always comes from OAuth (see Field Priority Matrix)
-- **Verifies**: `username`, `avatar` come from Nostr; `email` still sourced from OAuth; Nostr-only fields (`nip05`, `lud16`, `banner`) from Nostr
+- **Verifies**: `username`, `image` come from Nostr; `email` still sourced from OAuth; Nostr-only fields (`nip05`, `lud16`, `banner`) from Nostr
 
 ### OAuth-first without Nostr profile
 - **Setup**: User with `profileSource: "oauth"`, GitHub data available, `fetchNostrProfile` returns `null` (no Nostr account or profile not found)
 - **Mock**: `fetchNostrProfile.mockResolvedValue(null)`
-- **Expected**: OAuth fields (`username`, `email`, `avatar`) are used from GitHub; Nostr capability flags (`nip05`, `lud16`, `banner`) remain `undefined` or `null` (not set)
+- **Expected**: OAuth fields (`username`, `email`, `image`) are used from GitHub; Nostr capability flags (`nip05`, `lud16`, `banner`) remain `undefined` or `null` (not set)
 - **Verifies**: OAuth fields take priority when Nostr profile unavailable; Nostr-specific fields don't appear in aggregated profile; no errors thrown when Nostr profile is missing
 
 ### Partial data from OAuth or Nostr
@@ -72,10 +72,10 @@ Fetches user data internally and aggregates profile data from all linked account
 - **Verifies**: `profileSource` change triggers correct source precedence; `isNostrFirstProfile()` logic correctly determines priority; field sources reflect the new priority order
 
 ### Conflicting data
-- **Setup**: User has conflicting values for fields like `username`/`avatar` across sources (e.g., GitHub username "alice", Nostr display_name "bob")
+- **Setup**: User has conflicting values for fields like `username`/`image` across sources (e.g., GitHub username "alice", Nostr display_name "bob")
 - **Mock**: OAuth and Nostr sources with different values for same fields; `profileSource: "oauth"` vs `"nostr"` to test deterministic precedence
 - **Expected**: Deterministic precedence based on `profileSource`; OAuth-first: OAuth fields win; Nostr-first: Nostr fields win (see Field Priority Matrix below)
-- **Verifies**: Field precedence is consistent and predictable; `username` and `avatar` follow the same priority rules; conflicting values resolve deterministically based on `profileSource`
+- **Verifies**: Field precedence is consistent and predictable; `username` and `image` follow the same priority rules; conflicting values resolve deterministically based on `profileSource`
 
 ## Mock Strategy
 
@@ -110,7 +110,7 @@ global.fetch = vi.fn() // Mocked to return GitHub API responses for fetchGitHubP
 |-------|-------------|-------------|
 | username | OAuth | Nostr |
 | email | OAuth | OAuth (emails come from linked OAuth accounts, not Nostr profile metadata) |
-| avatar | OAuth | Nostr |
+| image | OAuth | Nostr |
 | nip05 | Nostr | Nostr |
 | lud16 | Nostr | Nostr |
 | banner | Nostr | Nostr |
