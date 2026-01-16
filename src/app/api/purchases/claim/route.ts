@@ -202,8 +202,12 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
   // primary defense; this age check provides defense-in-depth.
   const DEFAULT_RECEIPT_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
   const EXTENDED_RECEIPT_AGE_MS = 365 * 24 * 60 * 60 * 1000 // 1 year for past zaps
-  const envMaxAge = process.env.MAX_RECEIPT_AGE_MS
+  const parsedEnvAge = process.env.MAX_RECEIPT_AGE_MS
     ? parseInt(process.env.MAX_RECEIPT_AGE_MS, 10)
+    : null
+  // Validate env var: must be a finite positive number, otherwise fall back to defaults
+  const envMaxAge = (parsedEnvAge !== null && Number.isFinite(parsedEnvAge) && parsedEnvAge > 0)
+    ? parsedEnvAge
     : null
   const maxReceiptAgeMs = allowPastZaps
     ? (envMaxAge ?? EXTENDED_RECEIPT_AGE_MS)

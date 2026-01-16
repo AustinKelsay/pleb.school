@@ -47,7 +47,7 @@ Index of test files and their coverage. Tests use Vitest with mocking.
 npm test
 
 # Run specific test file
-npm test src/lib/tests/auth.test.ts
+npm test -- src/lib/tests/auth.test.ts
 
 # Run with coverage
 npm test -- --coverage

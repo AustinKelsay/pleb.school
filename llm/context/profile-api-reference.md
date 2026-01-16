@@ -696,7 +696,12 @@ DATABASE_URL=postgresql://user:pass@host:5432/dbname
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-secret-key-min-32-chars
 
-# Key encryption (required in production to persist/decrypt privkeys; dev can use ephemeral key)
+# Key encryption (REQUIRED in production)
+# ⚠️ WARNING: Without a stable key, encrypted privkeys become unrecoverable after restart.
+# In dev, an ephemeral key is auto-generated if unset, but anonymous account keypairs
+# will be lost on restart. Use a stable 32-byte key (hex or base64) if you need
+# persistent encrypted privkeys. Ephemeral keys are only safe for throwaway/test data.
+# Generate with: openssl rand -hex 32
 PRIVKEY_ENCRYPTION_KEY=hex-or-base64-32-byte-key
 ```
 

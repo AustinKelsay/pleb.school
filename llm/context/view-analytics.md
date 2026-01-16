@@ -187,11 +187,12 @@ const hasKV = Boolean(
   process.env.KV_REST_API_TOKEN
 )
 
+// key is the full namespaced key, e.g., "views:content:abc"
 if (hasKV) {
   // Use KV for hot path
-  await kv.incr(`views:${key}`)
+  await kv.incr(key)
 } else {
-  // Direct database update
+  // Direct database update (same key used in both paths)
   await prisma.viewCounterTotal.upsert({
     where: { key },
     create: { key, namespace, entityId, total: 1 },

@@ -71,8 +71,11 @@ async function flushTotals(): Promise<number> {
     })
   }
 
-  // Remove from dirty set after successful upsert
-  // (safe even if key was re-added - new increments will re-add it)
+  // Remove from dirty set after successful upsert.
+  // Race window: A concurrent INCR can re-add a key to "views:dirty" after our GETDEL
+  // but before this SREM. In that case, SREM removes the re-added marker, leaving the
+  // counter in KV without a dirty flag until the next INCR re-marks it. This is not
+  // data loss—just a transient inconsistency resolved on the next increment.
   await kv.srem("views:dirty", ...keys)
   return nonZeroPairs.length
 }
@@ -118,6 +121,9 @@ async function flushDaily(): Promise<number> {
       })
     }
 
+    // Race window: A concurrent INCR can re-add a key to the daily dirty set after our
+    // GETDEL but before this SREM. This is not data loss—the counter remains in KV and
+    // will be re-marked dirty on the next INCR, then flushed in a subsequent run.
     await kv.srem(setKey, ...dayKeys)
     await kv.srem("views:dirty:daily-index", day)
     processed += nonZeroPairs.length

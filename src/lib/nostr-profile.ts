@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { RelayPool } from 'snstr'
+import { getRelays } from './nostr-relays'
 
 const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null)
 const pickFirstString = (...values: unknown[]): string | null => {
@@ -89,14 +90,11 @@ export function validateLud16(value: unknown): string | undefined {
 export async function fetchNostrProfile(pubkey: string): Promise<Record<string, unknown> | null> {
   let relayPool: RelayPool | null = null
   try {
-    relayPool = new RelayPool([
-      'wss://relay.nostr.band',
-      'wss://nos.lol',
-      'wss://relay.damus.io'
-    ])
+    const relays = getRelays('profile')
+    relayPool = new RelayPool(relays)
 
     const profileEvent = await relayPool.get(
-      ['wss://relay.nostr.band', 'wss://nos.lol', 'wss://relay.damus.io'],
+      relays,
       { kinds: [0], authors: [pubkey] },
       { timeout: 5000 }
     )

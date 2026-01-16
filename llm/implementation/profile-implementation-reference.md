@@ -217,10 +217,12 @@ async function fetchGitHubProfile(accessToken: string) {
   return response.json()
 }
 
-// Nostr (fixed relay list + timeout in src/lib/nostr-profile.ts)
+// Nostr (uses centralized relay config, src/lib/nostr-profile.ts)
 async function fetchNostrProfile(pubkey: string) {
+  const relays = getRelays('profile')  // from src/lib/nostr-relays.ts
+  const relayPool = new RelayPool(relays)
   const event = await relayPool.get(
-    ['wss://relay.nostr.band', 'wss://nos.lol', 'wss://relay.damus.io'],
+    relays,
     { kinds: [0], authors: [pubkey] },
     { timeout: 5000 }
   )
