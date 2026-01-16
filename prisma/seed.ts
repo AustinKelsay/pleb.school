@@ -94,14 +94,16 @@ async function main() {
 
   for (const adminPersona of adminPersonas) {
     const userId = userIdMap.get(adminPersona.id)
-    if (userId) {
-      await prisma.role.upsert({
-        where: { userId },
-        update: { admin: true },
-        create: { userId, admin: true },
-      })
-      console.log(`  ✅ ${adminPersona.displayName} is now admin`)
+    if (!userId) {
+      console.warn(`  ⚠️ Admin persona not found in userIdMap: id="${adminPersona.id}", name="${adminPersona.displayName}" - skipping role assignment`)
+      continue
     }
+    await prisma.role.upsert({
+      where: { userId },
+      update: { admin: true },
+      create: { userId, admin: true },
+    })
+    console.log(`  ✅ ${adminPersona.displayName} is now admin`)
   }
 
   // ============================================================

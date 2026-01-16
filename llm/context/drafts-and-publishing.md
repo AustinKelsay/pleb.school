@@ -250,7 +250,8 @@ const event = createCourseEvent(courseDraft, lessonIdentifiers, signingPrivkey)
     ['name', courseDraft.title],
     ['about', courseDraft.summary],
     ['image', courseDraft.image],
-    ['t', ...courseDraft.topics],
+    // ONE ['t', topic] tag PER topic
+    ...courseDraft.topics.map(topic => ['t', topic]),
     ['price', String(courseDraft.price), 'sats'],
     // Lesson references
     ['a', '30023:pubkey:lesson1-dtag'],

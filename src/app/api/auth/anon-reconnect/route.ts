@@ -71,7 +71,14 @@ export async function POST() {
 export async function DELETE() {
   try {
     const cookieStore = await cookies()
-    cookieStore.delete(COOKIE_NAME)
+    // Clear cookie using same attributes as when setting to ensure proper removal
+    cookieStore.set(COOKIE_NAME, '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

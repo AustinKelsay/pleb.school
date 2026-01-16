@@ -62,6 +62,7 @@ Decides whether to sync profile data from Nostr. Takes a user object with option
 | `{ primaryProvider: "recovery" }` | `true` | Nostr-first provider fallback |
 | `{ primaryProvider: "email" }` | `false` | OAuth-first provider fallback |
 | `{ primaryProvider: "github" }` | `false` | OAuth-first provider fallback |
+| `{ profileSource: null, primaryProvider: null }` | `false` | Explicit nulls, safe default |
 | `{}` | `false` | No data, safe default |
 | `{ profileSource: "nostr", primaryProvider: "github" }` | `true` | profileSource takes precedence |
 | `{ profileSource: "oauth", primaryProvider: "nostr" }` | `false` | profileSource takes precedence |

@@ -166,11 +166,17 @@ if (storedBuffer.length !== inputBuffer.length ||
 ### Session Key Exposure
 
 ```typescript
-// Only include privkey in session for accounts that need it
-if (user.privkey && !isNip07User(account?.provider)) {
-  token.privkey = user.privkey  // Encrypted
+// Signing model:
+// - NIP-07 users (provider === "nostr"): Sign client-side via browser extension
+//   → Never have privkey in DB or session
+// - Non-NIP-07 users (anonymous, email, github): Have ephemeral keys
+//   → DB stores encrypted privkey, session carries decrypted for client signing
+
+// Only include privkey in session for ephemeral-key accounts
+if (dbUser?.privkey) {
+  token.privkey = decryptPrivkey(dbUser.privkey)  // Decrypted for client use
 }
-// NIP-07 users never have privkey in session
+// isNip07User(provider) checks provider === "nostr"
 ```
 
 ## Rate Limiting

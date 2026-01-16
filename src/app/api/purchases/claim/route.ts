@@ -214,7 +214,11 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
     : (envMaxAge ?? DEFAULT_RECEIPT_AGE_MS)
   const receiptAgeMs = Date.now() - (zapReceipt.created_at * 1000)
   if (receiptAgeMs > maxReceiptAgeMs) {
-    const ageDescription = allowPastZaps ? "1 year" : "24 hours"
+    // Compute human-readable age description from actual maxReceiptAgeMs
+    const hours = maxReceiptAgeMs / (60 * 60 * 1000)
+    const ageDescription = hours >= 24
+      ? `${Math.round(hours / 24)} day${Math.round(hours / 24) !== 1 ? 's' : ''}`
+      : `${Math.round(hours)} hour${Math.round(hours) !== 1 ? 's' : ''}`
     throw new Error(`Zap receipt is too old. Receipts must be less than ${ageDescription} old.`)
   }
   if (receiptAgeMs < -5 * 60 * 1000) {

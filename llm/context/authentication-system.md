@@ -272,25 +272,28 @@ interface Session {
 
 ```typescript
 // jwt callback - build token
+// Database stores encrypted privkey; token carries decrypted value
 async jwt({ token, user, account }) {
   if (user) {
     token.userId = user.id
     token.pubkey = user.pubkey
     token.provider = account?.provider
-    // Only include privkey for accounts needing server-side signing
-    if (user.privkey && !isNip07User(account?.provider)) {
-      token.privkey = user.privkey
-    }
+  }
+  // For ephemeral-key accounts, decrypt privkey from database
+  // NIP-07 users (provider === "nostr") never have privkey stored
+  if (dbUser?.privkey) {
+    token.privkey = decryptPrivkey(dbUser.privkey)  // Decrypt once here
   }
   return token
 }
 
 // session callback - expose to client
+// token.privkey is already decrypted; just pass through
 async session({ session, token }) {
   session.user.id = token.userId
   session.user.pubkey = token.pubkey
-  session.user.provider = token.provider
-  session.user.privkey = token.privkey  // Only if present
+  session.provider = token.provider
+  session.user.privkey = token.privkey  // Decrypted value (if present)
   return session
 }
 ```
