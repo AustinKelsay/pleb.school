@@ -8,6 +8,7 @@ Implementation guides, upgrade plans, and setup instructions for pleb.school. Th
 |----------|-------------|--------|
 | [icon-system.md](./icon-system.md) | Config-driven icon resolution and usage patterns | Active |
 | [purchases-zaps.md](./purchases-zaps.md) | Purchase system implementation details | Active |
+| [seed-data.md](./seed-data.md) | Demo seed data system for development and demo instances | Active |
 
 ## Completed Plans
 
