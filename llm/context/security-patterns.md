@@ -385,17 +385,22 @@ DATABASE_URL=...
 
 ```typescript
 // src/lib/admin-utils.ts
-import adminConfig from '@/config/admin.json'
+// Detection order: 1) Database Role table, 2) Config pubkeys fallback
 
-export async function isAdmin(pubkey?: string): Promise<boolean> {
-  if (!pubkey) return false
-  return adminConfig.admins.includes(pubkey.toLowerCase())
-}
+export async function isAdmin(session: Session | null): Promise<boolean>
+export async function isModerator(session: Session | null): Promise<boolean>
+export async function hasModeratorOrAdmin(session: Session | null): Promise<boolean>
+export async function getAdminInfo(session: Session | null): Promise<AdminInfo>
 
 // Usage in route
 const session = await auth()
-if (!await isAdmin(session?.user?.pubkey)) {
+if (!await isAdmin(session)) {
   return Response.json({ error: 'Admin required' }, { status: 403 })
+}
+
+// For moderator-level access
+if (!await hasModeratorOrAdmin(session)) {
+  return Response.json({ error: 'Moderator access required' }, { status: 403 })
 }
 ```
 

@@ -2,7 +2,7 @@
 
 ## Data & Pricing Anchors
 - Schema: `prisma/schema.prisma` `Purchase` includes `paymentType`, `priceAtPurchase`, optional `zapReceiptId` (unique), `invoice`, `zapReceiptJson`, `zapRequestJson`; uniqueness on `(userId, courseId, resourceId)` plus `(userId, courseId)` / `(userId, resourceId)` prevents duplicate entitlements per item.
-- Price resolution: `src/lib/pricing.ts` `resolvePriceForContent` treats the DB price as authoritative and only falls back to the Nostr hint when a DB price is missing. Mismatches are logged via `onMismatch` but not surfaced/blocked in the UI; checkout enforces the DB price while the dialog may briefly show stale hints until refresh (see purchase-gaps.md §3).
+- Price resolution: `src/lib/pricing.ts` `resolvePriceForContent` treats the DB price as authoritative. Nostr price hints are used **only for UI display** when no DB price exists; mismatches are logged via `onMismatch` but not surfaced in the UI. **Important**: The purchase/claim flow (`/api/purchases/claim`) enforces DB-only pricing and will **reject** claims when `priceSource === "nostr"` (lines 430-445), preventing attackers from bypassing payment by submitting `nostrPrice: 0`. Content without an authoritative DB price cannot be purchased. The dialog may briefly show stale Nostr hints until refresh (see purchase-gaps.md §3).
 - Content gating: `src/app/api/resources/[id]/route.ts` and `src/app/api/courses/[id]/route.ts` gate paid content using snapshot-aware checks (`min(priceAtPurchase, currentPrice)`); resource access can also unlock via course lessons (`checkCourseUnlockViaLessons`). Resources cannot be deleted if purchases exist (`DELETE` guard).
 
 ## Zap Discovery

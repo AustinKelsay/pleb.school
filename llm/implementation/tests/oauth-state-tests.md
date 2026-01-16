@@ -83,7 +83,9 @@ With state parameter:
 
 ## Mock Strategy
 
-Tests don't require mocks - pure crypto functions.
+Tests use minimal mocking for deterministic behavior:
+- `vi.stubEnv('NEXTAUTH_SECRET', ...)` - Provides consistent signing key
+- `vi.spyOn(Date, 'now').mockReturnValue(...)` - Controls time for expiration tests
 
 ## Related Files
 

@@ -231,9 +231,11 @@ const event = createCourseEvent(courseDraft, lessonIdentifiers, signingPrivkey)
     ['title', draft.title],
     ['summary', draft.summary],
     ['image', draft.image],
-    ['t', ...draft.topics],
+    // NIP-23/99 requires ONE ['t', topic] tag PER topic
+    ...draft.topics.map(topic => ['t', topic]),
     ['price', String(draft.price), 'sats'],  // If paid
-    ['r', ...additionalLinks]
+    // ONE ['r', url] tag PER additional link
+    ...additionalLinks.map(link => ['r', link.url])
   ],
   content: draft.content,
   pubkey: userPubkey,

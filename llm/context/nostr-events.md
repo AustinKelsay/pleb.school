@@ -203,16 +203,9 @@ const parsed = parseEvent(event)
 
 ### Type Detection
 
-The parser determines content type from tags:
+Type detection is handled internally by `parseEvent()` (for resources) and `parseCourseEvent()` (for courses) in `src/data/types.ts`. **Always use these parser helpers** rather than manually inspecting tags.
 
-```typescript
-// Video detection - check for ['t', 'video'] tag
-if (tags.some(t => t[0] === 't' && t[1] === 'video')) type = 'video'
-// Or if videoUrl tag exists
-else if (tags.find(t => t[0] === 'video')) type = 'video'
-// Default to document
-else type = 'document'
-```
+Internally, the parser checks for `['t', 'video']` topic tags or `['video', url]` tags to determine if content is video type; otherwise defaults to `'document'`.
 
 ## Event Building
 

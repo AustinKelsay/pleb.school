@@ -330,7 +330,7 @@ interface UserPreferences {
 
 #### 3. Nostr profile not syncing
 **Problem**: Relays not responding
-**Solution**: Check relay connectivity for the fixed list in `src/lib/nostr-profile.ts` (relay.nostr.band, nos.lol, damus) or update that list.
+**Solution**: Check relay connectivity for the relays returned by `getRelays('profile')` (configured in `config/nostr.json`). The `fetchNostrProfile` function in `src/lib/nostr-profile.ts` uses this centralized config.
 
 #### 4. Profile data not updating
 **Problem**: No new data available or provider API throttling
