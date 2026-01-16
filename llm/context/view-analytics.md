@@ -4,7 +4,7 @@ Hybrid KV + database view counting system. KV handles hot path, database stores 
 
 ## Overview
 
-```
+```text
 Client Request
     ↓
 POST /api/views (increment)

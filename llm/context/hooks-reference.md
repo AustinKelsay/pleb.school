@@ -299,8 +299,8 @@ Fetches Nostr notes/discussions for content.
 import { useCourseNotes } from '@/hooks/useCourseNotes'
 import { useResourceNotes } from '@/hooks/useResourceNotes'
 
-const { notes, isLoading } = useCourseNotes(courseNoteId)
-const { notes, isLoading } = useResourceNotes(resourceNoteId)
+const { notes: courseNotes, isLoading: courseNotesLoading } = useCourseNotes(courseNoteId)
+const { notes: resourceNotes, isLoading: resourceNotesLoading } = useResourceNotes(resourceNoteId)
 ```
 
 ### useCommentThreads

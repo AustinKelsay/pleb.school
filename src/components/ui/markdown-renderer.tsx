@@ -4,11 +4,11 @@
  * Uses react-markdown with plugins for GitHub-flavored markdown, raw HTML support,
  * and optimized rendering with memoization for better performance.
  *
- * Note on rehypeRaw: This plugin allows HTML passthrough for rich content embedding
- * (videos, iframes, custom formatting). React's JSX rendering model provides
- * built-in protection against inline script execution and event handler injection.
- * Link handler blocks dangerous URL schemes (javascript:, data:, vbscript:).
- * Image handler uses OptimizedImage with filtered props.
+ * Security: Content is sanitized via DOMPurify before rendering to remove XSS vectors
+ * (script tags, event handlers, dangerous URLs). rehypeRaw then safely passes through
+ * the sanitized HTML for rich content embedding (videos, iframes, custom formatting).
+ * Additional protections: Link handler blocks dangerous URL schemes (javascript:, data:,
+ * vbscript:). Image handler uses OptimizedImage with filtered props.
  */
 
 'use client'
@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ExternalLink, Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { sanitizeContent } from '@/lib/content-utils'
 
 // Import highlight.js theme for syntax highlighting
 import 'highlight.js/styles/github-dark.css'
@@ -429,10 +430,13 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content, classN
   // Memoize the plugins configuration for better performance
   const remarkPlugins = useMemo(() => [remarkGfm], [])
   const rehypePlugins = useMemo(() => [
-    rehypeHighlight, 
+    rehypeHighlight,
     rehypeRaw
   ], [])
-  
+
+  // Sanitize content to remove XSS vectors before rendering
+  const sanitizedContent = useMemo(() => sanitizeContent(content), [content])
+
   // Memoize the rendered content
   const renderedContent = useMemo(() => (
     <ReactMarkdown
@@ -440,9 +444,9 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content, classN
       rehypePlugins={rehypePlugins}
       components={MarkdownComponents}
     >
-      {content}
+      {sanitizedContent}
     </ReactMarkdown>
-  ), [content, remarkPlugins, rehypePlugins])
+  ), [sanitizedContent, remarkPlugins, rehypePlugins])
   
   return (
     <div className={`w-full ${className}`}>
