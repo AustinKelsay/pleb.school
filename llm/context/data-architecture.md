@@ -72,7 +72,13 @@ const { data, pagination } = await ResourceAdapter.findAllPaginated({
 const resource = await ResourceAdapter.findById(id, userId)
 const resource = await ResourceAdapter.findByNoteId(noteId)
 const resource = await ResourceAdapter.findByVideoId(videoId)
-const resourceWithNote = await ResourceAdapter.findByIdWithNote(id, userId)
+
+// Find with Nostr event (userId is optional)
+// Signature: findByIdWithNote(id: string, userId?: string)
+// Pass userId to include purchase information for that user
+const resourceWithNote = await ResourceAdapter.findByIdWithNote(id)
+// Or with userId to include purchase info:
+const resourceWithNoteAndPurchase = await ResourceAdapter.findByIdWithNote(id, userId)
 
 // Filter by price
 const freeResources = await ResourceAdapter.findFree()
@@ -155,6 +161,7 @@ Resources follow the same pattern with `parseEvent` + `createResourceDisplay`:
 import { ResourceAdapter } from '@/lib/db-adapter'
 import { createResourceDisplay, parseEvent } from '@/data/types'
 
+// userId is optional - pass it to include purchase information
 const resourceWithNote = await ResourceAdapter.findByIdWithNote(id, userId)
 
 if (resourceWithNote.note) {

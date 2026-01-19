@@ -176,8 +176,8 @@ The reconnect token is stored in **two locations** for security and backward com
 **Reconnection Flow:**
 ```typescript
 // 1. Server checks for token (cookie takes priority, localStorage as fallback)
-const reconnectToken = credentials?.reconnectToken ||  // localStorage (legacy)
-  cookieStore.get('anon-reconnect-token')?.value       // httpOnly cookie (secure)
+const reconnectToken = cookieStore.get('anon-reconnect-token')?.value ||  // httpOnly cookie (secure)
+  credentials?.reconnectToken                                              // localStorage (legacy fallback)
 
 // 2. Server computes hash and queries
 const hash = hashToken(reconnectToken)

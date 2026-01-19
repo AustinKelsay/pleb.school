@@ -331,7 +331,8 @@ function PublishButton({ draft }) {
 
   const handlePublish = async () => {
     // Check if NIP-07 signing required
-    const needsNip07 = !session.user.privkey
+    // Treat missing session/user as no privkey (requires NIP-07)
+    const needsNip07 = !session?.user?.privkey
 
     let signedEvent
     if (needsNip07) {

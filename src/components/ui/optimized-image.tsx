@@ -67,10 +67,15 @@ export function OptimizedImage({
 }: OptimizedImageProps) {
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [fallbackFailed, setFallbackFailed] = useState(false)
 
   function handleError() {
     setError(true)
     setLoading(false)
+  }
+
+  function handleFallbackError() {
+    setFallbackFailed(true)
   }
 
   function handleLoad() {
@@ -81,7 +86,7 @@ export function OptimizedImage({
     // If fallback is an image URL, try to display it; otherwise show placeholder text
     const hasFallbackImage = fallback && fallback !== "/images/placeholder.svg"
 
-    if (hasFallbackImage) {
+    if (hasFallbackImage && !fallbackFailed) {
       // Render fallback image (unoptimized to avoid cascading failures)
       return (
         <Image
@@ -92,6 +97,7 @@ export function OptimizedImage({
           fill={fill}
           className={className}
           unoptimized
+          onError={handleFallbackError}
         />
       )
     }

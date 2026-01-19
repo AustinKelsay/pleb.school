@@ -1,4 +1,4 @@
-# auth.test.ts
+# auth.test.ts Documentation
 
 **Location**: `src/lib/tests/auth.test.ts`
 **Tests**: 11

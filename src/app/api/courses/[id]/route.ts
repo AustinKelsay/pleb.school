@@ -171,7 +171,16 @@ export async function PUT(
     }
 
     // Parse and validate request body - only allow specific fields
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
     const validationResult = updateCourseSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -270,6 +279,8 @@ export async function DELETE(
 
     // Check if course has associated lessons before deleting
     // Prevent orphaned lessons that would lose their course reference
+    // Note: Theoretical TOCTOU race exists here (lesson could be added between check and delete)
+    // but practical risk is negligible since only owner/admin can delete their own course.
     const lessonCount = await LessonAdapter.countByCourse(courseId)
     if (lessonCount > 0) {
       return NextResponse.json(

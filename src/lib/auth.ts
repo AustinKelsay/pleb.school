@@ -477,8 +477,8 @@ if (authConfig.providers.anonymous.enabled) {
           // See: llm/context/authentication-system.md
           //
           // Priority order for reconnect token:
-          // 1. credentials.reconnectToken (legacy localStorage path, being phased out)
-          // 2. httpOnly cookie 'anon-reconnect-token' (secure path via next/headers)
+          // 1. httpOnly cookie 'anon-reconnect-token' (secure path, XSS-resistant)
+          // 2. credentials.reconnectToken (legacy localStorage fallback, being phased out)
           // ============================================================
           const COOKIE_NAME = 'anon-reconnect-token'
           let cookieToken: string | undefined
@@ -490,7 +490,7 @@ if (authConfig.providers.anonymous.enabled) {
           } catch {
             // cookies() may not be available in all contexts
           }
-          const reconnectToken = credentials?.reconnectToken || cookieToken
+          const reconnectToken = cookieToken || credentials?.reconnectToken
 
           if (reconnectToken) {
             // Rate limit by token hash

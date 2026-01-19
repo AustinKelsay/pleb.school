@@ -53,7 +53,7 @@ The private key encryption system uses a single master key (`PRIVKEY_ENCRYPTION_
 
 **Mitigating Context**:
 - Ephemeral accounts can simply create new ones
-- Purchases tied to user ID, not privkey
+- Purchases tied to user ID, not private key
 - Data loss is acceptable for ephemeral identities
 
 **Fix Options**:
