@@ -78,8 +78,26 @@ export function OptimizedImage({
   }
 
   if (error) {
+    // If fallback is an image URL, try to display it; otherwise show placeholder text
+    const hasFallbackImage = fallback && fallback !== "/images/placeholder.svg"
+
+    if (hasFallbackImage) {
+      // Render fallback image (unoptimized to avoid cascading failures)
+      return (
+        <Image
+          src={fallback}
+          alt={alt}
+          width={fill ? undefined : (width || 400)}
+          height={fill ? undefined : (height || 300)}
+          fill={fill}
+          className={className}
+          unoptimized
+        />
+      )
+    }
+
     return (
-      <div 
+      <div
         className={cn(
           "flex items-center justify-center bg-muted text-muted-foreground",
           className

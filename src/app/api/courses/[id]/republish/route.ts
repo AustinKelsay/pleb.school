@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 const paramsSchema = z.object({
   // Courses use custom string IDs (e.g., 'welcome-to-pleb-school'), not UUIDs
-  id: z.string().min(1, 'Course ID is required'),
+  id: z.string().trim().min(1, 'Course ID is required'),
 })
 
 const republishSchema = z

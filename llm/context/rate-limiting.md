@@ -16,11 +16,11 @@ Rate limiting protects sensitive endpoints from abuse:
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 export async function POST(req: Request) {
-  const { email } = await req.json()
+  const { ref, token } = await req.json()
 
-  // Check rate limit
+  // Check rate limit by ref (not email) to prevent brute force on verification codes
   const result = await checkRateLimit(
-    `email-verify:${email}`,
+    `verify-email:${ref}`,
     RATE_LIMITS.EMAIL_VERIFY.limit,
     RATE_LIMITS.EMAIL_VERIFY.windowSeconds
   )
@@ -155,12 +155,12 @@ Use descriptive, scoped keys:
 
 ```typescript
 // Format: {action}:{identifier}
-`email-verify:${email}`
+`verify-email:${ref}`    // By ref, not email (prevents brute force on codes)
 `email-send:${email}`
 `magic-link:${email}`
 `nostr-auth:${pubkey}`
 `auth-anon-new:global`   // Global limit
-`auth-anon-new:ip:{ip}`  // Per-IP limit
+`auth-anon-new:ip:${ip}` // Per-IP limit
 `api:${userId}`
 ```
 
@@ -210,7 +210,7 @@ if (response.status === 429) {
 | Endpoint | Limit | Key Pattern |
 |----------|-------|-------------|
 | Send verification | 3/hour | `email-send:{email}` |
-| Verify code | 5/hour | `email-verify:{ref}` |
+| Verify code | 5/hour | `verify-email:{ref}` |
 
 ### NIP-98 Ordering
 

@@ -385,11 +385,17 @@ const MarkdownComponents = {
     )
   },
   
-  // Custom image renderer with mobile optimization
-  img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => (
+  // Custom image renderer with mobile optimization and URL scheme validation
+  img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => {
+    // Block dangerous URL schemes (javascript:, data:, vbscript:) - same as link handler
+    const rawSrc = typeof src === 'string' ? src : ''
+    const isDangerous = rawSrc && /^(javascript|data|vbscript):/i.test(rawSrc.trim())
+    const safeSrc = isDangerous ? '' : rawSrc
+
+    return (
     <div className="my-3 sm:my-4 w-full">
       <OptimizedImage
-        src={typeof src === 'string' ? src : ''}
+        src={safeSrc}
         alt={alt || ''}
         width={800}
         height={600}
@@ -401,7 +407,8 @@ const MarkdownComponents = {
         </p>
       )}
     </div>
-  ),
+    )
+  },
   
   // Custom horizontal rule
   hr: ({ ...props }: React.HTMLAttributes<HTMLHRElement>) => (

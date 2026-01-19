@@ -229,33 +229,50 @@ function isAllowedDomain(src: string): boolean {
 }
 
 export function OptimizedImage({
-  src, alt, width, height, className, fill, ...imageProps
+  src, alt, width, height, className, fill,
+  fallback = "/images/placeholder.svg",
+  priority = false, sizes, placeholder = "empty", blurDataURL,
+  ...props
 }: OptimizedImageProps) {
   const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   if (error) {
-    // Fallback div only receives div-safe props (className, style)
+    // If custom fallback provided, render it as an image
+    const hasFallbackImage = fallback && fallback !== "/images/placeholder.svg"
+    if (hasFallbackImage) {
+      return (
+        <Image src={fallback} alt={alt} width={width || 400} height={height || 300}
+          fill={fill} className={className} unoptimized />
+      )
+    }
+    // Otherwise show placeholder text
     return (
-      <div
-        className={cn("bg-muted text-muted-foreground", className)}
-        style={{ width, height }}
-      >
+      <div className={cn("bg-muted text-muted-foreground", className)}
+        style={{ width, height }}>
         <span className="text-sm">Image unavailable</span>
       </div>
     )
   }
 
+  const shouldOptimize = isAllowedDomain(src || fallback)
+
   return (
     <Image
-      src={src}
+      src={src || fallback}
       alt={alt}
       width={fill ? undefined : (width || 400)}
       height={fill ? undefined : (height || 300)}
       fill={fill}
       className={className}
-      unoptimized={!isAllowedDomain(src)}
+      unoptimized={!shouldOptimize}
       onError={() => setError(true)}
-      {...imageProps}
+      onLoad={() => setLoading(false)}
+      priority={priority}
+      sizes={sizes}
+      placeholder={placeholder}
+      blurDataURL={blurDataURL}
+      {...props}
     />
   )
 }
