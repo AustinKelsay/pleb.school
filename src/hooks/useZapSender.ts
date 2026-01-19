@@ -452,26 +452,38 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
 
         const invoice = invoiceJson.pr;
 
+        // NIP-57 requires invoice description hash to match sha256(zapRequestJson)
+        // This is mandatory when a zap request was sent - prevents invoice substitution
         const parsedInvoice = parseBolt11Invoice(invoice);
-        if (parsedInvoice?.descriptionHash) {
-          const invoiceHash = parsedInvoice.descriptionHash.toLowerCase();
-          if (zapRequestHash.toLowerCase() !== invoiceHash) {
-            // Surface full context so we can compare exactly what we hashed
-            // and sent in the nostr param vs what the LNURL server used.
-            console.error('useZapSender: invoice description hash does not match zap request', {
-              zapRequestJson,
-              zapRequestHash,
-              invoiceDescriptionHash: invoiceHash,
-              zapRequest: signedZapRequest,
-              lnurlCallback: callbackHref,
-              lnurlResponse: invoiceJson,
-              parsedInvoice
-            });
-            throw new Error(
-              'Invoice description hash does not match zap request. ' +
-              'This Lightning provider is not producing NIP-57 compatible zap invoices.'
-            );
-          }
+        if (!parsedInvoice?.descriptionHash) {
+          console.error('useZapSender: invoice missing required description hash for NIP-57 zap', {
+            zapRequestJson,
+            zapRequestHash,
+            lnurlCallback: callbackHref,
+            lnurlResponse: invoiceJson,
+            parsedInvoice
+          });
+          throw new Error(
+            'Invoice is missing description hash. ' +
+            'This Lightning provider is not NIP-57 compatible.'
+          );
+        }
+
+        const invoiceHash = parsedInvoice.descriptionHash.toLowerCase();
+        if (zapRequestHash.toLowerCase() !== invoiceHash) {
+          console.error('useZapSender: invoice description hash does not match zap request', {
+            zapRequestJson,
+            zapRequestHash,
+            invoiceDescriptionHash: invoiceHash,
+            zapRequest: signedZapRequest,
+            lnurlCallback: callbackHref,
+            lnurlResponse: invoiceJson,
+            parsedInvoice
+          });
+          throw new Error(
+            'Invoice description hash does not match zap request. ' +
+            'This Lightning provider is not producing NIP-57 compatible zap invoices.'
+          );
         }
 
         setZapState({

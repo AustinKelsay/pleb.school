@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { changePrimaryProvider } from '@/lib/account-linking'
+import { auditLog } from '@/lib/audit-logger'
 import { z } from 'zod'
 
 const ChangePrimarySchema = z.object({
@@ -42,6 +43,13 @@ export async function POST(request: NextRequest) {
     // Change the primary provider
     const result = await changePrimaryProvider(session.user.id, provider)
 
+    // Audit log primary provider change
+    auditLog(session.user.id, 'account.primary.change', {
+      provider,
+      success: result.success,
+      error: result.error
+    }, request)
+
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || 'Failed to change primary provider' },
@@ -49,9 +57,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: `Successfully changed primary provider to ${provider}` 
+      message: `Successfully changed primary provider to ${provider}`
     })
   } catch (error) {
     console.error('Change primary provider error:', error)

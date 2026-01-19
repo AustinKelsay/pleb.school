@@ -124,10 +124,17 @@ export function usePermission(permission: keyof AdminPermissions): {
 }
 
 /**
- * Hook for checking if user can view analytics
+ * Hook for checking if user can view their own content analytics
  */
-export function useCanViewAnalytics() {
-  return usePermission('viewAnalytics')
+export function useCanViewOwnAnalytics() {
+  return usePermission('viewOwnAnalytics')
+}
+
+/**
+ * Hook for checking if user can view platform-wide analytics
+ */
+export function useCanViewPlatformAnalytics() {
+  return usePermission('viewPlatformAnalytics')
 }
 
 /**

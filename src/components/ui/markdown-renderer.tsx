@@ -1,7 +1,14 @@
 /**
  * High-performance markdown renderer with comprehensive syntax highlighting
+ *
  * Uses react-markdown with plugins for GitHub-flavored markdown, raw HTML support,
- * and optimized rendering with memoization for better performance
+ * and optimized rendering with memoization for better performance.
+ *
+ * Security: Content is sanitized via DOMPurify before rendering to remove XSS vectors
+ * (script tags, event handlers, dangerous URLs). rehypeRaw then safely passes through
+ * the sanitized HTML for rich content embedding (videos, iframes, custom formatting).
+ * Additional protections: Link handler blocks dangerous URL schemes (javascript:, data:,
+ * vbscript:). Image handler uses OptimizedImage with filtered props.
  */
 
 'use client'
@@ -16,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ExternalLink, Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { sanitizeContent } from '@/lib/content-utils'
 
 // Import highlight.js theme for syntax highlighting
 import 'highlight.js/styles/github-dark.css'
@@ -356,13 +364,16 @@ const MarkdownComponents = {
     </th>
   ),
   
-  // Custom link renderer
+  // Custom link renderer with URL scheme validation
   a: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-    const isExternal = href?.startsWith('http')
-    
+    // Block dangerous URL schemes (javascript:, data:, vbscript:)
+    const isDangerous = href && /^(javascript|data|vbscript):/i.test(href.trim())
+    const safeHref = isDangerous ? '#' : href
+    const isExternal = safeHref?.startsWith('http')
+
     return (
       <a
-        href={href}
+        href={safeHref}
         className="text-primary hover:text-primary/80 underline underline-offset-4 inline-flex items-center gap-1"
         target={isExternal ? '_blank' : undefined}
         rel={isExternal ? 'noopener noreferrer' : undefined}
@@ -374,11 +385,17 @@ const MarkdownComponents = {
     )
   },
   
-  // Custom image renderer with mobile optimization
-  img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => (
+  // Custom image renderer with mobile optimization and URL scheme validation
+  img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => {
+    // Block dangerous URL schemes (javascript:, data:, vbscript:) - same as link handler
+    const rawSrc = typeof src === 'string' ? src : ''
+    const isDangerous = rawSrc && /^(javascript|data|vbscript):/i.test(rawSrc.trim())
+    const safeSrc = isDangerous ? '' : rawSrc
+
+    return (
     <div className="my-3 sm:my-4 w-full">
       <OptimizedImage
-        src={typeof src === 'string' ? src : ''}
+        src={safeSrc}
         alt={alt || ''}
         width={800}
         height={600}
@@ -390,7 +407,8 @@ const MarkdownComponents = {
         </p>
       )}
     </div>
-  ),
+    )
+  },
   
   // Custom horizontal rule
   hr: ({ ...props }: React.HTMLAttributes<HTMLHRElement>) => (
@@ -419,10 +437,13 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content, classN
   // Memoize the plugins configuration for better performance
   const remarkPlugins = useMemo(() => [remarkGfm], [])
   const rehypePlugins = useMemo(() => [
-    rehypeHighlight, 
+    rehypeHighlight,
     rehypeRaw
   ], [])
-  
+
+  // Sanitize content to remove XSS vectors before rendering
+  const sanitizedContent = useMemo(() => sanitizeContent(content), [content])
+
   // Memoize the rendered content
   const renderedContent = useMemo(() => (
     <ReactMarkdown
@@ -430,9 +451,9 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content, classN
       rehypePlugins={rehypePlugins}
       components={MarkdownComponents}
     >
-      {content}
+      {sanitizedContent}
     </ReactMarkdown>
-  ), [content, remarkPlugins, rehypePlugins])
+  ), [sanitizedContent, remarkPlugins, rehypePlugins])
   
   return (
     <div className={`w-full ${className}`}>

@@ -6,9 +6,9 @@
       "comment": "MessageCircle"
     },
     "status": {
-      "success": "CheckCircle",
+      "success": "CircleCheck",
       "pending": "Loader2",
-      "error": "AlertTriangle"
+      "error": "TriangleAlert"
     },
     "purchase": {
       "shieldCheck": "ShieldCheck",

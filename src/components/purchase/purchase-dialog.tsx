@@ -11,7 +11,6 @@ import {
   Loader2, 
   Lock,
   QrCode,
-  ShieldCheck, 
   Unlock,
   Zap 
 } from "lucide-react"
@@ -38,8 +37,11 @@ import type { ZapInsights, ZapReceiptSummary } from "@/hooks/useInteractions"
 import type { Purchase } from "@prisma/client"
 import { useZapSender } from "@/hooks/useZapSender"
 import { usePurchaseEligibility } from "@/hooks/usePurchaseEligibility"
-import { getPaymentsConfig } from "@/lib/payments-config"
+import { getPaymentsConfig, getPurchaseIcon } from "@/lib/payments-config"
 import { copyConfig } from "@/lib/copy"
+
+// Icon lookup at module level (not during render) to avoid React rules violation
+const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
 
 const formatTemplate = (template?: string, vars: Record<string, string | number> = {}) =>
   template?.replace(/\{(\w+)\}/g, (_, key) =>
@@ -121,7 +123,7 @@ export function PurchaseDialog({
   const { toast } = useToast()
   const isAuthed = sessionStatus === "authenticated"
   const purchaseCopy = copyConfig.payments?.purchaseDialog
-  
+
   const [preferAnonymous, setPreferAnonymous] = useState(false)
   const [showQr, setShowQr] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -298,7 +300,8 @@ export function PurchaseDialog({
       toast({ title: purchaseCopy?.send?.claimSignInTitle ?? "Sign in first", variant: "destructive" })
       return
     }
-    const claimed = await claimPurchase()
+    // Use allowPastZaps to extend the receipt age limit for unlocking with historical zaps
+    const claimed = await claimPurchase({ allowPastZaps: true })
     if (claimed) {
       toast({
         title: purchaseCopy?.send?.claimSuccessTitle ?? "Unlocked!",
@@ -487,7 +490,7 @@ export function PurchaseDialog({
                       onChange={(e) => setPreferAnonymous(e.target.checked)}
                       className="h-4 w-4 accent-primary"
                     />
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <ShieldCheckIcon className="h-3.5 w-3.5" />
                     <span>Private zap (anonymous signature)</span>
                   </label>
                 )}

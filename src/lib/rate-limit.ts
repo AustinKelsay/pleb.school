@@ -126,6 +126,38 @@ function checkRateLimitMemory(
 }
 
 /**
+ * Extract client IP from request headers (for use in App Router context)
+ *
+ * Uses next/headers to access request headers. Returns 'unknown' if IP cannot be determined.
+ *
+ * Trust model: On Vercel, these headers are set by the edge network and cannot be spoofed.
+ * On self-hosted deployments, ensure a trusted reverse proxy sets these headers.
+ */
+export async function getClientIp(): Promise<string> {
+  try {
+    const { headers } = await import('next/headers')
+    const headerStore = await headers()
+
+    // x-real-ip: Vercel's canonical client IP header (preferred)
+    const realIp = headerStore.get('x-real-ip')
+    if (realIp) return realIp
+
+    // x-forwarded-for: Standard proxy header (fallback)
+    // Take first IP (original client) - proxies append, not prepend
+    const forwardedFor = headerStore.get('x-forwarded-for')
+    if (forwardedFor) {
+      const firstIp = forwardedFor.split(',')[0]?.trim()
+      if (firstIp) return firstIp
+    }
+
+    return 'unknown'
+  } catch {
+    // headers() may not be available in all contexts
+    return 'unknown'
+  }
+}
+
+/**
  * Rate limit configurations for different endpoints
  */
 export const RATE_LIMITS = {
@@ -134,6 +166,18 @@ export const RATE_LIMITS = {
 
   // Send verification email: 3 per email per hour (prevents spam)
   EMAIL_SEND: { limit: 3, windowSeconds: 3600 }, // 3 emails per hour per address
+
+  // Auth magic link: 5 per email per 15 minutes (prevents email flooding)
+  AUTH_MAGIC_LINK: { limit: 5, windowSeconds: 900 }, // 5 magic links per 15 min per email
+
+  // Nostr auth: 10 attempts per pubkey per minute (prevents enumeration)
+  AUTH_NOSTR: { limit: 10, windowSeconds: 60 }, // 10 attempts per minute per pubkey
+
+  // Anonymous auth per-IP: 5 per IP per hour (prevents single-source abuse)
+  AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
+
+  // Anonymous auth global: 50 per hour total (backstop for distributed attacks)
+  AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
 
   // General API rate limit (can be used for other endpoints)
   API_GENERAL: { limit: 100, windowSeconds: 60 } // 100 requests per minute

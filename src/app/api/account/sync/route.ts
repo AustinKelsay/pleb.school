@@ -6,7 +6,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { fetchNostrProfile } from '@/lib/nostr-profile'
+import {
+  fetchNostrProfile,
+  validateUsername,
+  validateImageUrl,
+  validateNip05,
+  validateLud16
+} from '@/lib/nostr-profile'
+import { sanitizeEmail } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -131,27 +138,20 @@ export async function POST(request: NextRequest) {
     
     let updates: UpdateUserPayload = {}
     
-    switch (provider) {
-      case 'nostr':
+  switch (provider) {
+    case 'nostr':
         if (account?.providerAccountId) {
           const nostrProfile = await fetchNostrProfile(account.providerAccountId)
           if (nostrProfile) {
             const nextUpdates: UpdateUserPayload = {}
-            const name = typeof (nostrProfile as Record<string, unknown>).name === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).name) 
-              : undefined
-            const picture = typeof (nostrProfile as Record<string, unknown>).picture === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).picture) 
-              : undefined
-            const banner = typeof (nostrProfile as Record<string, unknown>).banner === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).banner) 
-              : undefined
-            const nip05 = typeof (nostrProfile as Record<string, unknown>).nip05 === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).nip05) 
-              : undefined
-            const lud16 = typeof (nostrProfile as Record<string, unknown>).lud16 === 'string' 
-              ? String((nostrProfile as Record<string, unknown>).lud16) 
-              : undefined
+            const profile = nostrProfile as Record<string, unknown>
+
+            // Apply validation to all profile fields from Nostr
+            const name = validateUsername(profile.name)
+            const picture = validateImageUrl(profile.picture)
+            const banner = validateImageUrl(profile.banner)
+            const nip05 = validateNip05(profile.nip05)
+            const lud16 = validateLud16(profile.lud16)
 
             if (name) nextUpdates.username = name
             if (picture) nextUpdates.avatar = picture
@@ -239,6 +239,27 @@ export async function POST(request: NextRequest) {
             }
           } catch (error) {
             console.error('Failed to fetch GitHub profile:', error)
+          }
+        }
+        break
+
+      case 'email':
+        if (!account?.providerAccountId) {
+          return NextResponse.json(
+            { error: 'Email account is missing an identifier' },
+            { status: 400 }
+          )
+        }
+        {
+          const normalizedEmail = sanitizeEmail(account.providerAccountId)
+          const currentUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { email: true }
+          })
+          if (!currentUser?.email) {
+            updates = { email: normalizedEmail }
+          } else if (currentUser.email !== normalizedEmail) {
+            updates = { email: normalizedEmail }
           }
         }
         break

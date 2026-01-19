@@ -302,7 +302,10 @@ export async function getAggregatedProfile(userId: string): Promise<AggregatedPr
     aggregated.linkedAccounts.push(accountData)
   }
   
-  // Add data from user table (current session data)
+  // Add data from User table columns (the "current DB profile")
+  // This includes data from: provider syncs, manual edits, and registration.
+  // Displayed as source 'profile' in the UI. See llm/context/profile-system-architecture.md
+  // for details on how this fits into the priority order.
   const currentData: LinkedAccountData = {
     provider: 'current',
     providerAccountId: user.id,
@@ -321,12 +324,17 @@ export async function getAggregatedProfile(userId: string): Promise<AggregatedPr
   }
   
   // Aggregate fields based on profileSource priority
+  // See llm/context/profile-system-architecture.md "Profile Source Priority" for full explanation
   const isNostrFirst = isNostrFirstProfile(user.profileSource, user.primaryProvider)
 
   const nostrAccounts = aggregated.linkedAccounts.filter(a => a.provider === 'nostr')
   const nonNostrAccounts = aggregated.linkedAccounts.filter(a => a.provider !== 'nostr')
-  
-  // Get prioritized accounts
+
+  // Build prioritized account list based on profileSource:
+  // - Nostr-first: nostr → currentData (DB profile) → oauth providers
+  //   (currentData serves as fallback/cache when Nostr unavailable, and captures manual edits)
+  // - OAuth-first: currentData (DB profile) → oauth → nostr
+  //   (DB profile is authoritative, Nostr is supplementary)
   const prioritizedAccounts = isNostrFirst
     ? [...nostrAccounts, currentData, ...nonNostrAccounts]
     : [currentData, ...nonNostrAccounts, ...nostrAccounts]

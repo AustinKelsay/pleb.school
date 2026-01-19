@@ -5,7 +5,8 @@ import { RepublishService, RepublishError } from '@/lib/republish-service'
 import { z } from 'zod'
 
 const paramsSchema = z.object({
-  id: z.string().uuid('Invalid course ID'),
+  // Courses use custom string IDs (e.g., 'welcome-to-pleb-school'), not UUIDs
+  id: z.string().trim().min(1, 'Course ID is required'),
 })
 
 const republishSchema = z

@@ -67,10 +67,15 @@ export function OptimizedImage({
 }: OptimizedImageProps) {
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [fallbackFailed, setFallbackFailed] = useState(false)
 
   function handleError() {
     setError(true)
     setLoading(false)
+  }
+
+  function handleFallbackError() {
+    setFallbackFailed(true)
   }
 
   function handleLoad() {
@@ -78,8 +83,27 @@ export function OptimizedImage({
   }
 
   if (error) {
+    // If fallback is an image URL, try to display it; otherwise show placeholder text
+    const hasFallbackImage = fallback && fallback !== "/images/placeholder.svg"
+
+    if (hasFallbackImage && !fallbackFailed) {
+      // Render fallback image (unoptimized to avoid cascading failures)
+      return (
+        <Image
+          src={fallback}
+          alt={alt}
+          width={fill ? undefined : (width || 400)}
+          height={fill ? undefined : (height || 300)}
+          fill={fill}
+          className={className}
+          unoptimized
+          onError={handleFallbackError}
+        />
+      )
+    }
+
     return (
-      <div 
+      <div
         className={cn(
           "flex items-center justify-center bg-muted text-muted-foreground",
           className

@@ -541,6 +541,16 @@ export class LessonAdapter {
     return lessons.map(transformLesson)
   }
 
+  /**
+   * Count lessons for a course without fetching all data
+   * Used for deletion checks to prevent orphaned lessons
+   */
+  static async countByCourse(courseId: string): Promise<number> {
+    return prisma.lesson.count({
+      where: { courseId }
+    })
+  }
+
   static async findByResourceId(resourceId: string): Promise<Lesson[]> {
     const lessons = await prisma.lesson.findMany({
       where: { resourceId },
