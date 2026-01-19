@@ -41,12 +41,21 @@ const created = await CourseAdapter.create({
 const updated = await CourseAdapter.update(id, { price: 2100 })
 const deleted = await CourseAdapter.delete(id)
 
-// Course deletion checks for purchases AND lessons
-// API route blocks deletion if course has associated lessons
+// Course deletion checks for purchases AND lessons before allowing delete
+// Check purchases first - cannot delete a course that has been purchased
+const purchaseCount = await PurchaseAdapter.countByCourse(courseId)
+if (purchaseCount > 0) {
+  // Returns 409 Conflict - cannot delete purchased course
+}
+
+// Check lessons second - cannot delete a course with associated lessons
 const lessonCount = await LessonAdapter.countByCourse(courseId)
 if (lessonCount > 0) {
   // Returns 409 Conflict with count of lessons
 }
+
+// Only then proceed with deletion
+const deleted = await CourseAdapter.delete(courseId)
 ```
 
 ### ResourceAdapter

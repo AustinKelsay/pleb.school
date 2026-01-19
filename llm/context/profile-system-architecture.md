@@ -48,8 +48,8 @@ Anonymous users can persist their session across browser restarts using a secure
 
 **Storage Format (localStorage):**
 ```typescript
-// Secure format - no private keys stored
-{ reconnectToken: "random_hex", pubkey: "...", userId: "..." }
+// Secure format - no private keys stored (matches PersistedAnonymousIdentity type)
+{ reconnectToken: "random_hex", pubkey: "...", userId: "...", updatedAt: 1704067200000 }
 ```
 
 **Security Properties:**

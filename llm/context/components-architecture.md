@@ -257,6 +257,7 @@ export function OptimizedImage({
 
   const shouldOptimize = isAllowedDomain(src || fallback)
 
+  // loading state enables fade-in transition on image load
   return (
     <Image
       src={src || fallback}
@@ -264,7 +265,12 @@ export function OptimizedImage({
       width={fill ? undefined : (width || 400)}
       height={fill ? undefined : (height || 300)}
       fill={fill}
-      className={className}
+      className={cn(
+        "transition-opacity duration-300",
+        loading && "opacity-0",
+        !loading && "opacity-100",
+        className
+      )}
       unoptimized={!shouldOptimize}
       onError={() => setError(true)}
       onLoad={() => setLoading(false)}

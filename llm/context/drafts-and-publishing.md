@@ -162,11 +162,14 @@ const result = await PublishService.publishCourse(
 For Nostr-first accounts without stored privkey:
 
 ```typescript
-// 1. Fetch draft and create unsigned event
+// 1. Fetch draft and create unsigned event for NIP-07 signing
+//    Note: createUnsignedResourceEvent returns { kind, tags, content, pubkey, created_at }
+//    without id or sig - those are added by window.nostr.signEvent
 const draft = await fetchDraft(draftId)
-const unsignedEvent = createResourceEvent(draft)
+const pubkey = await window.nostr.getPublicKey()
+const unsignedEvent = createUnsignedResourceEvent(draft, pubkey)
 
-// 2. Sign with NIP-07 extension
+// 2. Sign with NIP-07 extension (adds id and sig)
 const signedEvent = await window.nostr.signEvent(unsignedEvent)
 
 // 3. Submit signed event to API
@@ -230,12 +233,14 @@ const event = createCourseEvent(courseDraft, lessonIdentifiers, signingPrivkey)
     ['d', draft.id],
     ['title', draft.title],
     ['summary', draft.summary],
-    ['image', draft.image],
+    // Only include image tag when present
+    ...(draft.image ? [['image', draft.image]] : []),
     // NIP-23/99 requires ONE ['t', topic] tag PER topic
-    ...draft.topics.map(topic => ['t', topic]),
-    ['price', String(draft.price), 'sats'],  // If paid
+    ...(draft.topics || []).map(topic => ['t', topic]),
+    // Only include price tag for paid content
+    ...(draft.price > 0 ? [['price', String(draft.price), 'sats']] : []),
     // ONE ['r', url] tag PER additional link
-    ...draft.additionalLinks.map(link => ['r', link.url])
+    ...(draft.additionalLinks || []).map(link => ['r', link.url])
   ],
   content: draft.content,
   pubkey: userPubkey,
@@ -249,10 +254,12 @@ const event = createCourseEvent(courseDraft, lessonIdentifiers, signingPrivkey)
     ['d', courseDraft.id],
     ['name', courseDraft.title],
     ['about', courseDraft.summary],
-    ['image', courseDraft.image],
+    // Only include image tag when present
+    ...(courseDraft.image ? [['image', courseDraft.image]] : []),
     // ONE ['t', topic] tag PER topic
-    ...courseDraft.topics.map(topic => ['t', topic]),
-    ['price', String(courseDraft.price), 'sats'],
+    ...(courseDraft.topics || []).map(topic => ['t', topic]),
+    // Only include price tag for paid content
+    ...(courseDraft.price > 0 ? [['price', String(courseDraft.price), 'sats']] : []),
     // Lesson references
     ['a', '30023:pubkey:lesson1-dtag'],
     ['a', '30023:pubkey:lesson2-dtag']
