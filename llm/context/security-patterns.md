@@ -26,7 +26,10 @@ const PurchaseClaimSchema = z.object({
 // Usage in route
 const result = PurchaseClaimSchema.safeParse(body)
 if (!result.success) {
-  return Response.json({ error: 'Validation failed', details: result.error }, { status: 400 })
+  // Log detailed error server-side for debugging
+  console.warn('Validation failed:', result.error.issues)
+  // Return generic error to client - don't leak schema structure
+  return Response.json({ error: 'Validation failed' }, { status: 400 })
 }
 ```
 
@@ -134,16 +137,28 @@ export function encryptPrivkey(plain: string | null): string | null {
 
 export function decryptPrivkey(stored: string | null): string | null {
   if (!stored) return null
-  const payload = Buffer.from(stored.trim(), 'base64')
-  // Expect iv(12) + tag(16) + ciphertext(>=1) = minimum 29 bytes
-  if (payload.length < 29) return null
-  const key = getKeyBuffer()
-  const iv = payload.subarray(0, 12)
-  const tag = payload.subarray(12, 28)
-  const ciphertext = payload.subarray(28)
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
-  decipher.setAuthTag(tag)
-  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
+  const trimmed = stored.trim()
+
+  try {
+    const payload = Buffer.from(trimmed, 'base64')
+    // Expect iv(12) + tag(16) + ciphertext(>=1) = minimum 29 bytes
+    if (payload.length < 29) return null
+
+    const key = getKeyBuffer()
+    const iv = payload.subarray(0, 12)
+    const tag = payload.subarray(12, 28)
+    const ciphertext = payload.subarray(28)
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
+    decipher.setAuthTag(tag)
+    const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
+
+    // Validate decrypted privkey format
+    if (!/^[a-f0-9]{64}$/i.test(plain)) return null
+    return plain
+  } catch {
+    // Auth tag failure, tampering, or other crypto error - return null safely
+    return null
+  }
 }
 ```
 

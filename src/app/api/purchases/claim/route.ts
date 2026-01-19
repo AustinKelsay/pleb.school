@@ -28,7 +28,8 @@ const paymentTypeEnum = z.enum(["zap", "manual", "comped", "refund"])
 
 const payloadSchema = z.object({
   resourceId: z.uuid().optional(),
-  courseId: z.uuid().optional(),
+  // Course IDs are user-defined strings (e.g., 'welcome-to-pleb-school'), not UUIDs
+  courseId: z.string().trim().min(1).optional(),
   amountPaid: z.number().int().nonnegative(),
   paymentType: paymentTypeEnum.optional(),
   zapReceiptId: z.string().trim().min(1).optional(),

@@ -89,6 +89,7 @@ Long-form content for free resources.
     ["title", "Setting up your Code Editor"],
     ["summary", "Lesson summary..."],
     ["image", "https://..."],
+    ["video", "https://example.com/video.mp4"],  // Video URL for video-type content
     ["t", "video"],
     ["t", "beginner"],
     ["published_at", "1740871522"],

@@ -114,22 +114,49 @@ Mutation hook for publishing drafts to Nostr.
 ```typescript
 import { usePublishDraft } from '@/hooks/usePublishDraft'
 
-const { publishDraft, isPublishing, error } = usePublishDraft()
+function PublishDraftComponent({ draft, draftType }: { draft: any, draftType: 'resource' | 'course' }) {
+  const { publishDraft, isPublishing, error } = usePublishDraft()
 
-// Publish resource draft
-await publishDraft({
-  type: 'resource',
-  draftId: draft.id,
-  signedEvent: signedNostrEvent // If NIP-07 user
-})
+  // Handle publishing resource draft
+  const handlePublishResource = async () => {
+    try {
+      await publishDraft({
+        type: 'resource',
+        draftId: draft.id,
+        signedEvent: signedNostrEvent // If NIP-07 user
+      })
+      // Handle success (e.g., redirect, show toast)
+    } catch (err) {
+      // Error is available via the error state
+      console.error('Failed to publish:', error)
+    }
+  }
 
-// Publish course draft
-await publishDraft({
-  type: 'course',
-  draftId: courseDraft.id,
-  signedEvent: signedCourseEvent,
-  lessonEvents: signedLessonEvents
-})
+  // Handle publishing course draft
+  const handlePublishCourse = async () => {
+    try {
+      await publishDraft({
+        type: 'course',
+        draftId: draft.id,
+        signedEvent: signedCourseEvent,
+        lessonEvents: signedLessonEvents
+      })
+      // Handle success
+    } catch (err) {
+      console.error('Failed to publish:', error)
+    }
+  }
+
+  return (
+    <button 
+      onClick={draftType === 'resource' ? handlePublishResource : handlePublishCourse}
+      disabled={isPublishing}
+    >
+      {isPublishing ? 'Publishing...' : 'Publish'}
+      {error && <span>Error: {error.message}</span>}
+    </button>
+  )
+}
 ```
 
 ## Purchase & Payment Hooks
@@ -397,15 +424,28 @@ Prefetches content for performance.
 ```typescript
 import { usePrefetch } from '@/hooks/usePrefetch'
 import { usePrefetchContent } from '@/hooks/usePrefetchContent'
+import Link from 'next/link'
 
+// Prefetch on hover with Link
 const prefetch = usePrefetch()
 
-// Prefetch on hover
-<Link onMouseEnter={() => prefetch('/courses/123')}>
+<Link 
+  href="/courses/123"
+  onMouseEnter={() => prefetch.prefetchCourse('123')}
+>
+  Course Title
+</Link>
 
 // Or use content-aware prefetching
-const prefetchContent = usePrefetchContent()
-prefetchContent({ type: 'course', id: '123' })
+const { prefetchRelated } = usePrefetch()
+prefetchRelated({ type: 'course', id: '123' })
+
+// Use prefetchContent hook for bulk prefetching on component mount
+usePrefetchContent({
+  prefetchCourses: true,
+  prefetchVideos: true,
+  prefetchDocuments: true
+})
 ```
 
 ### useDebounce

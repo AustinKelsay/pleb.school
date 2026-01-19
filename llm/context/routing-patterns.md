@@ -70,17 +70,17 @@ const route = getRoutePath(resolved)
 
 ```
 /courses/[id]
-  └── params: { id: string }  // Course UUID
+  └── params: { id: string }  // Course ID (custom string slug, e.g., 'welcome-to-pleb-school')
 
 /courses/[id]/lessons/[lessonId]
-  └── params: { id: string, lessonId: string }
+  └── params: { id: string, lessonId: string }  // Course ID (slug) + Lesson UUID
 ```
 
 ### Resource Routes
 
 ```
 /content/[id]
-  └── params: { id: string }  // Resource UUID
+  └── params: { id: string }  // Resource UUID (inherited from Draft.id)
 ```
 
 ### Draft Routes
