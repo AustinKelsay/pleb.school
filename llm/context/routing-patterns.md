@@ -248,22 +248,36 @@ import Link from 'next/link'
 ## Prefetching
 
 ```tsx
-import { usePrefetch } from '@/hooks/usePrefetch'
+import { usePrefetch, usePrefetchProps } from '@/hooks/usePrefetch'
 
+// Option 1: Direct method calls
 function CourseList({ courses }) {
-  const prefetch = usePrefetch()
+  const { prefetchCourse } = usePrefetch()
 
   return courses.map(course => (
     <Link
       key={course.id}
       href={`/courses/${course.id}`}
-      onMouseEnter={() => prefetch(`/courses/${course.id}`)}
+      onMouseEnter={() => prefetchCourse(course.id)}
     >
       {course.title}
     </Link>
   ))
 }
+
+// Option 2: Spread props (includes onMouseEnter + onFocus)
+function CourseCard({ course }) {
+  const { getPrefetchProps } = usePrefetchProps()
+
+  return (
+    <Link href={`/courses/${course.id}`} {...getPrefetchProps('course', course.id)}>
+      {course.title}
+    </Link>
+  )
+}
 ```
+
+**usePrefetch methods:** `prefetchCourse`, `prefetchLesson`, `prefetchResourceNotes`, `prefetchNextPage`, `prefetchRelated`, `isCached`
 
 ## Error Pages
 

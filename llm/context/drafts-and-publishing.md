@@ -218,9 +218,10 @@ const event = createResourceEvent(draft, signingPrivkey)
 ```typescript
 import { createCourseEvent } from '@/lib/nostr-events'
 
-const event = createCourseEvent(courseDraft, lessonIdentifiers, signingPrivkey)
+const event = createCourseEvent(courseDraft, lessonReferences, signingPrivkey)
 // Returns signed NostrEvent (kind 30004)
-// lessonIdentifiers: "30023:pubkey:d-tag" for each lesson
+// lessonReferences: Array<{ resourceId, pubkey }> for each lesson
+// Generates 'a' tags: "<kind>:<pubkey>:<d-tag>" where kind is 30023 (free) or 30402 (paid)
 ```
 
 ### Event Structure
@@ -260,9 +261,9 @@ const event = createCourseEvent(courseDraft, lessonIdentifiers, signingPrivkey)
     ...(courseDraft.topics || []).map(topic => ['t', topic]),
     // Only include price tag for paid content
     ...(courseDraft.price > 0 ? [['price', String(courseDraft.price), 'sats']] : []),
-    // Lesson references
-    ['a', '30023:pubkey:lesson1-dtag'],
-    ['a', '30023:pubkey:lesson2-dtag']
+    // Lesson references (kind 30023 for free, 30402 for paid)
+    ['a', '30023:pubkey:free-lesson-dtag'],
+    ['a', '30402:pubkey:paid-lesson-dtag']
   ],
   content: '',
   pubkey: userPubkey,

@@ -12,7 +12,10 @@
    - Custom numeric input enforces `MIN_CUSTOM_ZAP` and LNURL `minSendable`/`maxSendable` with inline errors + toasts.
 2. **Note entry**
    - Optional textarea capped by LNURL `commentAllowed` (bytes); falls back to `paymentsConfig.zap.noteMaxBytes` (default `280`).
-   - Uses `getByteLength` + `truncateToByteLength` to enforce byte limits; `useZapSender` also trims notes to 280 chars before signing.
+   - **Two-stage truncation** in `useZapSender.ts`:
+     1. Character limit: `.slice(0, 280)` caps at 280 characters
+     2. Byte limit: `truncateToByteLength(note, commentAllowed)` enforces LNURL byte limit
+   - Multi-byte characters (emoji, non-Latin scripts) can cause a 280-char note to exceed the byte limit, triggering further truncation in stage 2.
 3. **Zap send pipeline**
    - Session is **not strictly required**: signing path is chosen from (a) server-stored privkey, (b) NIP-07 extension, or (c) generated anonymous keypair (used when privacy mode is enabled **or** no other signer is available).
    - Resolves lightning address / LNURL from `zapTarget` or fetched profile (cached per pubkey).

@@ -144,7 +144,7 @@ export function sanitizeContent(content: string): string {
       "href", "target", "rel",
       // Media
       "src", "alt", "title", "width", "height",
-      // iframes (for YouTube/Vimeo embeds)
+      // iframes (any https domain; ALLOWED_URI_REGEXP controls src)
       "frameborder", "allowfullscreen", "allow", "loading",
       // Tables
       "colspan", "rowspan",
