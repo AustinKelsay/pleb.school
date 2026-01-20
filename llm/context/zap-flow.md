@@ -26,7 +26,7 @@
 5. **Status + toast coverage**
    - Toasts for success/invoice-ready, min/max violations, clipboard errors, reaction gating, WebLN retry results, etc.
 6. **Analytics + context**
-   - Display aggregated stats (total sats, supporters, avg zap, last zap age) and viewer summary.
+   - Display aggregated stats (total sats, supporters, average zap, last zap age) and viewer summary.
    - Preview up to `paymentsConfig.zap.recentZapsLimit` receipts with sats, sender snippet, note, and relative timestamp.
 7. **Cleanup**
    - Closing dialog resets local form state and zap hook state to `idle` while preserving parent metrics.

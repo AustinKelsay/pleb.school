@@ -96,19 +96,21 @@ Admin endpoint to flush KV counts to database.
 import { useViews } from '@/hooks/useViews'
 
 function ContentPage({ contentId }) {
-  const { viewCount, incrementView, isLoading } = useViews({
-    contentId,
-    contentType: 'resource'
+  // Auto-tracks view on mount (deduped per session by default)
+  const { key, count } = useViews({
+    ns: 'resource',
+    id: contentId
   })
 
-  // Increment on mount (incrementView is stable via useCallback)
-  useEffect(() => {
-    incrementView()
-  }, [incrementView])
-
-  return <span>{viewCount} views</span>
+  return <span>{count ?? '...'} views</span>
 }
 ```
+
+**Options:**
+- `ns` + `id`: Builds key as `views:{ns}:{id}`
+- `key`: Direct key override (alternative to ns/id)
+- `track`: Whether to increment (default: true)
+- `dedupe`: `"session"` (default), `"day"`, or `false`
 
 ## Key Format
 

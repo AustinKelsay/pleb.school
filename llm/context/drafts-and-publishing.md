@@ -343,8 +343,10 @@ function PublishButton({ draft }) {
 
     let signedEvent
     if (needsNip07) {
-      // Create unsigned event
-      const unsignedEvent = createResourceEvent(draft)
+      // Get pubkey from extension
+      const pubkey = await window.nostr.getPublicKey()
+      // Create unsigned event (includes pubkey, excludes id/sig)
+      const unsignedEvent = createUnsignedResourceEvent(draft, pubkey)
       // Sign with extension
       signedEvent = await window.nostr.signEvent(unsignedEvent)
     }

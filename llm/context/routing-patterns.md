@@ -4,7 +4,7 @@ URL structure and content-type routing for pleb.school. Uses Next.js App Router.
 
 ## Route Structure
 
-```
+```text
 /                           Homepage
 /courses                    Course listing
 /courses/[id]               Course detail
@@ -68,7 +68,7 @@ const route = getRoutePath(resolved)
 
 ### Course Routes
 
-```
+```text
 /courses/[id]
   └── params: { id: string }  // Course ID (custom string slug, e.g., 'welcome-to-pleb-school')
 
@@ -78,14 +78,14 @@ const route = getRoutePath(resolved)
 
 ### Resource Routes
 
-```
+```text
 /content/[id]
   └── params: { id: string }  // Resource UUID (inherited from Draft.id)
 ```
 
 ### Draft Routes
 
-```
+```text
 /drafts/resources/[id]
   └── params: { id: string }  // Draft UUID
 
@@ -166,7 +166,7 @@ async function AdminPage() {
 
 ### Pattern
 
-```
+```text
 /api/{resource}              GET (list), POST (create)
 /api/{resource}/[id]         GET, PUT, DELETE
 /api/{resource}/[id]/{action}  POST (custom actions)
@@ -174,7 +174,7 @@ async function AdminPage() {
 
 ### Examples
 
-```
+```text
 /api/courses                 GET courses, POST new course
 /api/courses/[id]            GET course, PUT update, DELETE
 /api/courses/[id]/republish  POST republish to Nostr
@@ -222,7 +222,7 @@ import Link from 'next/link'
 
 ### Profile Tabs
 
-```
+```text
 /profile                     Default (overview)
 /profile?tab=purchases       Purchases tab
 /profile?tab=settings        Settings tab
@@ -231,7 +231,7 @@ import Link from 'next/link'
 
 ### Content Filters
 
-```
+```text
 /courses?category=bitcoin    Filter by category
 /content?type=video          Filter by type
 /search?q=lightning          Search query
@@ -239,7 +239,7 @@ import Link from 'next/link'
 
 ### Success/Error States
 
-```
+```text
 /profile?tab=accounts&success=github_linked
 /profile?tab=accounts&error=linking_failed
 /auth/error?error=AccessDenied
@@ -267,7 +267,7 @@ function CourseList({ courses }) {
 
 ## Error Pages
 
-```
+```text
 /not-found         404 page
 /error             Generic error
 ```

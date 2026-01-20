@@ -39,8 +39,9 @@ Validates state token and extracts data.
 
 | Test | Scenario | Expected |
 |------|----------|----------|
-| Cross-site state | State from different origin | Rejected |
-| Replay attack | Same state used twice | Second use rejected |
+| Cross-site state | State from different origin | Rejected (invalid signature) |
+| Replay attack | Same state used within 10 min | Both uses accepted (expiration protects) |
+| Expired state | State older than 10 minutes | Rejected (expired) |
 
 ### Expiration
 

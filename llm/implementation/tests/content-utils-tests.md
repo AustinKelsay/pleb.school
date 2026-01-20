@@ -39,7 +39,7 @@ Validates and sanitizes URLs.
 | `<img src="https://...">` | Yes | Safe images |
 | `<code>`, `<pre>` | Yes | Code blocks |
 | `<strong>`, `<em>` | Yes | Formatting |
-| `<iframe>` | Yes | Safe embeds (YouTube/Vimeo) — only sanitized src/attrs allowed |
+| `<iframe>` | Yes | Embeds with http/https src only (any domain); dangerous attrs removed |
 | `<object>` | No | Dangerous |
 | `<embed>` | No | Dangerous |
 
@@ -56,11 +56,15 @@ Validates and sanitizes URLs.
 
 | Test | Input | Output |
 |------|-------|--------|
-| Safe YouTube embed | `<iframe src="https://www.youtube.com/embed/abc123" allowfullscreen>` | Preserved |
-| Safe Vimeo embed | `<iframe src="https://player.vimeo.com/video/123456">` | Preserved |
+| https src (any domain) | `<iframe src="https://example.com/embed">` | Preserved |
+| YouTube embed | `<iframe src="https://www.youtube.com/embed/abc123">` | Preserved |
+| Vimeo embed | `<iframe src="https://player.vimeo.com/video/123456">` | Preserved |
 | javascript: src | `<iframe src="javascript:alert(1)">` | `<iframe>` (src removed) |
+| data: src | `<iframe src="data:text/html,...">` | `<iframe>` (src removed) |
 | Allowed attributes | `frameborder`, `allowfullscreen`, `allow`, `loading` | Preserved |
 | Dangerous attributes | `onload`, `onerror`, etc. | Removed |
+
+**Note**: Iframe src is validated by `ALLOWED_URI_REGEXP` which permits any `https?` URL (no domain allowlist). `ALLOW_DATA_ATTR: false` removes all `data-*` attributes.
 
 ## Markdown Extraction Tests
 

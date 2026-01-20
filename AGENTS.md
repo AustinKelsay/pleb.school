@@ -46,4 +46,4 @@ Before committing, run `npm run build && npm run lint`.
 
 ## Security & Configuration Tips
 - `config/` is client-visible. Secrets belong in `.env.local`.
-- Required env vars: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`.
+- Required env vars: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY` (production; dev uses ephemeral fallback).

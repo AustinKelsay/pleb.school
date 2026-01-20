@@ -127,8 +127,7 @@ function PublishDraftComponent({ draft, draftType }: { draft: any, draftType: 'r
       })
       // Handle success (e.g., redirect, show toast)
     } catch (err) {
-      // Error is available via the error state
-      console.error('Failed to publish:', error)
+      console.error('Failed to publish:', err)
     }
   }
 
@@ -143,7 +142,7 @@ function PublishDraftComponent({ draft, draftType }: { draft: any, draftType: 'r
       })
       // Handle success
     } catch (err) {
-      console.error('Failed to publish:', error)
+      console.error('Failed to publish:', err)
     }
   }
 

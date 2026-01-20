@@ -34,7 +34,7 @@ docker exec plebschool-app sh -c "SEED_DRY_RUN=true npm run db:seed"
 
 ## File Structure
 
-```
+```text
 prisma/
 ├── seed.ts                           # Main entry point
 └── seed/
@@ -435,7 +435,7 @@ export interface DemoStateConfig {
 
 ### Execution Flow
 
-```
+```text
 1. Initialize
    └─ Load config, connect to Prisma
 

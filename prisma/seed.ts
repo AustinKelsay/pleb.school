@@ -247,7 +247,7 @@ async function main() {
       const lesson = course.lessons[i]
       const lessonId = `${course.id}-lesson-${i}`
 
-      await prisma.lesson.upsert({
+      const savedLesson = await prisma.lesson.upsert({
         where: {
           courseId_index: {
             courseId: course.id,
@@ -265,7 +265,7 @@ async function main() {
         },
       })
 
-      courseLessonIds.push(lessonId)
+      courseLessonIds.push(savedLesson.id)
     }
 
     lessonIdsByCourse.set(course.id, courseLessonIds)
