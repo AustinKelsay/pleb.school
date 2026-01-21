@@ -53,14 +53,14 @@ The key insight: using `INCREMENT` instead of `SET` ensures concurrent flushes a
 ## Race Condition Explanation
 
 **Vulnerable Pattern (GET + DEL)**:
-```
+```text
 T1: GET views:123 → 100
 T2: INCR views:123 → 101  (increment arrives)
 T1: DEL views:123         (deletes 101, losing the increment)
 ```
 
 **Improved Pattern (GETDEL + INCREMENT)**:
-```
+```text
 T1: GETDEL views:123 → 100 (atomic get and delete)
 T2: INCR views:123 → 1     (creates NEW key since old was deleted)
 T2: SADD dirty, views:123  (re-added to dirty set)

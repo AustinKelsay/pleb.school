@@ -264,6 +264,7 @@ interface PurchaseClaimRequest {
   nostrPrice?: number
   zapTotalSats?: number
   relayHints?: string[]
+  allowPastZaps?: boolean  // When true, allows claiming older zap receipts
 }
 
 interface PurchaseClaimResponse {

@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 
 interface OptimizedImageProps {
@@ -68,6 +68,13 @@ export function OptimizedImage({
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [fallbackFailed, setFallbackFailed] = useState(false)
+
+  // Reset state when src or fallback changes so new images can load
+  useEffect(() => {
+    setError(false)
+    setFallbackFailed(false)
+    setLoading(true)
+  }, [src, fallback])
 
   function handleError() {
     setError(true)

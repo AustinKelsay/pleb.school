@@ -166,7 +166,7 @@ Typically limited to content creation and moderation:
 | `requireAdminApproval` | Queue content for approval (not wired) |
 | `enableAdminDashboard` | Enable admin dashboard route |
 | `showAdminBadge` | Display admin/mod badges (wired) |
-| `adminContactEmail` | Contact email for admin notices. **Use a generic alias (e.g., support@domain.com) or relay address—avoid personal emails since this value is public.** |
+| `adminContactEmail` | Contact email for admin notices. **Use a generic alias (e.g., `support@domain.com`) or relay address—avoid personal emails since this value is public.** |
 
 **Note:** Most features are advisory. `showAdminBadge` is wired to `AdminBadge` component.
 
