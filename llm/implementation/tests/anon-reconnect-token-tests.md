@@ -1,7 +1,7 @@
 # anon-reconnect-token.test.ts
 
 **Location**: `src/lib/tests/anon-reconnect-token.test.ts`
-**Tests**: ~15
+**Tests**: ~17
 
 ## Purpose
 
