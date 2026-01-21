@@ -67,7 +67,7 @@ Encoded as: `base64(JSON).signature`
 ## CSRF Attack Prevention
 
 Without state parameter:
-```
+```text
 1. Attacker starts OAuth flow
 2. Gets authorization code
 3. Tricks victim into completing flow
@@ -75,7 +75,7 @@ Without state parameter:
 ```
 
 With state parameter:
-```
+```text
 1. Server generates state tied to user's session
 2. State included in OAuth redirect
 3. Callback verifies state matches

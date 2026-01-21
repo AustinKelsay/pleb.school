@@ -13,7 +13,7 @@ Tests XSS sanitization and content extraction utilities.
 Removes dangerous HTML while preserving safe formatting.
 
 ### `extractTextFromMarkdown(markdown)`
-Extracts plain text from markdown for summaries/search.
+Extracts plain text from Markdown for summaries/search.
 
 ### `sanitizeUrl(url)`
 Validates and sanitizes URLs.
@@ -26,7 +26,7 @@ Validates and sanitizes URLs.
 |------|-------|-----------------|
 | Basic script | `<script>alert(1)</script>` | `` |
 | Event handler | `<img onerror="alert(1)">` | `<img>` |
-| javascript: URL | `<a href="javascript:alert(1)">` | `<a>` |
+| JavaScript: URL | `<a href="javascript:alert(1)">` | `<a>` |
 | data: URL | `<img src="data:text/html,...">` | `<img>` |
 | SVG script | `<svg><script>alert(1)</script></svg>` | `<svg></svg>` |
 

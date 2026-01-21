@@ -50,31 +50,39 @@ type MatchedField = 'title' | 'description' | 'content' | 'tags'
 
 ## Scoring Algorithm
 
+**Note:** Search functions short-circuit if `keyword.length < 3` (minimum 3 characters required).
+
 ```typescript
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// src/lib/search.ts
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function calculateMatchScore(keyword, title, description) {
+function calculateMatchScore(keyword: string, title: string, description: string): number {
+  // Case-insensitive matching
+  const lowerKeyword = keyword.toLowerCase()
+  const lowerTitle = title.toLowerCase()
+  const lowerDescription = description.toLowerCase()
+
   let score = 0
-  const escapedKeyword = escapeRegExp(keyword)
 
   // Exact title match (highest)
-  if (title === keyword) score += 100
+  if (lowerTitle === lowerKeyword) score += 100
 
   // Title starts with keyword
-  else if (title.startsWith(keyword)) score += 50
+  else if (lowerTitle.startsWith(lowerKeyword)) score += 50
 
   // Title contains keyword
-  else if (title.includes(keyword)) score += 30
+  else if (lowerTitle.includes(lowerKeyword)) score += 30
 
-  // Description occurrences
-  const regex = new RegExp(escapedKeyword, 'gi')
-  const matches = description.match(regex)
-  score += (matches?.length || 0) * 5
+  // Description occurrences (defaults to 1 if includes but no regex match)
+  if (lowerDescription.includes(lowerKeyword)) {
+    const matches = lowerDescription.match(new RegExp(escapeRegExp(lowerKeyword), 'g'))
+    score += (matches?.length || 1) * 5
+  }
 
-  // Word boundary matches
-  const wordBoundaryRegex = new RegExp(`\\b${escapedKeyword}\\b`, 'i')
+  // Word boundary matches (whole word)
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(lowerKeyword)}\\b`, 'gi')
   if (wordBoundaryRegex.test(title)) score += 20
   if (wordBoundaryRegex.test(description)) score += 10
 
