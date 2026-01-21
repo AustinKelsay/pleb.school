@@ -66,6 +66,10 @@ export function auditLog(
     console.log('[AUDIT]', JSON.stringify(event))
   } catch (err) {
     // Serialization failed (BigInt, circular ref, etc.) - log safe fallback
+    // Defensively check details is a non-null object before calling Object.keys
+    const detailsKeys = typeof details === 'object' && details !== null
+      ? Object.keys(details)
+      : []
     const safeEvent = {
       timestamp: event.timestamp,
       userId: event.userId,
@@ -73,7 +77,7 @@ export function auditLog(
       ip: event.ip,
       userAgent: event.userAgent,
       serializationError: err instanceof Error ? err.message : 'Unknown serialization error',
-      detailsKeys: Object.keys(details)
+      detailsKeys
     }
     console.log('[AUDIT]', JSON.stringify(safeEvent))
   }
