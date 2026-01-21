@@ -21,6 +21,7 @@ Verifies a plaintext token against a stored hash using constant-time comparison 
 ## Test Coverage
 
 ### Token Generation
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Generates token and hash pair | Normal call | Returns `{ token, tokenHash }` |
@@ -29,6 +30,7 @@ Verifies a plaintext token against a stored hash using constant-time comparison 
 | Hash format | Generated hash | 64-character hex string (SHA-256) |
 
 ### Token Hashing
+
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Consistent hashing | Same input | Same hash output |
@@ -36,6 +38,7 @@ Verifies a plaintext token against a stored hash using constant-time comparison 
 | Hash format | Any token | 64-character hex string (SHA-256) |
 
 ### Token Verification
+
 | Test | Input | Expected |
 |------|-------|----------|
 | Matching token and hash | Valid pair | Returns `true` |
@@ -46,6 +49,7 @@ Verifies a plaintext token against a stored hash using constant-time comparison 
 | Null/undefined inputs | Invalid types | Returns `false` |
 
 ### Token Structure
+
 | Test | Aspect | Expected |
 |------|--------|----------|
 | Token format | Random hex | 64-character hex string |
@@ -63,7 +67,7 @@ Verifies a plaintext token against a stored hash using constant-time comparison 
 
 ## Token Flow
 
-```
+```text
 Anonymous signup
     ↓
 generateReconnectToken() → { token, tokenHash }
