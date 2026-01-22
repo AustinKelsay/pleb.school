@@ -68,7 +68,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import GitHubProvider from 'next-auth/providers/github'
 import { prisma } from './prisma'
 import type { Adapter } from 'next-auth/adapters'
-import { generateKeypair, decodePrivateKey, getPublicKey } from 'snstr'
+import { generateKeypair, decodePrivateKey, getPublicKey, verifySignature, getEventHash } from 'snstr'
 import authConfig from '../../config/auth.json'
 import { 
   isNostrFirstProvider, 
@@ -78,6 +78,11 @@ import {
 } from './account-linking'
 import { fetchNostrProfile, syncUserProfileFromNostr } from './nostr-profile'
 import { encryptPrivkey, decryptPrivkey } from './privkey-crypto'
+import { checkRateLimit, RATE_LIMITS, getClientIp } from './rate-limit'
+import { generateReconnectToken, hashToken } from './anon-reconnect-token'
+import { normalizeHexPubkey } from './nostr-keys'
+import { createTransport } from 'nodemailer'
+import crypto from 'crypto'
 
 /**
  * Verify NIP07 public key format
@@ -122,7 +127,16 @@ async function findUserByPrivateKey(privateKeyInput: string) {
   }
 
   const storedPrivkey = decryptPrivkey(user.privkey)
-  if (!storedPrivkey || storedPrivkey !== privateKeyHex) {
+  if (!storedPrivkey) {
+    throw new Error('Private key mismatch for this account')
+  }
+
+  // Security: Use constant-time comparison to prevent timing attacks
+  // Normalize stored key to lowercase to match normalized input (handles legacy mixed-case storage)
+  const storedBuffer = Buffer.from(storedPrivkey.toLowerCase(), 'utf8')
+  const inputBuffer = Buffer.from(privateKeyHex, 'utf8')
+  if (storedBuffer.length !== inputBuffer.length ||
+      !crypto.timingSafeEqual(storedBuffer, inputBuffer)) {
     throw new Error('Private key mismatch for this account')
   }
 
@@ -138,8 +152,8 @@ function normalizePrivateKey(input: string): string {
   // If it starts with nsec1, it's a bech32-encoded private key
   if (trimmed.startsWith('nsec1')) {
     try {
-      // Cast to the expected type for snstr
-      return decodePrivateKey(trimmed as `nsec1${string}`)
+      // Cast to the expected type for snstr, normalize to lowercase for consistent comparison
+      return decodePrivateKey(trimmed as `nsec1${string}`).toLowerCase()
     } catch (error) {
       throw new Error('Invalid nsec format')
     }
@@ -182,6 +196,51 @@ if (authConfig.providers.email.enabled) {
       },
       from: process.env.EMAIL_FROM,
       maxAge: authConfig.providers.email.maxAge,
+      /**
+       * Custom sendVerificationRequest with rate limiting
+       * Prevents email flooding by limiting magic link requests per email address
+       */
+      async sendVerificationRequest({ identifier: email, url, provider }) {
+        // Rate limit by email address
+        const rateLimit = await checkRateLimit(
+          `auth-magic-link:${email.toLowerCase()}`,
+          RATE_LIMITS.AUTH_MAGIC_LINK.limit,
+          RATE_LIMITS.AUTH_MAGIC_LINK.windowSeconds
+        )
+
+        if (!rateLimit.success) {
+          // Redact email for logging (keep first char + domain for debugging)
+          const [local, domain] = email.split('@')
+          const redacted = `${local[0]}***@${domain}`
+          console.warn(`Rate limit exceeded for magic link: ${redacted}`)
+          throw new Error('Too many sign-in attempts. Please try again later.')
+        }
+
+        // Send the email using nodemailer
+        const transport = createTransport(provider.server)
+        const result = await transport.sendMail({
+          to: email,
+          from: provider.from,
+          subject: 'Sign in to pleb.school',
+          text: `Sign in to pleb.school\n\nClick this link to sign in:\n${url}\n\nIf you didn't request this, you can ignore this email.\n`,
+          html: `
+            <div style="max-width: 480px; margin: 0 auto; font-family: sans-serif;">
+              <h2 style="color: #1a1a1a;">Sign in to pleb.school</h2>
+              <p>Click the button below to sign in:</p>
+              <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #7c3aed; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
+                Sign in
+              </a>
+              <p style="color: #666; font-size: 14px;">Or copy this link: ${url}</p>
+              <p style="color: #999; font-size: 12px;">If you didn't request this, you can ignore this email.</p>
+            </div>
+          `,
+        })
+
+        const failed = result.rejected.concat(result.pending).filter(Boolean)
+        if (failed.length) {
+          throw new Error(`Email could not be sent to ${failed.join(', ')}`)
+        }
+      },
     })
   )
 }
@@ -193,10 +252,15 @@ if (authConfig.providers.nostr.enabled) {
       id: 'nostr',
       name: 'Nostr (NIP07)',
       credentials: {
-        pubkey: { 
-          label: 'Public Key', 
+        pubkey: {
+          label: 'Public Key',
           type: 'text',
           placeholder: 'Your Nostr public key (hex format)'
+        },
+        authEvent: {
+          label: 'NIP-98 Auth Event',
+          type: 'text',
+          placeholder: 'Signed NIP-98 authentication event'
         }
       },
       async authorize(credentials) {
@@ -205,22 +269,121 @@ if (authConfig.providers.nostr.enabled) {
         }
 
         try {
-          // Verify the public key format
-          if (!verifyNostrPubkey(credentials.pubkey)) {
+          // Verify and normalize public key (lowercase hex per NIP-01)
+          const pubkey = normalizeHexPubkey(credentials.pubkey)
+          if (!pubkey) {
             throw new Error('Invalid public key format')
           }
 
+          // Rate limit BEFORE expensive crypto operations
+          const rateLimit = await checkRateLimit(
+            `auth-nostr:${pubkey}`,
+            RATE_LIMITS.AUTH_NOSTR.limit,
+            RATE_LIMITS.AUTH_NOSTR.windowSeconds
+          )
+
+          if (!rateLimit.success) {
+            console.warn(`Rate limit exceeded for Nostr auth: ${pubkey.substring(0, 8)}...`)
+            throw new Error('Too many authentication attempts. Please try again later.')
+          }
+
+          // ============================================================
+          // NIP-98 Authentication - Cryptographic proof of pubkey ownership
+          // See: https://nips.nostr.com/98
+          // ============================================================
+          if (!credentials.authEvent) {
+            console.warn('NIP-98 auth event missing for pubkey:', pubkey.substring(0, 8))
+            throw new Error('Authentication failed')
+          }
+
+          let authEvent: {
+            id: string
+            pubkey: string
+            created_at: number
+            kind: number
+            tags: string[][]
+            content: string
+            sig: string
+          }
+
+          try {
+            authEvent = JSON.parse(credentials.authEvent)
+          } catch {
+            console.warn('Failed to parse NIP-98 auth event')
+            throw new Error('Authentication failed')
+          }
+
+          // 1. Verify event kind is 27235 (NIP-98)
+          if (authEvent.kind !== 27235) {
+            console.warn('Invalid NIP-98 event kind:', authEvent.kind)
+            throw new Error('Authentication failed')
+          }
+
+          // 2. Verify event ID is correctly computed from fields (prevents tag substitution attacks)
+          // Without this, an attacker could sign arbitrary data and pair it with fake URL/method tags
+          const computedId = await getEventHash({
+            pubkey: authEvent.pubkey,
+            created_at: authEvent.created_at,
+            kind: authEvent.kind,
+            tags: authEvent.tags,
+            content: authEvent.content
+          })
+          if (computedId !== authEvent.id) {
+            console.warn('NIP-98 event ID mismatch (computed vs provided)')
+            throw new Error('Authentication failed')
+          }
+
+          // 3. Verify signature proves pubkey ownership
+          if (!await verifySignature(authEvent.id, authEvent.sig, authEvent.pubkey)) {
+            console.warn('Invalid NIP-98 signature for pubkey:', pubkey.substring(0, 8))
+            throw new Error('Authentication failed')
+          }
+
+          // 4. Verify signed pubkey matches claimed pubkey (normalize both for comparison)
+          if (authEvent.pubkey.toLowerCase() !== pubkey) {
+            console.warn('NIP-98 pubkey mismatch:', authEvent.pubkey.substring(0, 8), 'vs', pubkey.substring(0, 8))
+            throw new Error('Authentication failed')
+          }
+
+          // 5. Verify timestamp is fresh (asymmetric window: 30s future / 60s past)
+          // - Allow 30s future to handle client clock skew
+          // - Allow 60s past (NIP-98 suggests "reasonable window", we chose 60s)
+          const now = Math.floor(Date.now() / 1000)
+          const eventAge = now - authEvent.created_at
+          if (eventAge < -30 || eventAge > 60) {
+            console.warn('NIP-98 event expired or future:', eventAge, 'seconds old')
+            throw new Error('Authentication failed')
+          }
+
+          // 6. Verify URL tag matches expected callback
+          const urlTag = authEvent.tags.find((t: string[]) => t[0] === 'u')
+          const expectedUrl = `${process.env.NEXTAUTH_URL}/api/auth/callback/nostr`
+          if (!urlTag || urlTag[1] !== expectedUrl) {
+            console.warn('NIP-98 URL mismatch. Expected:', expectedUrl, 'Got:', urlTag?.[1])
+            throw new Error('Authentication failed')
+          }
+
+          // 7. Verify method tag is POST
+          const methodTag = authEvent.tags.find((t: string[]) => t[0] === 'method')
+          if (!methodTag || methodTag[1] !== 'POST') {
+            console.warn('NIP-98 method mismatch. Expected: POST, Got:', methodTag?.[1])
+            throw new Error('Authentication failed')
+          }
+
+          // NIP-98 validation passed - pubkey ownership verified
+          console.log('NIP-98 auth verified for pubkey:', pubkey.substring(0, 8))
+
           // Check if user exists or create new user
           let user = await prisma.user.findUnique({
-            where: { pubkey: credentials.pubkey }
+            where: { pubkey }
           })
 
           if (!user && authConfig.providers.nostr.autoCreateUser) {
             // Create new user with Nostr pubkey (initial minimal data)
             user = await prisma.user.create({
               data: {
-                pubkey: credentials.pubkey,
-                username: `${authConfig.providers.nostr.usernamePrefix}${credentials.pubkey.substring(0, authConfig.providers.nostr.usernameLength)}`,
+                pubkey,
+                username: `${authConfig.providers.nostr.usernamePrefix}${pubkey.substring(0, authConfig.providers.nostr.usernameLength)}`,
               }
             })
             console.log('Created new NIP07 user:', user.id)
@@ -231,7 +394,7 @@ if (authConfig.providers.nostr.enabled) {
           }
 
           // NOSTR-FIRST: Sync profile from Nostr (source of truth) for NIP07 users
-          const syncedUser = await syncUserProfileFromNostr(user.id, credentials.pubkey)
+          const syncedUser = await syncUserProfileFromNostr(user.id, pubkey)
           if (syncedUser) {
             user = syncedUser
           }
@@ -293,8 +456,12 @@ if (authConfig.providers.anonymous.enabled) {
       id: 'anonymous',
       name: 'Anonymous',
       credentials: {
+        reconnectToken: {
+          label: 'Reconnect Token',
+          type: 'hidden'
+        },
         privateKey: {
-          label: 'Persisted Private Key',
+          label: 'Legacy Private Key (migration only)',
           type: 'hidden'
         },
         generateKeys: {
@@ -305,18 +472,77 @@ if (authConfig.providers.anonymous.enabled) {
       },
       async authorize(credentials) {
         try {
-          // Allow returning anonymous users to authenticate with their persisted private key
-          if (credentials?.privateKey) {
-            const existingUser = await findUserByPrivateKey(credentials.privateKey)
-            console.log('Reusing persisted anonymous user:', existingUser.id)
+          // ============================================================
+          // Secure token-based reconnection (no private keys in localStorage)
+          // See: llm/context/authentication-system.md
+          //
+          // Priority order for reconnect token:
+          // 1. httpOnly cookie 'anon-reconnect-token' (secure path, XSS-resistant)
+          // 2. credentials.reconnectToken (legacy localStorage fallback, being phased out)
+          // ============================================================
+          const COOKIE_NAME = 'anon-reconnect-token'
+          let cookieToken: string | undefined
+          try {
+            // Access httpOnly cookie via next/headers (App Router context)
+            const { cookies } = await import('next/headers')
+            const cookieStore = await cookies()
+            cookieToken = cookieStore.get(COOKIE_NAME)?.value
+          } catch {
+            // cookies() may not be available in all contexts
+          }
+          const reconnectToken = cookieToken || credentials?.reconnectToken
+
+          if (reconnectToken) {
+            // Rate limit by token hash
+            const tokenHash = crypto.createHash('sha256')
+              .update(reconnectToken).digest('hex').substring(0, 16)
+            const tokenRateLimit = await checkRateLimit(
+              `auth-anon-token:${tokenHash}`,
+              RATE_LIMITS.AUTH_NOSTR.limit,
+              RATE_LIMITS.AUTH_NOSTR.windowSeconds
+            )
+
+            if (!tokenRateLimit.success) {
+              throw new Error('Too many authentication attempts. Please try again later.')
+            }
+
+            // Direct O(1) lookup by token hash (indexed unique field)
+            const reconnectTokenHash = hashToken(reconnectToken)
+            const matchedUser = await prisma.user.findUnique({
+              where: { anonReconnectTokenHash: reconnectTokenHash },
+              select: {
+                id: true,
+                email: true,
+                username: true,
+                avatar: true,
+                pubkey: true
+              }
+            })
+
+            if (!matchedUser) {
+              console.warn('Anonymous token reconnection failed: no matching user')
+              throw new Error('Invalid reconnect token')
+            }
+
+            console.log('Token-based anonymous reconnection:', matchedUser.id)
+
+            // Rotate token on every successful auth (limits stolen token window)
+            // Note: If DB update succeeds but response is lost, client has stale token.
+            // This is an accepted edge case for ephemeral anonymous accounts - user
+            // can create a new anonymous account if this rare scenario occurs.
+            const { token: newToken, tokenHash: newTokenHash } = generateReconnectToken()
+            await prisma.user.update({
+              where: { id: matchedUser.id },
+              data: { anonReconnectTokenHash: newTokenHash }
+            })
 
             // NOSTR-FIRST: Keep resumed anonymous users in sync with their live Nostr profile
-            let syncedUser = existingUser
-            if (existingUser.pubkey) {
-              const refreshed = await syncUserProfileFromNostr(existingUser.id, existingUser.pubkey)
+            let syncedUser = matchedUser
+            if (matchedUser.pubkey) {
+              const refreshed = await syncUserProfileFromNostr(matchedUser.id, matchedUser.pubkey)
               if (refreshed) {
                 syncedUser = refreshed
-                console.log('Synced anonymous user profile from Nostr on resume')
+                console.log('Synced anonymous user profile from Nostr on token resume')
               }
             }
 
@@ -326,12 +552,94 @@ if (authConfig.providers.anonymous.enabled) {
               username: syncedUser.username || undefined,
               avatar: syncedUser.avatar || undefined,
               pubkey: syncedUser.pubkey || undefined,
+              reconnectToken: newToken, // Return new rotated token
             }
+          }
+
+          // ============================================================
+          // Legacy privkey migration path (auto-migrates to token format)
+          // ============================================================
+          if (credentials?.privateKey) {
+            // Rate limit returning users by a hash of their private key
+            const keyHash = crypto.createHash('sha256')
+              .update(credentials.privateKey).digest('hex').substring(0, 16)
+            const returnRateLimit = await checkRateLimit(
+              `auth-anon-return:${keyHash}`,
+              RATE_LIMITS.AUTH_NOSTR.limit,
+              RATE_LIMITS.AUTH_NOSTR.windowSeconds
+            )
+
+            if (!returnRateLimit.success) {
+              throw new Error('Too many authentication attempts. Please try again later.')
+            }
+
+            const existingUser = await findUserByPrivateKey(credentials.privateKey)
+            console.log('Legacy privkey migration for user:', existingUser.id)
+
+            // Generate new reconnect token and store hash
+            const { token: newToken, tokenHash: newTokenHash } = generateReconnectToken()
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: { anonReconnectTokenHash: newTokenHash }
+            })
+
+            // NOSTR-FIRST: Keep resumed anonymous users in sync with their live Nostr profile
+            let syncedUser = existingUser
+            if (existingUser.pubkey) {
+              const refreshed = await syncUserProfileFromNostr(existingUser.id, existingUser.pubkey)
+              if (refreshed) {
+                syncedUser = refreshed
+                console.log('Synced anonymous user profile from Nostr on legacy migration')
+              }
+            }
+
+            return {
+              id: syncedUser.id,
+              email: syncedUser.email,
+              username: syncedUser.username || undefined,
+              avatar: syncedUser.avatar || undefined,
+              pubkey: syncedUser.pubkey || undefined,
+              reconnectToken: newToken, // Return token for client to store
+            }
+          }
+
+          // ============================================================
+          // New anonymous account creation with token
+          // ============================================================
+
+          // Dual-bucket rate limiting: per-IP (primary) + global (backstop)
+          // Per-IP prevents single-source abuse; global prevents distributed attacks
+          const clientIp = await getClientIp()
+
+          // Check per-IP rate limit first (stricter, 5/hour per IP)
+          const perIpRateLimit = await checkRateLimit(
+            `auth-anon-new:ip:${clientIp}`,
+            RATE_LIMITS.AUTH_ANONYMOUS_PER_IP.limit,
+            RATE_LIMITS.AUTH_ANONYMOUS_PER_IP.windowSeconds
+          )
+
+          if (!perIpRateLimit.success) {
+            // Sanitize IP for logging to prevent log injection via control characters
+            const safeIp = clientIp.replace(/[\x00-\x1f\x7f]/g, '')
+            console.warn(`Per-IP rate limit exceeded for anonymous accounts: ${safeIp}`)
+            throw new Error('Too many new accounts created from your location. Please try again later.')
+          }
+
+          // Check global rate limit (looser, 50/hour total as backstop)
+          const globalRateLimit = await checkRateLimit(
+            'auth-anon-new:global',
+            RATE_LIMITS.AUTH_ANONYMOUS_GLOBAL.limit,
+            RATE_LIMITS.AUTH_ANONYMOUS_GLOBAL.windowSeconds
+          )
+
+          if (!globalRateLimit.success) {
+            console.warn('Global rate limit exceeded for new anonymous accounts')
+            throw new Error('Too many new accounts created. Please try again later.')
           }
 
           // Generate new Nostr keypair using snstr
           const keys = await generateKeypair()
-          
+
           if (!keys || !keys.publicKey || !keys.privateKey) {
             throw new Error('Failed to generate Nostr keys')
           }
@@ -344,20 +652,23 @@ if (authConfig.providers.anonymous.enabled) {
           // Generate anonymous user data as fallback
           const userData = generateAnonymousUserData(keys.publicKey)
 
+          // Generate reconnect token for session persistence
+          const { token: newToken, tokenHash: newTokenHash } = generateReconnectToken()
+
           // Create new anonymous user if auto-creation is enabled
           if (authConfig.providers.anonymous.autoCreateUser) {
             let user = await prisma.user.create({
               data: {
                 pubkey: keys.publicKey,
-                privkey: encryptPrivkey(keys.privateKey), // Store for anonymous accounts
+                privkey: encryptPrivkey(keys.privateKey), // Store encrypted for Nostr signing
+                anonReconnectTokenHash: newTokenHash, // Store token hash for reconnection
                 username: userData.username,
                 avatar: userData.avatar
               }
             })
-            console.log('Created new anonymous user:', user.id)
+            console.log('Created new anonymous user with token:', user.id)
 
             // NOSTR-FIRST: Try to sync profile from Nostr (source of truth) for anonymous users
-            // This allows users with existing Nostr profiles to have them recognized
             const syncedUser = await syncUserProfileFromNostr(user.id, keys.publicKey)
             if (syncedUser) {
               user = syncedUser
@@ -372,6 +683,7 @@ if (authConfig.providers.anonymous.enabled) {
               username: user.username || undefined,
               avatar: user.avatar || undefined,
               pubkey: user.pubkey || undefined,
+              reconnectToken: newToken, // Return token for client to store
             }
           }
 
@@ -556,6 +868,8 @@ export const authOptions: NextAuthOptions = {
         token.avatar = user.avatar || user.image || undefined
         token.provider = account?.provider
         token.email = user.email || undefined
+        // Pass reconnect token through JWT for client storage
+        token.reconnectToken = user.reconnectToken || undefined
         
         /**
          * EPHEMERAL KEYPAIR HANDLING IN JWT:
@@ -615,6 +929,8 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.username as string
         // Add provider to session for client-side signing detection
         session.provider = token.provider as string
+        // Pass reconnect token to client for secure localStorage persistence
+        session.user.reconnectToken = token.reconnectToken as string | undefined
         // Add additional Nostr profile fields to session
         Object.assign(session.user, {
           nip05: token.nip05,

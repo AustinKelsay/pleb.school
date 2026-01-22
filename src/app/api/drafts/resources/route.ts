@@ -7,7 +7,7 @@ import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { z } from 'zod'
 
 const additionalLinkSchema = z.object({
-  url: z.string().url('Link must be a valid URL'),
+  url: z.string().url(),
   title: z.string().trim().min(1).max(120).optional(),
 })
 

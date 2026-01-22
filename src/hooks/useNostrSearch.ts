@@ -7,6 +7,7 @@ import { parseCourseEvent, parseEvent } from '@/data/types'
 import { SearchResult, MatchedField } from '@/lib/search'
 import { getRelays, type RelaySet } from '@/lib/nostr-relays'
 import { normalizeHexPubkey } from '@/lib/nostr-keys'
+import { sanitizeContent } from '@/lib/content-utils'
 import contentConfig from '../../config/content.json'
 import adminConfig from '../../config/admin.json'
 
@@ -254,7 +255,7 @@ function calculateMatchScore(keyword: string, title: string, description: string
   }
 
   // Word boundary matches (whole word) - bonus points
-  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(lowerKeyword)}\\b`, 'gi')
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(lowerKeyword)}\\b`, 'i')
   if (wordBoundaryRegex.test(title)) {
     score += 25
   }
@@ -298,6 +299,9 @@ function courseEventToSearchResult(event: NostrEvent, keyword: string): SearchRe
     // Only include results with a score > 0
     if (score <= 0) return null
 
+    const titleSanitized = sanitizeContent(title)
+    const descriptionSanitized = sanitizeContent(description)
+
     return {
       id: parsedEvent.d || event.id,
       type: 'course',
@@ -314,8 +318,8 @@ function courseEventToSearchResult(event: NostrEvent, keyword: string): SearchRe
       tags: parsedEvent.topics || [],
       matchedFields,
       highlights: {
-        title: highlightKeyword(title, keyword),
-        description: highlightKeyword(description, keyword)
+        title: highlightKeyword(titleSanitized, keyword),
+        description: highlightKeyword(descriptionSanitized, keyword)
       }
     }
   } catch (error) {
@@ -344,6 +348,9 @@ function resourceEventToSearchResult(event: NostrEvent, keyword: string): Search
     // Only include results with a score > 0
     if (score <= 0) return null
 
+    const titleSanitized = sanitizeContent(title)
+    const descriptionSanitized = sanitizeContent(description)
+
     return {
       id: parsedEvent.d || event.id,
       type: 'resource',
@@ -360,8 +367,8 @@ function resourceEventToSearchResult(event: NostrEvent, keyword: string): Search
       tags: parsedEvent.topics || [],
       matchedFields,
       highlights: {
-        title: highlightKeyword(title, keyword),
-        description: highlightKeyword(description, keyword)
+        title: highlightKeyword(titleSanitized, keyword),
+        description: highlightKeyword(descriptionSanitized, keyword)
       }
     }
   } catch (error) {

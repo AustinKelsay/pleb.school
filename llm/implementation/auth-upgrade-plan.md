@@ -1,7 +1,50 @@
 # Auth & Account Linking Upgrade Plan
 
-Author: Codex  
-Last Updated: 2025-11-11
+Author: Codex
+Last Updated: 2026-01-11
+
+Status: The upgrade work described here is **implemented** in the current codebase. Notes below reflect current behavior; migration scripting remains a separate task if legacy data exists.
+
+---
+
+## NIP-98 Authentication (Security Fix - 2026-01-11)
+
+The NIP-07 login flow now uses [NIP-98 HTTP Auth](https://nips.nostr.com/98) to cryptographically verify pubkey ownership. This prevents account impersonation attacks where an attacker could previously log in as any Nostr user by simply providing their pubkey.
+
+### How It Works
+
+**Client-side (`src/app/auth/signin/page.tsx`):**
+1. Get pubkey from NIP-07 extension: `window.nostr.getPublicKey()`
+2. Create NIP-98 auth event (kind 27235) with URL and method tags
+3. Sign with extension: `window.nostr.signEvent(authEvent)`
+4. Send both pubkey and signed event to server
+
+**Server-side (`src/lib/auth.ts:263-332`):**
+1. Parse and validate the NIP-98 event
+2. Verify signature using `snstr.verifySignature()`
+3. Confirm pubkey in signed event matches claimed pubkey
+4. Check timestamp is within 60 seconds (NIP-98 suggests "reasonable window", we chose 60s)
+5. Validate URL tag matches callback endpoint
+6. Validate method tag is POST
+
+### Security Properties
+
+| Check | What It Prevents |
+|-------|------------------|
+| Signature verification | Impersonation - proves pubkey ownership |
+| Timestamp window (60s) | Replay attacks (configurable; 60s follows NIP-98 suggestion) |
+| URL tag validation | Cross-site replay |
+| Method tag validation | Request method confusion |
+
+### Error Handling
+
+All validation failures return a generic "Authentication failed" message to avoid leaking information about which check failed. Detailed errors are logged server-side for debugging.
+
+### Breaking Change
+
+Existing NIP-07 users must re-authenticate. The extension will prompt for a signature, which is handled transparently by the updated sign-in page.
+
+---
 
 ## 1. Current Behavior Snapshot
 
@@ -34,15 +77,15 @@ Requirements:
 2. Any stored `privkey` is nulled immediately (OAuth-first → Nostr-first migration).
 3. Anonymous and OAuth-first providers still generate/stash keys server-side so they can sign without NIP-07.
 4. Linking anonymous when a key already exists is idempotent—the system reuses the stored keypair.
-5. A Nostr profile sync runs right after the database update so `User.username/avatar/nip05/lud16/banner` reflect the decentralized profile in the same transaction cycle.
+5. A Nostr profile sync runs right after the database update (best-effort, outside the transaction).
 
 ### 2.3 Signing Mode Detection
 
 Rule: *If `User.privkey` exists → server-side signing allowed. Otherwise require NIP-07.*
 
 Changes:
-- Introduce `hasServerSideKey(user)` utility (e.g., `Boolean(user.privkey)`).
-- Update `isNip07User` usage across:
+- Direct checks on `Boolean(user.privkey)` are used instead of a dedicated `hasServerSideKey` helper.
+- `isNip07User` usage is aligned across:
   - `src/lib/publish-service.ts`
   - `src/lib/republish-service.ts`
   - `src/hooks/usePublishDraft.ts`
@@ -58,7 +101,7 @@ Changes:
 
 ### 2.5 Data Migration & Backfill
 
-Legacy production data may still contain mismatched `profileSource/primaryProvider` values. A follow-up script (`scripts/migrate-auth-state.ts`, planned) should:
+Legacy production data may still contain mismatched `profileSource/primaryProvider` values. No migration script is present in the repo; if needed, a one-off migration should:
 - Null any lingering `privkey` rows where `profileSource='nostr'`.
 - Re-run `syncUserProfileFromNostr` for users whose `primaryProvider` already equals `'nostr'` but have stale profile fields.
 - Backfill `profileSource` anywhere it is `NULL` by mirroring `primaryProvider`.
@@ -87,7 +130,7 @@ Document outcomes in PR checklists and note which flows were smoke-tested (Nostr
 
 ## 3. Open Considerations
 
-- Historical clean-up script (see §2.5) still pending.
+- Historical clean-up script (see §2.5) is not in this repo.
 - Consider pruning dormant anonymous Account rows once a user migrates to Nostr-first to simplify analytics.
 - Admin tooling already exists via `/api/account/preferences`, but we may want explicit UI for support to resolve edge cases faster.
 
@@ -95,5 +138,5 @@ Document outcomes in PR checklists and note which flows were smoke-tested (Nostr
 
 1. Keep GitHub/Email credentials up to date for both sign-in and linking flows.
 2. Run the forthcoming migration script before cutting a production release if legacy users exist.
-3. Maintain relay availability for the Nostr sync helper; fall back to cached values if relays fail.
+3. Maintain relay availability for the Nostr sync helper; sync is best-effort and leaves existing DB values intact if relays fail.
 4. Monitor logs for `Failed to sync Nostr profile after linking` to proactively catch relay issues.

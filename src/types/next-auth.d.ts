@@ -15,6 +15,7 @@ declare module 'next-auth' {
       pubkey?: string
       username?: string
       privkey?: string  // Private key for ephemeral accounts (anonymous, email, github)
+      reconnectToken?: string  // Secure reconnect token for anonymous session persistence
       nostrProfile?: Record<string, unknown>  // Complete Nostr profile from NIP-01 kind 0 event
       nip05?: string
       lud16?: string
@@ -30,6 +31,7 @@ declare module 'next-auth' {
     image?: string | null
     avatar?: string
     pubkey?: string
+    reconnectToken?: string  // Returned from anonymous provider for client storage
   }
 }
 
@@ -40,6 +42,7 @@ declare module 'next-auth/jwt' {
     username?: string
     avatar?: string
     privkey?: string  // Private key for ephemeral accounts
+    reconnectToken?: string  // Secure reconnect token for anonymous accounts
     provider?: string // Track which provider was used for authentication
     email?: string
     nip05?: string

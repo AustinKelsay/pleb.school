@@ -46,7 +46,8 @@ export default async function ProfilePage() {
 
   if (hasAdminOrModerator) {
     allowedTabs.push('content')
-    if (adminInfo.permissions.viewAnalytics) {
+    // Use viewPlatformAnalytics for admin analytics tab
+    if (adminInfo.permissions.viewPlatformAnalytics) {
       allowedTabs.push('analytics')
     }
   }
@@ -93,7 +94,7 @@ export default async function ProfilePage() {
                       <FileText className="h-4 w-4" />
                       Content
                     </TabsTrigger>
-                    {adminInfo.permissions.viewAnalytics && (
+                    {adminInfo.permissions.viewPlatformAnalytics && (
                       <TabsTrigger value="analytics" className={`${triggerResponsiveClasses} flex items-center justify-center gap-2 rounded-lg border border-transparent px-4 text-sm font-medium transition-all data-[state=active]:border-primary/40 data-[state=active]:bg-primary/10 data-[state=active]:text-primary sm:text-base sm:justify-start`}>
                         <BarChart3 className="h-4 w-4" />
                         Analytics
@@ -126,7 +127,7 @@ export default async function ProfilePage() {
                   <AdminContentManager />
                 </TabsContent>
 
-                {adminInfo.permissions.viewAnalytics && (
+                {adminInfo.permissions.viewPlatformAnalytics && (
                   <TabsContent value="analytics" className="space-y-6">
                     <AdminAnalyticsTabs />
                   </TabsContent>

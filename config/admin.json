@@ -2,7 +2,8 @@
   "admins": {
     "pubkeys": [
       "npub17v7g49shev2lwp0uwrx5v88ad6hj970zfse74wkes9jguhkx7aqsgjwsvj",
-      "npub1vfs098a8tjg64g5j7zpwt6rmgwxj4d8al9408xzk0vqcqthzln2qdge2se"
+      "npub1vfs098a8tjg64g5j7zpwt6rmgwxj4d8al9408xzk0vqcqthzln2qdge2se",
+      "npub18t35j39m2dwru8f7r60wjmcyxz7td8wx4h5fwsufac2k55r7ul4q2ac6jq"
     ],
     "permissions": {
       "createCourse": true,
@@ -14,14 +15,16 @@
       "editOwnResource": true,
       "deleteResource": true,
       "manageUsers": true,
-      "viewAnalytics": true,
+      "viewOwnAnalytics": true,
+      "viewPlatformAnalytics": true,
       "moderateContent": true,
       "manageNostrEvents": true
     }
   },
   "moderators": {
     "pubkeys": [
-      "npub3example..."
+      "npub1ruau9elazkenqa2x0s2rjxu5f6ndshfput7gaa9azkkh0ff8n0cqtdw2d9",
+      "npub1v8cjwkpx9eqrgk336f3twjycramzr7xwc0jj7lsq8f8zgj82450q8cdk4l"
     ],
     "permissions": {
       "createCourse": true,
@@ -31,7 +34,8 @@
       "editOwnResource": true,
       "deleteResource": false,
       "manageUsers": false,
-      "viewAnalytics": false,
+      "viewOwnAnalytics": true,
+      "viewPlatformAnalytics": false,
       "moderateContent": true,
       "manageNostrEvents": false
     }
@@ -60,7 +64,8 @@
     "permissions.editOwnResource": "Allow editing only resources created by the user",
     "permissions.deleteResource": "Allow deleting resources",
     "permissions.manageUsers": "Allow managing user accounts and roles",
-    "permissions.viewAnalytics": "Allow viewing platform analytics and statistics",
+    "permissions.viewOwnAnalytics": "Allow viewing analytics for own content (courses/resources created by this user)",
+    "permissions.viewPlatformAnalytics": "Allow viewing all platform-wide analytics and statistics (admin only)",
     "permissions.moderateContent": "Allow moderating user-generated content",
     "permissions.manageNostrEvents": "Allow managing Nostr event publishing and relay configuration",
     "features": "Admin system feature toggles (informational; currently not enforced in runtime unless explicitly checked in UI/controllers)",
@@ -81,7 +86,8 @@
           "editAnyResource": true,
           "deleteResource": true,
           "manageUsers": true,
-          "viewAnalytics": true,
+          "viewOwnAnalytics": true,
+          "viewPlatformAnalytics": true,
           "moderateContent": true,
           "manageNostrEvents": true
         }
@@ -104,7 +110,8 @@
           "editOwnResource": true,
           "deleteResource": false,
           "manageUsers": false,
-          "viewAnalytics": false,
+          "viewOwnAnalytics": true,
+          "viewPlatformAnalytics": false,
           "moderateContent": false,
           "manageNostrEvents": false
         }

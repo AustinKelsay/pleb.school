@@ -5,7 +5,6 @@
       "wss://relay.damus.io",
       "wss://relay.primal.net",
       "wss://nostr.land",
-      "wss://purplerelay.com",
       "wss://nostr.wine"
     ],
     "zapThreads": [
@@ -76,7 +75,7 @@
   },
   "_comments": {
     "_overview": "Nostr protocol configuration - controls relay usage, event types, and publishing defaults",
-    "_runtime_usage": "Used primarily by src/contexts/snstr-context.tsx to seed RelayPool (DEFAULT_RELAYS = relays.default). Do not add empty arrays for 'content'/'profile'/'zapThreads' unless you also populate them — an empty array would result in zero active relays. Current fetch/publish services have their own internal relay defaults; align them in future to use this config.",
+    "_runtime_usage": "Used primarily by src/contexts/snstr-context.tsx to seed RelayPool (DEFAULT_RELAYS = relays.default). Empty arrays for 'content'/'profile'/'zapThreads' will fall back to 'default' via getRelays() — this is safe but may be confusing, so either omit the key or populate it. Current fetch/publish services have their own internal relay defaults; align them in future to use this config.",
     "relays": "Relay configuration for different use cases",
     "relays.default": "Default relays used for general event publishing and fetching. These should be reliable, well-connected relays.",
     "relays.content": "(Optional) Relays specifically for content events (courses, resources). If omitted, we fall back to 'default'.",

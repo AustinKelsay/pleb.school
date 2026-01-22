@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CourseAdapter, PurchaseAdapter } from '@/lib/db-adapter';
+import { CourseAdapter, PurchaseAdapter, LessonAdapter } from '@/lib/db-adapter';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin-utils';
+import { z } from 'zod';
+
+/**
+ * Validation schema for course updates
+ * Only allows specific fields to prevent unauthorized modifications
+ * Explicitly excludes: id, userId, createdAt, updatedAt, noteId
+ */
+const updateCourseSchema = z.object({
+  price: z.number().int().min(0).max(2100000000).optional(), // Max ~21 BTC in sats
+  submissionRequired: z.boolean().optional(),
+}).strict(); // Reject any extra fields
 
 /**
  * GET /api/courses/[id] - Fetch a specific course
@@ -32,7 +44,6 @@ export async function GET(
     }
 
     // Get lessons for this course
-    const { LessonAdapter } = await import('@/lib/db-adapter');
     const lessons = await LessonAdapter.findByCourseId(courseId);
 
     // Fetch purchases for the current user (if authenticated)
@@ -144,24 +155,53 @@ export async function PUT(
 
     // Check authorization: must be owner or admin
     const isOwner = course.userId === session.user.id;
+    const userIsAdmin = await isAdmin(session);
 
-    // Check if user is admin via role
-    const { prisma } = await import('@/lib/prisma');
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
-    });
-    const isAdmin = user?.role?.admin || false;
-
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !userIsAdmin) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }
       );
     }
 
-    const body = await request.json();
-    const updatedCourse = await CourseAdapter.update(courseId, body);
+    // Parse and validate request body - only allow specific fields
+    let body;
+    try {
+      body = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
+    const validationResult = updateCourseSchema.safeParse(body);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validationResult.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const updateData = validationResult.data;
+
+    // Ensure at least one field is being updated
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: 'No valid fields to update' },
+        { status: 400 }
+      );
+    }
+
+    const updatedCourse = await CourseAdapter.update(courseId, updateData);
+
+    if (!updatedCourse) {
+      return NextResponse.json(
+        { error: 'Failed to update course' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { course: updatedCourse, message: 'Course updated successfully' }
@@ -213,16 +253,9 @@ export async function DELETE(
 
     // Check authorization: must be owner or admin
     const isOwner = course.userId === session.user.id;
+    const userIsAdmin = await isAdmin(session);
 
-    // Check if user is admin via role
-    const { prisma } = await import('@/lib/prisma');
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
-    });
-    const isAdmin = user?.role?.admin || false;
-
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !userIsAdmin) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }
@@ -234,6 +267,21 @@ export async function DELETE(
     if (purchaseCount > 0) {
       return NextResponse.json(
         { error: 'Cannot delete course that has been purchased' },
+        { status: 409 }
+      );
+    }
+
+    // Check if course has associated lessons before deleting
+    // Prevent orphaned lessons that would lose their course reference
+    // Note: Theoretical TOCTOU race exists here (lesson could be added between check and delete)
+    // but practical risk is negligible since only owner/admin can delete their own course.
+    const lessonCount = await LessonAdapter.countByCourse(courseId)
+    if (lessonCount > 0) {
+      return NextResponse.json(
+        {
+          error: 'Cannot delete course with associated lessons',
+          details: `Course has ${lessonCount} lesson(s). Remove lessons first or delete the course draft instead.`
+        },
         { status: 409 }
       );
     }

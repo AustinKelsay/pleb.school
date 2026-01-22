@@ -176,9 +176,10 @@ export async function GET(request: NextRequest) {
     const limit = parseLimit(searchParams.get("limit"))
 
     if (scope === "all") {
-      const canView = await hasPermission(session, "viewAnalytics")
+      // Use viewPlatformAnalytics for all platform purchases
+      const canView = await hasPermission(session, "viewPlatformAnalytics")
       if (!canView) {
-        return NextResponse.json({ error: "Admin analytics permission required" }, { status: 403 })
+        return NextResponse.json({ error: "Platform analytics permission required" }, { status: 403 })
       }
     }
 

@@ -14,8 +14,7 @@ import {
   Unlock,
   MessageCircle,
   Heart,
-  Eye,
-  ShieldCheck
+  Eye
 } from "lucide-react"
 import type { ContentItem } from "@/data/types"
 import { contentTypeIcons } from "@/data/config"
@@ -25,6 +24,10 @@ import { useNostr, type NormalizedProfile } from "@/hooks/useNostr"
 import { useInteractions } from "@/hooks/useInteractions"
 import { encodePublicKey, decodeAddress } from "snstr"
 import { useSession } from "@/hooks/useSession"
+import { getPurchaseIcon } from "@/lib/payments-config"
+
+// Icon lookup at module level (not during render) to avoid React rules violation
+const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
 
 interface HomepageItem {
   title: string
@@ -84,7 +87,7 @@ export function ContentCard({
   const { status: sessionStatus } = useSession()
   const isAuthenticated = sessionStatus === 'authenticated'
   const isSessionLoading = sessionStatus === 'loading'
-  
+
   // State to store the instructor's profile data
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
   
@@ -319,7 +322,7 @@ export function ContentCard({
             <div className="flex-shrink-0 ml-2 flex items-center gap-2">
               {isPurchased ? (
                 <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success/10 border border-success/50">
-                  <ShieldCheck className="h-3 w-3 text-success" />
+                  <ShieldCheckIcon className="h-3 w-3 text-success" />
                   <span className="text-xs font-medium text-success">Purchased</span>
                 </div>
               ) : isPremium ? (

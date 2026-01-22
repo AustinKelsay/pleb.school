@@ -11,11 +11,11 @@ The profile system implements a sophisticated multi-account management architect
 The system recognizes two primary authentication paradigms:
 
 #### 🔵 Nostr-First Accounts
-- **Providers**: NIP-07 browser extension, Anonymous
+- **Providers**: `nostr` (NIP-07 extension), `anonymous`, `recovery`
 - **Characteristics**: 
   - Nostr profile is the source of truth
   - Profile syncs from Nostr relays on sign-in
-  - User controls keys via browser extension
+  - NIP-07 users control keys via browser extension; anonymous/recovery use server-held or user-supplied keys (encrypted at rest)
   - Basic fields (name, email) are read-only in settings
 
 #### 🟠 OAuth-First Accounts  
@@ -29,16 +29,45 @@ The system recognizes two primary authentication paradigms:
 ### Automatic Promotions
 
 Linking flows automatically migrate users along the chain:
-- Anonymous → OAuth-first: linking email/GitHub immediately switches `primaryProvider/profileSource` to OAuth while keeping the server-managed keypair.
-- OAuth-first → Nostr-first: linking a NIP-07 pubkey copies the new pubkey into `User.pubkey`, clears `privkey`, and runs a Nostr sync so DB fields match the decentralized profile before the response returns.
-- Once a user becomes Nostr-first, subsequent OAuth logins behave as secondary credentials; the system never reverts without an explicit preference change.
+- If `primaryProvider` is unset, the first linked provider becomes primary and sets `profileSource` accordingly.
+- Linking Nostr (NIP-07) always sets `primaryProvider/profileSource` to `nostr`, replaces `User.pubkey`, clears `privkey`, and triggers a Nostr profile sync (best-effort).
+- Anonymous → OAuth-first: linking email/GitHub switches `primaryProvider/profileSource` to OAuth while keeping the server-managed keypair.
+- Linking additional OAuth providers does **not** change the current primary unless it was `anonymous`.
+- Unlinking the primary provider recomputes `primaryProvider/profileSource`; removing the last Nostr-first provider can switch the profile source back to OAuth.
 
 ### Anonymous Bootstrap Behavior
-- Anonymous sign-ins generate an `anon_XXXX` username and DiceBear avatar as placeholders.
-- These placeholders are explicitly treated as “unset” during aggregation: any linked OAuth provider with real profile data overrides them immediately.
+- Anonymous sign-ins generate an `anon_XXXX` username and DiceBear avatar as placeholders (from `config/auth.json` `usernamePrefix` + `defaultAvatar`).
+- These placeholders are explicitly treated as "unset" during aggregation: any linked OAuth provider with real profile data overrides them immediately.
 - Once the user updates their Nostr profile (via sync or settings), those non-placeholder values regain priority because the profile remains Nostr-first unless they switch sources.
 - When richer data replaces the placeholder, the system backfills the `User.username`, `User.avatar`, and `User.email` columns so settings forms stay in sync with what the public profile shows.
+- Anonymous keys are stored encrypted at rest (`PRIVKEY_ENCRYPTION_KEY`).
 - Linking a real Nostr account erases the platform-managed private key to enforce user custody from that point onward.
+
+### Anonymous Session Persistence
+Anonymous users can persist their session across browser restarts using a secure reconnect token system:
+
+**Storage Format (localStorage):**
+```typescript
+// Secure format - no private keys stored (matches PersistedAnonymousIdentity type)
+{ reconnectToken: "random_hex", pubkey: "...", userId: "...", updatedAt: 1704067200000 }
+```
+
+**Security Properties:**
+- Token is random, cannot derive private key or sign Nostr events
+- Database stores only SHA-256 hash (`User.anonReconnectTokenHash`), not plaintext
+- Token rotates on every successful authentication (limits stolen token window)
+- O(1) lookup via unique index on hash (not O(n) scan)
+
+**Reconnection Flow:**
+1. Client sends reconnect token with anonymous sign-in
+2. Server computes `hashToken(token)` and queries by hash (O(1) indexed lookup)
+3. On success: generate new token, update hash in database
+4. Client stores new rotated token
+
+**Edge Case:** If DB update succeeds but response is lost (network failure), client has stale token and next login fails. This is accepted for ephemeral anonymous accounts - user can create a new anonymous account.
+
+**Legacy Migration:**
+Users with old localStorage format (privkey) are automatically migrated on next login - server validates privkey, generates token, client stores new format. This migration is intentionally silent (no user notification) since anonymous accounts are ephemeral and the security upgrade is transparent to users.
 
 ### Profile Source Priority
 
@@ -46,11 +75,58 @@ Users can configure how their profile data is prioritized:
 
 ```typescript
 // Nostr-First Priority
-nostr → current session → oauth providers
+nostr → current DB profile → oauth providers
 
 // OAuth-First Priority
-current session → oauth providers → nostr
+current DB profile → oauth providers → nostr
 ```
+
+#### What is "Current DB Profile"?
+
+The "current DB profile" refers to data stored directly in the `User` table columns:
+- `username`, `avatar`, `email`, `banner`, `nip05`, `lud16`, `pubkey`
+
+> **Note**: The schema also has a `displayName` column, but it's currently unused by the profile aggregator.
+
+This data is populated from:
+1. **Provider syncs** - When users log in, successful provider fetches may backfill empty User columns
+2. **Manual edits** - Users can directly edit profile fields via the settings page
+3. **Registration data** - Initial values set during account creation
+
+In the aggregation logic (`src/lib/profile-aggregator.ts`), current DB profile is represented as a pseudo-provider with `provider: 'current'`. When displayed in the UI, it's labeled as `'profile'` (the source badge shown to users).
+
+**Aggregator field mapping** (see `src/lib/profile-aggregator.ts` lines 309-324):
+```typescript
+const currentData: LinkedAccountData = {
+  provider: 'current',
+  providerAccountId: user.id,
+  data: {
+    name: user.username,      // username used for display name
+    username: user.username,
+    email: user.email,
+    image: user.avatar,       // avatar → image
+    banner: user.banner,
+    nip05: user.nip05,
+    lud16: user.lud16,
+    pubkey: user.pubkey
+  },
+  isConnected: true,
+  isPrimary: true
+}
+```
+
+This mapping means `username` serves double duty as both the username and display name for the "current" profile source.
+
+**Why "current" sits between nostr and oauth in Nostr-first mode:**
+- Nostr data is fetched live and takes highest priority for Nostr-first users
+- Current DB profile serves as a cached fallback when Nostr fetch fails or fields are missing
+- It also captures manual user edits that should override stale OAuth data
+- OAuth providers are lowest priority since Nostr-first users consider that data secondary
+
+**Interaction with `profileSource`:**
+- `profileSource: 'nostr'` → Uses Nostr-first priority order
+- `profileSource: 'oauth'` → Uses OAuth-first priority order (current DB profile is highest)
+- The `isNostrFirstProfile()` helper determines which order to use based on `profileSource` and `primaryProvider`
 
 ## Data Architecture
 
@@ -150,22 +226,23 @@ export async function getAggregatedProfile(userId: string): Promise<AggregatedPr
 #### Database Schema
 ```prisma
 model User {
-  id               String    @id @default(uuid())
-  pubkey           String?   @unique
-  privkey          String?
-  email            String?   @unique
-  username         String?   @unique
-  avatar           String?
-  banner           String?
-  nip05            String?
-  lud16            String?
-  
+  id                     String    @id @default(uuid())
+  pubkey                 String?   @unique
+  privkey                String?   // Encrypted with PRIVKEY_ENCRYPTION_KEY
+  email                  String?   @unique
+  username               String?   @unique
+  avatar                 String?
+  banner                 String?
+  nip05                  String?
+  lud16                  String?
+
   // Account linking fields
-  primaryProvider  String?   // Primary authentication provider
-  profileSource    String?   @default("oauth") // "nostr" or "oauth"
-  
-  accounts         Account[]
-  sessions         Session[]
+  primaryProvider        String?   // Primary authentication provider
+  profileSource          String?   @default("oauth") // "nostr" or "oauth"
+  anonReconnectTokenHash String?   // SHA-256 hash for anonymous session persistence
+
+  accounts               Account[]
+  sessions               Session[]
 }
 
 model Account {
@@ -199,9 +276,15 @@ Streamlined settings component with:
 - Basic profile editing (OAuth-first only)
 - Enhanced profile fields (all users)
 - Profile source configuration
-- Manual sync from providers
+- Manual sync from GitHub/Nostr/Email (email sync backfills `User.email` when missing or out of sync)
 - Real-time validation and feedback
 - Contextual messaging for anonymous and Nostr-first accounts (e.g., “Managed via Nostr relays”)
+
+#### Enhanced Settings (`/src/app/profile/components/enhanced-settings.tsx`)
+Full-featured settings experience with:
+- Richer UI/UX, inline provider hints, and granular sync actions
+- Uses `/api/profile/sync` to respect `profileSource` rules
+- Mirrors the same validation rules as `simple-settings`
 
 #### Linked Accounts Manager (`/src/components/account/linked-accounts.tsx`)
 Account linking interface providing:
@@ -212,24 +295,28 @@ Account linking interface providing:
 
 ### Identity Synchronisation Events
 
-- `src/lib/profile-events.ts` emits `profile:updated` whenever profile data changes (linking, unlinking, server actions).
-- The header (`src/components/layout/header.tsx`) listens for this event, fetches `/api/profile/aggregated`, and persists the latest avatar/name in localStorage so it stays in sync with the Profile tab after migrations.
-- Email verification
-- OAuth initiation
+- `src/lib/profile-events.ts` defines `profile:updated`; the header listens and refreshes `/api/profile/aggregated`, persisting avatar/name in localStorage.
+- `dispatchProfileUpdatedEvent` is fired from `LinkedAccountsManager` and `ProfileEditForms` after linking/unlinking or profile edits.
 
 ## Visual Design System
 
 ### Provider Badges
 
-Each field displays its data source with color-coded badges:
+Badges are rendered via `ProviderBadge` in `enhanced-profile-display.tsx` as outline `Badge` elements with an icon + label. (Provider color values exist in `providerConfig`, but they are not applied in the badge UI today.)
 
-| Provider | Color | Icon | Usage |
+| Provider | Label | Icon | Color |
 |----------|-------|------|-------|
-| Nostr | Blue | Key | Nostr profile data |
-| GitHub | Gray | GitHub | GitHub OAuth data |
-| Email | Green | Mail | Email provider data |
-| Profile | Purple | User | Session/database data |
-| Current | Orange | User | Active session data |
+| nostr | Nostr | Key | blue |
+| github | GitHub | GitHub | gray |
+| email | Email | Mail | green |
+| profile | Profile | User | purple |
+| current | Current | User | orange |
+
+**Note on `profile` vs `current`**: Both refer to the "current DB profile" (data stored in the User table). The difference is contextual:
+- `current` appears as a fallback in `enhanced-profile-display.tsx` when no aggregated profile exists
+- `profile` appears when data flows through `profile-aggregator.ts`, which transforms `source: 'current'` → `source: 'profile'` (line 344)
+
+In practice, most users see `profile` (purple) since aggregation runs on page load. The `current` (orange) badge only appears in edge cases where aggregation hasn't occurred.
 
 ### UI Organization
 
@@ -269,21 +356,33 @@ Each field displays its data source with color-coded badges:
    - Provider account uniqueness enforced
 
 3. **Session Requirements**
-   - All operations require authenticated session
+   - Most operations require authenticated session; `/api/account/verify-email` is token-based and unauthenticated
    - User ID verification for all updates
-   - Role-based access where applicable
 
 ### Data Protection
 
 1. **Input Validation**
-   - Zod schemas for all inputs
-   - XSS prevention via sanitization
-   - SQL injection prevention via Prisma
+   - Zod schemas on account/profile endpoints
+   - Email inputs normalized via `sanitizeEmail` where applicable
+   - Prisma used for standard DB access (plus parameterized raw queries where needed)
 
-2. **Provider Verification**
+2. **Nostr Profile Field Validation**
+   Profile fields synced from Nostr are validated before storage:
+   - **username**: Max 256 characters, control characters removed, whitespace normalized
+   - **avatar/banner**: Must be valid http/https URLs, max 2048 characters
+   - **nip05**: Must match `user@domain.tld` format, max 320 characters
+   - **lud16**: Must match Lightning address format `user@domain.tld`, max 320 characters
+
+   Validation implemented in `src/lib/nostr-profile.ts` and `src/app/api/account/sync/route.ts`.
+
+3. **Provider Verification**
    - Verify provider exists before operations
    - Check account ownership
    - Prevent duplicate linkings
+
+4. **Key Handling**
+   - Ephemeral private keys are encrypted at rest via `PRIVKEY_ENCRYPTION_KEY`
+   - Nostr-first links clear stored privkeys to enforce user custody
 
 ## Performance Optimizations
 
@@ -295,7 +394,7 @@ Each field displays its data source with color-coded badges:
 ### Query Optimization
 - Batch fetch linked accounts
 - Single query for user + accounts
-- Parallel provider API calls
+- Provider fetches are sequential per account in `getAggregatedProfile` (no parallel fan-out yet)
 - Minimal database round trips
 
 ## User Experience Features
@@ -312,54 +411,32 @@ Each field displays its data source with color-coded badges:
 - Disabled states with tooltips
 - Success/error indicators
 
-### Accessibility
-- ARIA labels on all inputs
-- Keyboard navigation support
-- Screen reader friendly
-- Focus management
 
-## Testing Checklist
+## Suggested Manual Checks
 
 ### Profile Display
-- ✅ Aggregation from multiple sources
-- ✅ Provider badge display
-- ✅ Loading states
-- ✅ Copy functionality
-- ✅ Responsive layout
+- Aggregation from multiple sources
+- Provider badge display
+- Loading states and error handling
+- Copy-to-clipboard functionality
+- Responsive layout
 
 ### Settings
-- ✅ Field editing based on account type
-- ✅ Provider badges on fields
-- ✅ Profile source configuration
-- ✅ Manual sync functionality
-- ✅ Form validation
+- Field editing based on account type
+- Provider badges on fields
+- Profile source configuration
+- Manual sync functionality
+- Form validation + error messages
 
 ### Account Linking
-- ✅ Nostr via NIP-07
-- ✅ Email with verification
-- ✅ GitHub OAuth flow
-- ✅ Current provider disabled
-- ✅ Unlink functionality
+- Nostr via NIP-07
+- Email with verification
+- GitHub OAuth flow
+- Current provider disabled
+- Unlink functionality
 
 ### Data Integrity
-- ✅ Profile source priority respected
-- ✅ Primary provider preserved
-- ✅ Proper data aggregation
+- Profile source priority respected
+- Primary provider preserved
+- Proper data aggregation
   
-
-## Future Enhancements
-
-### Planned Features
-1. **Field-level provider selection** - Choose provider per field
-2. **Sync scheduling** - Automatic periodic syncs
-3. **Conflict resolution** - UI for data conflicts
-4. **Profile export/import** - Data portability
-5. **Sync history** - Track all operations
-6. **Provider health monitoring** - API status display
-
-### Architecture Improvements
-1. **WebSocket updates** - Real-time profile changes
-2. **Optimistic updates** - Instant UI feedback
-3. **Batch operations** - Bulk account management
-4. **Advanced caching** - Edge caching support
-5. **GraphQL integration** - Flexible data fetching

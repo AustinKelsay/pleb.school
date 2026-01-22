@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { RelayPool } from 'snstr'
+import { getRelays } from './nostr-relays'
 
 const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null)
 const pickFirstString = (...values: unknown[]): string | null => {
@@ -10,20 +11,90 @@ const pickFirstString = (...values: unknown[]): string | null => {
   return null
 }
 
+// Validation constants for Nostr profile fields
+const MAX_USERNAME_LENGTH = 256
+const MAX_URL_LENGTH = 2048
+const MAX_NIP05_LENGTH = 320
+const MAX_LUD16_LENGTH = 320
+
+/**
+ * Validate and sanitize a username from Nostr profile.
+ * Returns undefined if invalid.
+ */
+export function validateUsername(value: unknown): string | undefined {
+  const str = asString(value)
+  if (!str) return undefined
+  const trimmed = str.trim()
+  if (trimmed.length === 0 || trimmed.length > MAX_USERNAME_LENGTH) return undefined
+  // Remove control characters and normalize whitespace
+  return trimmed.replace(/\p{Cc}/gu, '').replace(/\s+/g, ' ')
+}
+
+/**
+ * Validate a URL for avatar/banner.
+ * Must be http/https and reasonable length.
+ */
+export function validateImageUrl(value: unknown): string | undefined {
+  const str = asString(value)
+  if (!str) return undefined
+  const trimmed = str.trim()
+  if (trimmed.length === 0 || trimmed.length > MAX_URL_LENGTH) return undefined
+
+  try {
+    const url = new URL(trimmed)
+    // Only allow http/https protocols
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return undefined
+    }
+    return trimmed
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Validate NIP-05 identifier format (user@domain.tld).
+ */
+export function validateNip05(value: unknown): string | undefined {
+  const str = asString(value)
+  if (!str) return undefined
+  const trimmed = str.trim().toLowerCase()
+  if (trimmed.length === 0 || trimmed.length > MAX_NIP05_LENGTH) return undefined
+
+  // Basic NIP-05 format validation: local@domain
+  const nip05Regex = /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+  if (!nip05Regex.test(trimmed)) return undefined
+
+  return trimmed
+}
+
+/**
+ * Validate LUD-16 lightning address format (user@domain.tld).
+ */
+export function validateLud16(value: unknown): string | undefined {
+  const str = asString(value)
+  if (!str) return undefined
+  const trimmed = str.trim().toLowerCase()
+  if (trimmed.length === 0 || trimmed.length > MAX_LUD16_LENGTH) return undefined
+
+  // Lightning address format is same as email
+  const lud16Regex = /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+  if (!lud16Regex.test(trimmed)) return undefined
+
+  return trimmed
+}
+
 /**
  * Fetch ALL Nostr profile metadata (kind 0) for a given pubkey.
  */
 export async function fetchNostrProfile(pubkey: string): Promise<Record<string, unknown> | null> {
   let relayPool: RelayPool | null = null
   try {
-    relayPool = new RelayPool([
-      'wss://relay.nostr.band',
-      'wss://nos.lol',
-      'wss://relay.damus.io'
-    ])
+    const relays = getRelays('profile')
+    relayPool = new RelayPool(relays)
 
     const profileEvent = await relayPool.get(
-      ['wss://relay.nostr.band', 'wss://nos.lol', 'wss://relay.damus.io'],
+      relays,
       { kinds: [0], authors: [pubkey] },
       { timeout: 5000 }
     )
@@ -81,11 +152,18 @@ export async function syncUserProfileFromNostr(userId: string, pubkey: string) {
     }
 
     const updates: { username?: string; avatar?: string; nip05?: string; lud16?: string; banner?: string } = {}
-    const name = pickFirstString(nostrProfile.name, nostrProfile.username, nostrProfile.display_name)
-    const picture = pickFirstString(nostrProfile.picture, nostrProfile.avatar, nostrProfile.image)
-    const nip05 = asString(nostrProfile.nip05)
-    const lud16 = asString(nostrProfile.lud16)
-    const banner = asString(nostrProfile.banner)
+
+    // Apply validation to all profile fields from Nostr
+    const rawName = pickFirstString(nostrProfile.name, nostrProfile.username, nostrProfile.display_name)
+    const rawPicture = pickFirstString(nostrProfile.picture, nostrProfile.avatar, nostrProfile.image)
+    const rawBanner = asString(nostrProfile.banner)
+
+    // Use validators to sanitize and validate profile data
+    const name = validateUsername(rawName)
+    const picture = validateImageUrl(rawPicture)
+    const nip05 = validateNip05(nostrProfile.nip05)
+    const lud16 = validateLud16(nostrProfile.lud16)
+    const banner = validateImageUrl(rawBanner)
 
     if (name && name !== currentUser.username) {
       updates.username = name

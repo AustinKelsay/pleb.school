@@ -20,6 +20,10 @@ import { decodePublicKey, encodePublicKey } from 'snstr'
 
 /**
  * Permission flags for admin users
+ *
+ * Analytics permissions are split for granular access control:
+ * - viewOwnAnalytics: User can view analytics for their own content
+ * - viewPlatformAnalytics: Admin can view all platform-wide analytics
  */
 export interface AdminPermissions {
   createCourse: boolean
@@ -31,7 +35,8 @@ export interface AdminPermissions {
   editOwnResource: boolean
   deleteResource: boolean
   manageUsers: boolean
-  viewAnalytics: boolean
+  viewOwnAnalytics: boolean      // View analytics for own content
+  viewPlatformAnalytics: boolean // View all platform analytics (admin only)
   moderateContent: boolean
   manageNostrEvents: boolean
 }
@@ -117,7 +122,8 @@ function getPermissions(level: AdminLevel): AdminPermissions {
         editOwnResource: false,
         deleteResource: false,
         manageUsers: false,
-        viewAnalytics: false,
+        viewOwnAnalytics: false,
+        viewPlatformAnalytics: false,
         moderateContent: false,
         manageNostrEvents: false
       }
