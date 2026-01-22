@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CourseAdapter, PurchaseAdapter, LessonAdapter } from '@/lib/db-adapter';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin-utils';
 import { z } from 'zod';
 
 /**
@@ -154,16 +155,9 @@ export async function PUT(
 
     // Check authorization: must be owner or admin
     const isOwner = course.userId === session.user.id;
+    const userIsAdmin = await isAdmin(session);
 
-    // Check if user is admin via role
-    const { prisma } = await import('@/lib/prisma');
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
-    });
-    const isAdmin = user?.role?.admin || false;
-
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !userIsAdmin) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }
@@ -201,6 +195,13 @@ export async function PUT(
     }
 
     const updatedCourse = await CourseAdapter.update(courseId, updateData);
+
+    if (!updatedCourse) {
+      return NextResponse.json(
+        { error: 'Failed to update course' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { course: updatedCourse, message: 'Course updated successfully' }
@@ -252,16 +253,9 @@ export async function DELETE(
 
     // Check authorization: must be owner or admin
     const isOwner = course.userId === session.user.id;
+    const userIsAdmin = await isAdmin(session);
 
-    // Check if user is admin via role
-    const { prisma } = await import('@/lib/prisma');
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
-    });
-    const isAdmin = user?.role?.admin || false;
-
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !userIsAdmin) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }

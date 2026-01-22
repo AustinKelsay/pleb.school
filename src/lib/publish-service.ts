@@ -259,7 +259,7 @@ export class PublishService {
     try {
       // First, publish any draft lessons that aren't already published
       const publishedLessonEvents: NostrEvent[] = []
-      const lessonReferences: Array<{ resourceId: string; pubkey: string }> = []
+      const lessonReferences: Array<{ resourceId: string; pubkey: string; price?: number }> = []
 
       // Process each lesson
       for (const draftLesson of courseDraft.draftLessons) {
@@ -273,7 +273,8 @@ export class PublishService {
           publishedLessonEvents.push(result.event)
           lessonReferences.push({
             resourceId: result.resource.id,
-            pubkey: user.pubkey
+            pubkey: user.pubkey,
+            price: result.resource.price ?? 0
           })
         } else if (draftLesson.resourceId) {
           // This is an already published resource
@@ -284,7 +285,8 @@ export class PublishService {
           if (resource && resource.user.pubkey) {
             lessonReferences.push({
               resourceId: resource.id,
-              pubkey: resource.user.pubkey
+              pubkey: resource.user.pubkey,
+              price: resource.price ?? 0
             })
           }
         }

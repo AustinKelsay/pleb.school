@@ -64,12 +64,10 @@ it("backfills email when email provider is linked but user email is missing", as
   expect(response.status).toBe(200)
   expect(body.success).toBe(true)
   expect(body.updated).toEqual(["email"])
-  expect(mockUserUpdate).toHaveBeenCalledWith(
-    expect.objectContaining({
-      where: { id: "user-1" },
-      data: { email: "user@example.com" },  // normalized to lowercase
-    })
-  )
+  expect(mockUserUpdate).toHaveBeenCalledWith({
+    where: { id: "user-1" },
+    data: { email: "user@example.com" },  // normalized to lowercase
+  })
 })
 ```
 

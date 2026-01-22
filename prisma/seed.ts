@@ -57,7 +57,8 @@ async function main() {
     const user = await prisma.user.upsert({
       where: { pubkey: persona.pubkey },
       update: {
-        // Update mutable fields on re-run
+        // Update mutable fields on re-run (including privkey for key rotation)
+        privkey: encryptedPrivkey,
         username: persona.username,
         displayName: persona.displayName,
         avatar: persona.avatar,

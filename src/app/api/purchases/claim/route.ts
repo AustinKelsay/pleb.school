@@ -566,24 +566,13 @@ export async function POST(request: NextRequest) {
         return badRequest("Admin claims require a reason for the audit trail.")
       }
 
-      // Audit log the admin action with reason
-      auditLog(
-        session.user.id,
-        'purchase.admin_claim',
-        {
-          contentId: resourceId || courseId,
-          contentType: resourceId ? 'resource' : 'course',
-          paymentType,
-          amountPaid,
-          reason: adminReason
-        },
-        request
-      )
-
       verifiedAmountSats = amountPaid
       verifiedInvoice = invoice
       verifiedZapReceiptId = zapReceiptId
     }
+
+    // Track if this is an admin-initiated claim for post-transaction audit logging
+    const isAdminClaim = !!adminReason
 
     // Wrap duplicate check and purchase creation/update in a serializable transaction
     // to prevent race conditions where concurrent requests could both pass duplicate checks
@@ -769,6 +758,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: result.error },
         { status: result.status }
+      )
+    }
+
+    // Audit log admin claim after successful transaction commit
+    if (isAdminClaim) {
+      auditLog(
+        session.user.id,
+        'purchase.admin_claim',
+        {
+          contentId: resourceId || courseId,
+          contentType: resourceId ? 'resource' : 'course',
+          paymentType,
+          amountPaid: result.data.amountCredited,
+          reason: adminReason
+        },
+        request
       )
     }
 

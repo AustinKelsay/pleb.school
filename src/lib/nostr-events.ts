@@ -229,7 +229,7 @@ export function createResourceEvent(
  */
 export function createCourseEvent(
   courseDraft: CourseDraft | CourseDraftWithIncludes | CourseEventDraftInput,
-  lessonReferences: Array<{ resourceId: string; pubkey: string }>,
+  lessonReferences: Array<{ resourceId: string; pubkey: string; price?: number }>,
   privateKey: string
 ): NostrEvent {
   // Build tags array
@@ -261,12 +261,12 @@ export function createCourseEvent(
   // Add lesson references as 'a' tags
   // Format: ["a", "<kind>:<pubkey>:<d-tag>", "<optional-relay>"]
   lessonReferences.forEach(lesson => {
-    // Determine the kind based on whether it's a free or paid resource
-    // This would need to be passed in or determined from the resource
-    const resourceKind = EVENT_KINDS.LONG_FORM_CONTENT // Default to free content
+    const resourceKind = (lesson.price ?? 0) > 0
+      ? EVENT_KINDS.CLASSIFIED_LISTING
+      : EVENT_KINDS.LONG_FORM_CONTENT
     tags.push(['a', `${resourceKind}:${lesson.pubkey}:${lesson.resourceId}`])
   })
-  
+
   // Create and sign the event using snstr's createEvent
   // This is for server-side signing only (OAuth users)
   const event = createEvent({
@@ -274,7 +274,7 @@ export function createCourseEvent(
     content: '', // Course events typically have empty content
     tags
   }, privateKey) as NostrEvent
-  
+
   return event
 }
 
@@ -343,7 +343,7 @@ export function createUnsignedResourceEvent(
  */
 export function createUnsignedCourseEvent(
   courseDraft: CourseDraft | CourseDraftWithIncludes | CourseEventDraftInput,
-  lessonReferences: Array<{ resourceId: string; pubkey: string }>,
+  lessonReferences: Array<{ resourceId: string; pubkey: string; price?: number }>,
   pubkey: string
 ): Omit<NostrEvent, 'id' | 'sig'> {
   // Build tags array
@@ -375,12 +375,12 @@ export function createUnsignedCourseEvent(
   // Add lesson references as 'a' tags
   // Format: ["a", "<kind>:<pubkey>:<d-tag>", "<optional-relay>"]
   lessonReferences.forEach(lesson => {
-    // Determine the kind based on whether it's a free or paid resource
-    // This would need to be passed in or determined from the resource
-    const resourceKind = EVENT_KINDS.LONG_FORM_CONTENT // Default to free content
+    const resourceKind = (lesson.price ?? 0) > 0
+      ? EVENT_KINDS.CLASSIFIED_LISTING
+      : EVENT_KINDS.LONG_FORM_CONTENT
     tags.push(['a', `${resourceKind}:${lesson.pubkey}:${lesson.resourceId}`])
   })
-  
+
   return {
     pubkey,
     created_at: Math.floor(Date.now() / 1000),

@@ -389,7 +389,7 @@ export function usePublishCourse(courseDraftId: string) {
         // Publish draft lessons first
         publishStatus.updateStep('publish-lessons', 'processing')
         const publishedLessonEvents: NostrEvent[] = []
-        const lessonReferences: Array<{ resourceId: string; pubkey: string }> = []
+        const lessonReferences: Array<{ resourceId: string; pubkey: string; price?: number }> = []
         
         for (const draftLesson of courseDraft.draftLessons) {
           if (draftLesson.draftId && draftLesson.draft) {
@@ -423,7 +423,8 @@ export function usePublishCourse(courseDraftId: string) {
               publishedLessonEvents.push(signedEvent)
               lessonReferences.push({
                 resourceId: resourceResult.data?.resource?.id || draftLesson.draftId,
-                pubkey
+                pubkey,
+                price: draftLesson.draft?.price ?? 0
               })
             } catch (error) {
               publishStatus.updateStep('publish-lessons', 'error', undefined, 
@@ -436,7 +437,8 @@ export function usePublishCourse(courseDraftId: string) {
             const resourcePubkey = draftLesson.resource?.user?.pubkey || pubkey
             lessonReferences.push({
               resourceId: draftLesson.resourceId,
-              pubkey: resourcePubkey
+              pubkey: resourcePubkey,
+              price: draftLesson.resource?.price ?? 0
             })
           }
         }

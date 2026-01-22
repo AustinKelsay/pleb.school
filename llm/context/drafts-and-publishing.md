@@ -220,8 +220,9 @@ import { createCourseEvent } from '@/lib/nostr-events'
 
 const event = createCourseEvent(courseDraft, lessonReferences, signingPrivkey)
 // Returns signed NostrEvent (kind 30004)
-// lessonReferences: Array<{ resourceId, pubkey }> for each lesson
+// lessonReferences: Array<{ resourceId, pubkey, price? }> for each lesson
 // Generates 'a' tags: "<kind>:<pubkey>:<d-tag>" where kind is 30023 (free) or 30402 (paid)
+// The kind is determined by the lesson's price: price > 0 uses 30402, otherwise 30023
 ```
 
 ### Event Structure

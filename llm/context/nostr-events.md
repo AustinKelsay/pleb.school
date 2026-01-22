@@ -52,9 +52,9 @@ Courses are stored as NIP-51 curation sets with lesson references.
     ["t", "frontend"],
     ["t", "course"],
     ["published_at", "1740860353"],
-    // Lesson references (ordered)
-    ["a", "30023:f33c8a96...:lesson-1-id"],
-    ["a", "30023:f33c8a96...:lesson-2-id"],
+    // Lesson references (ordered) - kind matches lesson's free/paid status
+    ["a", "30023:f33c8a96...:lesson-1-id"],  // Free lesson (NIP-23)
+    ["a", "30402:f33c8a96...:lesson-2-id"],  // Paid lesson (NIP-99)
     // ... more lessons
   ]
 }
@@ -228,8 +228,8 @@ const courseDraft = {
 }
 
 const lessonReferences = [
-  { resourceId: 'lesson-1-id', pubkey: 'author-pubkey' },
-  { resourceId: 'lesson-2-id', pubkey: 'author-pubkey' }
+  { resourceId: 'lesson-1-id', pubkey: 'author-pubkey', price: 0 },
+  { resourceId: 'lesson-2-id', pubkey: 'author-pubkey', price: 2100 }
 ]
 
 const event = createCourseEvent(courseDraft, lessonReferences, privateKey)

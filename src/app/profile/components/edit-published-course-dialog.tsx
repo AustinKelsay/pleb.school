@@ -29,7 +29,7 @@ export type CourseEditData = {
   topics: string[]
   lessonCount?: number
   pubkey?: string
-  lessonReferences?: Array<{ resourceId: string; pubkey: string }>
+  lessonReferences?: Array<{ resourceId: string; pubkey: string; price?: number }>
 }
 
 type EditPublishedCourseDialogProps = {

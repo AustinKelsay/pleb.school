@@ -69,7 +69,7 @@ function calculateMatchScore(keyword: string, title: string, description: string
   }
   
   // Word boundary matches (whole word)
-  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(lowerKeyword)}\\b`, 'gi')
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(lowerKeyword)}\\b`, 'i')
   if (wordBoundaryRegex.test(title)) {
     score += 20
   }

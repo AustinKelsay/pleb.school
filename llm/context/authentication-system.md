@@ -161,11 +161,11 @@ The reconnect token is stored in **two locations** for security and backward com
 **Cookie Configuration:**
 ```typescript
 {
-  httpOnly: true,          // Cannot be accessed by JavaScript
-  secure: true,            // HTTPS only in production
-  sameSite: 'lax',         // CSRF protection
-  path: '/',               // Available site-wide
-  maxAge: 60 * 60 * 24 * 365  // 1 year
+  httpOnly: true,                              // Cannot be accessed by JavaScript
+  secure: process.env.NODE_ENV === 'production', // HTTPS only in production (allows HTTP in development)
+  sameSite: 'lax',                             // CSRF protection
+  path: '/',                                   // Available site-wide
+  maxAge: 60 * 60 * 24 * 365                   // 1 year
 }
 ```
 

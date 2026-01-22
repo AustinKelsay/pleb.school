@@ -331,7 +331,7 @@ export class RepublishService {
     const selectedRelays = relays && relays.length > 0 ? relays : getRelays(relaySet ?? 'default')
 
     const missingLessonIds: string[] = []
-    const lessonReferences: Array<{ resourceId: string; pubkey: string }> = []
+    const lessonReferences: Array<{ resourceId: string; pubkey: string; price?: number }> = []
 
     for (const lesson of course.lessons) {
       if (!lesson.resourceId) {
@@ -348,6 +348,7 @@ export class RepublishService {
       lessonReferences.push({
         resourceId: lesson.resourceId,
         pubkey: lessonPubkey,
+        price: lesson.resource?.price ?? 0,
       })
     }
 

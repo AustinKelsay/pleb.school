@@ -286,7 +286,7 @@ function buildCourseEditData(item: PublishedCourseItem): CourseEditData {
           })
           return null
         }
-        const [, pubkey, identifier] = parts
+        const [kindStr, pubkey, identifier] = parts
         if (!pubkey || !identifier) {
           console.warn('Malformed lesson reference tag: missing pubkey or identifier', {
             rawTag: tag,
@@ -297,7 +297,9 @@ function buildCourseEditData(item: PublishedCourseItem): CourseEditData {
           })
           return null
         }
-        return { resourceId: identifier, pubkey }
+        const kind = parseInt(kindStr, 10)
+        const price = kind === 30402 ? 1 : 0
+        return { resourceId: identifier, pubkey, price }
       })
       .filter(Boolean) ?? undefined
 
@@ -310,7 +312,7 @@ function buildCourseEditData(item: PublishedCourseItem): CourseEditData {
     topics,
     lessonCount,
     pubkey: item.note?.pubkey ?? parsed?.pubkey ?? undefined,
-    lessonReferences: lessonReferences as Array<{ resourceId: string; pubkey: string }> | undefined,
+    lessonReferences: lessonReferences as Array<{ resourceId: string; pubkey: string; price?: number }> | undefined,
   }
 }
 
