@@ -196,7 +196,7 @@ This architecture gives you reliability without losing portability.
       'What pleb.school is, why it exists, and what you gain by self-hosting.',
     type: 'document',
     topics: ['overview', 'admin', 'platform', 'architecture'],
-    image: PLACEHOLDER_IMAGES.welcomeCourse,
+    image: PLACEHOLDER_IMAGES.platformOverview,
     price: 0,
     authorPersonaId: 'satoshi-sensei',
     content: `# pleb.school Platform Overview
@@ -237,7 +237,7 @@ If you want a platform that feels like a modern LMS but runs on open protocols, 
       'How pleb.school combines PostgreSQL and Nostr for reliable operations and portable content.',
     type: 'document',
     topics: ['architecture', 'nostr', 'database', 'admin'],
-    image: PLACEHOLDER_IMAGES.architecture,
+    image: PLACEHOLDER_IMAGES.hybridArchitecture,
     price: 0,
     authorPersonaId: 'builder-bob',
     content: `# The Hybrid Data Architecture
@@ -284,7 +284,7 @@ The hybrid approach is the core reason pleb.school can be both reliable and cens
       'How pleb.school handles multi-provider login, Nostr-first identity, and account linking.',
     type: 'document',
     topics: ['authentication', 'identity', 'admin', 'security'],
-    image: PLACEHOLDER_IMAGES.quickStart,
+    image: PLACEHOLDER_IMAGES.authSystem,
     price: 0,
     authorPersonaId: 'builder-bob',
     content: `# Authentication & Identity System
@@ -325,7 +325,7 @@ This system lets you reduce onboarding friction while preserving self-custody fo
       'How zaps power tips and purchases without a payment processor.',
     type: 'document',
     topics: ['payments', 'zaps', 'lightning', 'admin'],
-    image: PLACEHOLDER_IMAGES.zapsCourse,
+    image: PLACEHOLDER_IMAGES.paymentSystem,
     price: 0,
     authorPersonaId: 'lightning-lucy',
     content: `# Payment System & Zaps
@@ -363,7 +363,7 @@ Payments stay peer-to-peer while entitlements remain reliable.
       'How to brand and configure your pleb.school instance using JSON config files.',
     type: 'document',
     topics: ['configuration', 'customization', 'admin', 'theming'],
-    image: PLACEHOLDER_IMAGES.contentCreation,
+    image: PLACEHOLDER_IMAGES.configuration,
     price: 0,
     authorPersonaId: 'satoshi-sensei',
     content: `# Configuration & Customization
@@ -403,7 +403,7 @@ Config-first customization keeps the platform approachable for non-technical ope
       'How drafts become signed Nostr events and how courses are assembled.',
     type: 'document',
     topics: ['publishing', 'content', 'nostr', 'admin'],
-    image: PLACEHOLDER_IMAGES.contentCreation,
+    image: PLACEHOLDER_IMAGES.publishingFlow,
     price: 0,
     authorPersonaId: 'lightning-lucy',
     content: `# Content Publishing Flow

@@ -30,15 +30,26 @@ export const PLACEHOLDER_VIDEOS = {
   walletSetup: 'https://www.youtube.com/watch?v=CwV6qJRAWlU', // Lightning wallet tutorial
 } as const
 
+// CDN base URL for seed content images
+const SEED_IMAGE_CDN = 'https://plebdevs-bucket.nyc3.cdn.digitaloceanspaces.com/images/pleb-school/seed-data'
+
 // Image URLs for seed content
-// Using placeholder images that work without external dependencies
 export const PLACEHOLDER_IMAGES = {
-  welcomeCourse: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=400&fit=crop', // Education
-  zapsCourse: 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&h=400&fit=crop', // Lightning
-  quickStart: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&h=400&fit=crop', // Code
-  bitcoinBasics: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=800&h=400&fit=crop', // Bitcoin
-  contentCreation: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&h=400&fit=crop', // Writing
-  architecture: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&h=400&fit=crop', // Tech
+  // Course images
+  welcomeCourse: `${SEED_IMAGE_CDN}/platform-overview.png`,
+  zapsCourse: `${SEED_IMAGE_CDN}/payment-system-and-zaps.png`,
+  // Standalone resource images
+  quickStart: `${SEED_IMAGE_CDN}/quick-start-guide.png`,
+  bitcoinBasics: `${SEED_IMAGE_CDN}/bitcoin-basics-for-admins-and-builders.png`,
+  contentCreation: `${SEED_IMAGE_CDN}/creating-content-on-pleb-school.png`,
+  architecture: `${SEED_IMAGE_CDN}/platform-architecture-deep-dive.png`,
+  // Additional specific images
+  platformOverview: `${SEED_IMAGE_CDN}/platform-overview.png`,
+  hybridArchitecture: `${SEED_IMAGE_CDN}/hybrid-data-architecutre.png`,
+  authSystem: `${SEED_IMAGE_CDN}/authentication-and-identity-system.png`,
+  paymentSystem: `${SEED_IMAGE_CDN}/payment-system-and-zaps.png`,
+  configuration: `${SEED_IMAGE_CDN}/configuration-and-customization.png`,
+  publishingFlow: `${SEED_IMAGE_CDN}/content-publishing-flow.png`,
 } as const
 
 // Avatar generation using RoboHash
