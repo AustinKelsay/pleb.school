@@ -21,7 +21,9 @@ import { Pool } from "pg"
  * Check if database is available for integration tests.
  * Skips if:
  * - DATABASE_URL is not set
- * - DATABASE_URL points to Docker hostname 'db' (not reachable outside Docker)
+ * - DATABASE_URL points to Docker hostname 'db' (unless RUN_DB_TESTS=true)
+ *
+ * Set RUN_DB_TESTS=true to force tests to run (e.g., inside Docker/CI).
  */
 function isDatabaseAvailable(): boolean {
   const url = process.env.DATABASE_URL
@@ -29,8 +31,8 @@ function isDatabaseAvailable(): boolean {
 
   try {
     const parsed = new URL(url)
-    // Skip if pointing to Docker service hostname
-    if (parsed.hostname === "db") {
+    // Skip if pointing to Docker service hostname, unless explicitly overridden
+    if (parsed.hostname === "db" && process.env.RUN_DB_TESTS !== "true") {
       return false
     }
     return true

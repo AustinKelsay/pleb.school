@@ -168,8 +168,16 @@ async function rotateKeys() {
 rotateKeys()
   .catch((e) => { console.error(e); process.exitCode = 1 })
   .finally(async () => {
-    await prisma.$disconnect()
-    await pool.end()
+    // Use allSettled to ensure both cleanup attempts run
+    const results = await Promise.allSettled([
+      prisma.$disconnect(),
+      pool.end()
+    ])
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        console.error(`Cleanup ${i} failed:`, r.reason)
+      }
+    })
   })
 ```
 
