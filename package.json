@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "postinstall": "prisma generate && patch-package || true",
+    "postinstall": "prisma generate && (patch-package || true)",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts"
   },
