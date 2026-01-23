@@ -33,7 +33,7 @@ Confirms that Prisma v7 exports are available from the generated client path (`@
 
 | Test | Scenario | Expected |
 |------|----------|----------|
-| KnownRequestError export | Runtime class available | Constructor is function |
+| PrismaClientKnownRequestError export | Runtime class available | Constructor is function |
 | instanceof | Create error instance | `instanceof` works |
 
 ### Model Types
