@@ -13,6 +13,39 @@ The database stores metadata, user data, and relationships. Content (titles, des
 - **Generated client output**: `src/generated/prisma` (imported via `@/generated/prisma`)
 - **Runtime client**: created in `src/lib/prisma.ts` using the pg adapter and connection pool
 
+## Schema Changes and Migrations
+
+Migrations are checked into `prisma/migrations/` and provide an auditable history of schema changes.
+
+### Development Workflow
+
+```bash
+# After editing schema.prisma, create a migration:
+npx prisma migrate dev --name descriptive_name
+
+# This will:
+# 1. Generate a new migration file in prisma/migrations/
+# 2. Apply it to your local database
+# 3. Regenerate the Prisma client
+```
+
+### Production/Staging Deployment
+
+```bash
+# Apply pending migrations (safe, non-interactive):
+npx prisma migrate deploy
+```
+
+### When to Use `db push`
+
+`npx prisma db push` is acceptable for **local development only**:
+- Quick prototyping before committing to a migration
+- Ephemeral/disposable databases
+
+**Never use in staging or production.** It bypasses migration history and can silently drop data if columns are removed or types change.
+
+**Never use `--accept-data-loss`** outside throwaway dev databases.
+
 ## Model Diagram
 
 ```text
