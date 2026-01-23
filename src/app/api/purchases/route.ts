@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasPermission } from "@/lib/admin-utils"
 import { parseBolt11Invoice } from "@/lib/bolt11"
-import { Prisma } from "@prisma/client"
+import { Prisma } from "@/generated/prisma"
 import type { TraceStep, ReceiptSummary } from "@/types/purchases"
 
 type Scope = "mine" | "all"

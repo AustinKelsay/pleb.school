@@ -2,8 +2,9 @@
   "name": "pleb.school",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "engines": {
-    "node": ">=18.18.0"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "dev": "next dev",
@@ -11,13 +12,14 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "postinstall": "node -e \"if(process.env.NODE_ENV==='production')require('child_process').execSync('prisma generate',{stdio:'inherit'})\" && [ -f node_modules/.bin/patch-package ] && patch-package || true",
+    "postinstall": "prisma generate && (patch-package || true)",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
-    "@prisma/client": "^6.19.2",
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.3.0",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",
@@ -40,6 +42,7 @@
     "next-auth": "4.24.13",
     "next-themes": "^0.4.6",
     "nodemailer": "^7.0.7",
+    "pg": "^8.17.2",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-markdown": "^10.1.0",
@@ -47,7 +50,7 @@
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
-    "snstr": "^0.1.10",
+    "snstr": "^0.2.0",
     "tailwind-merge": "^3.3.1",
     "zapthreads": "^0.5.2",
     "zod": "^4.0.5"
@@ -57,13 +60,14 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.3",
+    "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.7",
     "eslint-plugin-react-hooks": "^7.0.1",
     "patch-package": "^8.0.1",
-    "prisma": "^6.19.2",
+    "prisma": "^7.3.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",

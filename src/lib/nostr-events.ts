@@ -13,7 +13,7 @@ import {
   createEvent,
   type NostrEvent
 } from 'snstr'
-import type { Draft, CourseDraft } from '@prisma/client'
+import type { Draft, CourseDraft } from '@/generated/prisma'
 import type { DraftWithIncludes, CourseDraftWithIncludes } from './draft-service'
 import { additionalLinksToTags, normalizeAdditionalLinks } from '@/lib/additional-links'
 import type { AdditionalLink } from '@/types/additional-links'

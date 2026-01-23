@@ -8,6 +8,12 @@ TypeScript interfaces and type transformations for pleb.school. Core types are d
 
 These types mirror the database schema with ISO string dates.
 
+Prisma types and namespaces are imported from the generated client:
+
+```typescript
+import type { Prisma } from "@/generated/prisma"
+```
+
 ```typescript
 interface Course {
   id: string

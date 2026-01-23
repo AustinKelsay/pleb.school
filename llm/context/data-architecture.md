@@ -6,6 +6,25 @@ Database adapter pattern for pleb.school. Located in `src/lib/db-adapter.ts`.
 
 Clean data access abstraction using Prisma with optional Nostr event hydration. Server-side adapters handle database operations; client-side fetches can hydrate Nostr events (note fetch is client-only in `findByIdWithNote`).
 
+## Prisma Runtime (v7)
+
+Prisma v7 uses the driver adapter pattern. The generated client lives in `src/generated/prisma` and is imported via `@/generated/prisma`.
+
+```typescript
+import { PrismaClient, type Prisma } from "@/generated/prisma"
+import { PrismaPg } from "@prisma/adapter-pg"
+import { Pool } from "pg"
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
+```
+
+Notes:
+- `src/lib/prisma.ts` caches both `PrismaClient` and `Pool` on `globalThis` in development to avoid connection exhaustion during hot reloads.
+- Adapter and pool are also used in scripts (e.g. `prisma/seed.ts`), with `pool.end()` on shutdown.
+- Prisma type imports in adapters should come from `@/generated/prisma`.
+
 ## Core Adapters
 
 ### CourseAdapter

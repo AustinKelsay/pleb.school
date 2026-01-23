@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { CourseAdapter, ResourceAdapter } from '@/lib/db-adapter'
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@prisma/client'
+import type { Prisma } from '@/generated/prisma'
 
 type PublishedContentType = 'all' | 'courses' | 'resources'
 

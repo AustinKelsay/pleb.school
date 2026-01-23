@@ -20,7 +20,7 @@ import {
   extractNoteId
 } from '@/lib/nostr-events'
 import { DraftService, CourseDraftService, type CourseDraftWithIncludes } from '@/lib/draft-service'
-import type { Resource, Course, Lesson } from '@prisma/client'
+import type { Resource, Course, Lesson } from '@/generated/prisma'
 import { decryptPrivkey } from './privkey-crypto'
 
 // Default relays for publishing are loaded from config via DEFAULT_RELAYS

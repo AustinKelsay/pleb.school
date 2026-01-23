@@ -268,8 +268,8 @@ describe("RepublishService happy path", () => {
     expect(mockCreateCourseEvent).toHaveBeenCalledWith(
       expect.objectContaining({ id: "course1", title: "Test Course" }),
       expect.arrayContaining([
-        { resourceId: "res1", pubkey: "pub1" },
-        { resourceId: "res2", pubkey: "pub2" },
+        { resourceId: "res1", pubkey: "pub1", price: 0 },
+        { resourceId: "res2", pubkey: "pub2", price: 0 },
       ]),
       expect.any(String)
     )
@@ -421,9 +421,9 @@ describe("RepublishService course lesson handling", () => {
     expect(mockCreateCourseEvent).toHaveBeenCalledWith(
       expect.anything(),
       [
-        { resourceId: "res-a", pubkey: "author1" },
-        { resourceId: "res-b", pubkey: "author2" },
-        { resourceId: "res-c", pubkey: "author1" },
+        { resourceId: "res-a", pubkey: "author1", price: 0 },
+        { resourceId: "res-b", pubkey: "author2", price: 0 },
+        { resourceId: "res-c", pubkey: "author1", price: 0 },
       ],
       expect.any(String)
     )
