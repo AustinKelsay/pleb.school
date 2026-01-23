@@ -14,9 +14,6 @@ import {
   Prisma,
 } from "@/generated/prisma"
 
-// PrismaClientKnownRequestError is exported from runtime
-import { PrismaClientKnownRequestError } from "@/generated/prisma/runtime/client"
-
 describe("Prisma v7 Type Exports", () => {
   describe("PrismaClient", () => {
     it("exports PrismaClient constructor", () => {
@@ -105,19 +102,19 @@ describe("Prisma v7 Type Exports", () => {
   })
 
   describe("Error classes", () => {
-    it("exports PrismaClientKnownRequestError class", () => {
-      expect(PrismaClientKnownRequestError).toBeDefined()
-      expect(typeof PrismaClientKnownRequestError).toBe("function")
+    it("exports Prisma.PrismaClientKnownRequestError class", () => {
+      expect(Prisma.PrismaClientKnownRequestError).toBeDefined()
+      expect(typeof Prisma.PrismaClientKnownRequestError).toBe("function")
     })
 
-    it("PrismaClientKnownRequestError can be used in instanceof checks", () => {
+    it("Prisma.PrismaClientKnownRequestError can be used in instanceof checks", () => {
       // Create a mock error to test instanceof
-      const error = new PrismaClientKnownRequestError("Test error", {
+      const error = new Prisma.PrismaClientKnownRequestError("Test error", {
         code: "P2002",
         clientVersion: "7.0.0",
       })
 
-      expect(error instanceof PrismaClientKnownRequestError).toBe(true)
+      expect(error instanceof Prisma.PrismaClientKnownRequestError).toBe(true)
       expect(error.code).toBe("P2002")
       expect(error.message).toContain("Test error")
     })
