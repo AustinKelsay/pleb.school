@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { Draft } from '@/generated/prisma'
+import type { Draft } from '@/generated/prisma'
 
 export interface DraftsQueryResult {
   drafts: Draft[]

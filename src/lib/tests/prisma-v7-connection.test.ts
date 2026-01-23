@@ -54,8 +54,8 @@ describe.skipIf(!hasDatabase)("Prisma v7 Connection (Integration)", () => {
   })
 
   afterAll(async () => {
-    await prisma.$disconnect()
-    await pool.end()
+    if (prisma) await prisma.$disconnect().catch(() => {})
+    if (pool) await pool.end().catch(() => {})
   })
 
   describe("Pool connection", () => {
@@ -178,13 +178,18 @@ describe.skipIf(!hasDatabase)("Prisma v7 Connection (Integration)", () => {
       const testAdapter = new PrismaPg(testPool)
       const testClient = new PrismaClient({ adapter: testAdapter })
 
-      // Verify it works
-      const count = await testClient.user.count()
-      expect(typeof count).toBe("number")
+      try {
+        // Verify it works
+        const count = await testClient.user.count()
+        expect(typeof count).toBe("number")
 
-      // Disconnect should complete cleanly
-      await expect(testClient.$disconnect()).resolves.toBeUndefined()
-      await testPool.end()
+        // Disconnect should complete cleanly
+        await expect(testClient.$disconnect()).resolves.toBeUndefined()
+      } finally {
+        // Ensure resources are always cleaned up
+        await testClient.$disconnect().catch(() => {})
+        await testPool.end().catch(() => {})
+      }
     })
   })
 })
