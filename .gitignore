@@ -43,3 +43,6 @@ next-env.d.ts
 
 # prisma
 /prisma/migrations
+
+# Prisma v7 generated client
+/src/generated/

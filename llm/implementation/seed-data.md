@@ -433,6 +433,21 @@ export interface DemoStateConfig {
 
 ## Main Entry Point (`seed.ts`)
 
+### Database Connection (Prisma v7)
+
+`seed.ts` loads env vars via `dotenv/config` and uses the pg adapter with a shared pool. The pool is closed on shutdown.
+
+```typescript
+import "dotenv/config"
+import { PrismaClient } from "../src/generated/prisma"
+import { PrismaPg } from "@prisma/adapter-pg"
+import { Pool } from "pg"
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
+```
+
 ### Execution Flow
 
 ```text

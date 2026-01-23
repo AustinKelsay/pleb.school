@@ -13,7 +13,10 @@
  *   PRIVKEY_ENCRYPTION_KEY - Required for encrypting user private keys
  */
 
-import { PrismaClient } from '@prisma/client'
+import 'dotenv/config'
+import { PrismaClient } from '../src/generated/prisma'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 import { encryptPrivkey } from '../src/lib/privkey-crypto'
 import { getPersonasWithKeys, getAdminPersonas, type SeedPersonaWithKeys } from './seed/personas'
 import {
@@ -27,7 +30,9 @@ import {
 import { ALL_COURSES, ALL_STANDALONE, type CourseDefinition, type LessonDefinition } from './seed/content'
 import { createDemoState, type DemoStateConfig } from './seed/demo-state'
 
-const prisma = new PrismaClient()
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
 
 async function main() {
   const dryRun = isDryRun()
@@ -370,4 +375,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect()
+    await pool.end()
   })

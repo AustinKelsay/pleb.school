@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/generated/prisma'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import type { AdditionalLink } from '@/types/additional-links'
 

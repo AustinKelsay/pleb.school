@@ -14,7 +14,7 @@ import type { NostrEvent } from "snstr"
 
 import { authOptions } from "@/lib/auth"
 import { auditLog } from "@/lib/audit-logger"
-import { Prisma } from "@prisma/client"
+import { Prisma } from "@/generated/prisma"
 import { prisma } from "@/lib/prisma"
 import { resolvePriceForContent } from "@/lib/pricing"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"

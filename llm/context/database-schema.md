@@ -6,6 +6,13 @@ PostgreSQL database schema managed by Prisma. Located in `prisma/schema.prisma`.
 
 The database stores metadata, user data, and relationships. Content (titles, descriptions, images) lives in Nostr events and is hydrated at runtime via the adapter pattern.
 
+## Prisma Configuration (v7)
+
+- **Schema location**: `prisma/schema.prisma`
+- **Datasource URL**: defined in `prisma.config.ts` for Prisma CLI commands (schema no longer embeds `DATABASE_URL`)
+- **Generated client output**: `src/generated/prisma` (imported via `@/generated/prisma`)
+- **Runtime client**: created in `src/lib/prisma.ts` using the pg adapter and connection pool
+
 ## Model Diagram
 
 ```text

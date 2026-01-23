@@ -14,6 +14,10 @@ Index of test files and their coverage. Tests use Vitest with mocking.
 | [content-utils.test.ts](./content-utils-tests.md) | `src/lib/tests/` | 32 | XSS sanitization |
 | [publish-service.test.ts](./publish-service-tests.md) | `src/lib/tests/` | 1 | Privkey handling |
 | [republish-service.test.ts](./republish-service-tests.md) | `src/lib/tests/` | 16 | Privkey handling, event persistence, error handling |
+| [prisma-v7-connection.test.ts](./prisma-v7-connection-tests.md) | `src/lib/tests/` | 13 | Prisma v7 adapter connection + basic CRUD |
+| [prisma-v7-transactions.test.ts](./prisma-v7-transactions-tests.md) | `src/lib/tests/` | 12 | Prisma v7 transaction isolation + purchase-like pattern |
+| [prisma-v7-json.test.ts](./prisma-v7-json-tests.md) | `src/lib/tests/` | 16 | Prisma v7 JSON type compatibility |
+| [prisma-v7-types.test.ts](./prisma-v7-types-tests.md) | `src/lib/tests/` | 15 | Prisma v7 type exports + import path validation |
 | [privkey-crypto.test.ts](./privkey-crypto-tests.md) | `src/lib/tests/` | 11 | AES-256-GCM encryption |
 | [oauth-state.test.ts](./oauth-state-tests.md) | `src/lib/tests/` | 19 | CSRF prevention |
 | [account-sync.test.ts](./account-sync-tests.md) | `src/app/api/tests/` | 2 | Account sync API |
@@ -40,6 +44,12 @@ Index of test files and their coverage. Tests use Vitest with mocking.
 ### Race Conditions (10 tests)
 - **View Flush**: TOCTOU prevention with GETDEL + INCREMENT (10 tests)
 
+### Database Infrastructure (56 tests)
+- **Prisma v7 Connection**: pg adapter connectivity, CRUD, raw queries (13 tests)
+- **Prisma v7 Transactions**: isolation levels, rollbacks, purchase-like flow (12 tests)
+- **Prisma v7 JSON Types**: AdditionalLinks JSON compatibility (16 tests)
+- **Prisma v7 Type Exports**: client/runtime export validation (15 tests)
+
 ## Running Tests
 
 ```bash
@@ -52,6 +62,9 @@ npm test -- src/lib/tests/auth.test.ts
 # Run with coverage
 npm test -- --coverage
 ```
+
+Prisma v7 integration tests require `DATABASE_URL` and are skipped when it is missing
+or points at the Docker hostname (`db`). Vitest loads `.env*` files via `vitest.config.ts`.
 
 ## Test Patterns
 

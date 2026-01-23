@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/generated/prisma'
 import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { DraftLessonService, CourseDraftService } from '@/lib/draft-service'

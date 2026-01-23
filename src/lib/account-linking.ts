@@ -29,7 +29,7 @@
  */
 
 import { prisma } from './prisma'
-import type { Prisma, User } from '@prisma/client'
+import type { Prisma, User } from '@/generated/prisma'
 import { generateKeypair } from 'snstr'
 import { syncUserProfileFromNostr } from './nostr-profile'
 import { encryptPrivkey, decryptPrivkey } from './privkey-crypto'

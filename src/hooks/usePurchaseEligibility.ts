@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 
-import type { Purchase } from "@prisma/client"
+import type { Purchase } from "@/generated/prisma"
 import type { ZapReceiptSummary } from "./useInteractions"
 import { normalizeHexPubkey } from "@/lib/nostr-keys"
 
