@@ -24,7 +24,7 @@
 ## Server Claim Pipeline (`POST /api/purchases/claim`)
 1) Auth + payload validation (`zod`, `paymentTypeEnum zap|manual|comped|refund`); exactly one of `resourceId` or `courseId` required.  
 2) Resolve canonical price + identifiers via `resolvePriceForContent`; reject if content missing or lacks both `noteId` and owner pubkey for zap claims.  
-3) Build allowed payer list from session pubkey and derived pubkey (if server has privkey). If none → reject with guidance to link a pubkey.  
+3) Build allowed payer list from session pubkey only. If none → reject with guidance to link a pubkey.  
 4) Zap validation per receipt (`validateZapProof`): accepts inline receipt events or fetches by ID with relay hints; fans out across `default`, `content`, and `zapThreads` relay sets and retries (6×, 800 ms) for late receipts; verifies receipt/request signatures, receipt age (24h default, 1 year with `allowPastZaps`, configurable via `MAX_RECEIPT_AGE_MS` env), invoice vs receipt, description hash vs zap request, amount > 0, recipient matches owner pubkey, event match via `e` or `a` tags, payer (pubkey or `P` tag) matches allowed list, LNURL supports NIP-57 and provider pubkey matches the receipt.  
 4b) No-receipt fallback removed: purchases are only credited when at least one zap receipt is verified. Users must retry once receipts land on relays.
 5) Aggregate verified receipts (multi-receipt allowed); set `verifiedAmountSats` sum, keep representative invoice and zap request.  

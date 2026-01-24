@@ -127,7 +127,7 @@ export function ZapDialog({
   const showPrivacyToggle =
     privacyCfg.enabled &&
     (!privacyCfg.requireAuth || isAuthed) &&
-    (!privacyCfg.hideWhenPrivkeyPresent || !session?.user?.privkey)
+    (!privacyCfg.hideWhenPrivkeyPresent || !session?.user?.hasEphemeralKeys)
 
   const effectiveMinZap = typeof minZapSats === "number" ? minZapSats : MIN_CUSTOM_ZAP
   const belowMin = resolvedZapAmount < effectiveMinZap

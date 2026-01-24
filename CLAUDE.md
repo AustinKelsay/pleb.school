@@ -10,6 +10,7 @@ npm run dev          # Start development server with Turbopack
 npm run build        # Build for production (includes prisma generate)
 npm run start        # Start production server
 npm run lint         # Run ESLint
+npm run typecheck    # Run TypeScript type checking
 
 # Database operations
 npx prisma generate     # Generate Prisma client (after schema changes)
@@ -20,8 +21,11 @@ npm run db:seed         # Seed database with sample data
 docker compose up db    # Start PostgreSQL only
 docker compose up app   # Full stack
 
-# Always verify before committing
-npm run build && npm run lint
+# Verify your work (use instead of build for faster feedback)
+npm run lint && npm run typecheck
+
+# Full build verification (before committing)
+npm run build
 ```
 
 ## Project Architecture
@@ -162,5 +166,5 @@ Examples of changes requiring doc updates:
 3. **Don't create purchases directly** - Use `/api/purchases/claim` API
 4. **Don't assume zaps = purchases** - Purchases must be explicitly claimed
 5. **Don't put secrets in config/** - Use environment variables
-6. **Don't skip build/lint** - Always run before committing
+6. **Don't skip verification** - Run `npm run lint && npm run typecheck` to check your work (faster than build)
 7. **Don't forget documentation** - Update relevant `llm/` docs when making significant code changes

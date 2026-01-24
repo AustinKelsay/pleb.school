@@ -11,8 +11,9 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "postinstall": "prisma generate && (patch-package || true)",
+    "postinstall": "if [ -n \"$DATABASE_URL\" ]; then prisma generate; fi; patch-package || true",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts"
   },

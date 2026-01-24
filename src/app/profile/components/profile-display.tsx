@@ -12,13 +12,14 @@
  * - Standard shadcn component patterns and spacing
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Session } from 'next-auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
   Key, 
   Globe, 
@@ -32,7 +33,9 @@ import {
   Zap,
   Shield,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertCircle,
+  RotateCcw
 } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ProfileEditForms } from './profile-edit-forms'
@@ -46,12 +49,56 @@ export function ProfileDisplay({ session }: ProfileDisplayProps) {
   const [showPrivateKey, setShowPrivateKey] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showEditForm, setShowEditForm] = useState(false)
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null)
+  const [fetchingKey, setFetchingKey] = useState(false)
+  const [fetchKeyError, setFetchKeyError] = useState<string | null>(null)
   const { user } = session
 
   // Determine authentication method and capabilities
-  const isNostrFirst = !user.privkey
-  const canSignEvents = !!user.privkey
+  const isNostrFirst = !user.hasEphemeralKeys
+  const canSignEvents = !!user.hasEphemeralKeys
   const hasCompleteProfile = !!user.nostrProfile
+
+  // Clear sensitive state when session/user changes to prevent cross-user exposure
+  useEffect(() => {
+    setRecoveryKey(null)
+    setFetchKeyError(null)
+    setFetchingKey(false)
+    setShowPrivateKey(false)
+  }, [user.id, user.pubkey, user.hasEphemeralKeys])
+
+  // Fetch recovery key from API when user wants to view it
+  const fetchRecoveryKey = async () => {
+    if (recoveryKey) return // Already fetched
+    setFetchKeyError(null)
+    setFetchingKey(true)
+    try {
+      const response = await fetch('/api/profile/recovery-key')
+      if (response.ok) {
+        const data = await response.json()
+        setRecoveryKey(data.recoveryKey)
+      } else {
+        let message = 'Failed to fetch recovery key'
+        try {
+          const data = await response.json()
+          if (data?.error) message = data.error
+        } catch {}
+        setFetchKeyError(message)
+      }
+    } catch (error) {
+      console.error('Failed to fetch recovery key:', error)
+      setFetchKeyError(error instanceof Error ? error.message : 'Failed to fetch recovery key')
+    } finally {
+      setFetchingKey(false)
+    }
+  }
+
+  const handleShowPrivateKey = async () => {
+    if (!showPrivateKey && !recoveryKey) {
+      await fetchRecoveryKey()
+    }
+    setShowPrivateKey(!showPrivateKey)
+  }
 
   const copyToClipboard = async (text: string, fieldName: string) => {
     try {
@@ -191,7 +238,7 @@ export function ProfileDisplay({ session }: ProfileDisplayProps) {
         </div>
       </Card>
 
-      {user.privkey && (
+      {user.hasEphemeralKeys && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -199,38 +246,66 @@ export function ProfileDisplay({ session }: ProfileDisplayProps) {
               Private Key
             </CardTitle>
             <CardDescription>
-              Toggle visibility to copy your locally stored key
+              Toggle visibility to copy your recovery key
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-medium">Key</span>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
-                  onClick={() => setShowPrivateKey(!showPrivateKey)}
+                  onClick={handleShowPrivateKey}
+                  disabled={fetchingKey}
                   aria-label={showPrivateKey ? 'Hide private key' : 'Show private key'}
                   title={showPrivateKey ? 'Hide private key' : 'Show private key'}
                 >
-                  {showPrivateKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {fetchingKey ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : showPrivateKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               {showPrivateKey && (
-                <div className="flex items-center justify-between">
-                  <code className="text-sm text-muted-foreground font-mono break-all">
-                    {user.privkey}
-                  </code>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => copyToClipboard(user.privkey!, 'privkey')}
-                    aria-label={copiedField === 'privkey' ? 'Private key copied' : 'Copy private key to clipboard'}
-                    title={copiedField === 'privkey' ? 'Private key copied' : 'Copy private key to clipboard'}
-                  >
-                    {copiedField === 'privkey' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
+                <>
+                  {fetchKeyError ? (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <div className="flex items-center justify-between">
+                        <AlertDescription>{fetchKeyError}</AlertDescription>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={fetchRecoveryKey}
+                          disabled={fetchingKey}
+                          className="ml-4"
+                        >
+                          <RotateCcw className="mr-2 h-3 w-3" />
+                          Retry
+                        </Button>
+                      </div>
+                    </Alert>
+                  ) : recoveryKey ? (
+                    <div className="flex items-center justify-between">
+                      <code className="text-sm text-muted-foreground font-mono break-all">
+                        {recoveryKey}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(recoveryKey, 'privkey')}
+                        aria-label={copiedField === 'privkey' ? 'Private key copied' : 'Copy private key to clipboard'}
+                        title={copiedField === 'privkey' ? 'Private key copied' : 'Copy private key to clipboard'}
+                      >
+                        {copiedField === 'privkey' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           </CardContent>

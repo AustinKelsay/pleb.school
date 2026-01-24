@@ -62,7 +62,7 @@ vi.mock("snstr", () => {
 // Helper to create encrypted privkey (matches privkey-crypto encryption format)
 async function createEncryptedPrivkey(plaintext: string): Promise<string> {
   const { encryptPrivkey } = await import("../privkey-crypto")
-  return encryptPrivkey(plaintext)
+  return encryptPrivkey(plaintext)!
 }
 
 function resetAllMocks() {
