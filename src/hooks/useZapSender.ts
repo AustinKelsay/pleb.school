@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   createZapRequest,
@@ -147,6 +147,12 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
   // Check if user has ephemeral keys (for ephemeral account signing)
   const hasEphemeralKeys = !!session?.user?.hasEphemeralKeys;
   const canServerSign = hasEphemeralKeys && !isNip07User(session?.provider);
+
+  // Clear cached ephemeral key when user changes to prevent cross-user key leakage
+  useEffect(() => {
+    ephemeralKeyRef.current = null;
+    ephemeralKeyPromiseRef.current = null;
+  }, [session?.user?.id]);
 
   // Fetch ephemeral signing key from recovery-key API (cached)
   const fetchEphemeralKey = useCallback(async (): Promise<string | null> => {

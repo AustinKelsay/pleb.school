@@ -278,10 +278,18 @@ async jwt({ token, user, account }) {
     token.userId = user.id
     token.pubkey = user.pubkey
     token.provider = account?.provider
+
+    // For non-NIP07 providers, check if user has platform-managed keys
+    if (account?.provider && !['nostr'].includes(account.provider)) {
+      // Fetch user record to check for stored privkey
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { privkey: true }
+      })
+      // Set flag indicating ephemeral keys exist (never expose the key itself)
+      token.hasEphemeralKeys = !!dbUser?.privkey
+    }
   }
-  // For ephemeral-key accounts, set flag (never expose the key itself)
-  // NIP-07 users (provider === "nostr") never have privkey stored
-  token.hasEphemeralKeys = !!dbUser?.privkey
   return token
 }
 
@@ -367,6 +375,18 @@ Private keys are **never** included in JWT/session tokens. Instead, the session 
 ```typescript
 // Only set hasEphemeralKeys flag for non-NIP07 providers
 if (account?.provider && !['nostr'].includes(account.provider)) {
+  // Fetch user from database to check for ephemeral keys
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      privkey: true,
+      username: true,
+      avatar: true,
+      nip05: true,
+      lud16: true,
+      banner: true
+    }
+  })
   token.hasEphemeralKeys = !!dbUser?.privkey
 }
 ```
