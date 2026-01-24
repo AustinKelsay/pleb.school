@@ -250,6 +250,7 @@ model Purchase {
   @@unique([userId, resourceId])
   @@index([userId])
   @@index([userId, createdAt])
+  @@index([createdAt])  // For global time-ordered queries (e.g., admin dashboard purchase stats)
 }
 
 model UserCourse {

@@ -542,6 +542,22 @@ export class LessonAdapter {
   }
 
   /**
+   * Find lessons by course ID with their associated resources included
+   * Avoids N+1 queries by fetching resources in a single query
+   */
+  static async findByCourseIdWithResources(courseId: string): Promise<(Lesson & { resource?: Resource })[]> {
+    const lessons = await prisma.lesson.findMany({
+      where: { courseId },
+      include: { resource: true },
+      orderBy: { index: 'asc' }
+    })
+    return lessons.map(lesson => ({
+      ...transformLesson(lesson),
+      resource: lesson.resource ? transformResource(lesson.resource) : undefined
+    }))
+  }
+
+  /**
    * Count lessons for a course without fetching all data
    * Used for deletion checks to prevent orphaned lessons
    */

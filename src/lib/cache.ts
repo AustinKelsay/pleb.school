@@ -15,6 +15,7 @@ export interface CacheEntry<T> {
 
 export class DataCache {
   private cache = new Map<string, CacheEntry<unknown>>()
+  private inFlight = new Map<string, Promise<unknown>>()
   private maxSize: number
   protected defaultTtl: number
   private hits = 0
@@ -27,10 +28,11 @@ export class DataCache {
 
   /**
    * Get cached data or fetch from source
+   * Uses request deduplication to prevent thundering herd problem
    */
   async get<T>(
-    key: string, 
-    fetcher: () => Promise<T>, 
+    key: string,
+    fetcher: () => Promise<T>,
     ttl: number = this.defaultTtl
   ): Promise<T> {
     // Check cache first
@@ -40,15 +42,27 @@ export class DataCache {
       return cached.data as T
     }
 
+    // Check if there's already an in-flight request for this key
+    const existing = this.inFlight.get(key)
+    if (existing) {
+      return existing as Promise<T>
+    }
+
     this.misses += 1
 
-    // Fetch from source
-    const data = await fetcher()
-    
-    // Store in cache
-    this.set(key, data, ttl)
-    
-    return data
+    // Create promise and track it to deduplicate concurrent requests
+    const promise = fetcher()
+      .then((data) => {
+        this.set(key, data, ttl)
+        return data
+      })
+      .finally(() => {
+        this.inFlight.delete(key)
+      })
+
+    this.inFlight.set(key, promise)
+
+    return promise
   }
 
   /**

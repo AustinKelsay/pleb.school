@@ -43,9 +43,6 @@ export async function GET(
       );
     }
 
-    // Get lessons for this course
-    const lessons = await LessonAdapter.findByCourseId(courseId);
-
     // Fetch purchases for the current user (if authenticated)
     let purchases = [] as Array<{ id: string; amountPaid: number; priceAtPurchase?: number | null; createdAt: string }>
     if (session?.user?.id) {
@@ -87,19 +84,10 @@ export async function GET(
       })
     }
 
-    // Get resources for each lesson only after access is confirmed
-    const { ResourceAdapter } = await import('@/lib/db-adapter');
-    const lessonsWithResources = await Promise.all(
-      lessons.map(async (lesson) => {
-        if (lesson.resourceId) {
-          const resource = await ResourceAdapter.findById(lesson.resourceId);
-          return { ...lesson, resource };
-        }
-        return lesson;
-      })
-    );
+    // Fetch lessons with resources in a single query (avoids N+1)
+    const lessonsWithResources = await LessonAdapter.findByCourseIdWithResources(courseId);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       course: {
         ...course,
         lessons: lessonsWithResources,

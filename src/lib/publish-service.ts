@@ -136,11 +136,13 @@ export class PublishService {
       const publishPromises = relayPool.publish(relays, event)
       const publishResults = await Promise.allSettled(publishPromises)
       
-      // Check which relays succeeded
+      // Check which relays succeeded and log failures
       const publishedRelays: string[] = []
       publishResults.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           publishedRelays.push(relays[index])
+        } else {
+          console.warn(`Failed to publish to relay ${relays[index]}:`, result.reason)
         }
       })
 
@@ -314,6 +316,8 @@ export class PublishService {
       publishResults.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           publishedRelays.push(relays[index])
+        } else {
+          console.warn(`Failed to publish course to relay ${relays[index]}:`, result.reason)
         }
       })
 
