@@ -261,7 +261,14 @@ export function InteractionMetrics({
             `Unable to validate ephemeral key fetched from the API; please relink your account or retry. Original error: ${originalError}`
           )
         }
-        const unsignedReaction = createUnsignedReaction(pubkey, tags)
+        // Verify derived pubkey matches session to prevent signing as wrong identity
+        const normalizedDerivedPubkey = normalizeHexPubkey(pubkey)
+        if (normalizedDerivedPubkey !== normalizedSessionPubkey) {
+          throw new Error(
+            'Your signing key does not match your session identity. Please sign out and back in, or relink your account.'
+          )
+        }
+        const unsignedReaction = createUnsignedReaction(normalizedDerivedPubkey, tags)
         const reactionId = await getEventHash(unsignedReaction)
         const reactionSig = await signEvent(reactionId, ephemeralKey)
         signedReaction = { ...unsignedReaction, id: reactionId, sig: reactionSig }
