@@ -39,6 +39,43 @@ const MAX_STORED_ZAPS = 200;
 const MAX_RECENT_ZAPS = 200;
 const MAX_VIEWER_ZAPS = 200;
 
+/**
+ * Check if a comment is a direct reply to the target event based on NIP-10 markers.
+ * Direct replies are:
+ * - Comments with a "reply" marker pointing to the target
+ * - Comments with only a "root" marker pointing to the target (no separate reply)
+ * - Legacy: Comments with unmarked e-tags where the target is the last e-tag
+ */
+function isDirectReply(event: NostrEvent, targetEventId: string | undefined): boolean {
+  if (!targetEventId) return false;
+
+  const eTags = event.tags.filter(t => t[0] === 'e');
+  if (eTags.length === 0) return false;
+
+  // Find tagged markers
+  const replyTag = eTags.find(t => t[3] === 'reply');
+  const rootTag = eTags.find(t => t[3] === 'root');
+
+  // If there's a reply marker, check if it points to our target
+  if (replyTag) {
+    return replyTag[1] === targetEventId;
+  }
+
+  // If there's only a root marker (no reply), it's a direct reply to root
+  if (rootTag && !replyTag) {
+    return rootTag[1] === targetEventId;
+  }
+
+  // Legacy NIP-10: no markers, last e-tag is the reply target
+  const hasMarkers = eTags.some(t => t[3] === 'root' || t[3] === 'reply' || t[3] === 'mention');
+  if (!hasMarkers && eTags.length > 0) {
+    const lastETag = eTags[eTags.length - 1];
+    return lastETag[1] === targetEventId;
+  }
+
+  return false;
+}
+
 export const DEFAULT_ZAP_INSIGHTS: ZapInsights = {
   totalMsats: 0,
   totalSats: 0,
@@ -370,15 +407,17 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     commentsRef.current = [];
 
     const updateCounts = () => {
-      // For now, set replies and threadComments to be the same as comments
-      // TODO: Implement proper NIP-10 thread parsing to differentiate
-      const commentsCount = commentsRef.current.length;
+      // NIP-10 thread parsing: differentiate direct replies from nested thread comments
+      const threadComments = commentsRef.current.length;
+      const directReplies = commentsRef.current.filter(
+        comment => isDirectReply(comment, eventId)
+      ).length;
       setInteractions({
         zaps: zapsRef.current.length,
         likes: likesRef.current.length,
-        comments: commentsCount,
-        replies: commentsCount, // For now, treating all comments as replies
-        threadComments: commentsCount // For now, treating all comments as thread comments
+        comments: threadComments,
+        replies: directReplies,
+        threadComments: threadComments
       });
     };
 

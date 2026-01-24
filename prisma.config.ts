@@ -4,13 +4,13 @@ import dotenv from 'dotenv'
 // Load .env file if it exists (for local dev; Docker sets env vars directly)
 dotenv.config()
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required')
-}
+// Use a placeholder URL for schema-only operations (e.g., prisma generate)
+// Real DATABASE_URL is required for migrations and runtime queries
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://placeholder:5432/placeholder'
 
 export default defineConfig({
   schema: './prisma/schema.prisma',
   datasource: {
-    url: process.env.DATABASE_URL,
+    url: databaseUrl,
   },
 })

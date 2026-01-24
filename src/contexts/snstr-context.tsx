@@ -3,18 +3,13 @@
 import { createContext, useContext, useRef, ReactNode } from 'react';
 import { RelayPool, Filter, NostrEvent } from 'snstr';
 import nostrConfig from '../../config/nostr.json';
+import { DEFAULT_RELAYS } from '@/lib/nostr-relays';
 
-// TODO: create global config types for all configs
-// Type the config here for now
-type NostrConfig = {
-  relays: {
-    default: string[];
-    [key: string]: string[];
-  };
+type NostrRelayConfig = {
+  relays: Record<string, string[]>;
 };
 
-// Default relay URLs from config
-export const DEFAULT_RELAYS = (nostrConfig as NostrConfig).relays.default;
+export { DEFAULT_RELAYS };
 
 // Export the full config for use elsewhere
 export { nostrConfig };
@@ -44,7 +39,7 @@ interface SnstrProviderProps {
 // Provider component
 export function SnstrProvider({ children, relays, relaySet = 'default' }: SnstrProviderProps) {
   // Use provided relays, or fall back to config-based relay set
-  const activeRelays = relays || (nostrConfig as NostrConfig).relays[relaySet] || DEFAULT_RELAYS;
+  const activeRelays = relays || (nostrConfig as NostrRelayConfig).relays[relaySet] || DEFAULT_RELAYS;
   // Use ref to ensure single instance across re-renders
   const poolRef = useRef<RelayPool | null>(null);
 
