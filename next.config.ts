@@ -101,6 +101,12 @@ const nextConfig: NextConfig = {
       config.externals = [...externalsArray, 'pg-native'];
     }
 
+    // Ignore pg-native optional dependency to suppress warnings
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      'pg-native': false,
+    };
+
     // Only apply browser fallbacks on the client build
     if (!isServer) {
       config.resolve.fallback = {
