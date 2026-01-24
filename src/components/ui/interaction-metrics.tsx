@@ -263,7 +263,7 @@ export function InteractionMetrics({
         }
         // Verify derived pubkey matches session to prevent signing as wrong identity
         const normalizedDerivedPubkey = normalizeHexPubkey(pubkey)
-        if (normalizedDerivedPubkey !== normalizedSessionPubkey) {
+        if (!normalizedDerivedPubkey || normalizedDerivedPubkey !== normalizedSessionPubkey) {
           throw new Error(
             'Your signing key does not match your session identity. Please sign out and back in, or relink your account.'
           )
