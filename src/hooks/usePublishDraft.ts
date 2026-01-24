@@ -152,9 +152,9 @@ export function usePublishResource(draftId: string) {
         throw new Error('Not authenticated')
       }
 
-      const hasServerSideKey = Boolean(session?.user?.privkey)
+      const hasServerSideKey = !!session?.user?.hasEphemeralKeys
 
-      // For users without a stored privkey, handle signing client-side via NIP-07
+      // For users without ephemeral keys (NIP-07 users), handle signing client-side
       if (!hasServerSideKey) {
         publishStatus.updateStep('validate', 'processing')
         
@@ -323,9 +323,9 @@ export function usePublishCourse(courseDraftId: string) {
         throw new Error('Not authenticated')
       }
 
-      const requiresClientSigning = !session?.user?.privkey
+      const requiresClientSigning = !session?.user?.hasEphemeralKeys
 
-      // For NIP-07 users, handle client-side signing
+      // For NIP-07 users (no ephemeral keys), handle client-side signing
       if (requiresClientSigning) {
         publishStatus.updateStep('validate', 'processing')
         

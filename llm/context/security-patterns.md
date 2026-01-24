@@ -186,12 +186,13 @@ if (storedBuffer.length !== inputBuffer.length ||
 // - NIP-07 users (provider === "nostr"): Sign client-side via browser extension
 //   → Never have privkey in DB or session
 // - Non-NIP-07 users (anonymous, email, github): Have ephemeral keys
-//   → DB stores encrypted privkey, session carries decrypted for client signing
+//   → DB stores encrypted privkey, session only carries hasEphemeralKeys flag
+//   → Client fetches key on-demand via /api/profile/recovery-key when signing
 
-// Only include privkey in session for ephemeral-key accounts
-if (dbUser?.privkey) {
-  token.privkey = decryptPrivkey(dbUser.privkey)  // Decrypted for client use
-}
+// Only expose flag, never the key itself in JWT/session
+token.hasEphemeralKeys = !!dbUser?.privkey
+// Client checks hasEphemeralKeys to determine signing mode, then fetches
+// key via /api/profile/recovery-key when server-side signing is needed
 // isNip07User(provider) checks provider === "nostr"
 ```
 

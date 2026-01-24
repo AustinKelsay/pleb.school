@@ -64,10 +64,15 @@ Create a migration script (not included in codebase - create as needed):
 
 ```typescript
 // scripts/rotate-encryption-key.ts
-import { PrismaClient } from '@prisma/client'
-import crypto from 'crypto'
+import "dotenv/config"
+import { PrismaClient } from "../src/generated/prisma"
+import { PrismaPg } from "@prisma/adapter-pg"
+import { Pool } from "pg"
+import crypto from "crypto"
 
-const prisma = new PrismaClient()
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
 
 // Validate and parse encryption key from env var
 function getKeyFromEnv(envVar: string): Buffer {
@@ -161,8 +166,19 @@ async function rotateKeys() {
 }
 
 rotateKeys()
-  .then(() => process.exit())  // Respects process.exitCode set during execution
-  .catch((e) => { console.error(e); process.exit(1) })
+  .catch((e) => { console.error(e); process.exitCode = 1 })
+  .finally(async () => {
+    // Use allSettled to ensure both cleanup attempts run
+    const results = await Promise.allSettled([
+      prisma.$disconnect(),
+      pool.end()
+    ])
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        console.error(`Cleanup ${i} failed:`, r.reason)
+      }
+    })
+  })
 ```
 
 ### Step 3: Execute Migration

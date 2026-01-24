@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { getInteractionIcon } from '@/lib/payments-config'
 import { createEvent, getEventHash, getPublicKey, signEvent, type NostrEvent } from 'snstr'
@@ -119,8 +119,52 @@ export function InteractionMetrics({
   const [isZapDialogOpen, setIsZapDialogOpen] = useState(false)
   const [preferAnonymousZap, setPreferAnonymousZap] = useState(false)
   const normalizedSessionPubkey = normalizeHexPubkey(session?.user?.pubkey)
-  const normalizedSessionPrivkey = normalizeHexPrivkey(session?.user?.privkey)
-  const canServerSign = Boolean(normalizedSessionPrivkey) && !isNip07User(session?.provider)
+  // Check if user has ephemeral keys (for ephemeral account signing)
+  const hasEphemeralKeys = !!session?.user?.hasEphemeralKeys
+  const canServerSign = hasEphemeralKeys && !isNip07User(session?.provider)
+  // Cache for fetched ephemeral signing key
+  const ephemeralKeyRef = useRef<string | null>(null)
+  const ephemeralKeyPromiseRef = useRef<Promise<string | null> | null>(null)
+
+  // Clear ephemeral key cache when user changes to prevent key reuse across users
+  useEffect(() => {
+    ephemeralKeyRef.current = null
+    ephemeralKeyPromiseRef.current = null
+  }, [session?.user?.id])
+
+  // Fetch ephemeral signing key from recovery-key API (cached)
+  const fetchEphemeralKey = async (): Promise<string | null> => {
+    if (ephemeralKeyRef.current) {
+      return ephemeralKeyRef.current
+    }
+    if (ephemeralKeyPromiseRef.current) {
+      return await ephemeralKeyPromiseRef.current
+    }
+
+    ephemeralKeyPromiseRef.current = (async () => {
+      try {
+        const response = await fetch('/api/profile/recovery-key')
+        if (response.ok) {
+          const data = await response.json()
+          const key = normalizeHexPrivkey(data.recoveryKey)
+          if (key) {
+            ephemeralKeyRef.current = key
+            // Leave promise cached as resolved; future callers hit ephemeralKeyRef first
+            return key
+          }
+        }
+        // Failure: clear promise to allow retry
+        ephemeralKeyPromiseRef.current = null
+        return null
+      } catch {
+        // Exception: clear promise to allow retry
+        ephemeralKeyPromiseRef.current = null
+        return null
+      }
+    })()
+
+    return await ephemeralKeyPromiseRef.current
+  }
 
   const {
     sendZap,
@@ -202,18 +246,34 @@ export function InteractionMetrics({
       setIsReacting(true)
 
       let signedReaction: NostrEvent
-      if (canServerSign && normalizedSessionPrivkey) {
+      if (canServerSign) {
+        // Ephemeral account users - fetch signing key from API
+        const ephemeralKey = await fetchEphemeralKey()
+        if (!ephemeralKey) {
+          throw new Error('Unable to load your signing key. Please try again.')
+        }
         let pubkey: string
         try {
-          pubkey = getPublicKey(normalizedSessionPrivkey)
+          pubkey = getPublicKey(ephemeralKey)
         } catch (err) {
-          throw new Error('Stored private key is invalid. Please relink your account and try again.')
+          const originalError = err instanceof Error ? err.message : String(err)
+          throw new Error(
+            `Unable to validate ephemeral key fetched from the API; please relink your account or retry. Original error: ${originalError}`
+          )
         }
-        const unsignedReaction = createUnsignedReaction(pubkey, tags)
+        // Verify derived pubkey matches session to prevent signing as wrong identity
+        const normalizedDerivedPubkey = normalizeHexPubkey(pubkey)
+        if (!normalizedDerivedPubkey || normalizedDerivedPubkey !== normalizedSessionPubkey) {
+          throw new Error(
+            'Your signing key does not match your session identity. Please sign out and back in, or relink your account.'
+          )
+        }
+        const unsignedReaction = createUnsignedReaction(normalizedDerivedPubkey, tags)
         const reactionId = await getEventHash(unsignedReaction)
-        const reactionSig = await signEvent(reactionId, normalizedSessionPrivkey)
+        const reactionSig = await signEvent(reactionId, ephemeralKey)
         signedReaction = { ...unsignedReaction, id: reactionId, sig: reactionSig }
       } else {
+        // NIP-07 users - sign with browser extension
         const nostr = typeof window !== 'undefined' ? (window as Window & { nostr?: any }).nostr : undefined
         if (!nostr?.signEvent || !nostr?.getPublicKey) {
           throw new Error('Connect a Nostr (NIP-07) extension like Alby or nos2x to send reactions.')

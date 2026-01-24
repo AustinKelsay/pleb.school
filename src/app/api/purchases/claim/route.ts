@@ -6,7 +6,6 @@ import {
   ZAP_RECEIPT_KIND,
   decodeLnurl,
   fetchLnurlPayMetadata,
-  getPublicKey,
   supportsNostrZaps,
   verifySignature
 } from "snstr"
@@ -14,12 +13,12 @@ import type { NostrEvent } from "snstr"
 
 import { authOptions } from "@/lib/auth"
 import { auditLog } from "@/lib/audit-logger"
-import { Prisma } from "@prisma/client"
+import { Prisma } from "@/generated/prisma"
 import { prisma } from "@/lib/prisma"
 import { resolvePriceForContent } from "@/lib/pricing"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { parseBolt11Invoice, type ParsedBolt11Invoice } from "@/lib/bolt11"
-import { normalizeHexPubkey, normalizeHexPrivkey } from "@/lib/nostr-keys"
+import { normalizeHexPubkey } from "@/lib/nostr-keys"
 import { isAdmin } from "@/lib/admin-utils"
 import { DEFAULT_RELAYS, getRelays } from "@/lib/nostr-relays"
 import { sanitizeRelayHints } from "@/lib/nostr-relays.server"
@@ -401,10 +400,6 @@ export async function POST(request: NextRequest) {
     const priceHint = Number.isFinite(nostrPrice) ? Number(nostrPrice) : 0
     const paymentType = parsed.data.paymentType ?? "zap"
     const normalizedSessionPubkey = normalizeHexPubkey(session.user.pubkey)
-    const normalizedSessionPrivkey = normalizeHexPrivkey((session.user as any)?.privkey)
-    const derivedSessionPubkey = normalizedSessionPrivkey
-      ? normalizeHexPubkey(getPublicKey(normalizedSessionPrivkey))
-      : null
 
     // Exactly one of resourceId or courseId must be provided
     if (!resourceId && !courseId) {
@@ -458,17 +453,13 @@ export async function POST(request: NextRequest) {
 
     // Everything below assumes a persisted Purchase row reflects validated payments.
     // We only trust server-verified zap amounts and receipt IDs—not client-supplied totals.
-    const allowedPayerPubkeys = [
-      normalizedSessionPubkey,
-      derivedSessionPubkey
-    ].filter(Boolean) as string[]
-
-    if (paymentType === "zap" && allowedPayerPubkeys.length === 0) {
+    if (paymentType === "zap" && !normalizedSessionPubkey) {
       return badRequest(
         "Link a Nostr pubkey to your account before claiming purchases. " +
         "This prevents others from reusing your zap receipts."
       )
     }
+    const allowedPayerPubkeys = normalizedSessionPubkey ? [normalizedSessionPubkey] : []
 
     let verifiedAmountSats = 0
     let verifiedInvoice: string | undefined

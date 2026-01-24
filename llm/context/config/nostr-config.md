@@ -55,8 +55,7 @@ src/lib/nostr-relays.ts
       "wss://nos.lol",
       "wss://relay.damus.io",
       "wss://relay.primal.net",
-      "wss://nostr.land",
-      "wss://nostr.wine"
+      "wss://nostr.land"
     ],
     "zapThreads": [
       "wss://nos.lol",
@@ -277,8 +276,7 @@ const normalized = normalizeRelayUrl(url) // "wss://relay.damus.io"
       "wss://relay.damus.io",
       "wss://nos.lol",
       "wss://relay.primal.net",
-      "wss://relay.nostr.band",
-      "wss://nostr.wine"
+      "wss://relay.nostr.band"
     ],
     "content": [
       "wss://nos.lol",

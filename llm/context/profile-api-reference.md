@@ -184,6 +184,39 @@ Fetches the latest Nostr profile metadata for the current session pubkey.
 
 ## Account Management APIs
 
+### GET /api/profile/recovery-key
+
+Fetches the user's ephemeral private key for account recovery, backup, or client-side signing.
+
+**Authentication**: Required
+
+**Rate Limit**: 10 requests per 15 minutes per user
+
+**Response**: `200 OK`
+```json
+{
+  "recoveryKey": "hex-encoded-private-key"
+}
+```
+
+**Security Headers** (all responses):
+- `Cache-Control: no-store, no-cache, must-revalidate, private`
+- `Pragma: no-cache`
+- `Expires: 0`
+
+**Error Responses**:
+- `401 Unauthorized` - No valid session
+- `404 Not Found` - No recovery key available (NIP-07 users manage their own keys)
+- `429 Too Many Requests` - Rate limit exceeded (includes `Retry-After` header)
+- `500 Internal Server Error` - Failed to decrypt or fetch key
+
+**Notes**:
+- Only available to users with ephemeral keys (anonymous, email, GitHub accounts)
+- NIP-07 users will receive a 404 since they manage their own keys externally
+- Used by profile UI for displaying/copying recovery key
+- Used by client-side signing code (zaps, reactions) when `session.user.hasEphemeralKeys` is true
+- Key is never stored in JWT/session; always fetched on-demand
+
 ### GET /api/account/linked
 
 Returns all linked accounts for the current user.

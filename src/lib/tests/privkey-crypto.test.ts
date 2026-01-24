@@ -14,9 +14,9 @@ async function loadModuleWithEnv(secret?: string, nodeEnv?: string) {
     process.env.PRIVKEY_ENCRYPTION_KEY = secret
   }
   if (nodeEnv !== undefined) {
-    process.env.NODE_ENV = nodeEnv
+    ;(process.env as { NODE_ENV?: string }).NODE_ENV = nodeEnv
   } else {
-    process.env.NODE_ENV = "test"
+    ;(process.env as { NODE_ENV?: string }).NODE_ENV = "test"
   }
   return import(MODULE_PATH)
 }
@@ -29,7 +29,7 @@ describe("privkey-crypto", () => {
   afterEach(() => {
     vi.restoreAllMocks()
     delete process.env.PRIVKEY_ENCRYPTION_KEY
-    process.env.NODE_ENV = "test"
+    ;(process.env as { NODE_ENV?: string }).NODE_ENV = "test"
   })
 
   describe("encryption key handling", () => {

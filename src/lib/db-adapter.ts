@@ -8,7 +8,7 @@ import { Course, Resource, Lesson } from '@/data/types'
 import { NostrEvent } from 'snstr'
 import { parseCourseEvent, parseEvent } from '@/data/types'
 import { NostrFetchService } from '@/lib/nostr-fetch-service'
-import type { Prisma } from '@prisma/client'
+import type { Prisma } from '@/generated/prisma'
 
 const courseUserSelect = {
   id: true,

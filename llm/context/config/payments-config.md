@@ -126,7 +126,7 @@ Controls visibility of the "Private zap" toggle:
 |-------|------|-------------|
 | `enabled` | boolean | Show the privacy toggle at all |
 | `requireAuth` | boolean | Only show when user is authenticated |
-| `hideWhenPrivkeyPresent` | boolean | Hide when session has stored privkey |
+| `hideWhenPrivkeyPresent` | boolean | Hide when user has ephemeral keys (`session.user.hasEphemeralKeys` is true) |
 
 ### recentZapsLimit
 

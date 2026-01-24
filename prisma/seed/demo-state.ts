@@ -5,7 +5,7 @@
  * platform features. This simulates what a real user's experience would look like.
  */
 
-import type { PrismaClient } from '@prisma/client'
+import type { PrismaClient } from '../../src/generated/prisma'
 
 export interface DemoStateConfig {
   /** Map of persona ID to database user ID */

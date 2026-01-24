@@ -50,7 +50,7 @@ Existing NIP-07 users must re-authenticate. The extension will prompt for a sign
 
 - **Automatic hierarchy enforcement:** Linking flows now promote/demote accounts immediately (anon → OAuth → Nostr) without waiting for manual “make primary” actions.
 - **Key custody truth:** Linking a real Nostr identity replaces the stored platform keypair with the user’s pubkey and clears `privkey`, ensuring future signing requires their extension.
-- **Signing-mode clarity:** Publishing logic checks `privkey` presence rather than `session.provider`; only users without a stored key are routed through NIP-07.
+- **Signing-mode clarity:** Publishing logic checks `hasEphemeralKeys` flag rather than `session.provider`; only users without stored keys are routed through NIP-07. Actual keys are fetched on-demand via `/api/profile/recovery-key`.
 - **Anonymous UX:** Anonymous accounts never require NIP-07. They can publish with the platform-managed key until they intentionally link real Nostr, at which point the platform key is removed.
 
 ## 2. Capabilities & Rules
@@ -81,17 +81,19 @@ Requirements:
 
 ### 2.3 Signing Mode Detection
 
-Rule: *If `User.privkey` exists → server-side signing allowed. Otherwise require NIP-07.*
+Rule: *If `User.privkey` exists in DB → server-side signing allowed. Otherwise require NIP-07.*
 
 Changes:
-- Direct checks on `Boolean(user.privkey)` are used instead of a dedicated `hasServerSideKey` helper.
+- Session only carries `hasEphemeralKeys` boolean flag, never the actual key.
+- Client checks `session.user.hasEphemeralKeys` to determine signing mode.
+- When server-side signing is needed, the actual key is fetched on-demand via `/api/profile/recovery-key`.
 - `isNip07User` usage is aligned across:
   - `src/lib/publish-service.ts`
   - `src/lib/republish-service.ts`
   - `src/hooks/usePublishDraft.ts`
   - any other places gating UI flows.
-- Instead of inferring from `session.provider`, we base the decision on `session.user.privkey` (client) or DB lookups (server). If `privkey` absent ⇒ prompt for NIP-07.
-- Whenever a user becomes Nostr-first, the JWT/session callbacks stop embedding `privkey`, so the UI automatically flips to the NIP-07 path.
+- Instead of inferring from `session.provider`, we base the decision on `session.user.hasEphemeralKeys` (client) or DB lookups (server). If `hasEphemeralKeys` is false ⇒ prompt for NIP-07.
+- Whenever a user becomes Nostr-first, the JWT/session callbacks set `hasEphemeralKeys: false`, so the UI automatically flips to the NIP-07 path.
 
 ### 2.4 Anonymous Provider Classification
 

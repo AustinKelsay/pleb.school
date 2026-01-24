@@ -5,16 +5,12 @@
  * Wraps the NostrRelay class from the snstr package.
  *
  * This file is intentionally placed in tests/utils/ to ensure it's never
- * bundled into production code. It accesses an internal snstr module path
- * which is acceptable for test utilities.
+ * bundled into production code.
  */
 
-// Use require to access the non-exported ephemeral-relay module
-// This works around the fact that ephemeral-relay is not exported from the main package
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { NostrRelay } = require("snstr/dist/src/utils/ephemeral-relay")
+import { NostrRelay } from "snstr/utils/ephemeral-relay"
 
-export type NostrRelay = InstanceType<typeof NostrRelay>
+export type { NostrRelay }
 
 /**
  * Start an ephemeral relay on a given port
@@ -25,7 +21,7 @@ export type NostrRelay = InstanceType<typeof NostrRelay>
 export async function startEphemeralRelay(
   port: number = 0,
   purgeInterval?: number
-): Promise<InstanceType<typeof NostrRelay>> {
+): Promise<NostrRelay> {
   const relay = new NostrRelay(port, purgeInterval)
   await relay.start()
   return relay
@@ -36,7 +32,7 @@ export async function startEphemeralRelay(
  * @param relay - The relay instance
  * @returns The WebSocket URL for the relay
  */
-export function getRelayUrl(relay: InstanceType<typeof NostrRelay>): string {
+export function getRelayUrl(relay: NostrRelay): string {
   return relay.url
 }
 
@@ -44,6 +40,6 @@ export function getRelayUrl(relay: InstanceType<typeof NostrRelay>): string {
  * Stop an ephemeral relay
  * @param relay - The relay instance to stop
  */
-export async function stopEphemeralRelay(relay: InstanceType<typeof NostrRelay>): Promise<void> {
+export async function stopEphemeralRelay(relay: NostrRelay): Promise<void> {
   await relay.close()
 }

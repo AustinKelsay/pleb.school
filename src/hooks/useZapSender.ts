@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   createZapRequest,
@@ -135,17 +135,58 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
   const profileCacheRef = useRef<Record<string, { lightningAddress?: string; lnurl?: string }>>({});
   const anonymousKeysRef = useRef<{ pubkey: string; privkey: string } | null>(null);
   const keyGenerationPromiseRef = useRef<Promise<{ pubkey: string; privkey: string } | null> | null>(null);
+  // Cache for fetched ephemeral signing key (fetched on-demand from recovery-key API)
+  const ephemeralKeyRef = useRef<string | null>(null);
+  const ephemeralKeyPromiseRef = useRef<Promise<string | null> | null>(null);
 
   const normalizedRecipientPubkey = useMemo(() => {
     return normalizeHexPubkey(zapTarget?.pubkey || eventPubkey);
   }, [zapTarget?.pubkey, eventPubkey]);
 
   const normalizedSessionPubkey = useMemo(() => normalizeHexPubkey(session?.user?.pubkey), [session?.user?.pubkey]);
-  // session?.user?.privkey is only set for ephemeral/session-scoped keys
-  // (anonymous, email, GitHub flows) and never long-term identity keys;
-  // long-lived keys use NIP-07 (see isNip07User and src/lib/auth.ts around lines 638–643).
-  const normalizedSessionPrivkey = useMemo(() => normalizeHexPrivkey(session?.user?.privkey), [session?.user?.privkey]);
-  const canServerSign = Boolean(normalizedSessionPrivkey) && !isNip07User(session?.provider);
+  // Check if user has ephemeral keys (for ephemeral account signing)
+  const hasEphemeralKeys = !!session?.user?.hasEphemeralKeys;
+  const canServerSign = hasEphemeralKeys && !isNip07User(session?.provider);
+
+  // Clear cached ephemeral key when user changes to prevent cross-user key leakage
+  useEffect(() => {
+    ephemeralKeyRef.current = null;
+    ephemeralKeyPromiseRef.current = null;
+  }, [session?.user?.id]);
+
+  // Fetch ephemeral signing key from recovery-key API (cached)
+  const fetchEphemeralKey = useCallback(async (): Promise<string | null> => {
+    if (ephemeralKeyRef.current) {
+      return ephemeralKeyRef.current;
+    }
+    if (ephemeralKeyPromiseRef.current) {
+      return await ephemeralKeyPromiseRef.current;
+    }
+
+    ephemeralKeyPromiseRef.current = (async () => {
+      try {
+        const response = await fetch('/api/profile/recovery-key');
+        if (response.ok) {
+          const data = await response.json();
+          const key = normalizeHexPrivkey(data.recoveryKey);
+          if (key) {
+            ephemeralKeyRef.current = key;
+            // Leave promise cached as resolved; future callers hit ephemeralKeyRef first
+            return key;
+          }
+        }
+        // Failure: clear promise to allow retry
+        ephemeralKeyPromiseRef.current = null;
+        return null;
+      } catch {
+        // Exception: clear promise to allow retry
+        ephemeralKeyPromiseRef.current = null;
+        return null;
+      }
+    })();
+
+    return await ephemeralKeyPromiseRef.current;
+  }, []);
 
   const minZapSats = useMemo(() => msatsToSats(zapState.metadata?.minSendable), [zapState.metadata?.minSendable]);
   const maxZapSats = useMemo(() => msatsToSats(zapState.metadata?.maxSendable), [zapState.metadata?.maxSendable]);
@@ -216,21 +257,18 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
         signerPubkey = anon?.pubkey || null;
         signerPrivkey = anon?.privkey || null;
       } else {
-        if (canServerSign && normalizedSessionPrivkey && !signerPubkey) {
-          signerPubkey = normalizeHexPubkey(getPublicKey(normalizedSessionPrivkey));
-          signerPrivkey = normalizedSessionPrivkey;
-        }
-
-        if (!signerPubkey && !nostrExtension?.getPublicKey) {
-          const anon = await ensureAnonymousKeys();
-          signerPubkey = anon?.pubkey || null;
-          signerPrivkey = anon?.privkey || null;
-        }
-
-        if (!signerPubkey) {
-          if (!nostrExtension?.getPublicKey) {
-            throw new Error('Connect a Nostr extension to zap this content.');
+        // For ephemeral account users (OAuth/anonymous), fetch signing key from API
+        if (canServerSign) {
+          const ephemeralKey = await fetchEphemeralKey();
+          if (ephemeralKey) {
+            signerPubkey = normalizeHexPubkey(getPublicKey(ephemeralKey));
+            signerPrivkey = ephemeralKey;
+          } else {
+            // Recovery key fetch failed - surface error to user
+            throw new Error('Unable to load your signing key. Please try again.');
           }
+        } else if (nostrExtension?.getPublicKey) {
+          // NIP-07 user - get pubkey from extension (signing happens later)
           try {
             const extensionPubkey = normalizeHexPubkey(await nostrExtension.getPublicKey());
             if (!extensionPubkey) {
@@ -243,6 +281,9 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
             }
             throw err instanceof Error ? err : new Error(String(err));
           }
+        } else {
+          // No signing method available
+          throw new Error('Connect a Nostr extension to zap this content.');
         }
       }
 
@@ -276,7 +317,8 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
         tags
       };
 
-      if (!privacyMode && canServerSign && normalizedSessionPrivkey) {
+      // Server-side signing for ephemeral account users (key already fetched above)
+      if (!privacyMode && canServerSign && signerPrivkey) {
         const unsignedEvent = {
           ...zapRequestWithPrivacy,
           pubkey: signerPubkey,
@@ -284,7 +326,7 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
           tags: zapRequestWithPrivacy.tags ?? []
         };
         const zapId = await getEventHash(unsignedEvent);
-        const zapSig = await signEvent(zapId, normalizedSessionPrivkey);
+        const zapSig = await signEvent(zapId, signerPrivkey);
         return {
           event: { ...unsignedEvent, id: zapId, sig: zapSig },
           signerPubkey
@@ -323,8 +365,8 @@ export function useZapSender(options: UseZapSenderOptions): ZapSenderHook {
       eventIdentifier,
       eventKind,
       eventPubkey,
+      fetchEphemeralKey,
       normalizedRecipientPubkey,
-      normalizedSessionPrivkey,
       normalizedSessionPubkey,
       relays,
       zapTarget?.relayHints,

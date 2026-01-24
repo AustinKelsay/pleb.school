@@ -62,7 +62,7 @@ vi.mock("snstr", () => {
 // Helper to create encrypted privkey (matches privkey-crypto encryption format)
 async function createEncryptedPrivkey(plaintext: string): Promise<string> {
   const { encryptPrivkey } = await import("../privkey-crypto")
-  return encryptPrivkey(plaintext)
+  return encryptPrivkey(plaintext)!
 }
 
 function resetAllMocks() {
@@ -268,8 +268,8 @@ describe("RepublishService happy path", () => {
     expect(mockCreateCourseEvent).toHaveBeenCalledWith(
       expect.objectContaining({ id: "course1", title: "Test Course" }),
       expect.arrayContaining([
-        { resourceId: "res1", pubkey: "pub1" },
-        { resourceId: "res2", pubkey: "pub2" },
+        { resourceId: "res1", pubkey: "pub1", price: 0 },
+        { resourceId: "res2", pubkey: "pub2", price: 0 },
       ]),
       expect.any(String)
     )
@@ -421,9 +421,9 @@ describe("RepublishService course lesson handling", () => {
     expect(mockCreateCourseEvent).toHaveBeenCalledWith(
       expect.anything(),
       [
-        { resourceId: "res-a", pubkey: "author1" },
-        { resourceId: "res-b", pubkey: "author2" },
-        { resourceId: "res-c", pubkey: "author1" },
+        { resourceId: "res-a", pubkey: "author1", price: 0 },
+        { resourceId: "res-b", pubkey: "author2", price: 0 },
+        { resourceId: "res-c", pubkey: "author1", price: 0 },
       ],
       expect.any(String)
     )

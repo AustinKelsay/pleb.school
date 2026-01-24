@@ -8,7 +8,7 @@ import {
   type ResourceEventDraftInput,
 } from '@/lib/nostr-events'
 import { parseCourseEvent, parseEvent } from '@/data/types'
-import type { Course, Resource } from '@prisma/client'
+import type { Course, Resource } from '@/generated/prisma'
 import { RelayPool, type NostrEvent } from 'snstr'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import type { AdditionalLink } from '@/types/additional-links'
