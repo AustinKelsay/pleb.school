@@ -367,6 +367,7 @@ model Purchase {
   @@unique([userId, resourceId])
   @@index([userId])
   @@index([userId, createdAt])
+  @@index([createdAt])
 }
 ```
 

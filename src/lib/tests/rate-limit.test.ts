@@ -16,6 +16,25 @@ vi.mock("@vercel/kv", () => ({
 
 const MODULE_PATH = "../rate-limit"
 
+// Store original env values to restore after tests
+const originalEnv = {
+  KV_REST_API_URL: process.env.KV_REST_API_URL,
+  KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN,
+}
+
+function restoreEnv() {
+  if (originalEnv.KV_REST_API_URL === undefined) {
+    delete process.env.KV_REST_API_URL
+  } else {
+    process.env.KV_REST_API_URL = originalEnv.KV_REST_API_URL
+  }
+  if (originalEnv.KV_REST_API_TOKEN === undefined) {
+    delete process.env.KV_REST_API_TOKEN
+  } else {
+    process.env.KV_REST_API_TOKEN = originalEnv.KV_REST_API_TOKEN
+  }
+}
+
 async function loadModuleWithKV(hasKV: boolean) {
   vi.resetModules()
 
@@ -46,8 +65,7 @@ describe("rate-limit", () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.resetModules()
-    delete process.env.KV_REST_API_URL
-    delete process.env.KV_REST_API_TOKEN
+    restoreEnv()
   })
 
   describe("KV failure handling", () => {

@@ -124,6 +124,10 @@ import { LessonAdapter } from '@/lib/db-adapter'
 // Find by course
 const lessons = await LessonAdapter.findByCourseId(courseId)
 
+// Find by course with resources eagerly loaded (avoids N+1 queries)
+// Returns Lesson objects with optional `resource` field populated
+const lessonsWithResources = await LessonAdapter.findByCourseIdWithResources(courseId)
+
 // Count lessons (used for course deletion check)
 const count = await LessonAdapter.countByCourse(courseId)
 
