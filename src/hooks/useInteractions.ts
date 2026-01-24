@@ -39,6 +39,24 @@ const MAX_STORED_ZAPS = 200;
 const MAX_RECENT_ZAPS = 200;
 const MAX_VIEWER_ZAPS = 200;
 
+const NIP10_MARKERS = ['root', 'reply', 'mention'] as const;
+
+/**
+ * Extract NIP-10 marker from an e-tag, handling both standard and non-standard formats.
+ * Marker can be at index 3 (standard: ["e", id, relay, marker]) or index 2 (some clients omit relay).
+ */
+function getETagMarker(tag: string[]): string | undefined {
+  // Check index 3 first (standard position)
+  if (tag[3] && NIP10_MARKERS.includes(tag[3] as typeof NIP10_MARKERS[number])) {
+    return tag[3];
+  }
+  // Check index 2 if it's a marker (not a relay URL)
+  if (tag[2] && NIP10_MARKERS.includes(tag[2] as typeof NIP10_MARKERS[number])) {
+    return tag[2];
+  }
+  return undefined;
+}
+
 /**
  * Check if a comment is a direct reply to the target event based on NIP-10 markers.
  * Direct replies are:
@@ -52,9 +70,9 @@ function isDirectReply(event: NostrEvent, targetEventId: string | undefined): bo
   const eTags = event.tags.filter(t => t[0] === 'e');
   if (eTags.length === 0) return false;
 
-  // Find tagged markers
-  const replyTag = eTags.find(t => t[3] === 'reply');
-  const rootTag = eTags.find(t => t[3] === 'root');
+  // Find tagged markers (handles marker at index 2 or 3)
+  const replyTag = eTags.find(t => getETagMarker(t) === 'reply');
+  const rootTag = eTags.find(t => getETagMarker(t) === 'root');
 
   // If there's a reply marker, check if it points to our target
   if (replyTag) {
@@ -67,7 +85,7 @@ function isDirectReply(event: NostrEvent, targetEventId: string | undefined): bo
   }
 
   // Legacy NIP-10: no markers, last e-tag is the reply target
-  const hasMarkers = eTags.some(t => t[3] === 'root' || t[3] === 'reply' || t[3] === 'mention');
+  const hasMarkers = eTags.some(t => getETagMarker(t) !== undefined);
   if (!hasMarkers && eTags.length > 0) {
     const lastETag = eTags[eTags.length - 1];
     return lastETag[1] === targetEventId;
