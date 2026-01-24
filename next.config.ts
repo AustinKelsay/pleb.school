@@ -91,7 +91,14 @@ const nextConfig: NextConfig = {
 
     // Externalize pg-native on server to avoid warnings about optional native bindings
     if (isServer) {
-      config.externals = [...(config.externals || []), 'pg-native'];
+      // Normalize externals to array (can be string, RegExp, object, function, or array)
+      const existingExternals = config.externals;
+      const externalsArray = Array.isArray(existingExternals)
+        ? existingExternals
+        : existingExternals
+          ? [existingExternals]
+          : [];
+      config.externals = [...externalsArray, 'pg-native'];
     }
 
     // Only apply browser fallbacks on the client build

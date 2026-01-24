@@ -839,6 +839,7 @@ export const authOptions: NextAuthOptions = {
               nip05: true,
               lud16: true,
               banner: true,
+              privkey: true,
             },
           })
           if (dbUser) {
@@ -848,6 +849,8 @@ export const authOptions: NextAuthOptions = {
             token.nip05 = dbUser.nip05 ?? undefined
             token.lud16 = dbUser.lud16 ?? undefined
             token.banner = dbUser.banner ?? undefined
+            // Update hasEphemeralKeys to reflect current database state (e.g., after account linking)
+            token.hasEphemeralKeys = !!dbUser.privkey
           }
         } catch (error) {
           console.error('Failed to refresh user data from database in JWT callback:', error)

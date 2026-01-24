@@ -12,7 +12,7 @@
  * - Standard shadcn component patterns and spacing
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Session } from 'next-auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -58,6 +58,14 @@ export function ProfileDisplay({ session }: ProfileDisplayProps) {
   const isNostrFirst = !user.hasEphemeralKeys
   const canSignEvents = !!user.hasEphemeralKeys
   const hasCompleteProfile = !!user.nostrProfile
+
+  // Clear sensitive state when session/user changes to prevent cross-user exposure
+  useEffect(() => {
+    setRecoveryKey(null)
+    setFetchKeyError(null)
+    setFetchingKey(false)
+    setShowPrivateKey(false)
+  }, [user.id, user.pubkey, user.hasEphemeralKeys])
 
   // Fetch recovery key from API when user wants to view it
   const fetchRecoveryKey = async () => {
