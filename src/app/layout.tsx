@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     siteName: "pleb.school",
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "pleb.school",
     description: "Nostr-native education platform for courses, videos, and docs with Lightning-powered interactions.",
   },
