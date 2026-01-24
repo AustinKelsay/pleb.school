@@ -118,7 +118,7 @@ export function ProfileEditForms({ session, onClose, profileSource, primaryProvi
     }
   }, [])
 
-  const derivedProfileSource = profileSource || (user?.hasEphemeralKeys === false ? 'nostr' : 'oauth')
+  const derivedProfileSource = profileSource || (user?.hasEphemeralKeys ? 'oauth' : 'nostr')
   const derivedPrimaryProvider = primaryProvider || session.provider || ''
   type AccountType = 'anonymous' | 'nostr' | 'oauth'
   const accountType: AccountType =

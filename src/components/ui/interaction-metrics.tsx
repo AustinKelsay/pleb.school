@@ -126,11 +126,11 @@ export function InteractionMetrics({
   const ephemeralKeyRef = useRef<string | null>(null)
   const ephemeralKeyPromiseRef = useRef<Promise<string | null> | null>(null)
 
-  // Clear ephemeral key cache when session changes to prevent key reuse across users
+  // Clear ephemeral key cache when user changes to prevent key reuse across users
   useEffect(() => {
     ephemeralKeyRef.current = null
     ephemeralKeyPromiseRef.current = null
-  }, [session?.user?.id, normalizedSessionPubkey, sessionStatus])
+  }, [session?.user?.id])
 
   // Fetch ephemeral signing key from recovery-key API (cached)
   const fetchEphemeralKey = async (): Promise<string | null> => {
