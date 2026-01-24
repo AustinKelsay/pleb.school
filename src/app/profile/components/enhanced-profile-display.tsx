@@ -8,16 +8,17 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { 
-  User, 
-  Mail, 
-  Key, 
-  Globe, 
-  Github, 
+import {
+  User,
+  Mail,
+  Key,
+  Globe,
+  Github,
   Twitter,
   ExternalLink,
   Info,
   AlertTriangle,
+  AlertCircle,
   Edit,
   Copy,
   Check,
@@ -25,7 +26,8 @@ import {
   Shield,
   Eye,
   EyeOff,
-  Link2
+  Link2,
+  RotateCcw
 } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ProfileEditForms } from './profile-edit-forms'
@@ -99,6 +101,9 @@ export function EnhancedProfileDisplay({ session }: EnhancedProfileDisplayProps)
   const [aggregatedProfile, setAggregatedProfile] = useState<AggregatedProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null)
+  const [fetchingKey, setFetchingKey] = useState(false)
+  const [fetchKeyError, setFetchKeyError] = useState<string | null>(null)
   const { user } = session
 
   // Fetch aggregated profile data
@@ -129,7 +134,40 @@ export function EnhancedProfileDisplay({ session }: EnhancedProfileDisplayProps)
     fetchProfile()
   }, [fetchProfile])
 
-  const canSignEvents = !!user.privkey
+  const canSignEvents = !!user.hasEphemeralKeys
+
+  // Fetch recovery key from API when user wants to view it
+  const fetchRecoveryKey = async () => {
+    if (recoveryKey) return // Already fetched
+    setFetchingKey(true)
+    setFetchKeyError(null)
+    try {
+      const response = await fetch('/api/profile/recovery-key')
+      if (response.ok) {
+        const data = await response.json()
+        setRecoveryKey(data.recoveryKey)
+      } else {
+        let message = 'Unable to load recovery key'
+        try {
+          const data = await response.json()
+          if (data?.error) message = data.error
+        } catch {}
+        setFetchKeyError(message)
+      }
+    } catch (error) {
+      console.error('Failed to fetch recovery key:', error)
+      setFetchKeyError(error instanceof Error ? error.message : 'Unable to load recovery key')
+    } finally {
+      setFetchingKey(false)
+    }
+  }
+
+  const handleShowPrivateKey = async () => {
+    if (!showPrivateKey && !recoveryKey) {
+      await fetchRecoveryKey()
+    }
+    setShowPrivateKey(!showPrivateKey)
+  }
 
   const copyToClipboard = async (text: string, fieldName: string) => {
     try {
@@ -394,7 +432,7 @@ export function EnhancedProfileDisplay({ session }: EnhancedProfileDisplayProps)
         </div>
       </Card>
 
-      {user.privkey && (
+      {user.hasEphemeralKeys && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -403,39 +441,65 @@ export function EnhancedProfileDisplay({ session }: EnhancedProfileDisplayProps)
               <InfoTooltip content="Only visible to you. Never share this value with anyone." />
             </CardTitle>
             <CardDescription>
-              Toggle visibility to copy your locally stored key
+              Toggle visibility to copy your recovery key
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-medium">Key</span>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
-                  onClick={() => setShowPrivateKey(!showPrivateKey)}
+                  onClick={handleShowPrivateKey}
+                  disabled={fetchingKey}
                   aria-label={showPrivateKey ? "Hide private key" : "Show private key"}
                   title={showPrivateKey ? "Hide private key" : "Show private key"}
                 >
-                  {showPrivateKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {fetchingKey ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : showPrivateKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
-              {user.privkey ? (
-                <div className="flex items-center justify-between">
-                  <code className="text-sm text-muted-foreground font-mono break-all">
-                    {showPrivateKey ? user.privkey : formatKey(user.privkey)}
-                  </code>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => copyToClipboard(user.privkey!, 'privkey')}
-                    aria-label="Copy private key"
-                  >
-                    {copiedField === 'privkey' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No private key available</p>
+              {showPrivateKey && (
+                <>
+                  {fetchKeyError ? (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <div className="flex items-center justify-between">
+                        <AlertDescription>{fetchKeyError}</AlertDescription>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={fetchRecoveryKey}
+                          disabled={fetchingKey}
+                          className="ml-4"
+                        >
+                          <RotateCcw className="mr-2 h-3 w-3" />
+                          Retry
+                        </Button>
+                      </div>
+                    </Alert>
+                  ) : recoveryKey ? (
+                    <div className="flex items-center justify-between">
+                      <code className="text-sm text-muted-foreground font-mono break-all">
+                        {recoveryKey}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(recoveryKey, 'privkey')}
+                        aria-label="Copy private key"
+                      >
+                        {copiedField === 'privkey' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           </CardContent>
@@ -624,7 +688,7 @@ export function EnhancedProfileDisplay({ session }: EnhancedProfileDisplayProps)
             )}
             {renderAccountDetailRow(
               'Key Custody',
-              !user.privkey ? 'User Controlled (NIP07)' : 'Platform Managed'
+              !user.hasEphemeralKeys ? 'User Controlled (NIP07)' : 'Platform Managed'
             )}
             {renderAccountDetailRow(
               'Can Sign Events',

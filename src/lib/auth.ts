@@ -872,23 +872,21 @@ export const authOptions: NextAuthOptions = {
         token.reconnectToken = user.reconnectToken || undefined
         
         /**
-         * EPHEMERAL KEYPAIR HANDLING IN JWT:
-         * =================================
-         * 
-         * We include the private key in the JWT token ONLY for users who authenticate
-         * via providers that use ephemeral keypairs (anonymous, email, github).
-         * 
-         * NIP07 users manage their own keys and should never have privkey in our system.
+         * EPHEMERAL KEYPAIR DETECTION IN JWT:
+         * ===================================
+         *
+         * We set a hasEphemeralKeys flag for users who have platform-managed keypairs
+         * (anonymous, email, github). The actual private key is NEVER included in the
+         * JWT/session for security - it's only fetched on-demand via the recovery-key API.
+         *
+         * NIP07 users manage their own keys and will have hasEphemeralKeys = false.
          * Future NIP46 users will also manage keys remotely.
-         * 
-         * This allows ephemeral account users to sign Nostr events client-side
-         * while maintaining security for user-controlled key authentication.
          */
         if (account?.provider && !['nostr'].includes(account.provider)) {
-          // Fetch the user's privkey and additional profile data from database for ephemeral accounts
+          // Check if user has ephemeral keys and fetch additional profile data
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { 
+            select: {
               privkey: true,
               username: true,
               avatar: true,
@@ -897,17 +895,18 @@ export const authOptions: NextAuthOptions = {
               banner: true
             }
           })
-          token.privkey = dbUser?.privkey ? decryptPrivkey(dbUser.privkey) || undefined : undefined
+          // Only indicate presence of ephemeral keys, never expose the key itself
+          token.hasEphemeralKeys = !!dbUser?.privkey
           // Update token with latest database values (null/undefined overwrites token)
           token.username = dbUser?.username ?? undefined
           token.avatar = dbUser?.avatar ?? undefined
           token.nip05 = dbUser?.nip05 ?? undefined
           token.lud16 = dbUser?.lud16 ?? undefined
           token.banner = dbUser?.banner ?? undefined
-          
+
           // Debug info for ephemeral keypair handling (development only)
           if (process.env.NODE_ENV === 'development') {
-            console.log('JWT Callback - Ephemeral keypair handling for provider:', account.provider)
+            console.log('JWT Callback - Ephemeral keypair detection for provider:', account.provider, 'hasEphemeralKeys:', !!dbUser?.privkey)
           }
         }
       } else {
@@ -951,42 +950,35 @@ export const authOptions: NextAuthOptions = {
         }
         
         /**
-         * EPHEMERAL KEYPAIR HANDLING IN SESSION:
-         * =====================================
-         * 
-         * We expose the private key in the user session for users who have ephemeral keypairs.
-         * This includes anonymous, email, and GitHub users.
-         * 
-         * For existing users who already have sessions, we determine if they need privkey
-         * by checking if they have one stored in the database. NIP07 users never have
-         * privkey stored since they manage their own keys.
-         * 
-         * This enables client-side Nostr event signing for ephemeral account users while
-         * keeping private keys secure for NIP07/NIP46 users who manage their own keys.
+         * EPHEMERAL KEYPAIR DETECTION IN SESSION:
+         * =======================================
+         *
+         * We expose a hasEphemeralKeys boolean to indicate if the user has platform-managed
+         * ephemeral keypairs (anonymous, email, GitHub users).
+         *
+         * The actual private key is NEVER exposed in the session for security. When client-side
+         * signing is needed, the key is fetched on-demand via the recovery-key API.
+         *
+         * NIP07 users will have hasEphemeralKeys = false since they manage their own keys.
          */
-        
-        // Check if user has ephemeral keys by looking for stored privkey
-        // NIP07 users won't have privkey stored in database
+
+        // Determine if user has ephemeral keys (for account type detection)
         if (session.user.pubkey) {
-          // If privkey is already in token, use it (for new logins)
-          if (token.privkey) {
-            session.user.privkey = token.privkey as string
+          // If hasEphemeralKeys is already set in token (for new logins), use it
+          if (typeof token.hasEphemeralKeys === 'boolean') {
+            session.user.hasEphemeralKeys = token.hasEphemeralKeys
           } else {
-            // For existing sessions, fetch privkey from database if it exists
+            // For existing sessions, check database for stored privkey
             try {
               const dbUser = await prisma.user.findUnique({
                 where: { id: token.userId as string },
                 select: { privkey: true }
               })
-              if (dbUser?.privkey) {
-                const decrypted = decryptPrivkey(dbUser.privkey)
-                if (decrypted) {
-                  session.user.privkey = decrypted
-                }
-              }
-              // If no privkey in database, this is likely a NIP07 user (expected)
+              session.user.hasEphemeralKeys = !!dbUser?.privkey
+              // If no privkey in database, this is a NIP07 user (hasEphemeralKeys = false)
             } catch (error) {
-              console.error('Failed to fetch privkey for session:', error)
+              console.error('Failed to check ephemeral keys for session:', error)
+              session.user.hasEphemeralKeys = false
             }
           }
         }

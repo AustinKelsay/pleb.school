@@ -49,7 +49,7 @@ export function SimpleSettings({ session }: SimpleSettingsProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
-  const defaultProfileSource = user.privkey ? 'oauth' : 'nostr'
+  const defaultProfileSource = user.hasEphemeralKeys ? 'oauth' : 'nostr'
   const defaultPrimaryProvider = session.provider || ''
   
   // Form states
@@ -104,7 +104,7 @@ export function SimpleSettings({ session }: SimpleSettingsProps) {
     }
   }
 
-  const requiresNostrExtension = accountType === 'nostr' && !user.privkey
+  const requiresNostrExtension = accountType === 'nostr' && !user.hasEphemeralKeys
   const canEditBasic = accountType === 'oauth'
 
   // Fetch preferences and linked accounts. Surfaces any failures to the UI.

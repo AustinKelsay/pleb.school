@@ -89,6 +89,11 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     // Do not override Next's splitChunks; custom vendor chunk can break server runtime
 
+    // Externalize pg-native on server to avoid warnings about optional native bindings
+    if (isServer) {
+      config.externals = [...(config.externals || []), 'pg-native'];
+    }
+
     // Only apply browser fallbacks on the client build
     if (!isServer) {
       config.resolve.fallback = {

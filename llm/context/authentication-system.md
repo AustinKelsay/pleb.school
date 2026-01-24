@@ -254,7 +254,7 @@ interface Session {
   user: {
     id: string
     pubkey?: string
-    privkey?: string  // Only for server-side signing accounts
+    hasEphemeralKeys?: boolean  // True if user has platform-managed keys (anonymous, email, github)
     email?: string
     name?: string
     image?: string
@@ -272,28 +272,26 @@ interface Session {
 
 ```typescript
 // jwt callback - build token
-// Database stores encrypted privkey; token carries decrypted value
+// Only detect whether user has ephemeral keys; never include the actual key
 async jwt({ token, user, account }) {
   if (user) {
     token.userId = user.id
     token.pubkey = user.pubkey
     token.provider = account?.provider
   }
-  // For ephemeral-key accounts, decrypt privkey from database
+  // For ephemeral-key accounts, set flag (never expose the key itself)
   // NIP-07 users (provider === "nostr") never have privkey stored
-  if (dbUser?.privkey) {
-    token.privkey = decryptPrivkey(dbUser.privkey)  // Decrypt once here
-  }
+  token.hasEphemeralKeys = !!dbUser?.privkey
   return token
 }
 
 // session callback - expose to client
-// token.privkey is already decrypted; just pass through
+// Only expose the hasEphemeralKeys flag, not the key itself
 async session({ session, token }) {
   session.user.id = token.userId
   session.user.pubkey = token.pubkey
   session.user.provider = token.provider
-  session.user.privkey = token.privkey  // Decrypted value (if present)
+  session.user.hasEphemeralKeys = token.hasEphemeralKeys
   return session
 }
 ```
@@ -342,32 +340,48 @@ else {
 }
 ```
 
-### Why Ephemeral Keys Are Exposed in Session (Intentional Design)
+### Ephemeral Key Security Model
 
-The privkey is included in JWT/session tokens for ephemeral accounts. This is an intentional design choice, not a security oversight.
+Private keys are **never** included in JWT/session tokens. Instead, the session only contains a `hasEphemeralKeys` boolean flag. When signing is needed, keys are fetched on-demand via the `/api/profile/recovery-key` endpoint.
+
+**Why On-Demand Fetching:**
+- Reduces attack surface (key not in every JWT)
+- Rate-limited endpoint prevents abuse
+- Cache-Control headers prevent caching
+- Key only fetched when explicitly needed
 
 **Threat Model for Ephemeral Keys (Anonymous, Email, GitHub):**
 - Keys are **platform-generated**, not user-controlled
 - Compromise loses a throwaway platform identity, not user's real Nostr identity
-- No alternative exists (user has no NIP-07 extension to delegate signing to)
-- Enables client-side signing for better UX
-- JWT uses httpOnly, secure, sameSite cookies
+- Keys fetched on-demand for signing operations (zaps, reactions, publishing)
+- Profile UI fetches key only when user explicitly requests to view/copy it
 
 **Threat Model for NIP-07 Keys (User-Controlled):**
 - Keys are user-controlled (their real Nostr identity)
 - Compromise would be catastrophic (identity theft)
 - User's browser extension handles all signing
 - Platform **never** sees or stores these keys
+- `hasEphemeralKeys` is always `false` for NIP-07 users
 
-**Code Enforcement** (`src/lib/auth.ts:833`):
+**Code Enforcement** (`src/lib/auth.ts`):
 ```typescript
-// Only include privkey for non-NIP07 providers
+// Only set hasEphemeralKeys flag for non-NIP07 providers
 if (account?.provider && !['nostr'].includes(account.provider)) {
-  token.privkey = decryptPrivkey(dbUser.privkey)
+  token.hasEphemeralKeys = !!dbUser?.privkey
 }
 ```
 
-NIP-07 users who bring their own Nostr identity are fully protected. Ephemeral users get client-side signing capability for their platform-generated throwaway keys.
+**Client-Side Signing Flow:**
+```typescript
+// Check if user can sign with ephemeral keys
+if (session.user.hasEphemeralKeys) {
+  // Fetch key on-demand from API
+  const response = await fetch('/api/profile/recovery-key')
+  const { recoveryKey } = await response.json()
+  // Use key for signing, then discard
+  const signed = await signEvent(event, recoveryKey)
+}
+```
 
 ## Account Linking
 

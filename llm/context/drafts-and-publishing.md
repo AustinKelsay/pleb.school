@@ -192,7 +192,7 @@ const result = await publishDraft({
    - Kind 30023 for free content
    - Kind 30402 for paid content
    - Kind 30004 for courses
-5. Sign with decrypted privkey
+5. Sign with server-side key (fetched from encrypted DB storage)
 6. Publish to relays
 7. Create database record in transaction:
    - Resource/Course with noteId
@@ -340,8 +340,9 @@ function PublishButton({ draft }) {
 
   const handlePublish = async () => {
     // Check if NIP-07 signing required
-    // Treat missing session/user as no privkey (requires NIP-07)
-    const needsNip07 = !session?.user?.privkey
+    // hasEphemeralKeys indicates server-stored keys available
+    // If true, key is fetched on-demand via /api/profile/recovery-key
+    const needsNip07 = !session?.user?.hasEphemeralKeys
 
     let signedEvent
     if (needsNip07) {

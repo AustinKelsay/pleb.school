@@ -76,7 +76,7 @@ model User {
 - The `/profile` screen exposes account linking from the `accounts` tab (e.g. `/profile?tab=accounts`), keeping all provider-management actions consolidated in one place.
 
 ## Primary Provider & Profile Source Rules
-- `session.provider` is populated inside `NextAuth` (`src/lib/auth.ts`) so the client can disable relinking the current method, but signing-mode decisions rely on whether `session.user.privkey` is present.
+- `session.provider` is populated inside `NextAuth` (`src/lib/auth.ts`) so the client can disable relinking the current method, but signing-mode decisions rely on whether `session.user.hasEphemeralKeys` is true (actual key fetched on-demand via `/api/profile/recovery-key`).
 - Switching the primary provider updates `User.primaryProvider` and `profileSource` (`nostr` for Nostr/anonymous/recovery, `oauth` for email/GitHub) and drives downstream profile aggregation (`src/lib/profile-aggregator.ts`). The linking helper enforces the same rules server-side so auto-upgrades happen without manual “Make Primary” clicks.
 - Automatic Nostr sync on login runs only when `profileSource` is `nostr` (or unset with a Nostr-first primary). OAuth-first users can still manually sync enhanced fields via `/api/profile/sync`.
 

@@ -195,11 +195,11 @@ export function EnhancedSettings({ session }: EnhancedSettingsProps) {
   const derivedNostrFirst = aggregatedProfile
     ? aggregatedProfile.profileSource === 'nostr' ||
       (!aggregatedProfile.profileSource && aggregatedProfile.primaryProvider === 'nostr')
-    : !user.privkey
+    : !user.hasEphemeralKeys
 
   const isNostrFirst = derivedNostrFirst
   const canEditBasic = !isNostrFirst
-  const requiresSignedEvent = !!user.pubkey && !user.privkey
+  const requiresSignedEvent = !!user.pubkey && !user.hasEphemeralKeys
 
   const normalizeField = (value: string | null | undefined): string | null | undefined => {
     if (value === undefined || value === null) return undefined

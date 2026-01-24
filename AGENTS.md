@@ -14,11 +14,12 @@ npm run dev          # Local dev server
 npm run build        # Production build (runs prisma generate)
 npm run start        # Serve production build
 npm run lint         # ESLint (Next.js core-web-vitals + TS)
+npm run typecheck    # TypeScript type checking (tsc --noEmit)
 npm run test         # Vitest test run
 npx prisma db push   # Sync schema to local DB
 npm run db:seed      # Seed database
 ```
-Before committing, run `npm run build && npm run lint`.
+To verify your work, run `npm run lint && npm run typecheck` (faster than build). Run `npm run build` before committing.
 
 ## Coding Style & Naming Conventions
 - TypeScript + React; follow existing file style (2-space indent, double quotes).

@@ -14,7 +14,7 @@ declare module 'next-auth' {
       id: string
       pubkey?: string
       username?: string
-      privkey?: string  // Private key for ephemeral accounts (anonymous, email, github)
+      hasEphemeralKeys?: boolean  // True if user has platform-managed ephemeral keys (anonymous, email, github)
       reconnectToken?: string  // Secure reconnect token for anonymous session persistence
       nostrProfile?: Record<string, unknown>  // Complete Nostr profile from NIP-01 kind 0 event
       nip05?: string
@@ -41,7 +41,7 @@ declare module 'next-auth/jwt' {
     pubkey?: string
     username?: string
     avatar?: string
-    privkey?: string  // Private key for ephemeral accounts
+    hasEphemeralKeys?: boolean  // True if user has platform-managed ephemeral keys
     reconnectToken?: string  // Secure reconnect token for anonymous accounts
     provider?: string // Track which provider was used for authentication
     email?: string

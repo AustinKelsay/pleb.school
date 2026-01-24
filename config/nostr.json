@@ -4,8 +4,7 @@
       "wss://nos.lol",
       "wss://relay.damus.io",
       "wss://relay.primal.net",
-      "wss://nostr.land",
-      "wss://nostr.wine"
+      "wss://nostr.land"
     ],
     "zapThreads": [
       "wss://nos.lol",

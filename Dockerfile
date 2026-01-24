@@ -14,6 +14,8 @@ RUN npm install -g npm@11.6.2
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
+# Copy Prisma schema before npm ci (postinstall runs prisma generate)
+COPY prisma ./prisma
 RUN npm ci
 
 # Development image for hot reloading
