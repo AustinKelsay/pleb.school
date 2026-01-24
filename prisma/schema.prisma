@@ -129,6 +129,8 @@ model Draft {
     updatedAt       DateTime      @updatedAt
     draftLessons    DraftLesson[]
     lessons         Lesson[]
+
+    @@index([userId])
 }
 
 model Course {
@@ -160,6 +162,8 @@ model CourseDraft {
   topics       String[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
 }
 
 model Lesson {
@@ -213,6 +217,7 @@ model UserLesson {
   updatedAt   DateTime  @updatedAt
 
   @@unique([userId, lessonId])
+  @@index([userId])
   @@index([lessonId])
 }
 
