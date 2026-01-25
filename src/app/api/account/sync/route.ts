@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let body: { provider?: string }
+    let body: unknown
     try {
       body = await request.json()
     } catch {
@@ -120,7 +120,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    const { provider } = body
+
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: 'Invalid request body: expected object' },
+        { status: 400 }
+      )
+    }
+
+    const { provider } = body as { provider?: string }
     
     if (!provider) {
       return NextResponse.json(
