@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { CourseAdapter, ResourceAdapter } from '@/lib/db-adapter'
 
-export const revalidate = 60 * 60
+export const revalidate = 3600 // 1 hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXTAUTH_URL || 'https://pleb.school'
