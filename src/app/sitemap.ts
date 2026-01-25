@@ -4,7 +4,7 @@ import { CourseAdapter, ResourceAdapter } from '@/lib/db-adapter'
 export const revalidate = 3600 // 1 hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://pleb.school'
+  const baseUrl = (process.env.NEXTAUTH_URL || 'https://pleb.school').replace(/\/+$/, '')
 
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [

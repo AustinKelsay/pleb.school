@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://pleb.school'
+  const baseUrl = (process.env.NEXTAUTH_URL || 'https://pleb.school').replace(/\/+$/, '')
 
   return {
     rules: {
