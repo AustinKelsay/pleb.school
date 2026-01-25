@@ -94,9 +94,12 @@ export class DataCache {
 
   /**
    * Invalidate specific key
+   * Also clears any in-flight request to reduce (but not fully eliminate) the risk
+   * of a stale fetch repopulating the cache after invalidation.
    */
   invalidate(key: string): void {
     this.cache.delete(key)
+    this.inFlight.delete(key)
   }
 
   /**
@@ -112,9 +115,11 @@ export class DataCache {
 
   /**
    * Clear all cache entries
+   * Also clears in-flight requests to reduce stale repopulation risk.
    */
   clear(): void {
     this.cache.clear()
+    this.inFlight.clear()
     this.hits = 0
     this.misses = 0
   }

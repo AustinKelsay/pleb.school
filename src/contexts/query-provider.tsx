@@ -17,19 +17,29 @@ export function QueryProvider({ children }: { children: ReactNode }) {
         gcTime: 10 * 60 * 1000, // 10 minutes
         // Retry configuration - don't retry on client errors (4xx)
         retry: (failureCount, error) => {
-          // Check for HTTP status codes in the error
-          // Handle fetch Response errors, custom error objects, or error messages
-          const status = (error as { status?: number })?.status;
+          // Prefer numeric status/statusCode from error object (covers fetch errors,
+          // custom error classes, and most HTTP client libraries)
+          const err = error as { status?: number; statusCode?: number };
+          const status = err?.status ?? err?.statusCode;
           if (typeof status === 'number' && status >= 400 && status < 500) {
             return false;
           }
-          // Fallback: check error message for common client error patterns
+
+          // Fallback: parse error message with boundary-aware matching to avoid
+          // false positives like "400ms" or "1404 items"
           if (error instanceof Error) {
             const message = error.message.toLowerCase();
-            if (message.includes('404') || message.includes('400') ||
-                message.includes('401') || message.includes('403') ||
-                message.includes('not found') || message.includes('unauthorized') ||
-                message.includes('forbidden')) {
+            // Word-boundary regex for status codes (e.g., "404" but not "1404")
+            if (/\b(400|401|403|404)\b/.test(message)) {
+              return false;
+            }
+            // Exact phrase matching for error descriptions
+            if (
+              message.includes('not found') ||
+              message.includes('unauthorized') ||
+              message.includes('forbidden') ||
+              message.includes('bad request')
+            ) {
               return false;
             }
           }

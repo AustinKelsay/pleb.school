@@ -18,16 +18,19 @@ interface NostrConfig {
 export function middleware(request: NextRequest) {
   const response = NextResponse.next()
 
+  const isDevelopment = process.env.NODE_ENV === 'development'
+
   // Add security headers
   response.headers.set('X-DNS-Prefetch-Control', 'on')
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
 
-  // Add CSP header for enhanced security
-  const isDevelopment = process.env.NODE_ENV === 'development'
+  // HSTS: only in production to avoid caching issues on dev/staging domains
+  if (!isDevelopment) {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
 
   // In development, allow unsafe directives for Turbopack hot reloading
   // In production, remove unsafe directives for better security
