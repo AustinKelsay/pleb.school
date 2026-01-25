@@ -9,7 +9,7 @@ This file documents what lives in `src/data/`, how it is actually used today, an
 ## Actual data flow (current codepath)
 1) Primary source: PostgreSQL via Prisma through `src/lib/db-adapter.ts`. All API routes (`/api/courses`, `/api/resources`, lessons, profile content, etc.) call this adapter, so running Postgres and migrations is required for the app to work.
 2) Client-side enrichment: Hooks such as `useCoursesQuery` and `useCourseQuery` fetch the API data, then try to hydrate Nostr notes via `snstr` `RelayPool.querySync`, using `DEFAULT_RELAYS` from `config/nostr.json`. The query matches the entity `id` against the event’s `d` tag and looks for kinds `30004/30023/30402`. If no note is found, the UI still renders using DB data.
-3) Server-side Nostr fetches are effectively disabled: `fetchNostrEvent` in `db-adapter` bails out when `window` is undefined, so API responses never include Nostr content. Only the client-side hooks currently add notes.
+3) Server-side Nostr fetches are enabled in `fetchNostrEvent` and are used by adapter helpers like `findByIdWithNote` (e.g., metadata generation). Most API responses still return DB-only data unless they call the note-aware helpers.
 4) `noteId` columns exist in the DB schema and seeds, but the client hooks don’t use them yet—they rely on `id` ←→ `d` tag matching. Aligning note lookup to `noteId` is a known gap.
 
 ## Removed mock layer
@@ -21,7 +21,7 @@ This file documents what lives in `src/data/`, how it is actually used today, an
 
 ## Known gaps / to-dos
 - Use `noteId` (event IDs) when hydrating Nostr data instead of assuming `id` == `d` tag.
-- If server-rendered pages ever need Nostr content, move `fetchNostrEvent` out of the `window` guard and add relay access on the server, with timeouts and caching.
+- Consider adding caching for server-side Nostr fetches to reduce relay load and metadata latency.
 
 ## How to verify today
 - Runtime path: start Postgres, run `npm run db:push && npm run dev`; the app reads Prisma.

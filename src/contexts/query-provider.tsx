@@ -15,11 +15,23 @@ export function QueryProvider({ children }: { children: ReactNode }) {
         staleTime: 60 * 1000, // 1 minute
         // GC time: How long data stays in cache after becoming unused
         gcTime: 10 * 60 * 1000, // 10 minutes
-        // Retry configuration
+        // Retry configuration - don't retry on client errors (4xx)
         retry: (failureCount, error) => {
-          // Don't retry on 404s or client errors
-          if (error instanceof Error && error.message.includes('404')) {
+          // Check for HTTP status codes in the error
+          // Handle fetch Response errors, custom error objects, or error messages
+          const status = (error as { status?: number })?.status;
+          if (typeof status === 'number' && status >= 400 && status < 500) {
             return false;
+          }
+          // Fallback: check error message for common client error patterns
+          if (error instanceof Error) {
+            const message = error.message.toLowerCase();
+            if (message.includes('404') || message.includes('400') ||
+                message.includes('401') || message.includes('403') ||
+                message.includes('not found') || message.includes('unauthorized') ||
+                message.includes('forbidden')) {
+              return false;
+            }
           }
           return failureCount < 3;
         },

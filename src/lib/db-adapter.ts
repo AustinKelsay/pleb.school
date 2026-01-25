@@ -145,15 +145,11 @@ export interface ResourceWithNote extends Resource {
 
 // Helper function to fetch Nostr event from relays
 async function fetchNostrEvent(noteId: string | null): Promise<NostrEvent | undefined> {
-  if (!noteId) return undefined
+  const trimmedNoteId = noteId?.trim()
+  if (!trimmedNoteId) return undefined
   
   try {
-    // Only fetch on client side
-    if (typeof window === 'undefined') {
-      return undefined
-    }
-    
-    const event = await NostrFetchService.fetchEventById(noteId)
+    const event = await NostrFetchService.fetchEventById(trimmedNoteId)
     return event || undefined
   } catch (error) {
     console.error('Error fetching Nostr event:', error)
