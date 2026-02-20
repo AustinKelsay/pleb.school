@@ -754,7 +754,7 @@ export async function POST(request: NextRequest) {
 
     // Audit log admin claim after successful transaction commit
     if (isAdminClaim) {
-      auditLog(
+      await auditLog(
         session.user.id,
         'purchase.admin_claim',
         {
@@ -769,7 +769,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Audit log successful purchase claim
-    auditLog(session.user.id, 'purchase.claim', {
+    await auditLog(session.user.id, 'purchase.claim', {
       resourceId: resourceId ?? null,
       courseId: courseId ?? null,
       amountPaid: result.data.amountCredited,
@@ -789,10 +789,15 @@ export async function POST(request: NextRequest) {
     })
 
     // Audit log failed purchase claim (only if session is available)
+    // Wrapped in try/catch so audit failures never prevent the error response from being returned
     if (session?.user?.id) {
-      auditLog(session.user.id, 'purchase.claim.failed', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }, request)
+      try {
+        await auditLog(session.user.id, 'purchase.claim.failed', {
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }, request)
+      } catch (auditError) {
+        console.error('Failed to write failed-claim audit log:', auditError)
+      }
     }
 
     // Handle common Prisma FK/unique errors gracefully (these are safe to expose)

@@ -573,6 +573,37 @@ model ViewCounterDaily {
 }
 ```
 
+### AuditLog
+
+Durable security-event audit trail for account linking and purchase claims.
+
+```prisma
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String   // No FK to User — intentional: records survive account deletion
+  action    String
+  details   Json
+  ip        String?  // PII (GDPR/CCPA) — requires retention policy & privacy disclosure
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+```
+
+**Design decisions:**
+
+- **No `User` foreign key** — intentional. Audit records must be preserved even when a
+  user account is deleted (forensic integrity). All other models use `onDelete: Cascade`
+  or `onDelete: SetNull`; `AuditLog` is the deliberate exception.
+- **Raw IP storage** — `ip` and `userAgent` are PII under GDPR/CCPA, retained under
+  legitimate interest (security/fraud prevention). Implement:
+  - A purge job or DB TTL removing records older than your retention period (e.g. 90 days).
+  - Anonymisation of `ip`/`userAgent` columns when processing user erasure requests.
+  - A privacy policy entry documenting this processing.
+
 ## Key Relationships
 
 ### Content Ownership

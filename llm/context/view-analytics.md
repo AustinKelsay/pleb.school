@@ -45,50 +45,66 @@ model ViewCounterDaily {
 
 ### POST /api/views
 
-Increment view count for content.
+Increment view count for a validated key.
 
 ```typescript
-// Request
+// Request (must provide key OR ns+id)
 {
-  contentId: string
-  contentType: 'resource' | 'course'
+  key?: "views:content:abc123" | "views:path:/content/abc123"
+  ns?: string
+  id?: string
 }
 
 // Response
 {
-  success: true,
+  key: "views:content:abc123",
   count: 42
 }
 ```
+
+Security hardening:
+- Rate limited per client (`429` on abuse)
+- Rejects invalid or unbounded key formats (`400`)
 
 ### GET /api/views
 
-Get view count for content.
+Get view count for a validated key.
 
 ```typescript
-// Query params
-?contentId=xxx&contentType=resource
+// Query params (must provide key OR ns+id)
+?key=views:content:abc123
+// or
+?ns=content&id=abc123
 
 // Response
 {
+  key: "views:content:abc123",
   count: 42
 }
 ```
 
-### POST /api/views/flush
+Security hardening:
+- Rate limited per client (`429` on abuse)
+- Rejects invalid key formats (`400`)
 
-Admin endpoint to flush KV counts to database.
+### POST/GET /api/views/flush
+
+Protected endpoint to flush KV counts to database.
 
 ```typescript
-// Request (admin only)
-{}
+// Production auth
+Authorization: Bearer ${VIEWS_CRON_SECRET}
 
 // Response
 {
-  success: true,
-  flushed: 5  // Number of keys flushed
+  flushedTotals: 5,
+  flushedDaily: 12
 }
 ```
+
+Security hardening:
+- Fails closed in production if `VIEWS_CRON_SECRET` is unset
+- No longer trusts `x-vercel-cron` header by itself
 
 ## useViews Hook
 
@@ -115,9 +131,12 @@ function ContentPage({ contentId }) {
 ## Key Format
 
 ```typescript
-// Pattern: {namespace}:{entityId}
-'resource:f538f5c5-1a72-4804-8eb1-3f05cea64874'
-'course:a1b2c3d4-5678-90ab-cdef-1234567890ab'
+// Pattern: views:{namespace}:{entityId}
+"views:content:f538f5c5-1a72-4804-8eb1-3f05cea64874"
+"views:course:welcome-to-pleb-school"
+
+// Path variant
+"views:path:/content/f538f5c5-1a72-4804-8eb1-3f05cea64874"
 ```
 
 ## KV Operations
@@ -206,9 +225,12 @@ if (hasKV) {
 ## Environment Variables
 
 ```env
-# Vercel KV (optional, enables hybrid caching)
+# Vercel KV (required in production)
 KV_REST_API_URL=https://xxx.kv.vercel-storage.com
 KV_REST_API_TOKEN=your-token
+
+# Flush endpoint auth (required in production)
+VIEWS_CRON_SECRET=strong-random-secret
 ```
 
 ## Daily Analytics

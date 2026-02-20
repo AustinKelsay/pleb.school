@@ -233,7 +233,7 @@ Production gating is defined in `.github/workflows/deploy-gate.yml`.
 | `ALLOWED_ORIGINS` | No | CORS allowed origins (comma-separated) |
 | `KV_REST_API_URL` | Yes (production) | Vercel KV endpoint for distributed rate limiting and view counters |
 | `KV_REST_API_TOKEN` | Yes (production) | Vercel KV token for distributed rate limiting and view counters |
-| `VIEWS_CRON_SECRET` | No | View counter flush auth |
+| `VIEWS_CRON_SECRET` | Yes (production) | Secret used for `/api/views/flush` authorization (Bearer token) |
 | `NEXT_PUBLIC_ENABLE_REMOTE_FONTS` | No | Runtime remote font loading toggle (`true`/`false`). Default: `false` in production, `true` in dev/test |
 
 ## Tech Stack
@@ -258,9 +258,9 @@ import { ViewsText } from '@/components/ui/views-text'
 <ViewsText ns="content" id={resourceId} />
 ```
 
-- `POST /api/views` — increment
-- `GET /api/views?key=...` — read
-- `GET /api/views/flush` — KV to Postgres (cron)
+- `POST /api/views` — increment (key format validation + rate limited)
+- `GET /api/views?key=...` — read (key format validation + rate limited)
+- `GET /api/views/flush` — KV to Postgres (cron; requires `Authorization: Bearer $VIEWS_CRON_SECRET` in production)
 
 ## Documentation
 

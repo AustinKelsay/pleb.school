@@ -9,6 +9,7 @@ import { useSnstrContext } from '@/contexts/snstr-context'
 import { Lesson, Resource } from '@/data/types'
 import { useResourceNotes } from './useResourceNotes'
 import { NostrEvent, RelayPool } from 'snstr'
+import logger from '@/lib/logger'
 
 // Types for enhanced lesson data with resource information
 export interface ResourceWithNote extends Resource {
@@ -104,7 +105,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
     return []
   }
 
-  console.log(`Fetching ${lessons.length} lessons for course ${courseId}`);
+  logger.debug('Fetching lessons for course', { courseId, count: lessons.length })
   
   // Get all resource IDs from lessons that have them
   const resourceIds = lessons
@@ -133,7 +134,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
   // Fetch missing notes in batch if any
   if (resourceIdsForNotes.length > 0) {
     try {
-      console.log(`Fetching ${resourceIdsForNotes.length} lesson resource notes from real Nostr relays`)
+      logger.debug('Fetching lesson resource notes from Nostr', { count: resourceIdsForNotes.length })
       
       const notes = await relayPool.querySync(
         relays,
@@ -141,7 +142,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
         { timeout: 10000 }
       )
       
-      console.log(`Successfully fetched ${notes.length} lesson resource notes from real Nostr`)
+      logger.debug('Fetched lesson resource notes from Nostr', { count: notes.length })
       
       const notesMap = new Map<string, NostrEvent>()
       notes.forEach(note => {
@@ -221,7 +222,7 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
       }
       const data = await response.json()
       const lessons = data.lessons || []
-      console.log(`Fetching ${lessons.length} lessons for course ${courseId}`)
+      logger.debug('Fetched lessons from API', { courseId, count: lessons.length })
       return lessons
     },
     enabled: enabled && !!courseId,

@@ -8,6 +8,7 @@ import { PaginationOptions } from '@/lib/db-adapter'
 import { useSnstrContext } from '@/contexts/snstr-context'
 import { Course, Lesson, Resource } from '@/data/types'
 import { NostrEvent, RelayPool } from 'snstr'
+import logger from '@/lib/logger'
 
 // Types for enhanced course data
 export interface CourseWithNote extends Course {
@@ -149,7 +150,7 @@ export async function fetchLessonWithDetails(
 
   if (idsToFetch.length > 0) {
     try {
-      console.log(`Fetching ${idsToFetch.length} notes for lesson using real Nostr data`)
+      logger.debug('Fetching lesson notes from Nostr', { count: idsToFetch.length })
       
       const notes = await relayPool.querySync(
         relays,
@@ -157,7 +158,7 @@ export async function fetchLessonWithDetails(
         { timeout: 5000 } // Reduced timeout for faster failures
       )
       
-      console.log(`Successfully fetched ${notes.length} notes for lesson from real Nostr`)
+      logger.debug('Fetched lesson notes from Nostr', { count: notes.length })
       
       const notesMap = new Map<string, NostrEvent>()
       notes.forEach(note => {
@@ -273,7 +274,7 @@ export async function fetchCoursesWithNotes(
   const courses = responseData.data || responseData.courses || []
   const pagination = responseData.pagination
     
-    console.log("courses", courses);
+    logger.debug('Fetched course list from API', { count: courses.length })
     
     // Extract all course IDs for 'd' tag queries
     const courseIds = courses.map((course: any) => course.id)
@@ -285,7 +286,7 @@ export async function fetchCoursesWithNotes(
       }
     }
 
-    console.log(`Fetching ${courseIds.length} course notes from real Nostr relays using 'd' tags:`, courseIds);
+    logger.debug("Fetching course notes from Nostr by 'd' tags", { count: courseIds.length })
     
     // Fetch all notes at once using RelayPool's querySync method with 'd' tag queries
     let notes: NostrEvent[] = []
@@ -297,7 +298,7 @@ export async function fetchCoursesWithNotes(
         { "#d": courseIds, kinds: [30004, 30023, 30402] }, // Query by 'd' tag for course list and content events
         { timeout: 5000 } // Reduced timeout for faster failures
       )
-      console.log(`Successfully fetched ${notes.length} course notes from real Nostr`);
+      logger.debug('Fetched course notes from Nostr', { count: notes.length })
     } catch (error) {
       console.error('Failed to fetch course notes from real Nostr:', error)
       noteError = error instanceof Error ? error.message : 'Failed to fetch notes'
@@ -366,7 +367,7 @@ export async function fetchCourseWithLessons(courseId: string, relayPool: RelayP
   // Fetch notes by 'd' tag in one batch query
   if (idsToFetch.length > 0) {
     try {
-      console.log(`Fetching ${idsToFetch.length} notes from real Nostr relays for course`)
+      logger.debug('Fetching course + lesson notes from Nostr', { count: idsToFetch.length })
       
       const notes = await relayPool.querySync(
         relays,
@@ -374,7 +375,7 @@ export async function fetchCourseWithLessons(courseId: string, relayPool: RelayP
         { timeout: 5000 } // Reduced timeout for faster failures
       )
       
-      console.log(`Successfully fetched ${notes.length} notes from real Nostr for course`)
+      logger.debug('Fetched course + lesson notes from Nostr', { count: notes.length })
       
       const notesMap = new Map<string, NostrEvent>()
       notes.forEach(note => {
@@ -504,6 +505,5 @@ export function useCoursesQuery(options: UseCoursesQueryOptions = {}): CoursesQu
     refetch: query.refetch,
   }
 }
-
 
 

@@ -210,8 +210,9 @@ function SearchContent() {
                       item={item}
                       searchKeyword={searchQuery}
                       onTagClick={(tag) => {
-                        // Handle tag click for filtering if needed
-                        console.log('Tag clicked:', tag)
+                        // Handle tag click for filtering if needed.
+                        // Intentionally left as no-op until tag-based filtering is implemented.
+                        void tag
                       }}
                     />
                   ))}

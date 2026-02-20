@@ -275,35 +275,43 @@ Per-IP blocks single attackers (5/hour); global caps total throughput for distri
 
 ```typescript
 // src/lib/audit-logger.ts
-import { logger } from './logger'
+// auditLog never throws — DB failures are caught and logged to stderr so they
+// never abort the operation being audited.
+export async function auditLog(
+  userId: string,
+  action: AuditAction,
+  details: Record<string, unknown>,
+  request?: Request
+): Promise<void> {
+  // IP extracted from x-forwarded-for (proxy-appended) then x-real-ip fallback.
+  // Requires a trusted reverse proxy (nginx, Cloudflare, etc.) in production;
+  // without one, clients can spoof these headers.
+  const ip = request?.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request?.headers.get('x-real-ip')
+    || 'unknown'
 
-export function logSecurityEvent(event: {
-  action: string
-  userId?: string
-  pubkey?: string
-  ip?: string
-  details?: Record<string, any>
-}) {
-  logger.info({
-    type: 'security',
-    ...event,
-    timestamp: new Date().toISOString()
-  })
+  try {
+    await prisma.auditLog.create({
+      data: { userId, action, details, ip, userAgent: request?.headers.get('user-agent') }
+    })
+  } catch (err) {
+    // Log to stderr but never re-throw — audit failures must not break callers.
+    logger.error('Failed to persist audit log event', { userId, action, error: err })
+  }
 }
 
 // Usage
-logSecurityEvent({
-  action: 'login_failed',
-  pubkey: pubkey,
-  details: { reason: 'invalid_signature' }
-})
-
-logSecurityEvent({
-  action: 'purchase_claimed',
-  userId: session.user.id,
-  details: { resourceId, amountPaid }
-})
+await auditLog(session.user.id, 'purchase.claim', { resourceId, amountPaid }, request)
 ```
+
+> **PII notice:** `ip` and `userAgent` are personal data under GDPR/CCPA, stored under
+> legitimate-interest (security/fraud prevention). Ensure:
+> - A retention/purge job deletes records older than your policy period (e.g. 90 days).
+> - User deletion requests trigger anonymisation of `ip`/`userAgent` in these rows.
+> - The legal basis is documented in your privacy policy.
+>
+> **Sensitive data:** Never include passwords, tokens, API keys, or raw user input in
+> the `details` argument. Log only safe metadata (e.g. provider name, content ID).
 
 ### Logged Events
 
@@ -317,6 +325,8 @@ logSecurityEvent({
 | `purchase_failed` | userId, contentId, reason |
 | `content_published` | userId, contentId, type |
 | `admin_action` | adminId, action, target |
+
+The `AuditLog` database table provides a durable trail even if application logs rotate or are dropped.
 
 ## Error Handling
 

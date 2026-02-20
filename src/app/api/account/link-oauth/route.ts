@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Audit log OAuth link initiation
-      auditLog(session.user.id, 'account.link.initiate', {
+      await auditLog(session.user.id, 'account.link.initiate', {
         provider: 'github'
       }, request)
 

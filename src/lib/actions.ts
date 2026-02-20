@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import logger from '@/lib/logger'
 
 /**
  * Server action for handling course enrollment
@@ -33,7 +34,7 @@ export async function enrollInCourse(formData: FormData) {
     await new Promise(resolve => setTimeout(resolve, 1000))
     
     // In a real app, you'd save to database
-    console.log(`Enrolling ${userEmail} in course ${courseId}`)
+    logger.debug('Enrolling user in course')
 
     // Revalidate the courses page to show updated data
     revalidatePath('/courses')
@@ -69,7 +70,7 @@ export async function subscribeToNewsletter(formData: FormData) {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500))
     
-    console.log(`Subscribing ${email} to newsletter`)
+    logger.debug('Subscribing user to newsletter')
 
     // Redirect to success page
     redirect('/newsletter-success')
@@ -157,7 +158,7 @@ export async function rateCourse(formData: FormData) {
     // Simulate database operation
     await new Promise(resolve => setTimeout(resolve, 800))
     
-    console.log(`Rating course ${courseId}: ${rating}/5 - ${comment}`)
+    logger.debug('Submitting course rating')
 
     // Revalidate specific course page
     revalidatePath(`/courses/${courseId}`)

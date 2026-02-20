@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSnstrContext } from '@/contexts/snstr-context'
 import { NostrEvent, RelayPool } from 'snstr'
+import logger from '@/lib/logger'
 
 // Types for enhanced resource note data
 export interface ResourceNoteResult {
@@ -56,7 +57,7 @@ export async function fetchResourceNotesBatch(
     return results
   }
 
-  console.log(`[ResourceNotes] Fetching ${validResourceIds.length} resource notes in unified batch:`, validResourceIds)
+  logger.debug('[ResourceNotes] Fetching resource notes batch', { count: validResourceIds.length })
 
   try {
     const notes = await relayPool.querySync(
@@ -65,7 +66,7 @@ export async function fetchResourceNotesBatch(
       { timeout: 5000 } // Reduced timeout for faster failures
     )
 
-    console.log(`[ResourceNotes] Successfully fetched ${notes.length} resource notes`)
+    logger.debug('[ResourceNotes] Successfully fetched resource notes', { count: notes.length })
 
     // Create a map for O(1) lookup of notes by ID
     const notesMap = new Map<string, NostrEvent>()
