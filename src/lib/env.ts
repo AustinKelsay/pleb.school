@@ -91,16 +91,6 @@ export function getEnv(): RuntimeEnv {
     issues.push("PRIVKEY_ENCRYPTION_KEY must be a 32-byte key in hex (64 chars) or base64 format.")
   }
 
-  if (env.NODE_ENV === "production") {
-    if (!env.DATABASE_URL) issues.push("DATABASE_URL is required in production.")
-    if (!env.NEXTAUTH_SECRET) issues.push("NEXTAUTH_SECRET is required in production.")
-    if (!env.NEXTAUTH_URL) issues.push("NEXTAUTH_URL is required in production.")
-    if (!env.PRIVKEY_ENCRYPTION_KEY) issues.push("PRIVKEY_ENCRYPTION_KEY is required in production.")
-    if (!env.KV_REST_API_URL) issues.push("KV_REST_API_URL is required in production.")
-    if (!env.KV_REST_API_TOKEN) issues.push("KV_REST_API_TOKEN is required in production.")
-    if (!env.VIEWS_CRON_SECRET) issues.push("VIEWS_CRON_SECRET is required in production.")
-  }
-
   if (issues.length > 0) {
     throw new Error(`Environment validation failed:\n- ${issues.join("\n- ")}`)
   }
@@ -108,4 +98,3 @@ export function getEnv(): RuntimeEnv {
   cachedEnv = env
   return env
 }
-

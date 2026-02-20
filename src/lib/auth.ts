@@ -83,10 +83,6 @@ import { normalizeHexPubkey } from './nostr-keys'
 import logger from './logger'
 import { createTransport } from 'nodemailer'
 import crypto from 'crypto'
-import { getEnv } from './env'
-
-// Validate critical production env at module load so auth misconfigurations fail fast.
-getEnv()
 
 /**
  * Verify NIP07 public key format

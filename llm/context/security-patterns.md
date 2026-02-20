@@ -450,14 +450,8 @@ DATABASE_URL=...
 
 Runtime validation:
 
-- `src/lib/env.ts` validates critical environment variables and throws on invalid production configuration.
-- Production fail-fast requirements include:
-  - `DATABASE_URL`
-  - `NEXTAUTH_SECRET`
-  - `NEXTAUTH_URL` (absolute URL)
-  - `PRIVKEY_ENCRYPTION_KEY` (valid 32-byte hex/base64)
-  - `KV_REST_API_URL` + `KV_REST_API_TOKEN`
-  - `VIEWS_CRON_SECRET`
+- `src/lib/env.ts` performs normalized parsing and format validation (for example URL/key shape checks).
+- Required/critical vars are enforced by the modules/endpoints that use them (fail-closed at runtime), avoiding build-time failures from unrelated routes.
 
 **Safe for config files** (client-visible):
 
