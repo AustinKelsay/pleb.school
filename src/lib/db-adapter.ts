@@ -125,6 +125,46 @@ export class PurchaseAdapter {
   }
 }
 
+// ============================================================================
+// AUDIT LOG ADAPTER
+// ============================================================================
+
+/**
+ * Input shape for persisting an audit log entry.
+ * Mirrors the persisted fields (userId, action, details, ip, userAgent).
+ */
+export interface AuditLogCreateInput {
+  userId: string
+  action: string
+  details: Prisma.InputJsonValue
+  ip?: string | null
+  userAgent?: string | null
+}
+
+/**
+ * Adapter for persisting audit logs.
+ * Centralizes AuditLog writes so callers (e.g. audit-logger) never access Prisma directly.
+ */
+export class AuditLogAdapter {
+  /**
+   * Persist an audit event to the database.
+   * Caller is responsible for error handling (e.g. audit logging should never throw).
+   *
+   * @param input - The audit event data to persist
+   */
+  static async create(input: AuditLogCreateInput): Promise<void> {
+    await prisma.auditLog.create({
+      data: {
+        userId: input.userId,
+        action: input.action,
+        details: input.details,
+        ip: input.ip ?? null,
+        userAgent: input.userAgent ?? null,
+      },
+    })
+  }
+}
+
 // Pagination options for query functions
 export interface PaginationOptions {
   page?: number

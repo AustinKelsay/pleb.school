@@ -43,8 +43,8 @@ describe("auditLog", () => {
         userId: "user-123",
         action: "account.unlink",
         details: { provider: "github", success: true },
-        ip: undefined,
-        userAgent: undefined,
+        ip: null,
+        userAgent: null,
       },
     })
     expect(mockLoggerInfo).toHaveBeenCalled()
@@ -65,8 +65,8 @@ describe("auditLog", () => {
           count: "42",
           self: "[Circular]",
         },
-        ip: undefined,
-        userAgent: undefined,
+        ip: null,
+        userAgent: null,
       },
     })
   })

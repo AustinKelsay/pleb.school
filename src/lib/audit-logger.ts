@@ -13,7 +13,7 @@
  * See: llm/context/api-patterns.md
  */
 
-import { prisma } from "@/lib/prisma"
+import { AuditLogAdapter } from "@/lib/db-adapter"
 import logger from "@/lib/logger"
 import type { Prisma } from "@/generated/prisma"
 
@@ -110,14 +110,12 @@ export async function auditLog(
   // Persist to database for a durable audit trail.
   // Wrap in try/catch - audit logging must never throw.
   try {
-    await prisma.auditLog.create({
-      data: {
-        userId: event.userId,
-        action: event.action,
-        details: event.details as Prisma.InputJsonValue,
-        ip: event.ip,
-        userAgent: event.userAgent,
-      },
+    await AuditLogAdapter.create({
+      userId: event.userId,
+      action: event.action,
+      details: event.details as Prisma.InputJsonValue,
+      ip: event.ip,
+      userAgent: event.userAgent,
     })
   } catch (err) {
     logger.error("Failed to persist audit log event", {

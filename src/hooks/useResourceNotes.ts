@@ -3,10 +3,10 @@
  * Eliminates redundant queries across multiple hooks by providing a shared cache
  */
 
-import { useQuery } from '@tanstack/react-query'
-import { useSnstrContext } from '@/contexts/snstr-context'
-import { NostrEvent, RelayPool } from 'snstr'
-import logger from '@/lib/logger'
+import { useQuery } from "@tanstack/react-query"
+import { NostrEvent, RelayPool } from "snstr"
+import { useSnstrContext } from "@/contexts/snstr-context"
+import logger from "@/lib/logger"
 
 // Types for enhanced resource note data
 export interface ResourceNoteResult {
@@ -24,8 +24,8 @@ export interface ResourceNotesQueryResult {
 
 // Query keys factory for better cache management
 export const resourceNotesQueryKeys = {
-  all: ['resource-notes'] as const,
-  batch: (resourceIds: string[]) => [...resourceNotesQueryKeys.all, 'batch', resourceIds.sort().join(',')] as const,
+  all: ["resource-notes"] as const,
+  batch: (resourceIds: string[]) => [...resourceNotesQueryKeys.all, "batch", resourceIds.sort().join(",")] as const,
 }
 
 // Options for the hook
@@ -57,7 +57,7 @@ export async function fetchResourceNotesBatch(
     return results
   }
 
-  logger.debug('[ResourceNotes] Fetching resource notes batch', { count: validResourceIds.length })
+  logger.debug("[ResourceNotes] Fetching resource notes batch", { count: validResourceIds.length })
 
   try {
     const notes = await relayPool.querySync(
@@ -66,12 +66,12 @@ export async function fetchResourceNotesBatch(
       { timeout: 5000 } // Reduced timeout for faster failures
     )
 
-    logger.debug('[ResourceNotes] Successfully fetched resource notes', { count: notes.length })
+    logger.debug("[ResourceNotes] Successfully fetched resource notes", { count: notes.length })
 
     // Create a map for O(1) lookup of notes by ID
     const notesMap = new Map<string, NostrEvent>()
     notes.forEach(note => {
-      const dTag = note.tags.find(tag => tag[0] === 'd')
+      const dTag = note.tags.find(tag => tag[0] === "d")
       if (dTag && dTag[1]) {
         notesMap.set(dTag[1], note)
       }
@@ -82,14 +82,14 @@ export async function fetchResourceNotesBatch(
       const note = notesMap.get(resourceId)
       results.set(resourceId, {
         note,
-        noteError: !note ? 'Note not found' : undefined,
+        noteError: !note ? "Note not found" : undefined,
       })
     })
 
     return results
   } catch (error) {
-    console.error('[ResourceNotes] Failed to fetch resource notes in batch:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch notes'
+    console.error("[ResourceNotes] Failed to fetch resource notes in batch:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to fetch notes"
     
     // Set error for all requested IDs
     validResourceIds.forEach(resourceId => {
@@ -180,7 +180,7 @@ export function useResourceNote(
  */
 export function filterNotesByContentType(
   notes: Map<string, ResourceNoteResult>,
-  contentType: 'video' | 'document'
+  contentType: "video" | "document"
 ): Map<string, ResourceNoteResult> {
   const filtered = new Map<string, ResourceNoteResult>()
   
@@ -190,7 +190,7 @@ export function filterNotesByContentType(
     }
     
     const hasContentType = noteResult.note.tags.some(
-      tag => tag[0] === 't' && tag[1] === contentType
+      tag => tag[0] === "t" && tag[1] === contentType
     )
     
     if (hasContentType) {

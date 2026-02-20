@@ -151,6 +151,23 @@ const resourcePurchases = await PurchaseAdapter.findByUserAndResource(userId, re
 const purchaseCount = await PurchaseAdapter.countByCourse(courseId)
 ```
 
+### AuditLogAdapter
+
+Responsible for persisting audit logs (security-sensitive operations). Use via `auditLog()` in `@/lib/audit-logger` — do not call the adapter directly from API routes; use the audit logger which handles normalization and error semantics (audit logging must never throw).
+
+```typescript
+import { AuditLogAdapter } from '@/lib/db-adapter'
+
+// Persist audit event (typically via auditLog() instead)
+await AuditLogAdapter.create({
+  userId,
+  action: 'purchase.claim',
+  details: { resourceId, amountPaid },
+  ip: request?.headers.get('x-forwarded-for'),
+  userAgent: request?.headers.get('user-agent'),
+})
+```
+
 ## Nostr Event Hydration
 
 Database stores metadata (price, userId, timestamps); Nostr stores content (title, description, image). The `findByIdWithNote` methods fetch Nostr events **client-side only** - on the server they return `note: null`.

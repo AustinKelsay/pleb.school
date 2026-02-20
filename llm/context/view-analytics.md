@@ -20,10 +20,10 @@ PostgreSQL (persistence)
 
 ```prisma
 model ViewCounterTotal {
-  key       String   @id        // "resource:uuid" or "course:uuid"
-  namespace String              // "resource" or "course"
-  entityId  String?             // UUID of content
-  path      String?             // URL path (optional)
+  key       String   @id        // views:{namespace}:{entityId} or views:path:/...
+  namespace String              // "content", "course", "lesson", "path"
+  entityId  String?             // entity ID (for ns-based keys)
+  path      String?             // URL path (for views:path: variant)
   total     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -31,7 +31,7 @@ model ViewCounterTotal {
 
 model ViewCounterDaily {
   id        String   @id @default(cuid())
-  key       String              // Same as ViewCounterTotal.key
+  key       String              // Same as ViewCounterTotal.key (views:ns:id or views:path:...)
   day       DateTime            // Date truncated to day
   count     Int      @default(0)
   createdAt DateTime @default(now())
@@ -240,7 +240,7 @@ Query daily view data:
 ```typescript
 const dailyViews = await prisma.viewCounterDaily.findMany({
   where: {
-    key: `resource:${resourceId}`,
+    key: `views:content:${resourceId}`,
     day: {
       gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
     }
