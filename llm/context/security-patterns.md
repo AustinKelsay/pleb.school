@@ -448,6 +448,17 @@ KV_REST_API_TOKEN=...
 DATABASE_URL=...
 ```
 
+Runtime validation:
+
+- `src/lib/env.ts` validates critical environment variables and throws on invalid production configuration.
+- Production fail-fast requirements include:
+  - `DATABASE_URL`
+  - `NEXTAUTH_SECRET`
+  - `NEXTAUTH_URL` (absolute URL)
+  - `PRIVKEY_ENCRYPTION_KEY` (valid 32-byte hex/base64)
+  - `KV_REST_API_URL` + `KV_REST_API_TOKEN`
+  - `VIEWS_CRON_SECRET`
+
 **Safe for config files** (client-visible):
 
 ```json

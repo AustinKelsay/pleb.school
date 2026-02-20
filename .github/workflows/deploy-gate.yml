@@ -21,6 +21,20 @@ jobs:
     name: quality-gates
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: plebschool_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d plebschool_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
       CI: "true"
       NEXTAUTH_URL: "http://localhost:3000"
@@ -28,7 +42,11 @@ jobs:
       PRIVKEY_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       GITHUB_CLIENT_ID: "ci-github-client-id"
       GITHUB_CLIENT_SECRET: "ci-github-client-secret"
-      DATABASE_URL: "postgresql://placeholder:placeholder@db:5432/placeholder"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/plebschool_ci?schema=public"
+      RUN_DB_TESTS: "true"
+      KV_REST_API_URL: "https://example-kv-url.invalid"
+      KV_REST_API_TOKEN: "ci-kv-token-not-for-production"
+      VIEWS_CRON_SECRET: "ci-views-cron-secret-not-for-production"
       NEXT_PUBLIC_ENABLE_REMOTE_FONTS: "false"
     steps:
       - name: Checkout
@@ -42,6 +60,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Apply database migrations
+        run: npm run ci:migrate:deploy
 
       - name: Run release quality gates
         run: npm run ci:gate

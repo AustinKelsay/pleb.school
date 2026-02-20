@@ -46,6 +46,7 @@ Production release order should be:
 5. `npx prisma migrate deploy`
 
 This repository’s deploy workflow (`.github/workflows/deploy-gate.yml`) enforces this sequence so migrations run only after all quality gates pass.
+The `quality-gates` job also provisions an ephemeral Postgres service, applies migrations with `prisma migrate deploy`, and runs DB integration tests as part of `npm run ci:gate`.
 In development, migration deploy is intentionally opt-in and runs only when repository variable `ENABLE_PROD_MIGRATIONS` is set to `true`.
 
 Production cutover checklist:

@@ -196,6 +196,7 @@ Production gating is defined in `.github/workflows/deploy-gate.yml`.
 - On pull requests to `main`: runs `npm run ci:gate` and blocks merge when checks fail.
 - On pushes to `main`: runs the same quality gate first, then runs `npm run ci:migrate:deploy`.
 - Migration deploy runs only after the quality gate succeeds.
+- The `quality-gates` job provisions a temporary Postgres service, runs `prisma migrate deploy`, then executes the full gate (including DB integration tests).
 
 ### GitHub setup requirements
 
@@ -235,6 +236,8 @@ Production gating is defined in `.github/workflows/deploy-gate.yml`.
 | `KV_REST_API_TOKEN` | Yes (production) | Vercel KV token for distributed rate limiting and view counters |
 | `VIEWS_CRON_SECRET` | Yes (production) | Secret used for `/api/views/flush` authorization (Bearer token) |
 | `NEXT_PUBLIC_ENABLE_REMOTE_FONTS` | No | Runtime remote font loading toggle (`true`/`false`). Default: `false` in production, `true` in dev/test |
+| `MAX_RECEIPT_AGE_MS` | No | Override zap receipt max age in milliseconds for purchase claim validation |
+| `NEXT_PUBLIC_MIN_ZAP_SATS` | No | Override minimum sats enforced in purchase dialog |
 
 ## Tech Stack
 
@@ -261,6 +264,7 @@ import { ViewsText } from '@/components/ui/views-text'
 - `POST /api/views` — increment (key format validation + rate limited)
 - `GET /api/views?key=...` — read (key format validation + rate limited)
 - `GET /api/views/flush` — KV to Postgres (cron; requires `Authorization: Bearer $VIEWS_CRON_SECRET` in production)
+- `GET /sitemap.xml` — runtime-generated (dynamic) and includes DB-backed course/resource URLs when available
 
 ## Documentation
 
