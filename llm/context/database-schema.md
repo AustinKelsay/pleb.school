@@ -278,6 +278,8 @@ model Draft {
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
 }
 ```
 
@@ -301,6 +303,8 @@ model CourseDraft {
 
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
 }
 ```
 
@@ -363,6 +367,7 @@ model Purchase {
   @@unique([userId, resourceId])
   @@index([userId])
   @@index([userId, createdAt])
+  @@index([createdAt])
 }
 ```
 
@@ -388,6 +393,7 @@ model UserLesson {
   updatedAt   DateTime  @updatedAt
 
   @@unique([userId, lessonId])
+  @@index([userId])
   @@index([lessonId])
 }
 ```

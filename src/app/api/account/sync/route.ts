@@ -103,16 +103,32 @@ async function invalidateAccountTokens(accountId: string) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
-    
-    const body = await request.json()
-    const { provider } = body
+
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      )
+    }
+
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: 'Invalid request body: expected object' },
+        { status: 400 }
+      )
+    }
+
+    const { provider } = body as { provider?: string }
     
     if (!provider) {
       return NextResponse.json(

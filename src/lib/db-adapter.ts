@@ -145,15 +145,11 @@ export interface ResourceWithNote extends Resource {
 
 // Helper function to fetch Nostr event from relays
 async function fetchNostrEvent(noteId: string | null): Promise<NostrEvent | undefined> {
-  if (!noteId) return undefined
+  const trimmedNoteId = noteId?.trim()
+  if (!trimmedNoteId) return undefined
   
   try {
-    // Only fetch on client side
-    if (typeof window === 'undefined') {
-      return undefined
-    }
-    
-    const event = await NostrFetchService.fetchEventById(noteId)
+    const event = await NostrFetchService.fetchEventById(trimmedNoteId)
     return event || undefined
   } catch (error) {
     console.error('Error fetching Nostr event:', error)
@@ -539,6 +535,22 @@ export class LessonAdapter {
       orderBy: { index: 'asc' }
     })
     return lessons.map(transformLesson)
+  }
+
+  /**
+   * Find lessons by course ID with their associated resources included
+   * Avoids N+1 queries by fetching resources in a single query
+   */
+  static async findByCourseIdWithResources(courseId: string): Promise<(Lesson & { resource?: Resource })[]> {
+    const lessons = await prisma.lesson.findMany({
+      where: { courseId },
+      include: { resource: true },
+      orderBy: { index: 'asc' }
+    })
+    return lessons.map(lesson => ({
+      ...transformLesson(lesson),
+      resource: lesson.resource ? transformResource(lesson.resource) : undefined
+    }))
   }
 
   /**

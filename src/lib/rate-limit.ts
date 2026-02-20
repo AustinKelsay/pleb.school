@@ -18,43 +18,54 @@ type RateLimitResult = {
   resetIn: number // seconds until reset
 }
 
+type RateLimitOptions = {
+  /**
+   * If true, allow requests when KV is unavailable (fail-open).
+   * Use for non-security-critical paths. Default: false (fail-closed).
+   */
+  failOpen?: boolean
+}
+
 /**
  * Check and increment rate limit counter
  *
  * @param key - Unique identifier for the rate limit (e.g., "verify-email:abc123")
  * @param limit - Maximum allowed requests in the window
  * @param windowSeconds - Time window in seconds
+ * @param options - Optional configuration (e.g., failOpen for non-critical paths)
  * @returns Result with success status, remaining attempts, and reset time
  */
 export async function checkRateLimit(
   key: string,
   limit: number,
-  windowSeconds: number
+  windowSeconds: number,
+  options?: RateLimitOptions
 ): Promise<RateLimitResult> {
   const now = Math.floor(Date.now() / 1000)
   const windowKey = `ratelimit:${key}`
 
   if (hasKV) {
-    return checkRateLimitKV(windowKey, limit, windowSeconds, now)
+    return checkRateLimitKV(windowKey, limit, windowSeconds, now, options)
   }
   return checkRateLimitMemory(windowKey, limit, windowSeconds, now)
 }
 
 /**
  * Check rate limit using atomic Lua script
- * 
+ *
  * Uses a single Redis transaction to:
  * 1. Increment the counter
  * 2. Check TTL
  * 3. Set expiry if missing (handles both first request and recovery from failures)
- * 
+ *
  * This eliminates race conditions and ensures keys always have TTL set.
  */
 async function checkRateLimitKV(
   key: string,
   limit: number,
   windowSeconds: number,
-  now: number
+  now: number,
+  options?: RateLimitOptions
 ): Promise<RateLimitResult> {
   try {
     // Atomic Lua script: INCR + conditional EXPIRE in single operation
@@ -62,14 +73,14 @@ async function checkRateLimitKV(
       `
       local count = redis.call('INCR', KEYS[1])
       local ttl = redis.call('TTL', KEYS[1])
-      
+
       -- Set expiry if missing (ttl < 0 means no TTL or key doesn't exist)
       -- Handles both first request AND recovery from failed expire calls
       if ttl < 0 then
         redis.call('EXPIRE', KEYS[1], ARGV[1])
         ttl = tonumber(ARGV[1])
       end
-      
+
       return {count, ttl}
       `,
       [key], // KEYS array
@@ -84,9 +95,17 @@ async function checkRateLimitKV(
       resetIn: ttl
     }
   } catch (error) {
+    console.error('Rate limit check failed:', error)
+    // Fail-open for non-critical paths if configured, otherwise fail-closed
+    if (options?.failOpen) {
+      return {
+        success: true,
+        remaining: limit,
+        resetIn: windowSeconds
+      }
+    }
     // Fail closed on KV errors (deny request)
     // This is critical for security-sensitive endpoints like email verification
-    console.error('Rate limit check failed:', error)
     return {
       success: false,
       remaining: 0,

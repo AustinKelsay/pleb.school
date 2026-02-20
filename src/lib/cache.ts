@@ -15,6 +15,7 @@ export interface CacheEntry<T> {
 
 export class DataCache {
   private cache = new Map<string, CacheEntry<unknown>>()
+  private inFlight = new Map<string, Promise<unknown>>()
   private maxSize: number
   protected defaultTtl: number
   private hits = 0
@@ -27,10 +28,11 @@ export class DataCache {
 
   /**
    * Get cached data or fetch from source
+   * Uses request deduplication to prevent thundering herd problem
    */
   async get<T>(
-    key: string, 
-    fetcher: () => Promise<T>, 
+    key: string,
+    fetcher: () => Promise<T>,
     ttl: number = this.defaultTtl
   ): Promise<T> {
     // Check cache first
@@ -40,15 +42,27 @@ export class DataCache {
       return cached.data as T
     }
 
+    // Check if there's already an in-flight request for this key
+    const existing = this.inFlight.get(key)
+    if (existing) {
+      return existing as Promise<T>
+    }
+
     this.misses += 1
 
-    // Fetch from source
-    const data = await fetcher()
-    
-    // Store in cache
-    this.set(key, data, ttl)
-    
-    return data
+    // Create promise and track it to deduplicate concurrent requests
+    const promise = fetcher()
+      .then((data) => {
+        this.set(key, data, ttl)
+        return data
+      })
+      .finally(() => {
+        this.inFlight.delete(key)
+      })
+
+    this.inFlight.set(key, promise)
+
+    return promise
   }
 
   /**
@@ -80,9 +94,12 @@ export class DataCache {
 
   /**
    * Invalidate specific key
+   * Also clears any in-flight request to reduce (but not fully eliminate) the risk
+   * of a stale fetch repopulating the cache after invalidation.
    */
   invalidate(key: string): void {
     this.cache.delete(key)
+    this.inFlight.delete(key)
   }
 
   /**
@@ -98,9 +115,11 @@ export class DataCache {
 
   /**
    * Clear all cache entries
+   * Also clears in-flight requests to reduce stale repopulation risk.
    */
   clear(): void {
     this.cache.clear()
+    this.inFlight.clear()
     this.hits = 0
     this.misses = 0
   }

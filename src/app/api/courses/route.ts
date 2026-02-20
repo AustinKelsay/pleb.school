@@ -60,10 +60,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json();
-    
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
+    // Validate request body is an object
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: 'Request body must be a JSON object' },
+        { status: 400 }
+      );
+    }
+
     // Validate required fields
-    const { title, description, category } = body;
+    const { title, description, category } = body as Record<string, unknown>;
     if (!title || !description || !category) {
       return NextResponse.json(
         { error: 'Missing required fields: title, description, category' },

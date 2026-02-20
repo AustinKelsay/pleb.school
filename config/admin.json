@@ -44,7 +44,7 @@
     "requireAdminApproval": false,
     "enableAdminDashboard": true,
     "showAdminBadge": true,
-    "adminContactEmail": "admin@example.com"
+    "adminContactEmail": "admin@pleb.school"
   },
   "_comments": {
     "_overview": "Admin configuration - controls admin users and their permissions",

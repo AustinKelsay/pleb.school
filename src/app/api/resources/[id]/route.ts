@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { checkCourseUnlockViaLessons } from '@/lib/course-access'
+import { getAdminInfo } from '@/lib/admin-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,13 +186,9 @@ export async function PUT(
     }
 
     // Check authorization
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
-    })
-
     const isOwner = resource.userId === session.user.id
-    const isAdmin = user?.role?.admin || false
+    const adminInfo = await getAdminInfo(session)
+    const isAdmin = adminInfo.isAdmin
 
     if (!isOwner && !isAdmin) {
       return NextResponse.json(
@@ -296,13 +293,9 @@ export async function DELETE(
     }
 
     // Check authorization
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
-    })
-
     const isOwner = resource.userId === session.user.id
-    const isAdmin = user?.role?.admin || false
+    const adminInfo = await getAdminInfo(session)
+    const isAdmin = adminInfo.isAdmin
 
     if (!isOwner && !isAdmin) {
       return NextResponse.json(

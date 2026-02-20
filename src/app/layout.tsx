@@ -22,6 +22,17 @@ export const metadata: Metadata = {
   title: "pleb.school – Nostr-native course & content platform",
   description:
     "Configurable, open-source education stack for courses, videos, and docs with Nostr identity and Lightning-powered interactions.",
+  openGraph: {
+    title: "pleb.school",
+    description: "Nostr-native education platform for courses, videos, and docs with Lightning-powered interactions.",
+    type: "website",
+    siteName: "pleb.school",
+  },
+  twitter: {
+    card: "summary",
+    title: "pleb.school",
+    description: "Nostr-native education platform for courses, videos, and docs with Lightning-powered interactions.",
+  },
 };
 
 export default function RootLayout({

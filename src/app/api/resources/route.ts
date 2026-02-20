@@ -49,8 +49,19 @@ export async function GET(request: NextRequest) {
 
     const { page, pageSize, userId, includeNotes } = validationResult.data
 
-    // Build query
-    const where = userId ? { userId } : {}
+    // Build query - only allow userId filter for own resources or admins
+    let where = {}
+    if (userId) {
+      const adminInfo = await getAdminInfo(session)
+      const isOwnResources = session?.user?.id && userId === session.user.id
+      if (!isOwnResources && !adminInfo.isAdmin) {
+        return NextResponse.json(
+          { error: 'Access denied: cannot filter by other users\' resources' },
+          { status: 403 }
+        )
+      }
+      where = { userId }
+    }
     
     // Get total count
     const totalItems = await prisma.resource.count({ where })
