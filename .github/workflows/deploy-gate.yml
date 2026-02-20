@@ -1,0 +1,91 @@
+name: deploy-gate
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gates:
+    name: quality-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "ci-nextauth-secret-not-for-production"
+      PRIVKEY_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      GITHUB_CLIENT_ID: "ci-github-client-id"
+      GITHUB_CLIENT_SECRET: "ci-github-client-secret"
+      DATABASE_URL: "postgresql://placeholder:placeholder@db:5432/placeholder"
+      NEXT_PUBLIC_ENABLE_REMOTE_FONTS: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run release quality gates
+        run: npm run ci:gate
+
+  migrate-production:
+    name: migrate-production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_PROD_MIGRATIONS == 'true'
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate migration files are present
+        run: |
+          if [ ! -f prisma/migrations/migration_lock.toml ]; then
+            echo "Missing prisma/migrations/migration_lock.toml"
+            exit 1
+          fi
+          if ! ls prisma/migrations/*/migration.sql >/dev/null 2>&1; then
+            echo "No migration.sql files found in prisma/migrations"
+            exit 1
+          fi
+
+      - name: Validate DATABASE_URL secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is required for prisma migrate deploy"
+            exit 1
+          fi
+
+      - name: Run production migrations
+        run: npm run ci:migrate:deploy

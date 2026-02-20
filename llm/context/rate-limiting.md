@@ -1,6 +1,6 @@
 # Rate Limiting
 
-Sliding window rate limiting with Vercel KV (production) and in-memory fallback (development). Located in `src/lib/rate-limit.ts`.
+Sliding window rate limiting with Vercel KV (production) and in-memory fallback (non-production only). Located in `src/lib/rate-limit.ts`.
 
 ## Overview
 
@@ -102,7 +102,7 @@ return {count, ttl}
 - Handles key expiry recovery
 - Distributed across instances
 
-### In-Memory Fallback (Development)
+### In-Memory Fallback (Development/Test)
 
 Simple Map-based implementation:
 
@@ -128,7 +128,7 @@ function checkRateLimitMemory(key, limit, windowSeconds, now) {
 }
 ```
 
-**Note:** In-memory store resets on server restart and doesn't share state across instances.
+**Note:** In-memory store resets on server restart and doesn't share state across instances, so it is intentionally disabled as an implicit fallback in production.
 
 ## Configuration
 
@@ -148,6 +148,12 @@ const hasKV = Boolean(
   process.env.KV_REST_API_TOKEN
 )
 ```
+
+If `NODE_ENV=production` and KV env vars are missing:
+- The limiter **does not** fall back to memory.
+- Requests are denied by default (fail-closed).
+- A one-time configuration error is logged.
+- Callers can explicitly opt into fail-open with `checkRateLimit(..., { failOpen: true })` for non-security-critical paths.
 
 ## Key Naming Convention
 
@@ -185,6 +191,16 @@ try {
 ```
 
 This is critical for security-sensitive endpoints where bypassing rate limits could enable attacks.
+
+### Production Misconfiguration (Missing KV)
+
+In production, missing KV credentials are treated as a security misconfiguration.
+
+Behavior:
+- No implicit in-memory fallback
+- Default result: `{ success: false, remaining: 0, resetIn: windowSeconds }`
+- One-time log: "Rate limiting misconfigured..."
+- Optional explicit bypass: `failOpen: true`
 
 ### Client Handling
 

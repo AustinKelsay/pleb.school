@@ -63,6 +63,49 @@ const ImageUrlSchema = z.union([
 // Data URIs are only rendered via React's <img src>, preventing XSS execution
 ```
 
+## CORS and Preflight
+
+Cross-origin API traffic is enforced in `middleware.ts`.
+
+### Preflight Safety Pattern
+
+Preflight (`OPTIONS`) must return the same response object that receives CORS/security headers.
+Returning a brand-new `Response` drops `Access-Control-*` and security headers.
+
+```typescript
+// middleware.ts (pattern)
+const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+const isApiPreflight = isApiRoute && request.method === 'OPTIONS'
+
+const response = isApiPreflight
+  ? new NextResponse(null, { status: 200 })
+  : NextResponse.next()
+
+if (isApiRoute) {
+  applyCorsHeaders(request, response)
+  if (isApiPreflight) return response
+}
+```
+
+### CORS Rules
+
+- `ALLOWED_ORIGINS` controls allowed cross-origin origins (comma-separated).
+- If origin is allowed:
+  - `Access-Control-Allow-Origin` echoes the caller origin.
+  - `Access-Control-Allow-Credentials: true` is set.
+- If origin is not allowed:
+  - No `Access-Control-Allow-Origin` header is returned.
+  - Browser blocks the cross-origin request.
+
+### Cache Safety (`Vary`)
+
+Middleware adds:
+- `Vary: Origin`
+- `Vary: Access-Control-Request-Method`
+- `Vary: Access-Control-Request-Headers`
+
+This prevents shared caches/CDNs from reusing CORS decisions across different origins or preflight inputs.
+
 ## Cryptographic Verification
 
 ### NIP-98 Signature Verification

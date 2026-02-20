@@ -4,7 +4,7 @@ A Nostr-native course platform built with Next.js 15 and React 19. Fork this rep
 
 ## Quick Start
 
-**Prerequisites:** Node.js 18.17+, PostgreSQL (or Docker)
+**Prerequisites:** Node.js 20.19+, PostgreSQL (or Docker)
 
 ```bash
 git clone <repository-url>
@@ -163,7 +163,10 @@ See [`config/README.md`](./config/README.md) for details.
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript checks (`tsc --noEmit`) |
 | `npm run test` | Run tests (Vitest) |
+| `npm run ci:gate` | Release gate (`lint` + `typecheck` + `test` + `build`) |
+| `npm run ci:migrate:deploy` | Apply pending Prisma migrations |
 | `npx prisma generate` | Generate Prisma client |
 | `npx prisma db push` | Push schema to database |
 | `npx prisma studio` | Database browser |
@@ -186,6 +189,33 @@ docker compose up app   # Full stack
 - Callback: `http://localhost:3000/api/account/oauth-callback`
 - Set `GITHUB_LINK_CLIENT_ID` and `GITHUB_LINK_CLIENT_SECRET`
 
+## CI/CD Production Gate
+
+Production gating is defined in `.github/workflows/deploy-gate.yml`.
+
+- On pull requests to `main`: runs `npm run ci:gate` and blocks merge when checks fail.
+- On pushes to `main`: runs the same quality gate first, then runs `npm run ci:migrate:deploy`.
+- Migration deploy runs only after the quality gate succeeds.
+
+### GitHub setup requirements
+
+- Keep migration deploy disabled in dev by leaving repository variable `ENABLE_PROD_MIGRATIONS` unset (or set to `false`).
+- When you are ready for staging/production migration deploys, set repository variable `ENABLE_PROD_MIGRATIONS=true`.
+- Add repository secret `DATABASE_URL` (production/staging database URL) before enabling migration deploys.
+- Configure branch protection on `main` to require the `quality-gates` status check.
+- Keep `prisma/migrations/**` committed in git; `prisma migrate deploy` depends on checked-in migration files.
+
+### Production cutover checklist (do this later)
+
+1. Confirm release gate passes locally: `npm run ci:gate`
+2. In GitHub repo settings, add secret `DATABASE_URL` (target production DB).
+3. In GitHub repo settings, set variable `ENABLE_PROD_MIGRATIONS=true`.
+4. In branch protection for `main`, require status check `quality-gates`.
+5. Merge to `main` and verify workflow:
+   - `quality-gates` passes first
+   - `migrate-production` runs after it and succeeds
+6. If needed, disable migration deploy quickly by setting `ENABLE_PROD_MIGRATIONS=false`.
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -201,16 +231,17 @@ docker compose up app   # Full stack
 | `EMAIL_SERVER_*` | No | SMTP settings |
 | `EMAIL_FROM` | No | Sender address |
 | `ALLOWED_ORIGINS` | No | CORS allowed origins (comma-separated) |
-| `KV_REST_API_URL` | No | Vercel KV (view counters and rate limiting) |
-| `KV_REST_API_TOKEN` | No | Vercel KV (view counters and rate limiting) |
+| `KV_REST_API_URL` | Yes (production) | Vercel KV endpoint for distributed rate limiting and view counters |
+| `KV_REST_API_TOKEN` | Yes (production) | Vercel KV token for distributed rate limiting and view counters |
 | `VIEWS_CRON_SECRET` | No | View counter flush auth |
+| `NEXT_PUBLIC_ENABLE_REMOTE_FONTS` | No | Runtime remote font loading toggle (`true`/`false`). Default: `false` in production, `true` in dev/test |
 
 ## Tech Stack
 
 - **Next.js 15** with App Router
 - **React 19**
 - **TypeScript 5**
-- **Prisma 6** + PostgreSQL
+- **Prisma 7** + PostgreSQL
 - **NextAuth.js 4**
 - **TanStack Query 5**
 - **Tailwind CSS 4**

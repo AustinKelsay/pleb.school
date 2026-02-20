@@ -1,8 +1,9 @@
 /**
  * Complete theme packages for shadcn with integrated fonts, styles, and radius
  * Each theme is a complete package - no manual selection needed
- * Based on shadcn/ui theming system with Google Fonts integration
+ * Based on shadcn/ui theming system with optional runtime Google Fonts loading
  */
+import { isRemoteFontLoadingEnabled } from "./font-loading-policy"
 
 export type ThemeName = 
   | "amber-minimal"
@@ -5218,7 +5219,7 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean = false
   root.style.setProperty('--font-family', fontToUse)
   
   // Load Google Font if needed
-  if (googleFontUrl) {
+  if (googleFontUrl && isRemoteFontLoadingEnabled()) {
     loadGoogleFont(googleFontUrl)
   }
   

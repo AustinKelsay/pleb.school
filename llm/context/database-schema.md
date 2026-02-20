@@ -16,6 +16,7 @@ The database stores metadata, user data, and relationships. Content (titles, des
 ## Schema Changes and Migrations
 
 Migrations are checked into `prisma/migrations/` and provide an auditable history of schema changes.
+`prisma/migrations/**` must be version-controlled, including `migration_lock.toml`.
 
 ### Development Workflow
 
@@ -35,6 +36,25 @@ npx prisma migrate dev --name descriptive_name
 # Apply pending migrations (safe, non-interactive):
 npx prisma migrate deploy
 ```
+
+Production release order should be:
+
+1. `npm run lint`
+2. `npm run typecheck`
+3. `npm run test`
+4. `npm run build`
+5. `npx prisma migrate deploy`
+
+This repository’s deploy workflow (`.github/workflows/deploy-gate.yml`) enforces this sequence so migrations run only after all quality gates pass.
+In development, migration deploy is intentionally opt-in and runs only when repository variable `ENABLE_PROD_MIGRATIONS` is set to `true`.
+
+Production cutover checklist:
+
+1. Verify `npm run ci:gate` passes.
+2. Add GitHub Actions secret `DATABASE_URL` (production DB URL).
+3. Set GitHub Actions repository variable `ENABLE_PROD_MIGRATIONS=true`.
+4. Require `quality-gates` in branch protection on `main`.
+5. Merge to `main` and confirm `migrate-production` completes after `quality-gates`.
 
 ### When to Use `db push`
 

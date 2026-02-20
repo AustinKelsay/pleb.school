@@ -33,7 +33,7 @@ Instead of hardcoding colors, spacing, or other design tokens, we use CSS variab
 ### 3. **Complete Theme Packages**
 Each theme in our system is a **complete design package** that includes:
 - **Color Palette**: Primary, secondary, accent, background, foreground, sidebar, and semantic colors (32 CSS variables)
-- **Typography**: Font family, weights, and Google Fonts URL
+- **Typography**: Font family, weights, and optional Google Fonts URL
 - **Border Radius**: Consistent corner rounding via `borderRadius` property
 - **Style Variant**: Default or New York shadcn style
 - **Dark Mode Support**: Separate color sets for light and dark modes
@@ -72,7 +72,7 @@ When creating new components:
 ### 1. **Theme Configuration** (`src/lib/theme-config.ts`)
 Contains 67 complete theme definitions, each with:
 - Light and dark color schemes (32 OKLCh color variables each)
-- Associated font configuration with Google Fonts URL
+- Associated font configuration with optional Google Fonts URL
 - Border radius preference
 - Style variant (default or new-york)
 
@@ -141,12 +141,24 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean, fontOv
   document.body.style.fontFamily = fontToUse
   document.body.style.fontWeight = fontWeight
 
-  // 5. Load Google Font if needed via dynamic <link> injection
-  if (googleFontUrl) {
+  // 5. Optionally load remote Google Font (policy-gated)
+  if (googleFontUrl && isRemoteFontLoadingEnabled()) {
     loadGoogleFont(googleFontUrl)
   }
 }
 ```
+
+### Remote Font Policy
+
+Remote Google Fonts are policy-gated by `src/lib/font-loading-policy.ts`:
+
+- `NEXT_PUBLIC_ENABLE_REMOTE_FONTS=true` → enable remote font loading
+- `NEXT_PUBLIC_ENABLE_REMOTE_FONTS=false` → disable remote font loading
+- If unset:
+  - Production defaults to disabled (deterministic deployments)
+  - Development/test defaults to enabled (convenience)
+
+This keeps production builds/deploys deterministic by removing hard dependency on outbound font fetches.
 
 ## CSS Variables Reference
 
@@ -184,7 +196,7 @@ export function applyCompleteTheme(theme: CompleteTheme, isDark: boolean, fontOv
 4. **Performance**: CSS variables are highly optimized by browsers
 5. **Accessibility**: Centralized tokens make contrast auditing possible (not automatically enforced)
 6. **User Preference**: Respects system dark mode and user choices
-7. **No Build-Time Overhead**: Themes switch at runtime without rebuilds
+7. **Deterministic Deploys**: production defaults avoid outbound remote font dependency
 
 ## Best Practices for Theme-Aware Development
 

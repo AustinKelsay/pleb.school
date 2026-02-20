@@ -8,9 +8,12 @@
 import { kv } from "@vercel/kv"
 
 const hasKV = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
+const isProduction = process.env.NODE_ENV === "production"
+const isProductionMissingKV = isProduction && !hasKV
 
 // In-memory fallback for local development
 const memoryStore = new Map<string, { count: number; resetAt: number }>()
+let hasLoggedProductionKVError = false
 
 type RateLimitResult = {
   success: boolean
@@ -41,11 +44,37 @@ export async function checkRateLimit(
   windowSeconds: number,
   options?: RateLimitOptions
 ): Promise<RateLimitResult> {
+  if (isProductionMissingKV) {
+    if (!hasLoggedProductionKVError) {
+      console.error(
+        "Rate limiting misconfigured: KV_REST_API_URL and KV_REST_API_TOKEN are required in production. " +
+        "Denying requests (fail-closed) to avoid unsafe per-instance memory fallback."
+      )
+      hasLoggedProductionKVError = true
+    }
+
+    // Explicit opt-in for non-security-critical endpoints only.
+    // Default remains fail-closed.
+    if (options?.failOpen) {
+      return {
+        success: true,
+        remaining: limit,
+        resetIn: windowSeconds
+      }
+    }
+
+    return {
+      success: false,
+      remaining: 0,
+      resetIn: windowSeconds
+    }
+  }
+
   const now = Math.floor(Date.now() / 1000)
   const windowKey = `ratelimit:${key}`
 
   if (hasKV) {
-    return checkRateLimitKV(windowKey, limit, windowSeconds, now, options)
+    return checkRateLimitKV(windowKey, limit, windowSeconds, options)
   }
   return checkRateLimitMemory(windowKey, limit, windowSeconds, now)
 }
@@ -64,7 +93,6 @@ async function checkRateLimitKV(
   key: string,
   limit: number,
   windowSeconds: number,
-  now: number,
   options?: RateLimitOptions
 ): Promise<RateLimitResult> {
   try {
