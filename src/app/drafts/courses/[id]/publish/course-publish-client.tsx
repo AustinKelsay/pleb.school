@@ -34,7 +34,7 @@ const EducationIcon = getCourseIcon('education')
 import { useResourceNotes } from '@/hooks/useResourceNotes'
 import { resolveDraftLesson, type ResolvedDraftLesson } from '@/lib/drafts/lesson-resolution'
 import { cn } from '@/lib/utils'
-import logger from '@/lib/logger'
+import { logger } from '@/lib/logger'
 
 interface CoursePublishPageClientProps {
   courseId: string
