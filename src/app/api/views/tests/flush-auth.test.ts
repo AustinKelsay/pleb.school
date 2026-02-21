@@ -9,14 +9,10 @@ vi.mock("@vercel/kv", () => ({
   },
 }))
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    viewCounterTotal: {
-      upsert: vi.fn(),
-    },
-    viewCounterDaily: {
-      upsert: vi.fn(),
-    },
+vi.mock("@/lib/db-adapter", () => ({
+  ViewCounterAdapter: {
+    upsertTotal: vi.fn().mockResolvedValue(undefined),
+    upsertDaily: vi.fn().mockResolvedValue(undefined),
   },
 }))
 

@@ -1,9 +1,9 @@
 export const runtime = "nodejs"
 
-import crypto from "crypto"
 import { NextRequest, NextResponse } from "next/server"
+import crypto from "crypto"
 import { kv } from "@vercel/kv"
-import { prisma } from "@/lib/prisma"
+import { ViewCounterAdapter } from "@/lib/db-adapter"
 
 type ParsedKey = { key: string; namespace: string; entityId?: string | null; path?: string | null }
 let hasLoggedMissingCronSecret = false
@@ -57,19 +57,13 @@ async function flushTotals(): Promise<number> {
   for (const [k, count] of nonZeroPairs) {
     const parsed = parseTotalKey(k)
     if (!parsed) continue
-    await prisma.viewCounterTotal.upsert({
-      where: { key: parsed.key },
-      create: {
-        key: parsed.key,
-        namespace: parsed.namespace,
-        entityId: parsed.entityId ?? null,
-        path: parsed.path ?? null,
-        total: Number(count),
-      },
-      update: {
-        // INCREMENT by the flushed delta, don't SET to absolute value
-        total: { increment: Number(count) },
-      },
+    await ViewCounterAdapter.upsertTotal({
+      key: parsed.key,
+      namespace: parsed.namespace,
+      entityId: parsed.entityId ?? null,
+      path: parsed.path ?? null,
+      total: Number(count),
+      increment: Number(count),
     })
   }
 
@@ -109,17 +103,11 @@ async function flushDaily(): Promise<number> {
       const parsed = parseDailyKey(dk)
       if (!parsed) continue
       const dayDate = new Date(`${parsed.dayISO}T00:00:00.000Z`)
-      await prisma.viewCounterDaily.upsert({
-        where: { key_day: { key: parsed.inner.key, day: dayDate } },
-        create: {
-          key: parsed.inner.key,
-          day: dayDate,
-          count: Number(count),
-        },
-        update: {
-          // INCREMENT by the flushed delta, don't SET to absolute value
-          count: { increment: Number(count) },
-        },
+      await ViewCounterAdapter.upsertDaily({
+        key: parsed.inner.key,
+        day: dayDate,
+        count: Number(count),
+        increment: Number(count),
       })
     }
 

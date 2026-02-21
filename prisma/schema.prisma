@@ -10,7 +10,7 @@ generator client {
 model User {
   id                       String                    @id @default(uuid())
   pubkey                   String?                   @unique
-  privkey                  String?
+  privkey                  String?  /// AES-256-GCM encrypted payload (base64); never plaintext. Requires PRIVKEY_ENCRYPTION_KEY.
   email                    String?                   @unique
   emailVerified            DateTime?
   username                 String?                   @unique

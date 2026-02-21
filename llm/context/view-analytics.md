@@ -173,10 +173,9 @@ for (const key of keys) {
 
   // INCREMENT by delta, not SET to absolute value
   // Allows concurrent flushes without data loss
-  await prisma.viewCounterTotal.upsert({
-    where: { key },
-    create: { key, namespace, entityId, total: count },
-    update: { total: { increment: count } }  // INCREMENT, not SET
+  // Production uses ViewCounterAdapter (db-adapter.ts), never Prisma directly
+  await ViewCounterAdapter.upsertTotal({
+    key, namespace, entityId, total: count, increment: count
   })
 }
 
@@ -214,10 +213,9 @@ if (hasKV) {
   await kv.incr(key)
 } else {
   // Direct database update (same key used in both paths)
-  await prisma.viewCounterTotal.upsert({
-    where: { key },
-    create: { key, namespace, entityId, total: 1 },
-    update: { total: { increment: 1 } }
+  // Use ViewCounterAdapter.upsertTotal, never Prisma directly
+  await ViewCounterAdapter.upsertTotal({
+    key, namespace, entityId, total: 1, increment: 1
   })
 }
 ```

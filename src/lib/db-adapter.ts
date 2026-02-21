@@ -165,6 +165,79 @@ export class AuditLogAdapter {
   }
 }
 
+// ============================================================================
+// VIEW COUNTER ADAPTER
+// ============================================================================
+
+/**
+ * Input for upserting a total view counter.
+ * Used by the views flush route; centralizes Prisma access.
+ */
+export interface ViewCounterTotalUpsertInput {
+  key: string
+  namespace: string
+  entityId?: string | null
+  path?: string | null
+  total: number
+  increment: number
+}
+
+/**
+ * Input for upserting a daily view counter.
+ */
+export interface ViewCounterDailyUpsertInput {
+  key: string
+  day: Date
+  count: number
+  increment: number
+}
+
+/**
+ * Adapter for view counter persistence.
+ * Centralizes ViewCounterTotal/ViewCounterDaily writes so callers never access Prisma directly.
+ */
+export class ViewCounterAdapter {
+  /**
+   * Upsert a total view counter. Creates or increments by the given delta.
+   *
+   * @param input - Key, namespace, entityId, path, total (for create), and increment (for update)
+   */
+  static async upsertTotal(input: ViewCounterTotalUpsertInput): Promise<void> {
+    await prisma.viewCounterTotal.upsert({
+      where: { key: input.key },
+      create: {
+        key: input.key,
+        namespace: input.namespace,
+        entityId: input.entityId ?? null,
+        path: input.path ?? null,
+        total: input.total,
+      },
+      update: {
+        total: { increment: input.increment },
+      },
+    })
+  }
+
+  /**
+   * Upsert a daily view counter. Creates or increments by the given delta.
+   *
+   * @param input - Key, day, count (for create), and increment (for update)
+   */
+  static async upsertDaily(input: ViewCounterDailyUpsertInput): Promise<void> {
+    await prisma.viewCounterDaily.upsert({
+      where: { key_day: { key: input.key, day: input.day } },
+      create: {
+        key: input.key,
+        day: input.day,
+        count: input.count,
+      },
+      update: {
+        count: { increment: input.increment },
+      },
+    })
+  }
+}
+
 // Pagination options for query functions
 export interface PaginationOptions {
   page?: number
