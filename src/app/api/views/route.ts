@@ -3,29 +3,148 @@ export const runtime = "edge"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { kv } from "@vercel/kv"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 // Fallback in-memory store for local dev when KV env vars are not set
 const memory = (globalThis as any).__viewCounterMemory || new Map<string, number>()
 ;(globalThis as any).__viewCounterMemory = memory
 
 const hasKV = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
+const KEY_MAX_LENGTH = 300
+const NAMESPACE_REGEX = /^[a-z0-9_-]{1,32}$/i
+const ENTITY_ID_REGEX = /^[a-zA-Z0-9:_-]{1,128}$/
+const PATH_REGEX = /^\/[A-Za-z0-9\-._~!$&'()*+,;=:@/%]{0,255}$/
+const RATE_LIMIT_WINDOW_SECONDS = 60
+const RATE_LIMIT_READ_PER_MINUTE = 240
+const RATE_LIMIT_WRITE_PER_MINUTE = 120
+// Stricter limits for clients whose IP cannot be resolved (shared "unknown" bucket)
+const RATE_LIMIT_READ_UNKNOWN_PER_MINUTE = 30
+const RATE_LIMIT_WRITE_UNKNOWN_PER_MINUTE = 10
 
-function keyFrom(ns?: string | null, id?: string | null, path?: string | null): string {
-  if (ns && id) return `views:${ns}:${id}`
-  if (path) return `views:path:${path}`
-  throw new Error("Missing ns/id or path for views key")
+function normalizePath(path: string): string | null {
+  if (!PATH_REGEX.test(path)) {
+    return null
+  }
+  return path
+}
+
+function normalizeViewKey(key: string): string | null {
+  const normalized = key.trim()
+  if (!normalized.startsWith("views:") || normalized.length > KEY_MAX_LENGTH) {
+    return null
+  }
+
+  const pathPrefix = "views:path:"
+  if (normalized.startsWith(pathPrefix)) {
+    const path = normalizePath(normalized.slice(pathPrefix.length))
+    return path ? `${pathPrefix}${path}` : null
+  }
+
+  const keyMatch = normalized.match(/^views:([^:]+):(.+)$/)
+  if (!keyMatch) return null
+
+  const [, ns, id] = keyMatch
+  if (!NAMESPACE_REGEX.test(ns) || !ENTITY_ID_REGEX.test(id)) {
+    return null
+  }
+
+  return `views:${ns}:${id}`
+}
+
+function resolveViewKey(ns?: string | null, id?: string | null, key?: string | null): string {
+  if (key) {
+    const normalized = normalizeViewKey(key)
+    if (!normalized) {
+      throw new Error("Invalid views key format")
+    }
+    return normalized
+  }
+
+  if (!ns || !id) {
+    throw new Error("Missing key or ns/id")
+  }
+
+  if (!NAMESPACE_REGEX.test(ns) || !ENTITY_ID_REGEX.test(id)) {
+    throw new Error("Invalid namespace or entity ID")
+  }
+
+  return `views:${ns}:${id}`
+}
+
+function getClientIdentifier(req: NextRequest): string {
+  const xRealIp = req.headers.get("x-real-ip")
+  if (xRealIp) {
+    return xRealIp.replace(/[\x00-\x1f\x7f]/g, "")
+  }
+
+  const forwardedFor = req.headers.get("x-forwarded-for")
+  if (forwardedFor) {
+    const first = forwardedFor.split(",")[0]?.trim()
+    if (first) {
+      return first.replace(/[\x00-\x1f\x7f]/g, "")
+    }
+  }
+
+  return "unknown"
+}
+
+function rateLimitResponse(resetIn: number): NextResponse {
+  return NextResponse.json(
+    { error: "Too many requests" },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": Math.max(1, Math.floor(resetIn)).toString(),
+      },
+    }
+  )
+}
+
+async function enforceRateLimit(req: NextRequest, mode: "read" | "write"): Promise<NextResponse | null> {
+  const clientId = getClientIdentifier(req)
+  // Unknown clients (no resolvable IP) share a single bucket — apply much stricter
+  // limits so one unidentified client cannot exhaust capacity for everyone else.
+  const isUnknown = clientId === "unknown"
+  const limit = mode === "write"
+    ? (isUnknown ? RATE_LIMIT_WRITE_UNKNOWN_PER_MINUTE : RATE_LIMIT_WRITE_PER_MINUTE)
+    : (isUnknown ? RATE_LIMIT_READ_UNKNOWN_PER_MINUTE : RATE_LIMIT_READ_PER_MINUTE)
+  const result = await checkRateLimit(
+    `views:${mode}:${clientId}`,
+    limit,
+    RATE_LIMIT_WINDOW_SECONDS
+  )
+
+  if (!result.success) {
+    return rateLimitResponse(result.resetIn)
+  }
+
+  return null
 }
 
 const getSchema = z.object({
   ns: z.string().optional(),
   id: z.string().optional(),
   key: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (!data.key && !(data.ns && data.id)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Provide key or ns/id",
+    })
+  }
 })
 
 const postSchema = z.object({
   ns: z.string().optional(),
   id: z.string().optional(),
   key: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (!data.key && !(data.ns && data.id)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Provide key or ns/id",
+    })
+  }
 })
 
 async function kvGet(key: string): Promise<number> {
@@ -46,8 +165,13 @@ async function kvIncr(key: string): Promise<number> {
 }
 
 export async function GET(req: NextRequest) {
+  const rateLimited = await enforceRateLimit(req, "read")
+  if (rateLimited) {
+    return rateLimited
+  }
+
   try {
-    const { searchParams, pathname } = new URL(req.url)
+    const { searchParams } = new URL(req.url)
     const parsed = getSchema.safeParse({
       ns: searchParams.get("ns") || undefined,
       id: searchParams.get("id") || undefined,
@@ -57,7 +181,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid query" }, { status: 400 })
     }
     const { ns, id, key } = parsed.data
-    const resolvedKey = key || keyFrom(ns ?? null, id ?? null, pathname)
+    const resolvedKey = resolveViewKey(ns ?? null, id ?? null, key ?? null)
     const count = await kvGet(resolvedKey)
     return NextResponse.json({ key: resolvedKey, count })
   } catch (err) {
@@ -66,6 +190,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimited = await enforceRateLimit(req, "write")
+  if (rateLimited) {
+    return rateLimited
+  }
+
   try {
     let body
     try {
@@ -78,7 +207,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid body" }, { status: 400 })
     }
     const { ns, id, key } = parsed.data
-    const resolvedKey = key || keyFrom(ns ?? null, id ?? null, req.nextUrl.pathname)
+    const resolvedKey = resolveViewKey(ns ?? null, id ?? null, key ?? null)
     const count = await kvIncr(resolvedKey)
 
     // Mark key dirty for consolidation and maintain daily buckets

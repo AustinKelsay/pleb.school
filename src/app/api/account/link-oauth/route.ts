@@ -76,8 +76,8 @@ export async function POST(request: NextRequest) {
       })
 
       // Audit log OAuth link initiation
-      auditLog(session.user.id, 'account.link.initiate', {
-        provider: 'github'
+      await auditLog(session.user.id, "account.link.initiate", {
+        provider: "github"
       }, request)
 
       // Build GitHub OAuth URL with our custom callback for account linking

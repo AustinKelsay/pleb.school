@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const result = await unlinkAccount(session.user.id, provider)
 
     // Audit log account unlinking
-    auditLog(session.user.id, 'account.unlink', {
+    await auditLog(session.user.id, 'account.unlink', {
       provider,
       success: result.success,
       error: result.error

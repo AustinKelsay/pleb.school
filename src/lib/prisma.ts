@@ -1,11 +1,13 @@
 import { PrismaClient, type Prisma } from '@/generated/prisma'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
+import { getEnv } from './env'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
   pool: Pool | undefined
 }
+const env = getEnv()
 
 const enableQueryLogging = (() => {
   if (process.env.PRISMA_LOG_QUERIES !== undefined) {
@@ -19,7 +21,8 @@ const prismaLogLevels: Prisma.LogLevel[] = enableQueryLogging
   : ['warn', 'error']
 
 const pool = globalForPrisma.pool ?? new Pool({
-  connectionString: process.env.DATABASE_URL,
+  // Keep non-production contexts flexible while enforcing production validation in env.ts.
+  connectionString: env.DATABASE_URL ?? 'postgresql://placeholder:5432/placeholder',
 })
 
 const adapter = new PrismaPg(pool)
@@ -31,7 +34,7 @@ export const prisma =
     log: prismaLogLevels,
   })
 
-if (process.env.NODE_ENV !== 'production') {
+if (env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
   globalForPrisma.pool = pool
 }

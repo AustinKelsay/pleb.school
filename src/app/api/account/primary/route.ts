@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const result = await changePrimaryProvider(session.user.id, provider)
 
     // Audit log primary provider change
-    auditLog(session.user.id, 'account.primary.change', {
+    await auditLog(session.user.id, 'account.primary.change', {
       provider,
       success: result.success,
       error: result.error

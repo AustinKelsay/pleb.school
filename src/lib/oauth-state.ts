@@ -12,6 +12,7 @@
 
 import crypto from 'crypto'
 import { z } from 'zod'
+import { getEnv } from './env'
 
 /**
  * Maximum age for OAuth state (10 minutes in milliseconds)
@@ -24,7 +25,7 @@ const STATE_MAX_AGE_MS = 10 * 60 * 1000
  * Uses NEXTAUTH_SECRET as the base key (always required for NextAuth)
  */
 function getSigningKey(): Buffer {
-  const secret = process.env.NEXTAUTH_SECRET
+  const secret = getEnv().NEXTAUTH_SECRET
   if (!secret) {
     throw new Error('NEXTAUTH_SECRET is required for OAuth state signing')
   }

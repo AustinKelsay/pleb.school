@@ -10,7 +10,7 @@ generator client {
 model User {
   id                       String                    @id @default(uuid())
   pubkey                   String?                   @unique
-  privkey                  String?
+  privkey                  String?  /// AES-256-GCM encrypted payload (base64); never plaintext. Requires PRIVKEY_ENCRYPTION_KEY.
   email                    String?                   @unique
   emailVerified            DateTime?
   username                 String?                   @unique
@@ -341,4 +341,32 @@ model ViewCounterDaily {
   updatedAt DateTime @updatedAt
 
   @@unique([key, day])
+}
+
+/// Durable security-event audit trail.
+///
+/// Design decisions:
+/// - userId has no FK relation to User intentionally: audit records must be
+///   preserved even after a user account is deleted (forensic integrity).
+/// - ip stores the raw client IP (PII under GDPR/CCPA) only for security/fraud
+///   prevention purposes (legitimate interest). Ensure:
+///   a) a retention/purge policy removes records older than your defined period
+///      (e.g. 90 days) via a scheduled job or DB TTL,
+///   b) user deletion requests trigger ip/userAgent anonymisation in these rows,
+///   c) the legal basis is documented in your privacy policy.
+/// - IP is extracted server-side from x-forwarded-for / x-real-ip and requires
+///   a trusted reverse proxy (nginx, Cloudflare, etc.) in production so clients
+///   cannot spoof the value.
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String   // No FK — preserved after user deletion (intentional)
+  action    String
+  details   Json
+  ip        String?  // PII — see retention/GDPR notes above
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
 }

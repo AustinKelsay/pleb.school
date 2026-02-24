@@ -10,15 +10,74 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import nostrConfig from './config/nostr.json'
+import { isRemoteFontLoadingEnabled } from './src/lib/font-loading-policy'
 
 interface NostrConfig {
   relays?: Record<string, string[]>
 }
 
-export function middleware(request: NextRequest) {
-  const response = NextResponse.next()
+const DEFAULT_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
+const DEFAULT_ALLOWED_METHODS = 'GET, POST, PUT, DELETE, OPTIONS'
+const DEFAULT_ALLOWED_HEADERS = 'Content-Type, Authorization'
 
+function parseAllowedOrigins(): string[] {
+  return process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : DEFAULT_ALLOWED_ORIGINS
+}
+
+function appendVary(response: NextResponse, value: string): void {
+  const currentVary = response.headers.get('Vary')
+  if (!currentVary) {
+    response.headers.set('Vary', value)
+    return
+  }
+
+  const existing = currentVary.split(',').map((item) => item.trim().toLowerCase())
+  if (existing.includes(value.toLowerCase())) {
+    return
+  }
+
+  response.headers.set('Vary', `${currentVary}, ${value}`)
+}
+
+function applyCorsHeaders(request: NextRequest, response: NextResponse): void {
+  const allowedOrigins = parseAllowedOrigins()
+  const origin = request.headers.get('origin')
+
+  const requestedHeaders = request.headers.get('access-control-request-headers')
+  const allowHeaders = requestedHeaders && requestedHeaders.trim().length > 0
+    ? requestedHeaders
+    : DEFAULT_ALLOWED_HEADERS
+
+  response.headers.set('Access-Control-Allow-Methods', DEFAULT_ALLOWED_METHODS)
+  response.headers.set('Access-Control-Allow-Headers', allowHeaders)
+  response.headers.set('Access-Control-Max-Age', '86400')
+
+  // Ensure caches keep CORS variants separated by request headers/origin.
+  appendVary(response, 'Origin')
+  appendVary(response, 'Access-Control-Request-Method')
+  appendVary(response, 'Access-Control-Request-Headers')
+
+  if (origin && allowedOrigins.includes(origin)) {
+    response.headers.set('Access-Control-Allow-Origin', origin)
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+  } else {
+    response.headers.delete('Access-Control-Allow-Origin')
+    response.headers.delete('Access-Control-Allow-Credentials')
+  }
+}
+
+export function middleware(request: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development'
+  const allowRemoteFonts = isRemoteFontLoadingEnabled(process.env)
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+  const isApiPreflight = isApiRoute && request.method === 'OPTIONS'
+
+  // Preflight requests must use the same response object that receives headers.
+  const response = isApiPreflight
+    ? new NextResponse(null, { status: 200 })
+    : NextResponse.next()
 
   // Add security headers
   response.headers.set('X-DNS-Prefetch-Control', 'on')
@@ -37,6 +96,9 @@ export function middleware(request: NextRequest) {
   const scriptSrc = isDevelopment
     ? "'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live"
     : "'self' https://vercel.live"
+  const styleSrc = allowRemoteFonts
+    ? "'self' 'unsafe-inline' https://fonts.googleapis.com"
+    : "'self' 'unsafe-inline'"
 
   // Build connect-src from configured relays plus required analytics endpoints
   const relaySets = (nostrConfig as NostrConfig)?.relays ?? {}
@@ -65,7 +127,7 @@ export function middleware(request: NextRequest) {
   const cspHeader = `
     default-src 'self';
     script-src ${scriptSrc};
-    style-src 'self' 'unsafe-inline';
+    style-src ${styleSrc};
     img-src 'self' blob: data: https://images.unsplash.com https://avatars.githubusercontent.com https://api.dicebear.com https://i.ytimg.com https://yt3.ggpht.com https://nyc3.digitaloceanspaces.com;
     font-src 'self' https://fonts.gstatic.com;
     connect-src ${connectSrc};
@@ -80,27 +142,12 @@ export function middleware(request: NextRequest) {
   response.headers.set('Content-Security-Policy', cspHeader)
 
   // Handle API routes with environment-aware CORS
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    // Configure CORS based on environment
-    const allowedOrigins = process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-      : ['http://localhost:3000', 'http://127.0.0.1:3000'] // Development defaults
+  if (isApiRoute) {
+    applyCorsHeaders(request, response)
 
-    const origin = request.headers.get('origin')
-    // Only allow explicitly configured origins - no bypass for missing origin header
-    const isAllowedOrigin = origin && allowedOrigins.includes(origin)
-
-    if (isAllowedOrigin) {
-      response.headers.set('Access-Control-Allow-Origin', origin)
-      response.headers.set('Access-Control-Allow-Credentials', 'true')
-    }
-
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    
-    // Handle preflight requests
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 200 })
+    // Preflight responses are completed at middleware level.
+    if (isApiPreflight) {
+      return response
     }
   }
 

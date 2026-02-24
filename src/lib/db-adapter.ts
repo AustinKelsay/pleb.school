@@ -125,6 +125,119 @@ export class PurchaseAdapter {
   }
 }
 
+// ============================================================================
+// AUDIT LOG ADAPTER
+// ============================================================================
+
+/**
+ * Input shape for persisting an audit log entry.
+ * Mirrors the persisted fields (userId, action, details, ip, userAgent).
+ */
+export interface AuditLogCreateInput {
+  userId: string
+  action: string
+  details: Prisma.InputJsonValue
+  ip?: string | null
+  userAgent?: string | null
+}
+
+/**
+ * Adapter for persisting audit logs.
+ * Centralizes AuditLog writes so callers (e.g. audit-logger) never access Prisma directly.
+ */
+export class AuditLogAdapter {
+  /**
+   * Persist an audit event to the database.
+   * Caller is responsible for error handling (e.g. audit logging should never throw).
+   *
+   * @param input - The audit event data to persist
+   */
+  static async create(input: AuditLogCreateInput): Promise<void> {
+    await prisma.auditLog.create({
+      data: {
+        userId: input.userId,
+        action: input.action,
+        details: input.details,
+        ip: input.ip ?? null,
+        userAgent: input.userAgent ?? null,
+      },
+    })
+  }
+}
+
+// ============================================================================
+// VIEW COUNTER ADAPTER
+// ============================================================================
+
+/**
+ * Input for upserting a total view counter.
+ * Used by the views flush route; centralizes Prisma access.
+ */
+export interface ViewCounterTotalUpsertInput {
+  key: string
+  namespace: string
+  entityId?: string | null
+  path?: string | null
+  total: number
+  increment: number
+}
+
+/**
+ * Input for upserting a daily view counter.
+ */
+export interface ViewCounterDailyUpsertInput {
+  key: string
+  day: Date
+  count: number
+  increment: number
+}
+
+/**
+ * Adapter for view counter persistence.
+ * Centralizes ViewCounterTotal/ViewCounterDaily writes so callers never access Prisma directly.
+ */
+export class ViewCounterAdapter {
+  /**
+   * Upsert a total view counter. Creates or increments by the given delta.
+   *
+   * @param input - Key, namespace, entityId, path, total (for create), and increment (for update)
+   */
+  static async upsertTotal(input: ViewCounterTotalUpsertInput): Promise<void> {
+    await prisma.viewCounterTotal.upsert({
+      where: { key: input.key },
+      create: {
+        key: input.key,
+        namespace: input.namespace,
+        entityId: input.entityId ?? null,
+        path: input.path ?? null,
+        total: input.total,
+      },
+      update: {
+        total: { increment: input.increment },
+      },
+    })
+  }
+
+  /**
+   * Upsert a daily view counter. Creates or increments by the given delta.
+   *
+   * @param input - Key, day, count (for create), and increment (for update)
+   */
+  static async upsertDaily(input: ViewCounterDailyUpsertInput): Promise<void> {
+    await prisma.viewCounterDaily.upsert({
+      where: { key_day: { key: input.key, day: input.day } },
+      create: {
+        key: input.key,
+        day: input.day,
+        count: input.count,
+      },
+      update: {
+        count: { increment: input.increment },
+      },
+    })
+  }
+}
+
 // Pagination options for query functions
 export interface PaginationOptions {
   page?: number

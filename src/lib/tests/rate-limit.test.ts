@@ -20,7 +20,9 @@ const MODULE_PATH = "../rate-limit"
 const originalEnv = {
   KV_REST_API_URL: process.env.KV_REST_API_URL,
   KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN,
+  NODE_ENV: process.env.NODE_ENV,
 }
+const mutableEnv = process.env as Record<string, string | undefined>
 
 function restoreEnv() {
   if (originalEnv.KV_REST_API_URL === undefined) {
@@ -33,9 +35,14 @@ function restoreEnv() {
   } else {
     process.env.KV_REST_API_TOKEN = originalEnv.KV_REST_API_TOKEN
   }
+  if (originalEnv.NODE_ENV === undefined) {
+    delete mutableEnv.NODE_ENV
+  } else {
+    mutableEnv.NODE_ENV = originalEnv.NODE_ENV
+  }
 }
 
-async function loadModuleWithKV(hasKV: boolean) {
+async function loadModuleWithKV(hasKV: boolean, nodeEnv: string = "test") {
   vi.resetModules()
 
   // Set env vars to control hasKV detection
@@ -46,6 +53,7 @@ async function loadModuleWithKV(hasKV: boolean) {
     delete process.env.KV_REST_API_URL
     delete process.env.KV_REST_API_TOKEN
   }
+  mutableEnv.NODE_ENV = nodeEnv
 
   // Re-mock after resetModules
   vi.doMock("@vercel/kv", () => ({
@@ -204,6 +212,31 @@ describe("rate-limit", () => {
       const result4 = await checkRateLimit("memory-test", 3, 60)
       expect(result4.success).toBe(false)
       expect(result4.remaining).toBe(0)
+    })
+  })
+
+  describe("production configuration safety", () => {
+    it("fails closed in production when KV is missing", async () => {
+      const { checkRateLimit } = await loadModuleWithKV(false, "production")
+
+      const result = await checkRateLimit("prod-no-kv", 5, 60)
+
+      expect(result.success).toBe(false)
+      expect(result.remaining).toBe(0)
+      expect(result.resetIn).toBe(60)
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining("Rate limiting misconfigured")
+      )
+    })
+
+    it("can fail-open explicitly in production when KV is missing", async () => {
+      const { checkRateLimit } = await loadModuleWithKV(false, "production")
+
+      const result = await checkRateLimit("prod-no-kv-fail-open", 5, 60, { failOpen: true })
+
+      expect(result.success).toBe(true)
+      expect(result.remaining).toBe(5)
+      expect(result.resetIn).toBe(60)
     })
   })
 })
