@@ -102,6 +102,26 @@ Authorization: Bearer ${VIEWS_CRON_SECRET}
 }
 ```
 
+Status mode (monitoring-safe, no flush execution):
+
+```typescript
+GET /api/views/flush?status=1
+
+// Response shape
+{
+  lastAttemptAt: "2026-02-24T12:00:00.000Z",
+  lastSuccessAt: "2026-02-24T12:00:00.000Z",
+  lastFailureAt: null,
+  lastFailureError: null,
+  consecutiveFailures: 0,
+  lastDurationMs: 120,
+  lastFlushedTotals: 5,
+  lastFlushedDaily: 12,
+  staleAfterMinutes: 60,
+  isStale: false
+}
+```
+
 Security hardening:
 - Fails closed in production if `VIEWS_CRON_SECRET` is unset
 - No longer trusts `x-vercel-cron` header by itself
@@ -229,6 +249,9 @@ KV_REST_API_TOKEN=your-token
 
 # Flush endpoint auth (required in production)
 VIEWS_CRON_SECRET=strong-random-secret
+
+# Optional status staleness threshold in minutes (default: 60)
+VIEWS_FLUSH_STALE_AFTER_MINUTES=60
 ```
 
 ## Daily Analytics
