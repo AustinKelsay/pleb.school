@@ -12,6 +12,7 @@ const PRODUCTION_REQUIRED_VARS: Array<keyof RuntimeEnv> = [
   "VIEWS_CRON_SECRET",
 ]
 const PREVIEW_OPTIONAL_VARS = new Set<keyof RuntimeEnv>([
+  "NEXTAUTH_URL",
   "KV_REST_API_URL",
   "KV_REST_API_TOKEN",
   "VIEWS_CRON_SECRET",
