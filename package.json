@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=20.19.0 <23"
   },
   "scripts": {
     "dev": "next dev",
@@ -13,6 +13,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "ci:gate": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "ci:migrate:deploy": "prisma migrate deploy",
     "postinstall": "if [ -n \"$DATABASE_URL\" ]; then prisma generate; fi; patch-package || true",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts"

@@ -10,6 +10,7 @@ import { fetchCoursesWithNotes, coursesQueryKeys } from './useCoursesQuery'
 import { fetchResourceNotesBatch, resourceNotesQueryKeys } from './useResourceNotes'
 import { fetchVideoResources, videosQueryKeys } from './useVideosQuery'
 import { fetchDocumentResources, documentsQueryKeys } from './useDocumentsQuery'
+import logger from '@/lib/logger'
 
 interface UsePrefetchContentOptions {
   enabled?: boolean
@@ -77,7 +78,7 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
         await Promise.allSettled(promises)
       } catch (error) {
         // Silently fail - prefetching errors shouldn't affect the user experience
-        console.log('[Prefetch] Some content failed to prefetch:', error)
+        logger.debug('[Prefetch] Some content failed to prefetch', { error })
       }
     }
 

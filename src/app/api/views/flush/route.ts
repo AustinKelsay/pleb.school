@@ -1,10 +1,12 @@
 export const runtime = "nodejs"
 
 import { NextRequest, NextResponse } from "next/server"
+import crypto from "crypto"
 import { kv } from "@vercel/kv"
-import { prisma } from "@/lib/prisma"
+import { ViewCounterAdapter } from "@/lib/db-adapter"
 
 type ParsedKey = { key: string; namespace: string; entityId?: string | null; path?: string | null }
+let hasLoggedMissingCronSecret = false
 
 function parseTotalKey(key: string): ParsedKey | null {
   // formats:
@@ -55,19 +57,13 @@ async function flushTotals(): Promise<number> {
   for (const [k, count] of nonZeroPairs) {
     const parsed = parseTotalKey(k)
     if (!parsed) continue
-    await prisma.viewCounterTotal.upsert({
-      where: { key: parsed.key },
-      create: {
-        key: parsed.key,
-        namespace: parsed.namespace,
-        entityId: parsed.entityId ?? null,
-        path: parsed.path ?? null,
-        total: Number(count),
-      },
-      update: {
-        // INCREMENT by the flushed delta, don't SET to absolute value
-        total: { increment: Number(count) },
-      },
+    await ViewCounterAdapter.upsertTotal({
+      key: parsed.key,
+      namespace: parsed.namespace,
+      entityId: parsed.entityId ?? null,
+      path: parsed.path ?? null,
+      total: Number(count),
+      increment: Number(count),
     })
   }
 
@@ -107,17 +103,11 @@ async function flushDaily(): Promise<number> {
       const parsed = parseDailyKey(dk)
       if (!parsed) continue
       const dayDate = new Date(`${parsed.dayISO}T00:00:00.000Z`)
-      await prisma.viewCounterDaily.upsert({
-        where: { key_day: { key: parsed.inner.key, day: dayDate } },
-        create: {
-          key: parsed.inner.key,
-          day: dayDate,
-          count: Number(count),
-        },
-        update: {
-          // INCREMENT by the flushed delta, don't SET to absolute value
-          count: { increment: Number(count) },
-        },
+      await ViewCounterAdapter.upsertDaily({
+        key: parsed.inner.key,
+        day: dayDate,
+        count: Number(count),
+        increment: Number(count),
       })
     }
 
@@ -131,12 +121,55 @@ async function flushDaily(): Promise<number> {
   return processed
 }
 
+function extractBearerToken(req: NextRequest): string | null {
+  const authHeader = req.headers.get("authorization")
+  if (!authHeader) return null
+
+  const [scheme, token] = authHeader.split(/\s+/, 2)
+  if (!scheme || !token || scheme.toLowerCase() !== "bearer") {
+    return null
+  }
+
+  const normalized = token.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+/**
+ * Constant-time token comparison. Hashes both inputs to fixed-size digests
+ * to avoid leaking length information via timing; compares digests with
+ * crypto.timingSafeEqual.
+ */
+function tokenEquals(expected: string, provided: string): boolean {
+  const expectedHash = crypto.createHash("sha256").update(expected, "utf8").digest()
+  const providedHash = crypto.createHash("sha256").update(provided, "utf8").digest()
+  return crypto.timingSafeEqual(expectedHash, providedHash)
+}
+
 function isAuthorized(req: NextRequest): boolean {
-  // Allow Vercel Cron (automatic header) or token query param
-  const hasCronHeader = Boolean(req.headers.get("x-vercel-cron"))
-  const token = req.nextUrl.searchParams.get("token")
-  const expected = process.env.VIEWS_CRON_SECRET
-  return hasCronHeader || (!!expected && token === expected)
+  const expected = process.env.VIEWS_CRON_SECRET?.trim()
+  const isProduction = process.env.NODE_ENV === "production"
+
+  if (!expected) {
+    if (isProduction && !hasLoggedMissingCronSecret) {
+      console.error("VIEWS_CRON_SECRET is required in production for /api/views/flush authorization.")
+      hasLoggedMissingCronSecret = true
+    }
+    return false
+  }
+
+  const bearerToken = extractBearerToken(req)
+
+  // Backward-compatible query token support for local/manual testing only.
+  const queryToken = !isProduction
+    ? req.nextUrl.searchParams.get("token")?.trim() ?? null
+    : null
+
+  const provided = bearerToken || queryToken
+  if (!provided) {
+    return false
+  }
+
+  return tokenEquals(expected, provided)
 }
 
 export async function GET(req: NextRequest) {

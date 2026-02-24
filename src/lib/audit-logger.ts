@@ -13,6 +13,10 @@
  * See: llm/context/api-patterns.md
  */
 
+import { AuditLogAdapter } from "@/lib/db-adapter"
+import logger from "@/lib/logger"
+import type { Prisma } from "@/generated/prisma"
+
 export type AuditAction =
   | 'account.link'
   | 'account.link.initiate'
@@ -31,6 +35,47 @@ export interface AuditEvent {
   userAgent?: string
 }
 
+function safeNormalizeDetails(details: Record<string, unknown>): Record<string, unknown> {
+  const seen = new WeakSet<object>()
+
+  try {
+    const serialized = JSON.stringify(details, (_key, value) => {
+      if (typeof value === "bigint") {
+        return value.toString()
+      }
+
+      if (value && typeof value === "object") {
+        if (seen.has(value)) {
+          return "[Circular]"
+        }
+        seen.add(value)
+      }
+
+      return value
+    })
+
+    if (!serialized) {
+      return {}
+    }
+
+    const parsed = JSON.parse(serialized)
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
+    }
+
+    return { value: parsed }
+  } catch (err) {
+    const detailsKeys = typeof details === "object" && details !== null
+      ? Object.keys(details)
+      : []
+
+    return {
+      serializationError: err instanceof Error ? err.message : "Unknown serialization error",
+      detailsKeys,
+    }
+  }
+}
+
 /**
  * Log a security-sensitive audit event.
  *
@@ -39,17 +84,19 @@ export interface AuditEvent {
  * @param details - Additional context about the action
  * @param request - Optional request object for extracting IP/user-agent
  */
-export function auditLog(
+export async function auditLog(
   userId: string,
   action: AuditAction,
   details: Record<string, unknown>,
   request?: Request
-): void {
+): Promise<void> {
+  const normalizedDetails = safeNormalizeDetails(details)
+
   const event: AuditEvent = {
     timestamp: new Date().toISOString(),
     userId,
     action,
-    details
+    details: normalizedDetails
   }
 
   // Extract request metadata if available
@@ -60,26 +107,33 @@ export function auditLog(
     event.userAgent = request.headers.get('user-agent') || 'unknown'
   }
 
-  // Log as structured JSON for easy parsing by log aggregators
-  // Wrap in try/catch - audit logging must never throw or lose records
+  // Persist to database for a durable audit trail.
+  // Wrap in try/catch - audit logging must never throw.
   try {
-    console.log('[AUDIT]', JSON.stringify(event))
-  } catch (err) {
-    // Serialization failed (BigInt, circular ref, etc.) - log safe fallback
-    // Defensively check details is a non-null object before calling Object.keys
-    const detailsKeys = typeof details === 'object' && details !== null
-      ? Object.keys(details)
-      : []
-    const safeEvent = {
-      timestamp: event.timestamp,
+    await AuditLogAdapter.create({
       userId: event.userId,
       action: event.action,
+      details: event.details as Prisma.InputJsonValue,
       ip: event.ip,
       userAgent: event.userAgent,
-      serializationError: err instanceof Error ? err.message : 'Unknown serialization error',
-      detailsKeys
-    }
-    console.log('[AUDIT]', JSON.stringify(safeEvent))
+    })
+  } catch (err) {
+    logger.error("Failed to persist audit log event", {
+      userId: event.userId,
+      action: event.action,
+      error: err instanceof Error ? err.message : "Unknown error",
+    })
+  }
+
+  // Keep structured output for external log pipelines.
+  try {
+    logger.info("[AUDIT]", JSON.stringify(event))
+  } catch (err) {
+    logger.error("Failed to serialize audit event for logs", {
+      userId: event.userId,
+      action: event.action,
+      error: err instanceof Error ? err.message : "Unknown error",
+    })
   }
 }
 
@@ -87,7 +141,7 @@ export function auditLog(
  * Convenience wrapper that creates an audit logger bound to a request.
  */
 export function createAuditLogger(request?: Request) {
-  return (userId: string, action: AuditAction, details: Record<string, unknown>) => {
-    auditLog(userId, action, details, request)
+  return async (userId: string, action: AuditAction, details: Record<string, unknown>) => {
+    await auditLog(userId, action, details, request)
   }
 }

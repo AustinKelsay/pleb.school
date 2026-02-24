@@ -1,0 +1,110 @@
+name: views-flush-monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: views-flush-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: monitor-views-flush
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VIEWS_STATUS_BASE_URL: ${{ vars.VIEWS_STATUS_BASE_URL }}
+      VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD: ${{ vars.VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD }}
+      VIEWS_CRON_SECRET: ${{ secrets.VIEWS_CRON_SECRET }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      - name: Validate monitor configuration
+        run: |
+          if [ -z "$VIEWS_STATUS_BASE_URL" ]; then
+            echo "Missing required repo variable: VIEWS_STATUS_BASE_URL"
+            exit 1
+          fi
+          if [ -z "$VIEWS_CRON_SECRET" ]; then
+            echo "Missing required repo secret: VIEWS_CRON_SECRET"
+            exit 1
+          fi
+          if [ -z "$VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD" ]; then
+            echo "VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD not set; defaulting to 3"
+            echo "VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD=3" >> "$GITHUB_ENV"
+          fi
+
+      - name: Query views flush status endpoint
+        id: status
+        run: |
+          set -euo pipefail
+          STATUS_URL="${VIEWS_STATUS_BASE_URL%/}/api/views/flush?status=1"
+          HTTP_CODE=$(curl -sS -o /tmp/views_flush_status.json -w "%{http_code}" \
+            -H "Authorization: Bearer $VIEWS_CRON_SECRET" \
+            "$STATUS_URL")
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "views flush status endpoint returned HTTP $HTTP_CODE"
+            cat /tmp/views_flush_status.json || true
+            exit 1
+          fi
+
+          cat /tmp/views_flush_status.json
+
+          IS_STALE=$(jq -r '.isStale // true' /tmp/views_flush_status.json)
+          CONSECUTIVE_FAILURES=$(jq -r '.consecutiveFailures // 0' /tmp/views_flush_status.json)
+          LAST_SUCCESS_AT=$(jq -r '.lastSuccessAt // "null"' /tmp/views_flush_status.json)
+          LAST_FAILURE_AT=$(jq -r '.lastFailureAt // "null"' /tmp/views_flush_status.json)
+          LAST_FAILURE_ERROR=$(jq -r '.lastFailureError // ""' /tmp/views_flush_status.json)
+          STALE_AFTER_MINUTES=$(jq -r '.staleAfterMinutes // "unknown"' /tmp/views_flush_status.json)
+
+          {
+            echo "is_stale=$IS_STALE"
+            echo "consecutive_failures=$CONSECUTIVE_FAILURES"
+            echo "last_success_at=$LAST_SUCCESS_AT"
+            echo "last_failure_at=$LAST_FAILURE_AT"
+            echo "last_failure_error=$LAST_FAILURE_ERROR"
+            echo "stale_after_minutes=$STALE_AFTER_MINUTES"
+            echo "status_url=$STATUS_URL"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$IS_STALE" = "true" ]; then
+            echo "views flush is stale (threshold=${STALE_AFTER_MINUTES}m)"
+            exit 1
+          fi
+
+          if [ "$CONSECUTIVE_FAILURES" -ge "$VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD" ]; then
+            echo "views flush consecutive failures ($CONSECUTIVE_FAILURES) >= threshold ($VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD)"
+            exit 1
+          fi
+
+      - name: Notify Slack on failure
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
+        run: |
+          set -euo pipefail
+          MESSAGE=$(jq -nc \
+            --arg run_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --arg status_url "${{ steps.status.outputs.status_url }}" \
+            --arg is_stale "${{ steps.status.outputs.is_stale }}" \
+            --arg failures "${{ steps.status.outputs.consecutive_failures }}" \
+            --arg last_success "${{ steps.status.outputs.last_success_at }}" \
+            --arg last_failure "${{ steps.status.outputs.last_failure_at }}" \
+            --arg last_error "${{ steps.status.outputs.last_failure_error }}" \
+            --arg threshold "${VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD:-3}" \
+            '{
+              text: ("views-flush-monitor failed\n"
+                + "isStale=" + $is_stale + ", consecutiveFailures=" + $failures + " (threshold=" + $threshold + ")\n"
+                + "lastSuccessAt=" + $last_success + ", lastFailureAt=" + $last_failure + "\n"
+                + "lastFailureError=" + $last_error + "\n"
+                + "statusUrl=" + $status_url + "\n"
+                + "run=" + $run_url)
+            }')
+
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            --data "$MESSAGE" \
+            "$SLACK_WEBHOOK_URL"

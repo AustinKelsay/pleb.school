@@ -16,6 +16,7 @@ The database stores metadata, user data, and relationships. Content (titles, des
 ## Schema Changes and Migrations
 
 Migrations are checked into `prisma/migrations/` and provide an auditable history of schema changes.
+`prisma/migrations/**` must be version-controlled, including `migration_lock.toml`.
 
 ### Development Workflow
 
@@ -35,6 +36,26 @@ npx prisma migrate dev --name descriptive_name
 # Apply pending migrations (safe, non-interactive):
 npx prisma migrate deploy
 ```
+
+Production release order should be:
+
+1. `npm run lint`
+2. `npm run typecheck`
+3. `npm run test`
+4. `npm run build`
+5. `npx prisma migrate deploy`
+
+This repository’s deploy workflow (`.github/workflows/deploy-gate.yml`) enforces this sequence so migrations run only after all quality gates pass.
+The `quality-gates` job also provisions an ephemeral Postgres service, applies migrations with `prisma migrate deploy`, and runs DB integration tests as part of `npm run ci:gate`.
+In development, migration deploy is intentionally opt-in and runs only when repository variable `ENABLE_PROD_MIGRATIONS` is set to `true`.
+
+Production cutover checklist:
+
+1. Verify `npm run ci:gate` passes.
+2. Add GitHub Actions secret `DATABASE_URL` (production DB URL).
+3. Set GitHub Actions repository variable `ENABLE_PROD_MIGRATIONS=true`.
+4. Require `quality-gates` in branch protection on `main`.
+5. Merge to `main` and confirm `migrate-production` completes after `quality-gates`.
 
 ### When to Use `db push`
 
@@ -552,6 +573,37 @@ model ViewCounterDaily {
   @@unique([key, day])
 }
 ```
+
+### AuditLog
+
+Durable security-event audit trail for account linking and purchase claims.
+
+```prisma
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String   // No FK to User — intentional: records survive account deletion
+  action    String
+  details   Json
+  ip        String?  // PII (GDPR/CCPA) — requires retention policy & privacy disclosure
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+```
+
+**Design decisions:**
+
+- **No `User` foreign key** — intentional. Audit records must be preserved even when a
+  user account is deleted (forensic integrity). All other models use `onDelete: Cascade`
+  or `onDelete: SetNull`; `AuditLog` is the deliberate exception.
+- **Raw IP storage** — `ip` and `userAgent` are PII under GDPR/CCPA, retained under
+  legitimate interest (security/fraud prevention). Implement:
+  - A purge job or DB TTL removing records older than your retention period (e.g. 90 days).
+  - Anonymisation of `ip`/`userAgent` columns when processing user erasure requests.
+  - A privacy policy entry documenting this processing.
 
 ## Key Relationships
 

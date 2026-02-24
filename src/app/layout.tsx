@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ConfiguredThemeProvider } from "@/components/configured-theme-provider";
 import { ThemeColorProvider } from "@/contexts/theme-context";
@@ -7,16 +6,6 @@ import { SnstrProvider } from "@/contexts/snstr-context";
 import { QueryProvider } from "@/contexts/query-provider";
 import { SessionProvider } from "@/contexts/session-provider";
 import { ToastProvider } from "@/hooks/use-toast";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "pleb.school – Nostr-native course & content platform",
@@ -42,9 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <ConfiguredThemeProvider>
           <ThemeColorProvider>
             <QueryProvider>

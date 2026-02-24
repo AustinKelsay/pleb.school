@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
 import { RelayPool } from 'snstr'
 import { getRelays } from './nostr-relays'
+import logger from './logger'
 
 const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null)
 const pickFirstString = (...values: unknown[]): string | null => {
@@ -128,11 +129,11 @@ export async function fetchNostrProfile(pubkey: string): Promise<Record<string, 
  */
 export async function syncUserProfileFromNostr(userId: string, pubkey: string) {
   try {
-    console.log(`Syncing profile from Nostr for user ${userId} (pubkey: ${pubkey.substring(0, 8)}...)`)
+    logger.debug('Syncing profile from Nostr')
     const nostrProfile = await fetchNostrProfile(pubkey)
 
     if (!nostrProfile) {
-      console.log('No Nostr profile found, keeping existing database values')
+      logger.debug('No Nostr profile found; keeping database values')
       return await prisma.user.findUnique({ where: { id: userId } })
     }
 
@@ -186,7 +187,7 @@ export async function syncUserProfileFromNostr(userId: string, pubkey: string) {
     }
 
     if (Object.keys(updates).length > 0) {
-      console.log(`Applying ${Object.keys(updates).length} profile updates from Nostr`)
+      logger.debug('Applying profile updates from Nostr', { updateCount: Object.keys(updates).length })
       return await prisma.user.update({
         where: { id: userId },
         data: updates

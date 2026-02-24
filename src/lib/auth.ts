@@ -72,7 +72,6 @@ import { generateKeypair, decodePrivateKey, getPublicKey, verifySignature, getEv
 import authConfig from '../../config/auth.json'
 import { 
   isNostrFirstProvider, 
-  isOAuthFirstProvider, 
   getProfileSourceForProvider,
   shouldSyncFromNostr 
 } from './account-linking'
@@ -81,6 +80,7 @@ import { encryptPrivkey, decryptPrivkey } from './privkey-crypto'
 import { checkRateLimit, RATE_LIMITS, getClientIp } from './rate-limit'
 import { generateReconnectToken, hashToken } from './anon-reconnect-token'
 import { normalizeHexPubkey } from './nostr-keys'
+import logger from './logger'
 import { createTransport } from 'nodemailer'
 import crypto from 'crypto'
 
@@ -371,7 +371,7 @@ if (authConfig.providers.nostr.enabled) {
           }
 
           // NIP-98 validation passed - pubkey ownership verified
-          console.log('NIP-98 auth verified for pubkey:', pubkey.substring(0, 8))
+          logger.debug('NIP-98 auth verified')
 
           // Check if user exists or create new user
           let user = await prisma.user.findUnique({
@@ -386,7 +386,7 @@ if (authConfig.providers.nostr.enabled) {
                 username: `${authConfig.providers.nostr.usernamePrefix}${pubkey.substring(0, authConfig.providers.nostr.usernameLength)}`,
               }
             })
-            console.log('Created new NIP07 user:', user.id)
+            logger.debug('Created new NIP-07 user')
           }
 
           if (!user) {
@@ -524,7 +524,7 @@ if (authConfig.providers.anonymous.enabled) {
               throw new Error('Invalid reconnect token')
             }
 
-            console.log('Token-based anonymous reconnection:', matchedUser.id)
+            logger.debug('Token-based anonymous reconnection succeeded')
 
             // Rotate token on every successful auth (limits stolen token window)
             // Note: If DB update succeeds but response is lost, client has stale token.
@@ -542,7 +542,7 @@ if (authConfig.providers.anonymous.enabled) {
               const refreshed = await syncUserProfileFromNostr(matchedUser.id, matchedUser.pubkey)
               if (refreshed) {
                 syncedUser = refreshed
-                console.log('Synced anonymous user profile from Nostr on token resume')
+                logger.debug('Synced anonymous profile from Nostr on token resume')
               }
             }
 
@@ -574,7 +574,7 @@ if (authConfig.providers.anonymous.enabled) {
             }
 
             const existingUser = await findUserByPrivateKey(credentials.privateKey)
-            console.log('Legacy privkey migration for user:', existingUser.id)
+            logger.debug('Completed legacy private key migration')
 
             // Generate new reconnect token and store hash
             const { token: newToken, tokenHash: newTokenHash } = generateReconnectToken()
@@ -589,7 +589,7 @@ if (authConfig.providers.anonymous.enabled) {
               const refreshed = await syncUserProfileFromNostr(existingUser.id, existingUser.pubkey)
               if (refreshed) {
                 syncedUser = refreshed
-                console.log('Synced anonymous user profile from Nostr on legacy migration')
+                logger.debug('Synced anonymous profile from Nostr on legacy migration')
               }
             }
 
@@ -666,15 +666,15 @@ if (authConfig.providers.anonymous.enabled) {
                 avatar: userData.avatar
               }
             })
-            console.log('Created new anonymous user with token:', user.id)
+            logger.debug('Created new anonymous user with reconnect token')
 
             // NOSTR-FIRST: Try to sync profile from Nostr (source of truth) for anonymous users
             const syncedUser = await syncUserProfileFromNostr(user.id, keys.publicKey)
             if (syncedUser) {
               user = syncedUser
-              console.log('Synced anonymous user profile from Nostr')
+              logger.debug('Synced anonymous profile from Nostr')
             } else {
-              console.log('No Nostr profile found for anonymous user, using generated data')
+              logger.debug('No Nostr profile found for new anonymous user')
             }
 
             return {
@@ -764,7 +764,7 @@ if (authConfig.providers.recovery.enabled) {
             throw new Error('Private key does not match stored key for this account')
           }
 
-          console.log('Recovery successful for user:', user.email || user.username || user.pubkey?.substring(0, 8))
+          logger.debug('Recovery provider authentication succeeded')
 
           return {
             id: user.id,
@@ -909,7 +909,10 @@ export const authOptions: NextAuthOptions = {
 
           // Debug info for ephemeral keypair handling (development only)
           if (process.env.NODE_ENV === 'development') {
-            console.log('JWT Callback - Ephemeral keypair detection for provider:', account.provider, 'hasEphemeralKeys:', !!dbUser?.privkey)
+            logger.debug('JWT callback ephemeral keypair detection', {
+              provider: account.provider,
+              hasEphemeralKeys: !!dbUser?.privkey,
+            })
           }
         }
       } else {
@@ -1011,7 +1014,7 @@ export const authOptions: NextAuthOptions = {
 
   events: {
     async createUser({ user }) {
-      console.log('New user created:', user.email || user.pubkey || user.username)
+      logger.debug('New user created event received')
       
       /**
        * OAUTH-FIRST: EPHEMERAL KEYPAIR GENERATION ON USER CREATION
@@ -1042,7 +1045,7 @@ export const authOptions: NextAuthOptions = {
                 privkey: encryptPrivkey(keys.privateKey),
               }
             })
-            console.log('Generated ephemeral Nostr keypair for OAuth-first user:', user.email || user.username)
+            logger.debug('Generated ephemeral Nostr keypair for OAuth-first user')
           }
         } catch (error) {
           console.error('Failed to generate ephemeral Nostr keypair:', error)
@@ -1050,7 +1053,7 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async signIn({ user, account }) {
-      console.log('User signed in:', user.email || user.pubkey || user.username, 'via', account?.provider)
+      logger.debug('User signed in', { provider: account?.provider })
       
       /**
        * ACCOUNT LINKING: SET PRIMARY PROVIDER ON FIRST SIGN-IN
@@ -1074,7 +1077,7 @@ export const authOptions: NextAuthOptions = {
               profileSource: getProfileSourceForProvider(account.provider)
             }
           })
-          console.log(`Set primary provider to ${account.provider} for user ${user.id}`)
+          logger.debug('Set primary provider for user', { provider: account.provider })
         }
       }
       
@@ -1106,7 +1109,7 @@ export const authOptions: NextAuthOptions = {
                 privkey: encryptPrivkey(keys.privateKey),
               }
             })
-            console.log('Generated ephemeral Nostr keypair for OAuth-first user:', user.email || user.username)
+            logger.debug('Generated ephemeral Nostr keypair for OAuth-first user')
           }
         } catch (error) {
           console.error('Failed to generate ephemeral Nostr keypair for OAuth-first user:', error)
@@ -1131,14 +1134,20 @@ export const authOptions: NextAuthOptions = {
         
         if (dbUser && shouldSyncFromNostr(dbUser)) {
           try {
-            console.log(`Syncing profile from Nostr (profileSource: ${dbUser.profileSource}, primaryProvider: ${dbUser.primaryProvider})`)
+            logger.debug('Syncing profile from Nostr', {
+              profileSource: dbUser.profileSource,
+              primaryProvider: dbUser.primaryProvider,
+            })
             await syncUserProfileFromNostr(user.id, user.pubkey)
           } catch (error) {
             console.error('Failed to sync Nostr profile:', error)
             // Don't fail the sign-in if profile sync fails
           }
         } else {
-          console.log(`Skipping Nostr profile sync (profileSource: ${dbUser?.profileSource}, primaryProvider: ${dbUser?.primaryProvider})`)
+          logger.debug('Skipping Nostr profile sync', {
+            profileSource: dbUser?.profileSource,
+            primaryProvider: dbUser?.primaryProvider,
+          })
         }
       }
     }

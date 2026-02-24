@@ -15,6 +15,8 @@ URL structure and content-type routing for pleb.school. Uses Next.js App Router.
 /feeds                      Nostr feeds
 /subscribe                  Newsletter
 /about                      About page
+/sitemap.xml                Runtime-generated sitemap (dynamic; DB-backed URLs when available)
+/robots.txt                 Robots directives
 
 /auth/signin                Login
 /auth/verify-request        Email verification wait
@@ -75,6 +77,14 @@ const route = getRoutePath(resolved)
 /courses/[id]/lessons/[lessonId]
   └── params: { id: string, lessonId: string }  // Course ID (slug) + Lesson UUID
 ```
+
+## Metadata Routes
+
+- `/sitemap.xml` is served by `src/app/sitemap.ts` as a dynamic Node route.
+- Behavior:
+  - Always returns static route entries.
+  - Adds DB-backed course/resource URLs when database access succeeds.
+  - Degrades to static-only entries if DB is temporarily unavailable.
 
 ### Resource Routes
 

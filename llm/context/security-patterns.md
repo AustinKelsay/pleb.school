@@ -63,6 +63,49 @@ const ImageUrlSchema = z.union([
 // Data URIs are only rendered via React's <img src>, preventing XSS execution
 ```
 
+## CORS and Preflight
+
+Cross-origin API traffic is enforced in `middleware.ts`.
+
+### Preflight Safety Pattern
+
+Preflight (`OPTIONS`) must return the same response object that receives CORS/security headers.
+Returning a brand-new `Response` drops `Access-Control-*` and security headers.
+
+```typescript
+// middleware.ts (pattern)
+const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+const isApiPreflight = isApiRoute && request.method === 'OPTIONS'
+
+const response = isApiPreflight
+  ? new NextResponse(null, { status: 200 })
+  : NextResponse.next()
+
+if (isApiRoute) {
+  applyCorsHeaders(request, response)
+  if (isApiPreflight) return response
+}
+```
+
+### CORS Rules
+
+- `ALLOWED_ORIGINS` controls allowed cross-origin origins (comma-separated).
+- If origin is allowed:
+  - `Access-Control-Allow-Origin` echoes the caller origin.
+  - `Access-Control-Allow-Credentials: true` is set.
+- If origin is not allowed:
+  - No `Access-Control-Allow-Origin` header is returned.
+  - Browser blocks the cross-origin request.
+
+### Cache Safety (`Vary`)
+
+Middleware adds:
+- `Vary: Origin`
+- `Vary: Access-Control-Request-Method`
+- `Vary: Access-Control-Request-Headers`
+
+This prevents shared caches/CDNs from reusing CORS decisions across different origins or preflight inputs.
+
 ## Cryptographic Verification
 
 ### NIP-98 Signature Verification
@@ -232,35 +275,43 @@ Per-IP blocks single attackers (5/hour); global caps total throughput for distri
 
 ```typescript
 // src/lib/audit-logger.ts
-import { logger } from './logger'
+// auditLog never throws — DB failures are caught and logged to stderr so they
+// never abort the operation being audited.
+export async function auditLog(
+  userId: string,
+  action: AuditAction,
+  details: Record<string, unknown>,
+  request?: Request
+): Promise<void> {
+  // IP extracted from x-forwarded-for (proxy-appended) then x-real-ip fallback.
+  // Requires a trusted reverse proxy (nginx, Cloudflare, etc.) in production;
+  // without one, clients can spoof these headers.
+  const ip = request?.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request?.headers.get('x-real-ip')
+    || 'unknown'
 
-export function logSecurityEvent(event: {
-  action: string
-  userId?: string
-  pubkey?: string
-  ip?: string
-  details?: Record<string, any>
-}) {
-  logger.info({
-    type: 'security',
-    ...event,
-    timestamp: new Date().toISOString()
-  })
+  try {
+    await prisma.auditLog.create({
+      data: { userId, action, details, ip, userAgent: request?.headers.get('user-agent') }
+    })
+  } catch (err) {
+    // Log to stderr but never re-throw — audit failures must not break callers.
+    logger.error('Failed to persist audit log event', { userId, action, error: err })
+  }
 }
 
 // Usage
-logSecurityEvent({
-  action: 'login_failed',
-  pubkey: pubkey,
-  details: { reason: 'invalid_signature' }
-})
-
-logSecurityEvent({
-  action: 'purchase_claimed',
-  userId: session.user.id,
-  details: { resourceId, amountPaid }
-})
+await auditLog(session.user.id, 'purchase.claim', { resourceId, amountPaid }, request)
 ```
+
+> **PII notice:** `ip` and `userAgent` are personal data under GDPR/CCPA, stored under
+> legitimate-interest (security/fraud prevention). Ensure:
+> - A retention/purge job deletes records older than your policy period (e.g. 90 days).
+> - User deletion requests trigger anonymisation of `ip`/`userAgent` in these rows.
+> - The legal basis is documented in your privacy policy.
+>
+> **Sensitive data:** Never include passwords, tokens, API keys, or raw user input in
+> the `details` argument. Log only safe metadata (e.g. provider name, content ID).
 
 ### Logged Events
 
@@ -274,6 +325,8 @@ logSecurityEvent({
 | `purchase_failed` | userId, contentId, reason |
 | `content_published` | userId, contentId, type |
 | `admin_action` | adminId, action, target |
+
+The `AuditLog` database table provides a durable trail even if application logs rotate or are dropped.
 
 ## Error Handling
 
@@ -394,6 +447,11 @@ EMAIL_SERVER_PASSWORD=...
 KV_REST_API_TOKEN=...
 DATABASE_URL=...
 ```
+
+Runtime validation:
+
+- `src/lib/env.ts` performs normalized parsing and format validation (for example URL/key shape checks).
+- Required/critical vars are enforced by the modules/endpoints that use them (fail-closed at runtime), avoiding build-time failures from unrelated routes.
 
 **Safe for config files** (client-visible):
 

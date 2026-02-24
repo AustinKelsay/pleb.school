@@ -1,41 +1,45 @@
-import type { MetadataRoute } from 'next'
-import { CourseAdapter, ResourceAdapter } from '@/lib/db-adapter'
+import type { MetadataRoute } from "next"
+import { CourseAdapter, ResourceAdapter } from "@/lib/db-adapter"
 
-export const revalidate = 3600 // 1 hour
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+let hasLoggedCourseSitemapError = false
+let hasLoggedResourceSitemapError = false
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = (process.env.NEXTAUTH_URL || 'https://pleb.school').replace(/\/+$/, '')
+  const baseUrl = (process.env.NEXTAUTH_URL || "https://pleb.school").replace(/\/+$/, "")
 
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: "daily",
       priority: 1,
     },
     {
       url: `${baseUrl}/content`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: "daily",
       priority: 0.9,
     },
     {
       url: `${baseUrl}/feeds`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: "daily",
       priority: 0.8,
     },
     {
       url: `${baseUrl}/search`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: "weekly",
       priority: 0.7,
     },
     {
       url: `${baseUrl}/about`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: "monthly",
       priority: 0.5,
     },
   ]
@@ -47,11 +51,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     coursePages = courses.map((course) => ({
       url: `${baseUrl}/courses/${course.id}`,
       lastModified: new Date(course.updatedAt),
-      changeFrequency: 'weekly' as const,
+      changeFrequency: "weekly" as const,
       priority: 0.8,
     }))
-  } catch (error) {
-    console.error('Error fetching courses for sitemap:', error)
+  } catch {
+    if (!hasLoggedCourseSitemapError) {
+      console.error("Sitemap course fetch failed; serving static-only entries until DB is reachable.")
+      hasLoggedCourseSitemapError = true
+    }
   }
 
   // Dynamic content/resource pages
@@ -62,11 +69,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     resourcePages = resources.map((resource) => ({
       url: `${baseUrl}/content/${resource.id}`,
       lastModified: new Date(resource.updatedAt),
-      changeFrequency: 'weekly' as const,
+      changeFrequency: "weekly" as const,
       priority: 0.7,
     }))
-  } catch (error) {
-    console.error('Error fetching resources for sitemap:', error)
+  } catch {
+    if (!hasLoggedResourceSitemapError) {
+      console.error("Sitemap resource fetch failed; serving static-only entries until DB is reachable.")
+      hasLoggedResourceSitemapError = true
+    }
   }
 
   return [...staticPages, ...coursePages, ...resourcePages]

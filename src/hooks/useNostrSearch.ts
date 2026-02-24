@@ -8,6 +8,7 @@ import { SearchResult, MatchedField } from '@/lib/search'
 import { getRelays, type RelaySet } from '@/lib/nostr-relays'
 import { normalizeHexPubkey } from '@/lib/nostr-keys'
 import { sanitizeContent } from '@/lib/content-utils'
+import logger from '@/lib/logger'
 import contentConfig from '../../config/content.json'
 import adminConfig from '../../config/admin.json'
 
@@ -404,7 +405,10 @@ async function searchNostrContent(
   const idBatches = chunkArray(databaseIds, dTagBatchSize)
 
   try {
-    console.log(`Searching Nostr for keyword: "${keyword}" in ${databaseIds.length} database items`)
+    logger.debug('Searching Nostr content', {
+      keywordLength: keyword.length,
+      databaseItems: databaseIds.length,
+    })
 
     // Step 2: Query Nostr using 'd' tags for only database-backed content, batching to avoid oversized filters
     const batchedEvents = await Promise.all(
@@ -434,7 +438,7 @@ async function searchNostrContent(
 
     const events = Array.from(eventMap.values())
 
-    console.log(`Found ${events.length} events from Nostr, filtering by keyword "${keyword}"`)
+    logger.debug('Filtering Nostr search events by keyword', { eventCount: events.length })
 
     // Step 3: Client-side keyword matching
     const resultsMap = new Map<string, SearchResult>()
@@ -461,7 +465,7 @@ async function searchNostrContent(
 
     const deduplicatedResults = Array.from(resultsMap.values())
 
-    console.log(`Found ${deduplicatedResults.length} matching results for "${keyword}"`)
+    logger.debug('Nostr search matched results', { resultCount: deduplicatedResults.length })
 
     // Sort by match score (highest first) and enforce overall limit across batches
     deduplicatedResults.sort((a, b) => b.matchScore - a.matchScore)

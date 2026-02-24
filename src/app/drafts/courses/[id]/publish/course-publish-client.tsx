@@ -34,6 +34,7 @@ const EducationIcon = getCourseIcon('education')
 import { useResourceNotes } from '@/hooks/useResourceNotes'
 import { resolveDraftLesson, type ResolvedDraftLesson } from '@/lib/drafts/lesson-resolution'
 import { cn } from '@/lib/utils'
+import { logger } from '@/lib/logger'
 
 interface CoursePublishPageClientProps {
   courseId: string
@@ -490,19 +491,19 @@ export function CoursePublishPageClient({ courseId }: CoursePublishPageClientPro
   }, [isSuccess, publishResult, router, queryClient, courseId])
 
   const handleStartPublish = async () => {
-    // Log session info for debugging
-    console.log('Session status:', sessionStatus)
-    console.log('Session data:', session)
-    console.log('Session provider:', (session as { provider?: string })?.provider)
+    logger.debug('Starting course publish flow', {
+      sessionStatus,
+      provider: (session as { provider?: string })?.provider,
+    })
     
     // Small delay to ensure window.nostr is available
     await new Promise(resolve => setTimeout(resolve, 100))
     
     const nostrExtension = typeof window !== 'undefined' ? (window as { nostr?: unknown }).nostr : undefined
     if (nostrExtension) {
-      console.log('NIP-07 extension detected on client')
+      logger.debug('NIP-07 extension detected on client')
     } else {
-      console.log('No NIP-07 extension detected on client')
+      logger.debug('No NIP-07 extension detected on client')
     }
     
     // Call the real publish function from the hook
