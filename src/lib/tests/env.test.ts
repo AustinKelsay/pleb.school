@@ -5,6 +5,7 @@ const VALID_HEX_KEY = "ab".repeat(32)
 
 const MANAGED_KEYS = [
   "NODE_ENV",
+  "VERCEL_ENV",
   "DATABASE_URL",
   "NEXTAUTH_SECRET",
   "NEXTAUTH_URL",
@@ -50,7 +51,7 @@ async function loadEnvWith(overrides: Partial<Record<ManagedKey, string>>) {
   return getEnv()
 }
 
-function validProductionEnv(overrides: Partial<Record<ManagedKey, string>> = {}): Record<ManagedKey, string> {
+function validProductionEnv(overrides: Partial<Record<ManagedKey, string>> = {}): Partial<Record<ManagedKey, string>> {
   return {
     NODE_ENV: "production",
     DATABASE_URL: "postgresql://user:pass@localhost:5432/pleb_school?schema=public",
@@ -118,6 +119,15 @@ describe("env", () => {
     expect(error.message).toContain("KV_REST_API_URL is required in production.")
     expect(error.message).toContain("KV_REST_API_TOKEN is required in production.")
     expect(error.message).toContain("VIEWS_CRON_SECRET is required in production.")
+  })
+
+  it("does not enforce production required vars on Vercel preview deployments", async () => {
+    const env = await loadEnvWith({
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
+    })
+    expect(env.NODE_ENV).toBe("production")
+    expect(env.VERCEL_ENV).toBe("preview")
   })
 
   it("requires NEXTAUTH_URL to use https in production", async () => {

@@ -14,6 +14,7 @@ const PRODUCTION_REQUIRED_VARS: Array<keyof RuntimeEnv> = [
 
 const rawEnvSchema = z.object({
   NODE_ENV: z.string().optional(),
+  VERCEL_ENV: z.string().optional(),
   DATABASE_URL: z.string().optional(),
   NEXTAUTH_SECRET: z.string().optional(),
   NEXTAUTH_URL: z.string().optional(),
@@ -25,6 +26,7 @@ const rawEnvSchema = z.object({
 
 export type RuntimeEnv = {
   NODE_ENV: NodeEnv
+  VERCEL_ENV?: string
   DATABASE_URL?: string
   NEXTAUTH_SECRET?: string
   NEXTAUTH_URL?: string
@@ -90,6 +92,7 @@ export function getEnv(): RuntimeEnv {
 
   const env: RuntimeEnv = {
     NODE_ENV,
+    VERCEL_ENV: normalize(raw.VERCEL_ENV),
     DATABASE_URL: normalize(raw.DATABASE_URL),
     NEXTAUTH_SECRET: normalize(raw.NEXTAUTH_SECRET),
     NEXTAUTH_URL: normalize(raw.NEXTAUTH_URL),
@@ -100,7 +103,7 @@ export function getEnv(): RuntimeEnv {
   }
 
   const issues: string[] = []
-  const isProduction = env.NODE_ENV === "production"
+  const isProductionDeployment = env.NODE_ENV === "production" && env.VERCEL_ENV !== "preview"
   const hasValidNextAuthUrl = env.NEXTAUTH_URL ? isValidAbsoluteUrl(env.NEXTAUTH_URL) : false
 
   if (env.NEXTAUTH_URL && !hasValidNextAuthUrl) {
@@ -111,7 +114,7 @@ export function getEnv(): RuntimeEnv {
     issues.push("PRIVKEY_ENCRYPTION_KEY must be a 32-byte key in hex (64 chars) or base64 format.")
   }
 
-  if (isProduction) {
+  if (isProductionDeployment) {
     for (const key of PRODUCTION_REQUIRED_VARS) {
       if (!env[key]) {
         issues.push(`${key} is required in production.`)
