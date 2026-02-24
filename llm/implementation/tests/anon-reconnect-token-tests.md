@@ -72,7 +72,7 @@ Anonymous signup
     ↓
 generateReconnectToken() → { token, tokenHash }
     ↓
-Store token in httpOnly cookie + localStorage (dual storage)
+Store token in httpOnly cookie
 Store tokenHash in database (anonReconnectTokenHash field)
     ↓
 Browser closed, session expires

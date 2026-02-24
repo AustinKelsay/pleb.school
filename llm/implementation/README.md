@@ -30,6 +30,8 @@ Implementation guides, upgrade plans, and setup instructions for pleb.school. Th
 | Document | Description |
 |----------|-------------|
 | [purchase-gaps.md](./purchase-gaps.md) | Known edge cases and uncovered scenarios |
+| [production-readiness-gap-report-2026-02-24.md](./production-readiness-gap-report-2026-02-24.md) | Production hardening gaps and remediation checklist |
+| [views-flush-validation-checklist.md](./views-flush-validation-checklist.md) | Staging/production validation checklist for views flush cron auth and telemetry |
 
 ---
 

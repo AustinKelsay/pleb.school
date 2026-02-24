@@ -313,6 +313,20 @@ await auditLog(session.user.id, 'purchase.claim', { resourceId, amountPaid }, re
 > **Sensitive data:** Never include passwords, tokens, API keys, or raw user input in
 > the `details` argument. Log only safe metadata (e.g. provider name, content ID).
 
+### Retention and Anonymization Pipeline (Implemented)
+
+- Retention days are controlled by `AUDIT_LOG_RETENTION_DAYS` (default: `90`, allowed range: `1..3650`).
+- Scheduled purge endpoint: `GET /api/audit/maintenance`.
+- Optional targeted anonymization: `POST /api/audit/maintenance` with `{ "anonymizeUserId": "<id>" }`.
+- Endpoint authorization:
+  - `Authorization: Bearer <token>` required.
+  - Secret source: `AUDIT_LOG_CRON_SECRET`, with `CRON_SECRET` fallback for Vercel cron compatibility.
+  - Query-string `token` is accepted only outside production for local/manual testing.
+- Adapter-level maintenance primitives:
+  - `AuditLogAdapter.deleteOlderThan(cutoff)`
+  - `AuditLogAdapter.anonymizeByUserId(userId)`
+- Account merge/delete flow now nulls `ip` and `userAgent` before deleting the secondary user row.
+
 ### Logged Events
 
 | Event | Data Logged |
@@ -451,7 +465,9 @@ DATABASE_URL=...
 Runtime validation:
 
 - `src/lib/env.ts` performs normalized parsing and format validation (for example URL/key shape checks).
-- Required/critical vars are enforced by the modules/endpoints that use them (fail-closed at runtime), avoiding build-time failures from unrelated routes.
+- In `NODE_ENV=production`, `src/lib/env.ts` now enforces a fail-fast required env contract (`DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) and rejects insecure/malformed values (for example non-HTTPS `NEXTAUTH_URL`).
+- This shifts failures from late runtime to startup time, reducing partial-outage risk from misconfiguration.
+- SMTP settings are centralized in `src/lib/email-config.ts`; when email auth is enabled, production requires a valid SMTP contract (`EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, `EMAIL_FROM`) and fails fast on invalid/missing values.
 
 **Safe for config files** (client-visible):
 

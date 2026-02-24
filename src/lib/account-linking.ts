@@ -545,6 +545,12 @@ export async function mergeAccounts(
         where: { userId: secondaryUserId }
       })
 
+      // User row is being deleted; anonymize PII in immutable audit records first.
+      await tx.auditLog.updateMany({
+        where: { userId: secondaryUserId },
+        data: { ip: null, userAgent: null }
+      })
+
       // Delete secondary user
       await tx.user.delete({
         where: { id: secondaryUserId }

@@ -238,7 +238,7 @@ Returns all linked accounts for the current user.
 Notes:
 - Provider identifiers are not included here. For `providerAccountId` values, see `/api/profile/aggregated`.
 - `createdAt` is the timestamp when the provider was linked.
-- `profileSource` can be `null` for legacy users; the UI derives a fallback from `primaryProvider`.
+- `profileSource` may be `null` only if an account has not yet established provider preferences; the UI derives behavior from `primaryProvider`.
 
 ### POST /api/account/link
 

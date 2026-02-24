@@ -1,8 +1,8 @@
 /**
  * Anonymous Reconnect Token Cookie API
  *
- * Stores the reconnect token in an httpOnly cookie instead of localStorage,
- * protecting it from XSS attacks. The token is only accessible server-side.
+ * Stores the reconnect token in an httpOnly cookie, protecting it from XSS
+ * attacks. The token is only accessible server-side.
  *
  * POST: Set the reconnect token cookie (called after successful anonymous login)
  * DELETE: Clear the reconnect token cookie (called on logout or token invalidation)

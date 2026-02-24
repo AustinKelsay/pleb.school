@@ -145,18 +145,13 @@ Anonymous sessions persist across browser restarts without storing private keys 
 - Token rotates on every successful login
 - O(1) lookup via unique index
 
-### Dual Storage: httpOnly Cookie + localStorage (XSS Mitigation)
+### Reconnect Storage: httpOnly Cookie Only
 
-The reconnect token is stored in **two locations** for security and backward compatibility:
+The reconnect token is stored in an **httpOnly cookie** (`anon-reconnect-token`):
 
-1. **httpOnly Cookie** (`anon-reconnect-token`): Primary secure storage
-   - Cannot be accessed by JavaScript (XSS-protected)
-   - Set via `/api/auth/anon-reconnect` API after successful login
-   - Server reads directly from cookie during reconnection
-
-2. **localStorage** (legacy, being phased out): Backward compatibility
-   - Still set during transition period
-   - Will be removed in future versions once all clients have httpOnly cookie
+- Cannot be accessed by JavaScript (XSS-protected)
+- Set via `/api/auth/anon-reconnect` API after successful login
+- Server reads directly from cookie during reconnection
 
 **Cookie Configuration:**
 ```typescript
@@ -175,9 +170,8 @@ The reconnect token is stored in **two locations** for security and backward com
 
 **Reconnection Flow:**
 ```typescript
-// 1. Server checks for token (cookie takes priority, localStorage as fallback)
-const reconnectToken = cookieStore.get('anon-reconnect-token')?.value ||  // httpOnly cookie (secure)
-  credentials?.reconnectToken                                              // localStorage (legacy fallback)
+// 1. Server checks for reconnect token in the httpOnly cookie
+const reconnectToken = cookieStore.get('anon-reconnect-token')?.value
 
 // 2. Server computes hash and queries
 const hash = hashToken(reconnectToken)
@@ -198,13 +192,20 @@ await fetch('/api/auth/anon-reconnect', { method: 'POST', credentials: 'include'
 
 **Security Benefits:**
 - XSS attacks cannot steal the httpOnly cookie
-- Even if localStorage is compromised, cookie-based reconnection remains secure
 - Token rotation limits window of exposure for any compromised token
 - Anonymous accounts have limited value (ephemeral platform identity)
 
 ## Email Authentication
 
 Magic link authentication with rate limiting.
+
+### SMTP Configuration Safety
+
+- SMTP parsing and validation is centralized in `src/lib/email-config.ts` and reused by:
+  - NextAuth `EmailProvider` (magic links)
+  - `/api/account/send-link-verification` (account-link verification emails)
+- In production, invalid or missing SMTP env vars now fail fast when email auth is enabled.
+- Outside production, if SMTP config is incomplete, the NextAuth email provider is skipped to avoid late runtime failures.
 
 ### Flow
 

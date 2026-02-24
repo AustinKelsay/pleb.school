@@ -1,6 +1,16 @@
 import { z } from "zod"
 
 type NodeEnv = "development" | "test" | "production"
+const MIN_NEXTAUTH_SECRET_LENGTH = 32
+const PRODUCTION_REQUIRED_VARS: Array<keyof RuntimeEnv> = [
+  "DATABASE_URL",
+  "NEXTAUTH_SECRET",
+  "NEXTAUTH_URL",
+  "PRIVKEY_ENCRYPTION_KEY",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+  "VIEWS_CRON_SECRET",
+]
 
 const rawEnvSchema = z.object({
   NODE_ENV: z.string().optional(),
@@ -47,6 +57,14 @@ function isValidAbsoluteUrl(value: string): boolean {
   }
 }
 
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 function isValid32ByteKey(value: string): boolean {
   const normalized = value.trim()
   const hexPattern = /^(?:0x)?[0-9a-fA-F]{64}$/
@@ -82,13 +100,31 @@ export function getEnv(): RuntimeEnv {
   }
 
   const issues: string[] = []
+  const isProduction = env.NODE_ENV === "production"
+  const hasValidNextAuthUrl = env.NEXTAUTH_URL ? isValidAbsoluteUrl(env.NEXTAUTH_URL) : false
 
-  if (env.NEXTAUTH_URL && !isValidAbsoluteUrl(env.NEXTAUTH_URL)) {
+  if (env.NEXTAUTH_URL && !hasValidNextAuthUrl) {
     issues.push("NEXTAUTH_URL must be a valid absolute URL.")
   }
 
   if (env.PRIVKEY_ENCRYPTION_KEY && !isValid32ByteKey(env.PRIVKEY_ENCRYPTION_KEY)) {
     issues.push("PRIVKEY_ENCRYPTION_KEY must be a 32-byte key in hex (64 chars) or base64 format.")
+  }
+
+  if (isProduction) {
+    for (const key of PRODUCTION_REQUIRED_VARS) {
+      if (!env[key]) {
+        issues.push(`${key} is required in production.`)
+      }
+    }
+
+    if (env.NEXTAUTH_URL && hasValidNextAuthUrl && !isHttpsUrl(env.NEXTAUTH_URL)) {
+      issues.push("NEXTAUTH_URL must use https in production.")
+    }
+
+    if (env.NEXTAUTH_SECRET && env.NEXTAUTH_SECRET.length < MIN_NEXTAUTH_SECRET_LENGTH) {
+      issues.push(`NEXTAUTH_SECRET must be at least ${MIN_NEXTAUTH_SECRET_LENGTH} characters in production.`)
+    }
   }
 
   if (issues.length > 0) {

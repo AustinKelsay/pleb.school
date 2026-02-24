@@ -166,6 +166,12 @@ await AuditLogAdapter.create({
   ip: request?.headers.get('x-forwarded-for'),
   userAgent: request?.headers.get('user-agent'),
 })
+
+// Retention maintenance
+const deletedCount = await AuditLogAdapter.deleteOlderThan(new Date("2026-01-01T00:00:00.000Z"))
+
+// Privacy anonymization (preserves action/details/timestamps)
+const anonymizedCount = await AuditLogAdapter.anonymizeByUserId(userId)
 ```
 
 ## Nostr Event Hydration

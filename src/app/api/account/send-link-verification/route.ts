@@ -13,7 +13,8 @@ import { z } from 'zod'
 import { sanitizeEmail } from '@/lib/api-utils'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import crypto from 'crypto'
-import nodemailer from 'nodemailer'
+import { createTransport } from 'nodemailer'
+import { resolveEmailRuntimeConfig } from '@/lib/email-config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -108,33 +109,16 @@ export async function POST(request: NextRequest) {
     })
 
     // Send verification email
-    const port = parseInt(process.env.EMAIL_SERVER_PORT || '587', 10)
-    const secureEnv = process.env.EMAIL_SERVER_SECURE
-    const secure = typeof secureEnv === 'string'
-      ? /^(true|1|yes)$/i.test(secureEnv)
-      : port === 465
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_SERVER_HOST,
-      port,
-      secure,
-      auth: {
-        user: process.env.EMAIL_SERVER_USER,
-        pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
-      // Enforce STARTTLS when not using implicit TLS (port 465)
-      requireTLS: !secure,
-      tls: {
-        minVersion: 'TLSv1.2',
-        ciphers: 'TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256',
-        rejectUnauthorized: true,
-      },
+    const emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
+      strict: true,
+      context: 'Account linking verification email'
     })
+    const transporter = createTransport(emailRuntimeConfig.server)
 
     const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?ref=${lookupId}`
 
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+      from: emailRuntimeConfig.from,
       to: normalizedEmail,
       subject: 'Verify your email to link your account',
       html: `
@@ -166,6 +150,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Send verification email error:', error)
+    if (error instanceof Error && error.message.startsWith('Account linking verification email:')) {
+      return NextResponse.json(
+        { error: 'Email service is not configured' },
+        { status: 503 }
+      )
+    }
     return NextResponse.json(
       { error: 'Failed to send verification email' },
       { status: 500 }

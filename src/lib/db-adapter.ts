@@ -163,6 +163,47 @@ export class AuditLogAdapter {
       },
     })
   }
+
+  /**
+   * Delete audit log records older than the given cutoff timestamp.
+   *
+   * @param cutoff - Records with createdAt < cutoff are deleted
+   * @returns Number of deleted rows
+   */
+  static async deleteOlderThan(cutoff: Date): Promise<number> {
+    const result = await prisma.auditLog.deleteMany({
+      where: {
+        createdAt: {
+          lt: cutoff,
+        },
+      },
+    })
+    return result.count
+  }
+
+  /**
+   * Anonymize PII columns for all audit records matching a user ID.
+   * Intentionally preserves action/details/timestamps for forensic integrity.
+   *
+   * @param userId - User identifier stored in audit logs
+   * @returns Number of updated rows
+   */
+  static async anonymizeByUserId(userId: string): Promise<number> {
+    const result = await prisma.auditLog.updateMany({
+      where: {
+        userId,
+        OR: [
+          { ip: { not: null } },
+          { userAgent: { not: null } },
+        ],
+      },
+      data: {
+        ip: null,
+        userAgent: null,
+      },
+    })
+    return result.count
+  }
 }
 
 // ============================================================================

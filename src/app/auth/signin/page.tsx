@@ -7,7 +7,7 @@
 
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { signIn, getSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,14 +23,6 @@ import { authConfigClient } from '@/lib/auth-config-client'
 import { validateCallbackUrlFromParams } from '@/lib/url-utils'
 import { Mail, Github, Zap, KeyRound, UserX, Sparkles, ArrowRight, HelpCircle, Shield, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
-import {
-  clearPersistedAnonymousIdentity,
-  getPersistedAnonymousIdentity,
-  persistAnonymousIdentity,
-  hasLegacyPersistedIdentity,
-  getLegacyIdentityForMigration,
-  hasAnyPersistedAnonymousIdentity,
-} from '@/lib/anonymous-client-storage'
 import { cn } from '@/lib/utils'
 import { NostrichIcon } from '@/components/icons/nostrich-icon'
 
@@ -66,34 +58,20 @@ export default function SignInPage() {
   const [isRecoveryLoading, setIsRecoveryLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [hasPersistedAnonymousIdentity, setHasPersistedAnonymousIdentity] = useState(false)
-  const [anonymousResumeFailed, setAnonymousResumeFailed] = useState(false)
   const [showRecovery, setShowRecovery] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
 
   const callbackUrl = validateCallbackUrlFromParams(searchParams, 'callbackUrl', '/')
   const errorType = searchParams.get('error')
   const copy = authConfigClient.copy.signin
-  const hasCachedAnonymousIdentity = hasPersistedAnonymousIdentity && !anonymousResumeFailed
-
   const anonymousButtonLabel = isAnonymousLoading
     ? copy.anonymousCard.loadingButton
-    : hasCachedAnonymousIdentity
-      ? copy.anonymousCard.resumeButton || 'Resume anonymous session'
-      : copy.anonymousCard.button
+    : copy.anonymousCard.button
 
-  const anonymousDescription = hasCachedAnonymousIdentity
-    ? copy.anonymousCard.resumeDescription || 'Pick up the anonymous account stored in this browser.'
-    : copy.anonymousCard.description
-
-  useEffect(() => {
-    // Check for either new token format or legacy privkey format
-    setHasPersistedAnonymousIdentity(hasAnyPersistedAnonymousIdentity())
-  }, [])
+  const anonymousDescription = copy.anonymousCard.description
 
   // Cache the anonymous identity after a successful anon login
-  // Token is stored in httpOnly cookie (secure) AND localStorage (for backward compatibility)
-  // localStorage storage can be removed once all clients migrate to cookie-based reconnect flow
+  // Token is stored in an httpOnly cookie via API (XSS-safe).
   const persistAnonymousSessionIdentity = useCallback(async () => {
     try {
       const session = await getSession()
@@ -111,33 +89,9 @@ export default function SignInPage() {
         console.warn('Failed to set reconnect cookie via API')
       }
 
-      // Also store in localStorage for backward compatibility during transition
-      // This can be removed once all clients have migrated to cookie-based flow
-      persistAnonymousIdentity({
-        reconnectToken: session.user.reconnectToken,
-        pubkey: session.user.pubkey,
-        userId: session.user.id,
-      })
-      setHasPersistedAnonymousIdentity(true)
     } catch (storageError) {
       console.warn('Failed to persist anonymous identity:', storageError)
     }
-  }, [])
-
-  const handleResetAnonymousIdentity = useCallback(async () => {
-    // Clear httpOnly cookie via API
-    try {
-      await fetch('/api/auth/anon-reconnect', {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-    } catch {
-      // Continue even if API call fails - localStorage clear is sufficient
-    }
-    // Clear localStorage (backward compatibility)
-    clearPersistedAnonymousIdentity()
-    setHasPersistedAnonymousIdentity(false)
-    setAnonymousResumeFailed(false)
   }, [])
 
   // Handle email magic link sign in
@@ -243,57 +197,22 @@ export default function SignInPage() {
   const handleAnonymousSignIn = useCallback(async () => {
     setIsAnonymousLoading(true)
     setError('')
-    setAnonymousResumeFailed(false)
 
     try {
-      const retryableAnonErrors = new Set(['CredentialsSignin', 'ANON_INVALID_KEY'])
-
-      // Check for new token format first, then legacy privkey for migration
-      const tokenIdentity = getPersistedAnonymousIdentity()
-      const legacyIdentity = getLegacyIdentityForMigration()
-      const attemptExistingIdentity = Boolean(tokenIdentity?.reconnectToken || legacyIdentity?.privkey)
-      setHasPersistedAnonymousIdentity(attemptExistingIdentity)
-
-      // Helper for anonymous sign in with either token or legacy privkey
-      const attemptAnonymousSignIn = (reconnectToken?: string, privateKey?: string) =>
+      const retryableAnonErrors = new Set(['CredentialsSignin'])
+      const attemptAnonymousSignIn = () =>
         signIn('anonymous', {
           callbackUrl,
           redirect: false,
-          ...(reconnectToken ? { reconnectToken } : {}),
-          ...(privateKey ? { privateKey } : {}),
         })
 
-      let result
+      let result = await attemptAnonymousSignIn()
 
-      // First try token-based reconnection (new secure path)
-      if (tokenIdentity?.reconnectToken) {
-        result = await attemptAnonymousSignIn(tokenIdentity.reconnectToken)
-      }
-      // Fall back to legacy privkey migration
-      else if (legacyIdentity?.privkey) {
-        result = await attemptAnonymousSignIn(undefined, legacyIdentity.privkey)
-      }
-      // No existing identity, create new account
-      else {
-        result = await attemptAnonymousSignIn()
-      }
-
-      if (result?.error && attemptExistingIdentity) {
-        if (!retryableAnonErrors.has(result.error)) {
-          setAnonymousResumeFailed(true)
-          setMessage('')
-          setError(copy.messages.anonymousError || copy.messages.genericError)
-          return
-        }
-        setAnonymousResumeFailed(true)
-        setMessage('Refreshing your anonymous identity…')
-        setError('')
-        // Clear the stale identity (both localStorage and httpOnly cookie)
-        clearPersistedAnonymousIdentity()
+      if (result?.error && retryableAnonErrors.has(result.error)) {
+        // Retry once after clearing a potentially stale reconnect cookie.
         try {
           await fetch('/api/auth/anon-reconnect', { method: 'DELETE', credentials: 'include' })
         } catch { /* ignore */ }
-        setHasPersistedAnonymousIdentity(false)
         result = await attemptAnonymousSignIn()
       }
 
@@ -303,8 +222,6 @@ export default function SignInPage() {
       } else {
         // Success - persist the new reconnect token
         await persistAnonymousSessionIdentity()
-        setAnonymousResumeFailed(false)
-        setHasPersistedAnonymousIdentity(true)
         setMessage('')
         router.push(callbackUrl)
       }
@@ -561,37 +478,9 @@ export default function SignInPage() {
                         </div>
                       </TooltipContent>
                     </Tooltip>
-                    {anonymousResumeFailed && (
-                      <div className="mt-3 text-xs text-muted-foreground">
-                        <p>
-                          We could not reopen the cached anonymous account. Please retry or reset the cached key to start fresh.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleResetAnonymousIdentity}
-                          className="mt-1 font-semibold text-primary hover:underline"
-                        >
-                          Reset anonymous identity (clears cached key)
-                        </button>
-                      </div>
-                    )}
-                    {hasCachedAnonymousIdentity && !anonymousResumeFailed && (
-                      <div className="mt-3 text-xs text-muted-foreground">
-                        <p>We found an anonymous account saved in this browser.</p>
-                        <button
-                          type="button"
-                          onClick={handleResetAnonymousIdentity}
-                          className="mt-1 font-semibold text-primary hover:underline"
-                        >
-                          Reset anonymous identity (clears cached key)
-                        </button>
-                      </div>
-                    )}
-                    {!hasPersistedAnonymousIdentity && !anonymousResumeFailed && (
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        Generates a fresh anonymous keypair and stores it only in this browser.
-                      </p>
-                    )}
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Generates a fresh anonymous keypair and keeps reconnect state in secure cookies.
+                    </p>
                   </div>
                 </div>
               </div>
