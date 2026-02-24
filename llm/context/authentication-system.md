@@ -186,7 +186,7 @@ await prisma.user.update({
   data: { anonReconnectTokenHash: hashToken(newToken) }
 })
 
-// 4. Return new token to client, client calls API to set new cookie
+// 4. Client calls endpoint so server reads rotated session token and sets new cookie
 await fetch('/api/auth/anon-reconnect', { method: 'POST', credentials: 'include' })
 ```
 

@@ -7,24 +7,24 @@
 
 'use client'
 
-import { useState, useCallback } from 'react'
-import { signIn, getSession } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Alert } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Container } from '@/components/layout/container'
-import { Section } from '@/components/layout/section'
-import { hasNip07Support } from 'snstr'
-import { authConfigClient } from '@/lib/auth-config-client'
-import { validateCallbackUrlFromParams } from '@/lib/url-utils'
-import { Mail, Github, Zap, KeyRound, UserX, Sparkles, ArrowRight, HelpCircle, Shield, ChevronDown } from 'lucide-react'
-import Link from 'next/link'
-import { cn } from '@/lib/utils'
-import { NostrichIcon } from '@/components/icons/nostrich-icon'
+import { useState, useCallback } from "react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { signIn, getSession } from "next-auth/react"
+import { hasNip07Support } from "snstr"
+import { Mail, Github, Zap, KeyRound, UserX, Sparkles, ArrowRight, HelpCircle, Shield, ChevronDown } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Alert } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Container } from "@/components/layout/container"
+import { Section } from "@/components/layout/section"
+import { authConfigClient } from "@/lib/auth-config-client"
+import { validateCallbackUrlFromParams } from "@/lib/url-utils"
+import { cn } from "@/lib/utils"
+import { NostrichIcon } from "@/components/icons/nostrich-icon"
 
 interface NostrWindow extends Window {
   nostr?: {

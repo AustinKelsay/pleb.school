@@ -307,7 +307,7 @@ await auditLog(session.user.id, 'purchase.claim', { resourceId, amountPaid }, re
 > **PII notice:** `ip` and `userAgent` are personal data under GDPR/CCPA, stored under
 > legitimate-interest (security/fraud prevention). Ensure:
 > - A retention/purge job deletes records older than your policy period (e.g. 90 days).
-> - User deletion requests trigger anonymisation of `ip`/`userAgent` in these rows.
+> - User deletion requests trigger anonymization of `ip`/`userAgent` in these rows.
 > - The legal basis is documented in your privacy policy.
 >
 > **Sensitive data:** Never include passwords, tokens, API keys, or raw user input in

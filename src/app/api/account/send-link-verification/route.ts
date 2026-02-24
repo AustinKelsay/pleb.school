@@ -98,6 +98,23 @@ export async function POST(request: NextRequest) {
     const lookupId = crypto.randomBytes(8).toString('hex')
     const expires = new Date(Date.now() + 3600000) // 1 hour from now
 
+    // Resolve email runtime config first so SMTP misconfiguration fails before any DB writes.
+    let emailRuntimeConfig: NonNullable<ReturnType<typeof resolveEmailRuntimeConfig>>
+    let transporter: ReturnType<typeof createTransport>
+    try {
+      emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
+        strict: true,
+        context: 'Account linking verification email'
+      })
+      transporter = createTransport(emailRuntimeConfig.server)
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Account linking verification email:')) {
+        throw error
+      }
+      const message = error instanceof Error ? error.message : 'SMTP setup failed.'
+      throw new Error(`Account linking verification email: ${message}`)
+    }
+
     // Store verification record: identifier carries context; token holds short code; lookupId is used in URL
     await prisma.verificationToken.create({
       data: {
@@ -107,13 +124,6 @@ export async function POST(request: NextRequest) {
         expires
       }
     })
-
-    // Send verification email
-    const emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
-      strict: true,
-      context: 'Account linking verification email'
-    })
-    const transporter = createTransport(emailRuntimeConfig.server)
 
     const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?ref=${lookupId}`
 

@@ -1,0 +1,212 @@
+import { afterEach, describe, expect, it, vi } from "vitest"
+
+type RateLimitResult = {
+  success: boolean
+  remaining: number
+  resetIn: number
+}
+
+const DEFAULT_RUNTIME_CONFIG = {
+  server: {
+    host: "smtp.example.com",
+    port: 587,
+    secure: false,
+    auth: {
+      user: "smtp-user",
+      pass: "smtp-password",
+    },
+    requireTLS: true,
+    tls: {
+      minVersion: "TLSv1.2" as const,
+      ciphers: "TLS_AES_256_GCM_SHA384",
+      rejectUnauthorized: true as const,
+    },
+  },
+  from: "noreply@example.com",
+}
+
+const originalGithubClientId = process.env.GITHUB_CLIENT_ID
+const originalGithubClientSecret = process.env.GITHUB_CLIENT_SECRET
+const RATE_LIMIT_MODULE_PATH = new URL("../rate-limit.ts", import.meta.url).pathname
+const EMAIL_CONFIG_MODULE_PATH = new URL("../email-config.ts", import.meta.url).pathname
+
+function restoreGithubEnv() {
+  if (originalGithubClientId === undefined) {
+    delete process.env.GITHUB_CLIENT_ID
+  } else {
+    process.env.GITHUB_CLIENT_ID = originalGithubClientId
+  }
+
+  if (originalGithubClientSecret === undefined) {
+    delete process.env.GITHUB_CLIENT_SECRET
+  } else {
+    process.env.GITHUB_CLIENT_SECRET = originalGithubClientSecret
+  }
+}
+
+async function loadAuthModuleForEmailTests(params?: {
+  runtimeConfig?: typeof DEFAULT_RUNTIME_CONFIG | null
+  rateLimitResult?: RateLimitResult
+  sendMailResult?: { rejected: string[]; pending: string[] }
+}) {
+  vi.resetModules()
+
+  process.env.GITHUB_CLIENT_ID = "test-github-client-id"
+  process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret"
+
+  const checkRateLimit = vi.fn().mockResolvedValue(
+    params?.rateLimitResult ?? { success: true, remaining: 2, resetIn: 60 }
+  )
+  const runtimeConfig = params && "runtimeConfig" in params
+    ? params.runtimeConfig
+    : DEFAULT_RUNTIME_CONFIG
+  const resolveEmailRuntimeConfig = vi.fn().mockReturnValue(runtimeConfig)
+
+  const sendMail = vi.fn().mockResolvedValue(
+    params?.sendMailResult ?? {
+      rejected: [],
+      pending: [],
+    }
+  )
+  const createTransport = vi.fn().mockReturnValue({ sendMail })
+
+  const mockRateLimitModule = () => ({
+    checkRateLimit,
+    RATE_LIMITS: {
+      AUTH_MAGIC_LINK: { limit: 3, windowSeconds: 3600 },
+      AUTH_NOSTR: { limit: 3, windowSeconds: 3600 },
+      AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
+      AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
+    },
+    getClientIp: vi.fn().mockResolvedValue("127.0.0.1"),
+  })
+  vi.doMock("../rate-limit", mockRateLimitModule)
+  vi.doMock(RATE_LIMIT_MODULE_PATH, mockRateLimitModule)
+
+  const mockEmailConfigModule = () => ({
+    resolveEmailRuntimeConfig,
+  })
+  vi.doMock("../email-config", mockEmailConfigModule)
+  vi.doMock(EMAIL_CONFIG_MODULE_PATH, mockEmailConfigModule)
+
+  vi.doMock("nodemailer", () => ({
+    createTransport,
+  }))
+
+  vi.doMock("next-auth/providers/email", () => ({
+    default: (config: Record<string, unknown>) => ({
+      id: "email",
+      name: "Email",
+      type: "email",
+      ...config,
+    }),
+  }))
+
+  const authModule = await import("../auth")
+  const emailProvider = (authModule.authOptions.providers as Array<any>).find(
+    (provider) => provider?.id === "email"
+  )
+
+  return {
+    authModule,
+    emailProvider,
+    mocks: {
+      checkRateLimit,
+      resolveEmailRuntimeConfig,
+      createTransport,
+      sendMail,
+    },
+  }
+}
+
+describe("auth email provider runtime + magic link flow", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.resetModules()
+    restoreGithubEnv()
+  })
+
+  it("skips EmailProvider registration when resolveEmailRuntimeConfig returns null", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const { emailProvider, mocks } = await loadAuthModuleForEmailTests({
+      runtimeConfig: null,
+    })
+
+    expect(emailProvider).toBeUndefined()
+    expect(mocks.resolveEmailRuntimeConfig).toHaveBeenCalledWith(process.env, {
+      strict: false,
+      context: "NextAuth EmailProvider",
+    })
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Skipping EmailProvider registration outside production.")
+    )
+  })
+
+  it("throws a rate-limit error and logs a redacted email when checkRateLimit fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const { emailProvider, mocks } = await loadAuthModuleForEmailTests({
+      rateLimitResult: { success: false, remaining: 0, resetIn: 120 },
+    })
+
+    await expect(
+      emailProvider.sendVerificationRequest({
+        identifier: "alice@example.com",
+        url: "https://pleb.school/auth/callback/email?token=abc",
+        provider: {
+          server: DEFAULT_RUNTIME_CONFIG.server,
+          from: DEFAULT_RUNTIME_CONFIG.from,
+        },
+      })
+    ).rejects.toThrow("Too many sign-in attempts. Please try again later.")
+
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith("auth-magic-link:alice@example.com", 3, 3600)
+    expect(warnSpy).toHaveBeenCalledWith("Rate limit exceeded for magic link: a***@example.com")
+    expect(mocks.createTransport).not.toHaveBeenCalled()
+  })
+
+  it("sends magic link email when rate limit passes", async () => {
+    const { emailProvider, mocks } = await loadAuthModuleForEmailTests()
+    const magicLinkUrl = "https://pleb.school/auth/callback/email?token=xyz"
+
+    await emailProvider.sendVerificationRequest({
+      identifier: "alice@example.com",
+      url: magicLinkUrl,
+      provider: {
+        server: DEFAULT_RUNTIME_CONFIG.server,
+        from: DEFAULT_RUNTIME_CONFIG.from,
+      },
+    })
+
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith("auth-magic-link:alice@example.com", 3, 3600)
+    expect(mocks.createTransport).toHaveBeenCalledWith(DEFAULT_RUNTIME_CONFIG.server)
+    expect(mocks.sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "alice@example.com",
+        from: DEFAULT_RUNTIME_CONFIG.from,
+        subject: "Sign in to pleb.school",
+        html: expect.stringContaining(magicLinkUrl),
+        text: expect.stringContaining(magicLinkUrl),
+      })
+    )
+  })
+
+  it("throws when transport reports rejected or pending recipients", async () => {
+    const { emailProvider } = await loadAuthModuleForEmailTests({
+      sendMailResult: {
+        rejected: ["rejected@example.com"],
+        pending: ["pending@example.com"],
+      },
+    })
+
+    await expect(
+      emailProvider.sendVerificationRequest({
+        identifier: "alice@example.com",
+        url: "https://pleb.school/auth/callback/email?token=def",
+        provider: {
+          server: DEFAULT_RUNTIME_CONFIG.server,
+          from: DEFAULT_RUNTIME_CONFIG.from,
+        },
+      })
+    ).rejects.toThrow("Email could not be sent to rejected@example.com, pending@example.com")
+  })
+})

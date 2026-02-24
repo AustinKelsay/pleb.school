@@ -141,6 +141,8 @@ export interface AuditLogCreateInput {
   userAgent?: string | null
 }
 
+type AuditLogClient = Pick<typeof prisma, 'auditLog'>
+
 /**
  * Adapter for persisting audit logs.
  * Centralizes AuditLog writes so callers (e.g. audit-logger) never access Prisma directly.
@@ -188,8 +190,20 @@ export class AuditLogAdapter {
    * @param userId - User identifier stored in audit logs
    * @returns Number of updated rows
    */
-  static async anonymizeByUserId(userId: string): Promise<number> {
-    const result = await prisma.auditLog.updateMany({
+  static async anonymizeByUserId(userId: string): Promise<number>
+  static async anonymizeByUserId(client: AuditLogClient, userId: string): Promise<number>
+  static async anonymizeByUserId(
+    userIdOrClient: string | AuditLogClient,
+    maybeUserId?: string
+  ): Promise<number> {
+    const client = typeof userIdOrClient === 'string' ? prisma : userIdOrClient
+    const userId = typeof userIdOrClient === 'string' ? userIdOrClient : maybeUserId
+
+    if (!userId) {
+      throw new Error('userId is required')
+    }
+
+    const result = await client.auditLog.updateMany({
       where: {
         userId,
         OR: [

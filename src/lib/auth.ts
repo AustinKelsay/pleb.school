@@ -82,7 +82,7 @@ import { generateReconnectToken, hashToken } from './anon-reconnect-token'
 import { normalizeHexPubkey } from './nostr-keys'
 import logger from './logger'
 import { createTransport } from 'nodemailer'
-import { resolveEmailRuntimeConfig } from './email-config'
+import { resolveEmailRuntimeConfig } from "./email-config"
 import crypto from 'crypto'
 
 /**
@@ -434,7 +434,7 @@ if (authConfig.providers.anonymous.enabled) {
       async authorize(_credentials) {
         try {
           // ============================================================
-          // Secure token-based reconnection (no private keys in localStorage)
+          // Secure token-based reconnection via httpOnly cookie.
           // See: llm/context/authentication-system.md
           //
           // Reconnect token source:
@@ -784,7 +784,7 @@ export const authOptions: NextAuthOptions = {
         token.avatar = user.avatar || user.image || undefined
         token.provider = account?.provider
         token.email = user.email || undefined
-        // Pass reconnect token through JWT for client storage
+        // Carry reconnect token through JWT so the reconnect-cookie endpoint can rotate/set it.
         token.reconnectToken = user.reconnectToken || undefined
         
         /**
@@ -847,7 +847,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.username as string
         // Add provider to session for client-side signing detection
         session.provider = token.provider as string
-        // Pass reconnect token to client for secure localStorage persistence
+        // Expose reconnect token so the client can call /api/auth/anon-reconnect to set/rotate httpOnly cookie state.
         session.user.reconnectToken = token.reconnectToken as string | undefined
         // Add additional Nostr profile fields to session
         Object.assign(session.user, {
