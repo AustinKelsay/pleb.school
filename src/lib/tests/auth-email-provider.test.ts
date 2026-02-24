@@ -27,8 +27,15 @@ const DEFAULT_RUNTIME_CONFIG = {
 
 const originalGithubClientId = process.env.GITHUB_CLIENT_ID
 const originalGithubClientSecret = process.env.GITHUB_CLIENT_SECRET
+const originalNodeEnv = process.env.NODE_ENV
+const originalVercelEnv = process.env.VERCEL_ENV
+const originalDatabaseUrl = process.env.DATABASE_URL
+const originalNextAuthSecret = process.env.NEXTAUTH_SECRET
+const originalNextAuthUrl = process.env.NEXTAUTH_URL
+const originalPrivkeyEncryptionKey = process.env.PRIVKEY_ENCRYPTION_KEY
 const RATE_LIMIT_MODULE_PATH = new URL("../rate-limit.ts", import.meta.url).pathname
 const EMAIL_CONFIG_MODULE_PATH = new URL("../email-config.ts", import.meta.url).pathname
+const mutableEnv = process.env as Record<string, string | undefined>
 
 function restoreGithubEnv() {
   if (originalGithubClientId === undefined) {
@@ -42,17 +49,63 @@ function restoreGithubEnv() {
   } else {
     process.env.GITHUB_CLIENT_SECRET = originalGithubClientSecret
   }
+
+  if (originalNodeEnv === undefined) {
+    delete mutableEnv.NODE_ENV
+  } else {
+    mutableEnv.NODE_ENV = originalNodeEnv
+  }
+
+  if (originalVercelEnv === undefined) {
+    delete process.env.VERCEL_ENV
+  } else {
+    process.env.VERCEL_ENV = originalVercelEnv
+  }
+
+  if (originalDatabaseUrl === undefined) {
+    delete process.env.DATABASE_URL
+  } else {
+    process.env.DATABASE_URL = originalDatabaseUrl
+  }
+
+  if (originalNextAuthSecret === undefined) {
+    delete process.env.NEXTAUTH_SECRET
+  } else {
+    process.env.NEXTAUTH_SECRET = originalNextAuthSecret
+  }
+
+  if (originalNextAuthUrl === undefined) {
+    delete process.env.NEXTAUTH_URL
+  } else {
+    process.env.NEXTAUTH_URL = originalNextAuthUrl
+  }
+
+  if (originalPrivkeyEncryptionKey === undefined) {
+    delete process.env.PRIVKEY_ENCRYPTION_KEY
+  } else {
+    process.env.PRIVKEY_ENCRYPTION_KEY = originalPrivkeyEncryptionKey
+  }
 }
 
 async function loadAuthModuleForEmailTests(params?: {
   runtimeConfig?: typeof DEFAULT_RUNTIME_CONFIG | null
   rateLimitResult?: RateLimitResult
   sendMailResult?: { rejected: string[]; pending: string[] }
+  nodeEnv?: string
+  resolveEmailError?: Error
 }) {
   vi.resetModules()
 
   process.env.GITHUB_CLIENT_ID = "test-github-client-id"
   process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret"
+  mutableEnv.NODE_ENV = params?.nodeEnv ?? "test"
+  if (mutableEnv.NODE_ENV === "production") {
+    process.env.VERCEL_ENV = "preview"
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/pleb_school?schema=public"
+    process.env.NEXTAUTH_SECRET = "x".repeat(32)
+    process.env.NEXTAUTH_URL = "https://pleb.school"
+    process.env.PRIVKEY_ENCRYPTION_KEY = "ab".repeat(32)
+  }
 
   const checkRateLimit = vi.fn().mockResolvedValue(
     params?.rateLimitResult ?? { success: true, remaining: 2, resetIn: 60 }
@@ -60,7 +113,11 @@ async function loadAuthModuleForEmailTests(params?: {
   const runtimeConfig = params && "runtimeConfig" in params
     ? params.runtimeConfig
     : DEFAULT_RUNTIME_CONFIG
-  const resolveEmailRuntimeConfig = vi.fn().mockReturnValue(runtimeConfig)
+  const resolveEmailRuntimeConfig = params?.resolveEmailError
+    ? vi.fn().mockImplementation(() => {
+      throw params.resolveEmailError
+    })
+    : vi.fn().mockReturnValue(runtimeConfig)
 
   const sendMail = vi.fn().mockResolvedValue(
     params?.sendMailResult ?? {
@@ -140,6 +197,15 @@ describe("auth email provider runtime + magic link flow", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("Skipping EmailProvider registration outside production.")
     )
+  })
+
+  it("throws during auth module initialization when SMTP config is invalid in production", async () => {
+    await expect(
+      loadAuthModuleForEmailTests({
+        nodeEnv: "production",
+        resolveEmailError: new Error("NextAuth EmailProvider: Missing required SMTP env vars: EMAIL_FROM."),
+      })
+    ).rejects.toThrow("NextAuth EmailProvider: Missing required SMTP env vars: EMAIL_FROM.")
   })
 
   it("throws a rate-limit error and logs a redacted email when checkRateLimit fails", async () => {

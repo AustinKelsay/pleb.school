@@ -1,11 +1,5 @@
 import { AuditLogAdapter } from "@/lib/db-adapter"
 
-/** Typed adapter reference for purge/anonymize */
-const adapter = AuditLogAdapter as unknown as {
-  deleteOlderThan(cutoff: Date): Promise<number>
-  anonymizeByUserId(userId: string): Promise<number>
-}
-
 const DEFAULT_AUDIT_LOG_RETENTION_DAYS = 90
 const MIN_RETENTION_DAYS = 1
 const MAX_RETENTION_DAYS = 3650
@@ -76,7 +70,7 @@ export async function purgeExpiredAuditLogs(params?: {
 }): Promise<AuditLogMaintenanceSummary> {
   const retentionDays = params?.retentionDays ?? resolveAuditLogRetentionDays(process.env)
   const cutoff = getAuditLogCutoffDate(retentionDays, params?.now)
-  const deletedCount = await adapter.deleteOlderThan(cutoff)
+  const deletedCount = await AuditLogAdapter.deleteOlderThan(cutoff)
 
   return {
     retentionDays,
@@ -91,6 +85,5 @@ export async function anonymizeAuditLogsForUser(userId: string): Promise<number>
   if (!normalizedUserId) {
     throw new Error("userId is required to anonymize audit logs.")
   }
-  return adapter.anonymizeByUserId(normalizedUserId)
+  return AuditLogAdapter.anonymizeByUserId(normalizedUserId)
 }
-

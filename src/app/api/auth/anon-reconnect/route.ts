@@ -12,9 +12,11 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getEnv } from '@/lib/env'
 
 const COOKIE_NAME = 'anon-reconnect-token'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year (same as token validity concept)
+const env = getEnv()
 
 /**
  * POST: Store the reconnect token from the current session into an httpOnly cookie
@@ -47,7 +49,7 @@ export async function POST() {
     // Set httpOnly cookie - cannot be accessed by JavaScript
     cookieStore.set(COOKIE_NAME, session.user.reconnectToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: COOKIE_MAX_AGE,
@@ -70,11 +72,19 @@ export async function POST() {
  */
 export async function DELETE() {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const cookieStore = await cookies()
     // Clear cookie using same attributes as when setting to ensure proper removal
     cookieStore.set(COOKIE_NAME, '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: 0,

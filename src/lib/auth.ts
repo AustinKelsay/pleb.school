@@ -149,14 +149,14 @@ const providers = []
 // Add Email Provider if enabled
 if (authConfig.providers.email.enabled) {
   const emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
-    strict: process.env.NODE_ENV === 'production',
-    context: 'NextAuth EmailProvider',
+    strict: process.env.NODE_ENV === "production",
+    context: "NextAuth EmailProvider",
   })
 
   if (!emailRuntimeConfig) {
     console.warn(
-      'Email provider is enabled but SMTP config is incomplete. ' +
-      'Skipping EmailProvider registration outside production.'
+      "Email provider is enabled but SMTP config is incomplete. " +
+      "Skipping EmailProvider registration outside production."
     )
   } else {
     providers.push(
@@ -178,10 +178,10 @@ if (authConfig.providers.email.enabled) {
 
           if (!rateLimit.success) {
             // Redact email for logging (keep first char + domain for debugging)
-            const [local, domain] = email.split('@')
+            const [local, domain] = email.split("@")
             const redacted = `${local[0]}***@${domain}`
             console.warn(`Rate limit exceeded for magic link: ${redacted}`)
-            throw new Error('Too many sign-in attempts. Please try again later.')
+            throw new Error("Too many sign-in attempts. Please try again later.")
           }
 
           // Send the email using nodemailer
@@ -189,7 +189,7 @@ if (authConfig.providers.email.enabled) {
           const result = await transport.sendMail({
             to: email,
             from: provider.from,
-            subject: 'Sign in to pleb.school',
+            subject: "Sign in to pleb.school",
             text: `Sign in to pleb.school\n\nClick this link to sign in:\n${url}\n\nIf you didn't request this, you can ignore this email.\n`,
             html: `
               <div style="max-width: 480px; margin: 0 auto; font-family: sans-serif;">
@@ -206,7 +206,7 @@ if (authConfig.providers.email.enabled) {
 
           const failed = result.rejected.concat(result.pending).filter(Boolean)
           if (failed.length) {
-            throw new Error(`Email could not be sent to ${failed.join(', ')}`)
+            throw new Error(`Email could not be sent to ${failed.join(", ")}`)
           }
         },
       })

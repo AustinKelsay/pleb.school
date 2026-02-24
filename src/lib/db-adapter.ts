@@ -141,7 +141,7 @@ export interface AuditLogCreateInput {
   userAgent?: string | null
 }
 
-type AuditLogClient = Pick<typeof prisma, 'auditLog'>
+export type AuditLogClient = Pick<typeof prisma, 'auditLog'>
 
 /**
  * Adapter for persisting audit logs.
@@ -173,6 +173,10 @@ export class AuditLogAdapter {
    * @returns Number of deleted rows
    */
   static async deleteOlderThan(cutoff: Date): Promise<number> {
+    if (cutoff.getTime() > Date.now()) {
+      throw new RangeError("cutoff must not be in the future.")
+    }
+
     const result = await prisma.auditLog.deleteMany({
       where: {
         createdAt: {

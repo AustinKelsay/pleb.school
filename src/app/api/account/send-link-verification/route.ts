@@ -99,13 +99,17 @@ export async function POST(request: NextRequest) {
     const expires = new Date(Date.now() + 3600000) // 1 hour from now
 
     // Resolve email runtime config first so SMTP misconfiguration fails before any DB writes.
-    let emailRuntimeConfig: NonNullable<ReturnType<typeof resolveEmailRuntimeConfig>>
+    let emailRuntimeConfig: ReturnType<typeof resolveEmailRuntimeConfig> | undefined
     let transporter: ReturnType<typeof createTransport>
     try {
-      emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
+      const emailRuntimeConfigRaw = resolveEmailRuntimeConfig(process.env, {
         strict: true,
         context: 'Account linking verification email'
       })
+      if (emailRuntimeConfigRaw === null) {
+        throw new Error('Account linking verification email: SMTP setup failed.')
+      }
+      emailRuntimeConfig = emailRuntimeConfigRaw
       transporter = createTransport(emailRuntimeConfig.server)
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('Account linking verification email:')) {
@@ -126,6 +130,9 @@ export async function POST(request: NextRequest) {
     })
 
     const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?ref=${lookupId}`
+    if (!emailRuntimeConfig) {
+      throw new Error('Account linking verification email: SMTP setup failed.')
+    }
 
     await transporter.sendMail({
       from: emailRuntimeConfig.from,

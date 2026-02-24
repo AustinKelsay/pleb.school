@@ -121,13 +121,33 @@ describe("env", () => {
     expect(error.message).toContain("VIEWS_CRON_SECRET is required in production.")
   })
 
-  it("does not enforce production required vars on Vercel preview deployments", async () => {
-    const env = await loadEnvWith({
+  it("still enforces core production vars on Vercel preview deployments", async () => {
+    const error = await loadEnvWith({
       NODE_ENV: "production",
       VERCEL_ENV: "preview",
-    })
+    }).catch((err) => err as Error)
+
+    expect(error).toBeInstanceOf(Error)
+    expect(error.message).toContain("DATABASE_URL is required in production.")
+    expect(error.message).toContain("NEXTAUTH_SECRET is required in production.")
+    expect(error.message).toContain("NEXTAUTH_URL is required in production.")
+    expect(error.message).toContain("PRIVKEY_ENCRYPTION_KEY is required in production.")
+  })
+
+  it("allows preview deployments to omit preview-optional vars", async () => {
+    const env = await loadEnvWith(
+      validProductionEnv({
+        VERCEL_ENV: "preview",
+        KV_REST_API_URL: "",
+        KV_REST_API_TOKEN: "",
+        VIEWS_CRON_SECRET: "",
+      })
+    )
     expect(env.NODE_ENV).toBe("production")
     expect(env.VERCEL_ENV).toBe("preview")
+    expect(env.KV_REST_API_URL).toBeUndefined()
+    expect(env.KV_REST_API_TOKEN).toBeUndefined()
+    expect(env.VIEWS_CRON_SECRET).toBeUndefined()
   })
 
   it("requires NEXTAUTH_URL to use https in production", async () => {

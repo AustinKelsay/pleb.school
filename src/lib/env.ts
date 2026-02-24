@@ -11,6 +11,11 @@ const PRODUCTION_REQUIRED_VARS: Array<keyof RuntimeEnv> = [
   "KV_REST_API_TOKEN",
   "VIEWS_CRON_SECRET",
 ]
+const PREVIEW_OPTIONAL_VARS = new Set<keyof RuntimeEnv>([
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+  "VIEWS_CRON_SECRET",
+])
 
 const rawEnvSchema = z.object({
   NODE_ENV: z.string().optional(),
@@ -103,7 +108,8 @@ export function getEnv(): RuntimeEnv {
   }
 
   const issues: string[] = []
-  const isProductionDeployment = env.NODE_ENV === "production" && env.VERCEL_ENV !== "preview"
+  const isProductionDeployment = env.NODE_ENV === "production"
+  const isPreviewDeployment = env.VERCEL_ENV === "preview"
   const hasValidNextAuthUrl = env.NEXTAUTH_URL ? isValidAbsoluteUrl(env.NEXTAUTH_URL) : false
 
   if (env.NEXTAUTH_URL && !hasValidNextAuthUrl) {
@@ -116,6 +122,9 @@ export function getEnv(): RuntimeEnv {
 
   if (isProductionDeployment) {
     for (const key of PRODUCTION_REQUIRED_VARS) {
+      if (isPreviewDeployment && PREVIEW_OPTIONAL_VARS.has(key)) {
+        continue
+      }
       if (!env[key]) {
         issues.push(`${key} is required in production.`)
       }

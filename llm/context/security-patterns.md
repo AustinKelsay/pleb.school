@@ -465,7 +465,7 @@ DATABASE_URL=...
 Runtime validation:
 
 - `src/lib/env.ts` performs normalized parsing and format validation (for example URL/key shape checks).
-- In production deployments, `src/lib/env.ts` enforces a fail-fast required env contract (`DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) and rejects insecure/malformed values (for example non-HTTPS `NEXTAUTH_URL`). Vercel previews (`VERCEL_ENV=preview`) skip the required-vars contract to keep preview builds deployable.
+- In production deployments, `src/lib/env.ts` enforces a fail-fast required env contract (`DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) and rejects insecure/malformed values (for example non-HTTPS `NEXTAUTH_URL`). Vercel previews (`VERCEL_ENV=preview`) still validate core auth/db/crypto settings but can omit preview-optional keys (`KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`).
 - This shifts failures from late runtime to startup time, reducing partial-outage risk from misconfiguration.
 - SMTP settings are centralized in `src/lib/email-config.ts`; when email auth is enabled, production requires a valid SMTP contract (`EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, `EMAIL_FROM`) and fails fast on invalid/missing values.
 

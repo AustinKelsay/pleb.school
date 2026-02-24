@@ -479,7 +479,7 @@ export default function SignInPage() {
                       </TooltipContent>
                     </Tooltip>
                     <p className="mt-3 text-xs text-muted-foreground">
-                      Generates a fresh anonymous keypair and keeps reconnect state in secure cookies.
+                      {copy.anonymousCard.cookieNotice}
                     </p>
                   </div>
                 </div>
