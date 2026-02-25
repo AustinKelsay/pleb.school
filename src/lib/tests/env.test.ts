@@ -8,6 +8,7 @@ const MANAGED_KEYS = [
   "VERCEL_ENV",
   "DATABASE_URL",
   "NEXTAUTH_SECRET",
+  "AUTH_SECRET",
   "NEXTAUTH_URL",
   "PRIVKEY_ENCRYPTION_KEY",
   "KV_REST_API_URL",
@@ -176,5 +177,16 @@ describe("env", () => {
     expect(env.NODE_ENV).toBe("production")
     expect(env.DATABASE_URL).toContain("postgresql://")
     expect(env.NEXTAUTH_URL).toBe("https://pleb.school")
+  })
+
+  it("accepts AUTH_SECRET as an alias for NEXTAUTH_SECRET", async () => {
+    const env = await loadEnvWith(
+      validProductionEnv({
+        NEXTAUTH_SECRET: "",
+        AUTH_SECRET: "y".repeat(32),
+      })
+    )
+
+    expect(env.NEXTAUTH_SECRET).toBe("y".repeat(32))
   })
 })
