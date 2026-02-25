@@ -858,8 +858,6 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.username as string
         // Add provider to session for client-side signing detection
         session.provider = token.provider as string
-        // Expose reconnect token so the client can call /api/auth/anon-reconnect to set/rotate httpOnly cookie state.
-        session.user.reconnectToken = token.reconnectToken as string | undefined
         // Add additional Nostr profile fields to session
         Object.assign(session.user, {
           nip05: token.nip05,

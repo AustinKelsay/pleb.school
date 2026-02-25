@@ -13,6 +13,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getEnv } from '@/lib/env'
+import { generateReconnectToken } from '@/lib/anon-reconnect-token'
+import { prisma } from '@/lib/prisma'
 
 const COOKIE_NAME = 'anon-reconnect-token'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year (same as token validity concept)
@@ -38,11 +40,11 @@ export async function POST() {
   try {
     const session = await getServerSession(authOptions)
 
-    // Must be an authenticated anonymous user with a reconnect token
-    if (!session?.user?.reconnectToken) {
+    // Must be an authenticated anonymous user
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'No reconnect token available' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
@@ -54,10 +56,16 @@ export async function POST() {
       )
     }
 
+    const { token, tokenHash } = generateReconnectToken()
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { anonReconnectTokenHash: tokenHash },
+    })
+
     const cookieStore = await cookies()
 
     // Set httpOnly cookie - cannot be accessed by JavaScript
-    cookieStore.set(COOKIE_NAME, session.user.reconnectToken, {
+    cookieStore.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -97,9 +105,11 @@ export async function DELETE() {
     return response
   } catch (error) {
     console.error('Failed to clear reconnect cookie:', error)
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Failed to clear reconnect cookie' },
       { status: 500 }
     )
+    clearReconnectCookie(response)
+    return response
   }
 }

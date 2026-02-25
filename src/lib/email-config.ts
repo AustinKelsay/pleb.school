@@ -52,7 +52,15 @@ function normalize(value: string | undefined): string | undefined {
 }
 
 function parsePort(rawPort: string | undefined): number {
-  const parsed = Number.parseInt(rawPort ?? String(DEFAULT_SMTP_PORT), 10)
+  const normalized = rawPort?.trim()
+  const resolvedRawPort = normalized && normalized.length > 0
+    ? normalized
+    : String(DEFAULT_SMTP_PORT)
+  if (!/^\d+$/.test(resolvedRawPort)) {
+    throw new Error("EMAIL_SERVER_PORT must be an integer between 1 and 65535.")
+  }
+
+  const parsed = Number(resolvedRawPort)
   if (!Number.isInteger(parsed) || parsed < MIN_SMTP_PORT || parsed > MAX_SMTP_PORT) {
     throw new Error("EMAIL_SERVER_PORT must be an integer between 1 and 65535.")
   }

@@ -165,7 +165,7 @@ The reconnect token is stored in an **httpOnly cookie** (`anon-reconnect-token`)
 ```
 
 **API Endpoints:**
-- `POST /api/auth/anon-reconnect`: Set httpOnly cookie from session
+- `POST /api/auth/anon-reconnect`: Rotate reconnect token server-side and set httpOnly cookie
 - `DELETE /api/auth/anon-reconnect`: Clear httpOnly cookie
 
 **Reconnection Flow:**
@@ -186,7 +186,7 @@ await prisma.user.update({
   data: { anonReconnectTokenHash: hashToken(newToken) }
 })
 
-// 4. Client calls endpoint so server reads rotated session token and sets new cookie
+// 4. Client calls endpoint so server rotates token hash and sets a new cookie
 await fetch('/api/auth/anon-reconnect', { method: 'POST', credentials: 'include' })
 ```
 

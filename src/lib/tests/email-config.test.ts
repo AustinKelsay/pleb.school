@@ -41,6 +41,21 @@ describe("email-config", () => {
     ).toThrow("strict-test: EMAIL_SERVER_PORT must be an integer between 1 and 65535.")
   })
 
+  it("rejects mixed numeric/alphabetic SMTP ports", () => {
+    expect(() =>
+      resolveEmailRuntimeConfig(makeEnv({ EMAIL_SERVER_PORT: "587abc" }), {
+        strict: true,
+        context: "strict-test",
+      })
+    ).toThrow("strict-test: EMAIL_SERVER_PORT must be an integer between 1 and 65535.")
+
+    const nonStrict = resolveEmailRuntimeConfig(makeEnv({ EMAIL_SERVER_PORT: "587abc" }), {
+      strict: false,
+      context: "test",
+    })
+    expect(nonStrict).toBeNull()
+  })
+
   it("uses default SMTP port in non-strict mode when EMAIL_SERVER_PORT is missing", () => {
     const config = resolveEmailRuntimeConfig(makeEnv({ EMAIL_SERVER_PORT: undefined }), {
       strict: false,
