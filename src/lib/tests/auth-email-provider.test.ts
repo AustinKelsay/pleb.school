@@ -132,6 +132,7 @@ async function loadAuthModuleForEmailTests(params?: {
     RATE_LIMITS: {
       AUTH_MAGIC_LINK: { limit: 3, windowSeconds: 3600 },
       AUTH_NOSTR: { limit: 3, windowSeconds: 3600 },
+      AUTH_ANONYMOUS_RECONNECT: { limit: 3, windowSeconds: 3600 },
       AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
       AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
     },

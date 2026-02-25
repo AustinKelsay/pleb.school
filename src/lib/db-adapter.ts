@@ -142,6 +142,12 @@ export interface AuditLogCreateInput {
 }
 
 export type AuditLogClient = Pick<typeof prisma, 'auditLog'>
+const AUDIT_LOG_DELETE_BATCH_SIZE = 10_000
+
+/** Bigint key for pg_try_advisory_xact_lock during audit log purge. Ensures only one maintenance worker processes at a time. */
+const AUDIT_LOG_MAINTENANCE_LOCK_KEY = 0x6175646974 // "audit" in hex, fits in JS safe integer
+const AUDIT_LOG_PURGE_TX_MAX_WAIT_MS = 10_000
+const AUDIT_LOG_PURGE_TX_TIMEOUT_MS = 300_000
 
 /**
  * Adapter for persisting audit logs.
@@ -168,23 +174,54 @@ export class AuditLogAdapter {
 
   /**
    * Delete audit log records older than the given cutoff timestamp.
+   * Uses a PostgreSQL advisory lock so only one maintenance worker processes at a time,
+   * preventing double-counting and redundant work when concurrent jobs run.
    *
    * @param cutoff - Records with createdAt < cutoff are deleted
-   * @returns Number of deleted rows
+   * @returns Number of deleted rows (0 if another worker holds the lock)
    */
   static async deleteOlderThan(cutoff: Date): Promise<number> {
     if (cutoff.getTime() > Date.now()) {
       throw new RangeError("cutoff must not be in the future.")
     }
 
-    const result = await prisma.auditLog.deleteMany({
-      where: {
-        createdAt: {
-          lt: cutoff,
-        },
-      },
+    return prisma.$transaction(async (tx) => {
+      const [row] = await tx.$queryRaw<
+        [{ pg_try_advisory_xact_lock: boolean }]
+      >`SELECT pg_try_advisory_xact_lock(${AUDIT_LOG_MAINTENANCE_LOCK_KEY}) AS "pg_try_advisory_xact_lock"`
+      if (!row?.pg_try_advisory_xact_lock) {
+        return 0
+      }
+
+      let totalDeleted = 0
+      while (true) {
+        const rows = await tx.auditLog.findMany({
+          where: {
+            createdAt: {
+              lt: cutoff,
+            },
+          },
+          select: { id: true },
+          take: AUDIT_LOG_DELETE_BATCH_SIZE,
+        })
+
+        if (rows.length === 0) {
+          break
+        }
+
+        const ids = rows.map((row) => row.id)
+        const result = await tx.auditLog.deleteMany({
+          where: {
+            id: { in: ids },
+          },
+        })
+        totalDeleted += result.count
+      }
+      return totalDeleted
+    }, {
+      maxWait: AUDIT_LOG_PURGE_TX_MAX_WAIT_MS,
+      timeout: AUDIT_LOG_PURGE_TX_TIMEOUT_MS,
     })
-    return result.count
   }
 
   /**

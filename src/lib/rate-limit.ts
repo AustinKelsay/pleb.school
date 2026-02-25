@@ -226,6 +226,9 @@ export const RATE_LIMITS = {
   // Anonymous auth global: 50 per hour total (backstop for distributed attacks)
   AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
 
+  // Anonymous reconnect-token auth: 10 attempts per minute per token hash
+  AUTH_ANONYMOUS_RECONNECT: { limit: 10, windowSeconds: 60 },
+
   // General API rate limit (can be used for other endpoints)
   API_GENERAL: { limit: 100, windowSeconds: 60 } // 100 requests per minute
 } as const

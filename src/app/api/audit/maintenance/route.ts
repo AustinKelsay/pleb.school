@@ -43,6 +43,10 @@ function isAuthorized(req: NextRequest): boolean {
       console.error(
         "AUDIT_LOG_CRON_SECRET (or CRON_SECRET) is required in production for /api/audit/maintenance authorization."
       )
+    } else {
+      console.warn(
+        "AUDIT_LOG_CRON_SECRET (or CRON_SECRET) is not set; /api/audit/maintenance requests will be rejected."
+      )
     }
     return false
   }

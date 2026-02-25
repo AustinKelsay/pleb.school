@@ -113,11 +113,15 @@ async function loadAuthModuleForAnonymousTests(params?: {
   vi.doMock("../email-config", () => ({
     resolveEmailRuntimeConfig: vi.fn().mockReturnValue(null),
   }))
+  // Vitest may resolve modules via either relative imports or resolved path aliases.
+  // Keep both mocks for checkRateLimit/getClientIp (RATE_LIMIT_MODULE_PATH) and prisma (PRISMA_MODULE_PATH)
+  // so test interception is stable unless module resolution strategy changes.
   vi.doMock("../rate-limit", () => ({
     checkRateLimit,
     RATE_LIMITS: {
       AUTH_MAGIC_LINK: { limit: 3, windowSeconds: 3600 },
       AUTH_NOSTR: { limit: 3, windowSeconds: 3600 },
+      AUTH_ANONYMOUS_RECONNECT: { limit: 3, windowSeconds: 3600 },
       AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
       AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
     },
@@ -128,6 +132,7 @@ async function loadAuthModuleForAnonymousTests(params?: {
     RATE_LIMITS: {
       AUTH_MAGIC_LINK: { limit: 3, windowSeconds: 3600 },
       AUTH_NOSTR: { limit: 3, windowSeconds: 3600 },
+      AUTH_ANONYMOUS_RECONNECT: { limit: 3, windowSeconds: 3600 },
       AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
       AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
     },

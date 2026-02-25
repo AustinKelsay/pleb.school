@@ -1,6 +1,7 @@
 const EMAIL_SECURE_TRUE = /^(true|1|yes)$/i
 const MIN_SMTP_PORT = 1
 const MAX_SMTP_PORT = 65535
+export const DEFAULT_SMTP_PORT = 587
 
 const SMTP_TLS_CIPHERS = [
   "TLS_AES_256_GCM_SHA384",
@@ -44,7 +45,7 @@ function normalize(value: string | undefined): string | undefined {
 }
 
 function parsePort(rawPort: string | undefined): number {
-  const parsed = Number.parseInt(rawPort ?? "587", 10)
+  const parsed = Number.parseInt(rawPort ?? String(DEFAULT_SMTP_PORT), 10)
   if (!Number.isInteger(parsed) || parsed < MIN_SMTP_PORT || parsed > MAX_SMTP_PORT) {
     throw new Error("EMAIL_SERVER_PORT must be an integer between 1 and 65535.")
   }

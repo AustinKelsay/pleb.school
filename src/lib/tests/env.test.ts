@@ -8,6 +8,7 @@ const MANAGED_KEYS = [
   "VERCEL_ENV",
   "VERCEL_URL",
   "VERCEL_GIT_COMMIT_SHA",
+  "VERCEL_DEPLOYMENT_ID",
   "DATABASE_URL",
   "NEXTAUTH_SECRET",
   "AUTH_SECRET",
@@ -192,7 +193,15 @@ describe("env", () => {
   })
 
   it("derives a deterministic preview NEXTAUTH_SECRET fallback when missing", async () => {
-    const env = await loadEnvWith(
+    const first = await loadEnvWith(
+      validProductionEnv({
+        VERCEL_ENV: "preview",
+        NEXTAUTH_SECRET: "",
+        AUTH_SECRET: "",
+        VERCEL_GIT_COMMIT_SHA: "abc123",
+      })
+    )
+    const second = await loadEnvWith(
       validProductionEnv({
         VERCEL_ENV: "preview",
         NEXTAUTH_SECRET: "",
@@ -201,7 +210,33 @@ describe("env", () => {
       })
     )
 
-    expect(env.NEXTAUTH_SECRET).toBeTruthy()
-    expect(env.NEXTAUTH_SECRET).toHaveLength(64)
+    expect(first.NEXTAUTH_SECRET).toBe(second.NEXTAUTH_SECRET)
+    expect(first.NEXTAUTH_SECRET).toHaveLength(64)
+  })
+
+  it("uses VERCEL_DEPLOYMENT_ID as a deterministic preview seed when commit/url seeds are missing", async () => {
+    const first = await loadEnvWith(
+      validProductionEnv({
+        VERCEL_ENV: "preview",
+        NEXTAUTH_SECRET: "",
+        AUTH_SECRET: "",
+        VERCEL_GIT_COMMIT_SHA: "",
+        VERCEL_URL: "",
+        VERCEL_DEPLOYMENT_ID: "dpl_123",
+      })
+    )
+    const second = await loadEnvWith(
+      validProductionEnv({
+        VERCEL_ENV: "preview",
+        NEXTAUTH_SECRET: "",
+        AUTH_SECRET: "",
+        VERCEL_GIT_COMMIT_SHA: "",
+        VERCEL_URL: "",
+        VERCEL_DEPLOYMENT_ID: "dpl_123",
+      })
+    )
+
+    expect(first.NEXTAUTH_SECRET).toBe(second.NEXTAUTH_SECRET)
+    expect(first.NEXTAUTH_SECRET).toHaveLength(64)
   })
 })

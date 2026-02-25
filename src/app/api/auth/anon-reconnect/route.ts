@@ -18,6 +18,16 @@ const COOKIE_NAME = 'anon-reconnect-token'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year (same as token validity concept)
 const env = getEnv()
 
+function clearReconnectCookie(response: NextResponse) {
+  response.cookies.set(COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  })
+}
+
 /**
  * POST: Store the reconnect token from the current session into an httpOnly cookie
  *
@@ -74,23 +84,17 @@ export async function DELETE() {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
+      clearReconnectCookie(response)
+      return response
     }
 
-    const cookieStore = await cookies()
-    // Clear cookie using same attributes as when setting to ensure proper removal
-    cookieStore.set(COOKIE_NAME, '', {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 0,
-    })
-
-    return NextResponse.json({ success: true })
+    const response = NextResponse.json({ success: true })
+    clearReconnectCookie(response)
+    return response
   } catch (error) {
     console.error('Failed to clear reconnect cookie:', error)
     return NextResponse.json(

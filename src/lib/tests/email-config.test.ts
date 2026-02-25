@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveEmailRuntimeConfig } from "../email-config"
+import { DEFAULT_SMTP_PORT, resolveEmailRuntimeConfig } from "../email-config"
 
 function makeEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
   return {
@@ -48,7 +48,7 @@ describe("email-config", () => {
     })
 
     expect(config).not.toBeNull()
-    expect(typeof config?.server.port).toBe("number")
+    expect(config?.server.port).toBe(DEFAULT_SMTP_PORT)
   })
 
   it("returns null in non-strict mode when SMTP port is non-numeric", () => {

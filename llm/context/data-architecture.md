@@ -174,6 +174,35 @@ const deletedCount = await AuditLogAdapter.deleteOlderThan(new Date("2026-01-01T
 const anonymizedCount = await AuditLogAdapter.anonymizeByUserId(userId)
 ```
 
+#### Retention Purge Semantics (`deleteOlderThan`)
+
+`deleteOlderThan(cutoff)` is intentionally implemented as a single interactive Prisma transaction with explicit timeout settings. Inside that transaction, it acquires a PostgreSQL advisory transaction lock using `AUDIT_LOG_MAINTENANCE_LOCK_KEY`, then repeatedly deletes old rows in batches using `AUDIT_LOG_DELETE_BATCH_SIZE` until no matching rows remain.
+
+```text
+start deleteOlderThan(cutoff)
+    ↓
+begin prisma.$transaction(...) with explicit maxWait/timeout
+    ↓
+SELECT pg_try_advisory_xact_lock(AUDIT_LOG_MAINTENANCE_LOCK_KEY)
+    ↓
+lock acquired? ── no ──> return 0 (skip; another worker is purging)
+    │
+    yes
+    ↓
+loop:
+  findMany({ where: { createdAt < cutoff }, select: { id }, take: AUDIT_LOG_DELETE_BATCH_SIZE })
+  if empty -> break
+  deleteMany({ where: { id: { in: ids } } })
+    ↓
+commit transaction and return total deleted rows
+```
+
+Operational notes:
+- Lock semantics: only one purge worker proceeds at a time; concurrent workers receive `0` (lock not acquired), which is a coordination signal and not necessarily "nothing to delete."
+- Transactional behavior: all batches in that purge run are committed atomically at transaction commit.
+- Failure mode: if the transaction errors (including timeout), the run rolls back and should be retried by the next maintenance invocation.
+- Batch strategy: ID-first selection (`findMany` ids) plus `deleteMany` avoids single giant delete payloads while keeping each loop step bounded.
+
 ## Nostr Event Hydration
 
 Database stores metadata (price, userId, timestamps); Nostr stores content (title, description, image). The `findByIdWithNote` methods fetch Nostr events **client-side only** - on the server they return `note: null`.

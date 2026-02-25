@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createHash } from "crypto"
+import { createHash, randomBytes } from "crypto"
 
 type NodeEnv = "development" | "test" | "production"
 const MIN_NEXTAUTH_SECRET_LENGTH = 32
@@ -24,6 +24,7 @@ const rawEnvSchema = z.object({
   VERCEL_ENV: z.string().optional(),
   VERCEL_URL: z.string().optional(),
   VERCEL_GIT_COMMIT_SHA: z.string().optional(),
+  VERCEL_DEPLOYMENT_ID: z.string().optional(),
   DATABASE_URL: z.string().optional(),
   NEXTAUTH_SECRET: z.string().optional(),
   AUTH_SECRET: z.string().optional(),
@@ -93,12 +94,22 @@ function isValid32ByteKey(value: string): boolean {
 }
 
 function buildPreviewSecretFallback(raw: z.infer<typeof rawEnvSchema>): string {
-  const seed = [
-    raw.VERCEL_GIT_COMMIT_SHA,
-    raw.VERCEL_URL,
-    raw.DATABASE_URL,
-    "pleb-school-preview-nextauth-secret",
-  ].filter(Boolean).join("|")
+  const seedParts = [
+    normalize(raw.VERCEL_GIT_COMMIT_SHA),
+    normalize(raw.VERCEL_DEPLOYMENT_ID),
+    normalize(raw.VERCEL_URL),
+    normalize(raw.DATABASE_URL),
+  ].filter((part): part is string => Boolean(part))
+
+  if (seedParts.length === 0) {
+    console.warn(
+      "Preview fallback secret seed has no VERCEL_GIT_COMMIT_SHA/VERCEL_DEPLOYMENT_ID/VERCEL_URL/DATABASE_URL. " +
+      "Adding runtime entropy as last-resort fallback; NextAuth sessions may be invalidated on cold starts."
+    )
+    seedParts.push(randomBytes(32).toString("hex"))
+  }
+
+  const seed = [...seedParts, "pleb-school-preview-nextauth-secret"].join("|")
 
   return createHash("sha256").update(seed).digest("hex")
 }
@@ -127,14 +138,17 @@ export function getEnv(): RuntimeEnv {
   const isProductionDeployment = env.NODE_ENV === "production"
   const isPreviewDeployment = env.VERCEL_ENV === "preview"
 
+  // NextAuth reads secrets directly from process.env, so this preview fallback must
+  // populate process.env.NEXTAUTH_SECRET/AUTH_SECRET in addition to env.NEXTAUTH_SECRET.
+  // We set env.NEXTAUTH_SECRET for validation; process.env is mutated only after validation
+  // passes to avoid leaving process.env in a mutated state if getEnv throws.
+  let fallbackSecretForPreview: string | null = null
   if (isProductionDeployment && isPreviewDeployment && !env.NEXTAUTH_SECRET) {
-    const fallbackSecret = buildPreviewSecretFallback(raw)
-    env.NEXTAUTH_SECRET = fallbackSecret
-    process.env.NEXTAUTH_SECRET = fallbackSecret
-    if (!normalize(process.env.AUTH_SECRET)) {
-      process.env.AUTH_SECRET = fallbackSecret
-    }
-    console.warn("NEXTAUTH_SECRET missing on preview deployment; using deterministic preview fallback secret.")
+    fallbackSecretForPreview = buildPreviewSecretFallback(raw)
+    env.NEXTAUTH_SECRET = fallbackSecretForPreview
+    console.warn(
+      "NEXTAUTH_SECRET missing on preview deployment; using fallback secret (will set process.env after validation)."
+    )
   }
 
   const hasValidNextAuthUrl = env.NEXTAUTH_URL ? isValidAbsoluteUrl(env.NEXTAUTH_URL) : false
@@ -168,6 +182,13 @@ export function getEnv(): RuntimeEnv {
 
   if (issues.length > 0) {
     throw new Error(`Environment validation failed:\n- ${issues.join("\n- ")}`)
+  }
+
+  if (fallbackSecretForPreview) {
+    process.env.NEXTAUTH_SECRET = fallbackSecretForPreview
+    if (!normalize(process.env.AUTH_SECRET)) {
+      process.env.AUTH_SECRET = fallbackSecretForPreview
+    }
   }
 
   cachedEnv = env

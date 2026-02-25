@@ -458,8 +458,8 @@ if (authConfig.providers.anonymous.enabled) {
               .update(reconnectToken).digest('hex').substring(0, 16)
             const tokenRateLimit = await checkRateLimit(
               `auth-anon-token:${tokenHash}`,
-              RATE_LIMITS.AUTH_NOSTR.limit,
-              RATE_LIMITS.AUTH_NOSTR.windowSeconds
+              RATE_LIMITS.AUTH_ANONYMOUS_RECONNECT.limit,
+              RATE_LIMITS.AUTH_ANONYMOUS_RECONNECT.windowSeconds
             )
 
             if (!tokenRateLimit.success) {
