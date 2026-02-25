@@ -465,7 +465,7 @@ DATABASE_URL=...
 Runtime validation:
 
 - `src/lib/env.ts` performs normalized parsing and format validation (for example URL/key shape checks).
-- In production deployments, `src/lib/env.ts` enforces a fail-fast required env contract (`DATABASE_URL`, `NEXTAUTH_SECRET` or `AUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) and rejects insecure/malformed values (for example non-HTTPS `NEXTAUTH_URL`). Vercel previews (`VERCEL_ENV=preview`) still validate core DB/auth secret requirements while allowing preview-optional keys (`NEXTAUTH_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) to be omitted.
+- In production deployments, `src/lib/env.ts` enforces a fail-fast required env contract (`DATABASE_URL`, `NEXTAUTH_SECRET` or `AUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) and rejects insecure/malformed values (for example non-HTTPS `NEXTAUTH_URL`). Vercel previews (`VERCEL_ENV=preview`) still validate core DB/auth secret requirements while allowing preview-optional keys (`NEXTAUTH_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) to be omitted; if `NEXTAUTH_SECRET`/`AUTH_SECRET` are both missing in preview, a deterministic per-deployment fallback secret is derived to avoid build-time hard failures.
 - This shifts failures from late runtime to startup time, reducing partial-outage risk from misconfiguration.
 - SMTP settings are centralized in `src/lib/email-config.ts`; when email auth is enabled, production requires a valid SMTP contract (`EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, `EMAIL_FROM`) and fails fast on invalid/missing values.
 

@@ -6,6 +6,8 @@ const VALID_HEX_KEY = "ab".repeat(32)
 const MANAGED_KEYS = [
   "NODE_ENV",
   "VERCEL_ENV",
+  "VERCEL_URL",
+  "VERCEL_GIT_COMMIT_SHA",
   "DATABASE_URL",
   "NEXTAUTH_SECRET",
   "AUTH_SECRET",
@@ -122,7 +124,7 @@ describe("env", () => {
     expect(error.message).toContain("VIEWS_CRON_SECRET is required in production.")
   })
 
-  it("still enforces core production vars (except NEXTAUTH_URL) on Vercel preview deployments", async () => {
+  it("still enforces core production vars (except NEXTAUTH_URL and derived NEXTAUTH_SECRET) on Vercel preview deployments", async () => {
     const error = await loadEnvWith({
       NODE_ENV: "production",
       VERCEL_ENV: "preview",
@@ -130,7 +132,6 @@ describe("env", () => {
 
     expect(error).toBeInstanceOf(Error)
     expect(error.message).toContain("DATABASE_URL is required in production.")
-    expect(error.message).toContain("NEXTAUTH_SECRET is required in production.")
     expect(error.message).toContain("PRIVKEY_ENCRYPTION_KEY is required in production.")
   })
 
@@ -188,5 +189,19 @@ describe("env", () => {
     )
 
     expect(env.NEXTAUTH_SECRET).toBe("y".repeat(32))
+  })
+
+  it("derives a deterministic preview NEXTAUTH_SECRET fallback when missing", async () => {
+    const env = await loadEnvWith(
+      validProductionEnv({
+        VERCEL_ENV: "preview",
+        NEXTAUTH_SECRET: "",
+        AUTH_SECRET: "",
+        VERCEL_GIT_COMMIT_SHA: "abc123",
+      })
+    )
+
+    expect(env.NEXTAUTH_SECRET).toBeTruthy()
+    expect(env.NEXTAUTH_SECRET).toHaveLength(64)
   })
 })

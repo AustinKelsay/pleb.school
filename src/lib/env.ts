@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { createHash } from "crypto"
 
 type NodeEnv = "development" | "test" | "production"
 const MIN_NEXTAUTH_SECRET_LENGTH = 32
@@ -21,6 +22,8 @@ const PREVIEW_OPTIONAL_VARS = new Set<keyof RuntimeEnv>([
 const rawEnvSchema = z.object({
   NODE_ENV: z.string().optional(),
   VERCEL_ENV: z.string().optional(),
+  VERCEL_URL: z.string().optional(),
+  VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   DATABASE_URL: z.string().optional(),
   NEXTAUTH_SECRET: z.string().optional(),
   AUTH_SECRET: z.string().optional(),
@@ -89,6 +92,17 @@ function isValid32ByteKey(value: string): boolean {
   }
 }
 
+function buildPreviewSecretFallback(raw: z.infer<typeof rawEnvSchema>): string {
+  const seed = [
+    raw.VERCEL_GIT_COMMIT_SHA,
+    raw.VERCEL_URL,
+    raw.DATABASE_URL,
+    "pleb-school-preview-nextauth-secret",
+  ].filter(Boolean).join("|")
+
+  return createHash("sha256").update(seed).digest("hex")
+}
+
 export function getEnv(): RuntimeEnv {
   if (cachedEnv) {
     return cachedEnv
@@ -112,6 +126,17 @@ export function getEnv(): RuntimeEnv {
   const issues: string[] = []
   const isProductionDeployment = env.NODE_ENV === "production"
   const isPreviewDeployment = env.VERCEL_ENV === "preview"
+
+  if (isProductionDeployment && isPreviewDeployment && !env.NEXTAUTH_SECRET) {
+    const fallbackSecret = buildPreviewSecretFallback(raw)
+    env.NEXTAUTH_SECRET = fallbackSecret
+    process.env.NEXTAUTH_SECRET = fallbackSecret
+    if (!normalize(process.env.AUTH_SECRET)) {
+      process.env.AUTH_SECRET = fallbackSecret
+    }
+    console.warn("NEXTAUTH_SECRET missing on preview deployment; using deterministic preview fallback secret.")
+  }
+
   const hasValidNextAuthUrl = env.NEXTAUTH_URL ? isValidAbsoluteUrl(env.NEXTAUTH_URL) : false
 
   if (env.NEXTAUTH_URL && !hasValidNextAuthUrl) {
