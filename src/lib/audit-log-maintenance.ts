@@ -68,7 +68,21 @@ export async function purgeExpiredAuditLogs(params?: {
   retentionDays?: number
   now?: Date
 }): Promise<AuditLogMaintenanceSummary> {
-  const retentionDays = params?.retentionDays ?? resolveAuditLogRetentionDays(process.env)
+  const retentionDays = (() => {
+    if (params?.retentionDays === undefined) {
+      return resolveAuditLogRetentionDays(process.env)
+    }
+    if (
+      !Number.isInteger(params.retentionDays) ||
+      params.retentionDays < MIN_RETENTION_DAYS ||
+      params.retentionDays > MAX_RETENTION_DAYS
+    ) {
+      throw new RangeError(
+        `retentionDays must be an integer between ${MIN_RETENTION_DAYS} and ${MAX_RETENTION_DAYS}.`
+      )
+    }
+    return params.retentionDays
+  })()
   const cutoff = getAuditLogCutoffDate(retentionDays, params?.now)
   const deletedCount = await AuditLogAdapter.deleteOlderThan(cutoff)
 

@@ -37,7 +37,7 @@ const RATE_LIMIT_MODULE_PATH = new URL("../rate-limit.ts", import.meta.url).path
 const EMAIL_CONFIG_MODULE_PATH = new URL("../email-config.ts", import.meta.url).pathname
 const mutableEnv = process.env as Record<string, string | undefined>
 
-function restoreGithubEnv() {
+function restoreEnv() {
   if (originalGithubClientId === undefined) {
     delete process.env.GITHUB_CLIENT_ID
   } else {
@@ -181,7 +181,7 @@ describe("auth email provider runtime + magic link flow", () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.resetModules()
-    restoreGithubEnv()
+    restoreEnv()
   })
 
   it("skips EmailProvider registration when resolveEmailRuntimeConfig returns null", async () => {

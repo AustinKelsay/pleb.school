@@ -134,6 +134,8 @@ describe("env", () => {
     expect(error).toBeInstanceOf(Error)
     expect(error.message).toContain("DATABASE_URL is required in production.")
     expect(error.message).toContain("PRIVKEY_ENCRYPTION_KEY is required in production.")
+    expect(error.message).not.toContain("NEXTAUTH_URL is required in production.")
+    expect(error.message).not.toContain("NEXTAUTH_SECRET is required in production.")
   })
 
   it("allows preview deployments to omit preview-optional vars", async () => {

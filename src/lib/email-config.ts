@@ -34,6 +34,13 @@ export type EmailRuntimeConfig = {
   from: string
 }
 
+export class SmtpSetupError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "SmtpSetupError"
+  }
+}
+
 type EmailConfigOptions = {
   strict?: boolean
   context?: string
@@ -97,14 +104,14 @@ export function resolveEmailRuntimeConfig(
   } catch (error) {
     if (strict) {
       const message = error instanceof Error ? error.message : "Invalid EMAIL_SERVER_PORT."
-      throw new Error(`${context}: ${message}`)
+      throw new SmtpSetupError(`${context}: ${message}`)
     }
     return null
   }
 
   if (missing.length > 0) {
     if (strict) {
-      throw new Error(`${context}: Missing required SMTP env vars: ${missing.join(", ")}.`)
+      throw new SmtpSetupError(`${context}: Missing required SMTP env vars: ${missing.join(", ")}.`)
     }
     return null
   }

@@ -142,6 +142,15 @@ function derivePublicKey(privateKeyHex: string): string {
   }
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 
 // Build providers array based on configuration
 const providers = []
@@ -169,6 +178,8 @@ if (authConfig.providers.email.enabled) {
          * Prevents email flooding by limiting magic link requests per email address
          */
         async sendVerificationRequest({ identifier: email, url, provider }) {
+          const escapedUrl = escapeHtml(url)
+
           // Rate limit by email address
           const rateLimit = await checkRateLimit(
             `auth-magic-link:${email.toLowerCase()}`,
@@ -195,10 +206,10 @@ if (authConfig.providers.email.enabled) {
               <div style="max-width: 480px; margin: 0 auto; font-family: sans-serif;">
                 <h2 style="color: #1a1a1a;">Sign in to pleb.school</h2>
                 <p>Click the button below to sign in:</p>
-                <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #7c3aed; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
+                <a href="${escapedUrl}" style="display: inline-block; padding: 12px 24px; background: #7c3aed; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
                   Sign in
                 </a>
-                <p style="color: #666; font-size: 14px;">Or copy this link: ${url}</p>
+                <p style="color: #666; font-size: 14px;">Or copy this link: ${escapedUrl}</p>
                 <p style="color: #999; font-size: 12px;">If you didn't request this, you can ignore this email.</p>
               </div>
             `,

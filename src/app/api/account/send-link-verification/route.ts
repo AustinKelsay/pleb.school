@@ -14,7 +14,7 @@ import { sanitizeEmail } from '@/lib/api-utils'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import crypto from 'crypto'
 import { createTransport } from 'nodemailer'
-import { resolveEmailRuntimeConfig } from '@/lib/email-config'
+import { resolveEmailRuntimeConfig, SmtpSetupError } from '@/lib/email-config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -99,28 +99,11 @@ export async function POST(request: NextRequest) {
     const expires = new Date(Date.now() + 3600000) // 1 hour from now
 
     // Resolve email runtime config first so SMTP misconfiguration fails before any DB writes.
-    const { emailRuntimeConfig, transporter } = (() => {
-      try {
-        const emailRuntimeConfigRaw = resolveEmailRuntimeConfig(process.env, {
-          strict: true,
-          context: 'Account linking verification email'
-        })
-        if (emailRuntimeConfigRaw === null) {
-          throw new Error('Account linking verification email: SMTP setup failed.')
-        }
-
-        return {
-          emailRuntimeConfig: emailRuntimeConfigRaw,
-          transporter: createTransport(emailRuntimeConfigRaw.server)
-        }
-      } catch (error) {
-        if (error instanceof Error && error.message.startsWith('Account linking verification email:')) {
-          throw error
-        }
-        const message = error instanceof Error ? error.message : 'SMTP setup failed.'
-        throw new Error(`Account linking verification email: ${message}`)
-      }
-    })()
+    const emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
+      strict: true,
+      context: 'Account linking verification email'
+    })
+    const transporter = createTransport(emailRuntimeConfig.server)
 
     // Store verification record: identifier carries context; token holds short code; lookupId is used in URL
     await prisma.verificationToken.create({
@@ -167,7 +150,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Send verification email error:', error)
-    if (error instanceof Error && error.message.startsWith('Account linking verification email:')) {
+    if (error instanceof SmtpSetupError) {
       return NextResponse.json(
         { error: 'Email service is not configured' },
         { status: 503 }

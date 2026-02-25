@@ -98,12 +98,11 @@ function buildPreviewSecretFallback(raw: z.infer<typeof rawEnvSchema>): string {
     normalize(raw.VERCEL_GIT_COMMIT_SHA),
     normalize(raw.VERCEL_DEPLOYMENT_ID),
     normalize(raw.VERCEL_URL),
-    normalize(raw.DATABASE_URL),
   ].filter((part): part is string => Boolean(part))
 
   if (seedParts.length === 0) {
     console.warn(
-      "Preview fallback secret seed has no VERCEL_GIT_COMMIT_SHA/VERCEL_DEPLOYMENT_ID/VERCEL_URL/DATABASE_URL. " +
+      "Preview fallback secret seed has no VERCEL_GIT_COMMIT_SHA/VERCEL_DEPLOYMENT_ID/VERCEL_URL. " +
       "Adding runtime entropy as last-resort fallback; NextAuth sessions may be invalidated on cold starts."
     )
     seedParts.push(randomBytes(32).toString("hex"))

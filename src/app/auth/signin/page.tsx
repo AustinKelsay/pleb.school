@@ -75,7 +75,7 @@ export default function SignInPage() {
   const persistAnonymousSessionIdentity = useCallback(async () => {
     try {
       const session = await getSession()
-      if (session?.provider !== 'anonymous' || !session.user?.reconnectToken) {
+      if (session?.provider !== 'anonymous') {
         return
       }
 
