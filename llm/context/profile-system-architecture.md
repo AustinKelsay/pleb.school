@@ -234,7 +234,7 @@ model User {
   // Account linking fields
   primaryProvider        String?   // Primary authentication provider
   profileSource          String?   @default("oauth") // "nostr" or "oauth"
-  anonReconnectTokenHash String?   // SHA-256 hash for anonymous session persistence
+  anonReconnectTokenHash String?   @unique // SHA-256 hash for anonymous session persistence
 
   accounts               Account[]
   sessions               Session[]

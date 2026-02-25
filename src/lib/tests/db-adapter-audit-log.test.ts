@@ -22,7 +22,12 @@ vi.mock("@/lib/prisma", () => {
 })
 
 import { prisma } from "@/lib/prisma"
-import { AuditLogAdapter } from "../db-adapter"
+import {
+  AUDIT_LOG_DELETE_BATCH_SIZE,
+  AUDIT_LOG_PURGE_TX_MAX_WAIT_MS,
+  AUDIT_LOG_PURGE_TX_TIMEOUT_MS,
+  AuditLogAdapter,
+} from "../db-adapter"
 
 describe("AuditLogAdapter.deleteOlderThan", () => {
   afterEach(() => {
@@ -37,6 +42,20 @@ describe("AuditLogAdapter.deleteOlderThan", () => {
 
     await expect(AuditLogAdapter.deleteOlderThan(futureCutoff)).rejects.toThrow(
       "cutoff must not be in the future."
+    )
+    expect(transactionMock).not.toHaveBeenCalled()
+    expect(findManyMock).not.toHaveBeenCalled()
+    expect(deleteManyMock).not.toHaveBeenCalled()
+  })
+
+  it("throws for invalid cutoffs and does not execute deleteMany", async () => {
+    const transactionMock = vi.mocked(prisma.$transaction)
+    const findManyMock = vi.mocked(prisma.auditLog.findMany)
+    const deleteManyMock = vi.mocked(prisma.auditLog.deleteMany)
+    const invalidCutoff = new Date("not-a-real-date")
+
+    await expect(AuditLogAdapter.deleteOlderThan(invalidCutoff)).rejects.toThrow(
+      "cutoff must be a valid Date."
     )
     expect(transactionMock).not.toHaveBeenCalled()
     expect(findManyMock).not.toHaveBeenCalled()
@@ -79,7 +98,7 @@ describe("AuditLogAdapter.deleteOlderThan", () => {
         },
       },
       select: { id: true },
-      take: 10_000,
+      take: AUDIT_LOG_DELETE_BATCH_SIZE,
     })
     expect(deleteManyMock).toHaveBeenCalledTimes(1)
     expect(deleteManyMock).toHaveBeenCalledWith({
@@ -90,8 +109,8 @@ describe("AuditLogAdapter.deleteOlderThan", () => {
     expect(prisma.$transaction).toHaveBeenCalledWith(
       expect.any(Function),
       expect.objectContaining({
-        maxWait: 10_000,
-        timeout: 300_000,
+        maxWait: AUDIT_LOG_PURGE_TX_MAX_WAIT_MS,
+        timeout: AUDIT_LOG_PURGE_TX_TIMEOUT_MS,
       })
     )
   })

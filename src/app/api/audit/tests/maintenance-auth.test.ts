@@ -126,7 +126,7 @@ describe("audit maintenance authorization", () => {
     })
   })
 
-  it("falls back to CRON_SECRET when AUDIT_LOG_CRON_SECRET is not set", async () => {
+  it("falls back to CRON_SECRET when AUDIT_LOG_CRON_SECRET is not set outside production", async () => {
     delete mutableEnv.AUDIT_LOG_CRON_SECRET
     mutableEnv.CRON_SECRET = "fallback-secret"
 
@@ -138,6 +138,21 @@ describe("audit maintenance authorization", () => {
     )
 
     expect(response.status).toBe(200)
+  })
+
+  it("does not fall back to CRON_SECRET in production", async () => {
+    mutableEnv.NODE_ENV = "production"
+    delete mutableEnv.AUDIT_LOG_CRON_SECRET
+    mutableEnv.CRON_SECRET = "fallback-secret"
+
+    const response = await GET(
+      createRequest({
+        method: "GET",
+        authorization: "Bearer fallback-secret",
+      })
+    )
+
+    expect(response.status).toBe(401)
   })
 
   it("allows query token outside production", async () => {

@@ -142,12 +142,12 @@ export interface AuditLogCreateInput {
 }
 
 export type AuditLogClient = Pick<typeof prisma, 'auditLog'>
-const AUDIT_LOG_DELETE_BATCH_SIZE = 10_000
+export const AUDIT_LOG_DELETE_BATCH_SIZE = 10_000
 
 /** Bigint key for pg_try_advisory_xact_lock during audit log purge. Ensures only one maintenance worker processes at a time. */
 const AUDIT_LOG_MAINTENANCE_LOCK_KEY = 0x6175646974 // "audit" in hex, fits in JS safe integer
-const AUDIT_LOG_PURGE_TX_MAX_WAIT_MS = 10_000
-const AUDIT_LOG_PURGE_TX_TIMEOUT_MS = 300_000
+export const AUDIT_LOG_PURGE_TX_MAX_WAIT_MS = 10_000
+export const AUDIT_LOG_PURGE_TX_TIMEOUT_MS = 300_000
 
 /**
  * Adapter for persisting audit logs.
@@ -181,6 +181,10 @@ export class AuditLogAdapter {
    * @returns Number of deleted rows (0 if another worker holds the lock)
    */
   static async deleteOlderThan(cutoff: Date): Promise<number> {
+    if (!Number.isFinite(cutoff.getTime())) {
+      throw new TypeError("cutoff must be a valid Date.")
+    }
+
     if (cutoff.getTime() > Date.now()) {
       throw new RangeError("cutoff must not be in the future.")
     }

@@ -320,7 +320,7 @@ await auditLog(session.user.id, 'purchase.claim', { resourceId, amountPaid }, re
 - Optional targeted anonymization: `POST /api/audit/maintenance` with `{ "anonymizeUserId": "<id>" }`.
 - Endpoint authorization:
   - `Authorization: Bearer <token>` required.
-  - Secret source: `AUDIT_LOG_CRON_SECRET`, with `CRON_SECRET` fallback for Vercel cron compatibility.
+  - Secret source: in production, `AUDIT_LOG_CRON_SECRET` is required; outside production, `CRON_SECRET` is accepted as a convenience fallback.
   - Query-string `token` is accepted only outside production for local/manual testing.
 - Adapter-level maintenance primitives:
   - `AuditLogAdapter.deleteOlderThan(cutoff)`

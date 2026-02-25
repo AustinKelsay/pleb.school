@@ -31,10 +31,10 @@ function clearReconnectCookie(response: NextResponse) {
 }
 
 /**
- * POST: Store the reconnect token from the current session into an httpOnly cookie
+ * POST: Rotate reconnect token server-side and set an httpOnly cookie
  *
- * The token is retrieved from the authenticated session, not from the request body,
- * ensuring only legitimately authenticated users can set their own token.
+ * Token generation and hash persistence happen server-side to avoid exposing
+ * reconnect credentials to client-visible session payloads.
  */
 export async function POST() {
   try {
@@ -102,6 +102,17 @@ export async function DELETE() {
 
     const response = NextResponse.json({ success: true })
     clearReconnectCookie(response)
+
+    // Revoke server-side reconnect credential for the authenticated subject.
+    try {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { anonReconnectTokenHash: null },
+      })
+    } catch (error) {
+      console.error('Failed to revoke reconnect token hash:', error)
+    }
+
     return response
   } catch (error) {
     console.error('Failed to clear reconnect cookie:', error)

@@ -46,6 +46,8 @@ interface NostrWindow extends Window {
   }
 }
 
+const retryableAnonErrors = new Set(['CredentialsSignin'])
+
 export default function SignInPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -199,7 +201,6 @@ export default function SignInPage() {
     setError('')
 
     try {
-      const retryableAnonErrors = new Set(['CredentialsSignin'])
       const attemptAnonymousSignIn = () =>
         signIn('anonymous', {
           callbackUrl,

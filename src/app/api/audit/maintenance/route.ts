@@ -35,13 +35,15 @@ function tokenEquals(expected: string, provided: string): boolean {
 }
 
 function isAuthorized(req: NextRequest): boolean {
-  const expected = process.env.AUDIT_LOG_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim()
   const isProduction = process.env.NODE_ENV === "production"
+  const expected = isProduction
+    ? process.env.AUDIT_LOG_CRON_SECRET?.trim()
+    : process.env.AUDIT_LOG_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim()
 
   if (!expected) {
     if (isProduction) {
       console.error(
-        "AUDIT_LOG_CRON_SECRET (or CRON_SECRET) is required in production for /api/audit/maintenance authorization."
+        "AUDIT_LOG_CRON_SECRET is required in production for /api/audit/maintenance authorization."
       )
     } else {
       console.warn(
