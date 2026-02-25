@@ -30,6 +30,7 @@ describe("AuditLogAdapter.deleteOlderThan", () => {
   })
 
   it("throws for future cutoffs and does not execute deleteMany", async () => {
+    const transactionMock = vi.mocked(prisma.$transaction)
     const findManyMock = vi.mocked(prisma.auditLog.findMany)
     const deleteManyMock = vi.mocked(prisma.auditLog.deleteMany)
     const futureCutoff = new Date(Date.now() + 60_000)
@@ -37,6 +38,7 @@ describe("AuditLogAdapter.deleteOlderThan", () => {
     await expect(AuditLogAdapter.deleteOlderThan(futureCutoff)).rejects.toThrow(
       "cutoff must not be in the future."
     )
+    expect(transactionMock).not.toHaveBeenCalled()
     expect(findManyMock).not.toHaveBeenCalled()
     expect(deleteManyMock).not.toHaveBeenCalled()
   })

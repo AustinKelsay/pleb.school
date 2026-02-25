@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { fileURLToPath } from "url"
 
 type RateLimitResult = {
   success: boolean
@@ -33,8 +34,8 @@ const originalDatabaseUrl = process.env.DATABASE_URL
 const originalNextAuthSecret = process.env.NEXTAUTH_SECRET
 const originalNextAuthUrl = process.env.NEXTAUTH_URL
 const originalPrivkeyEncryptionKey = process.env.PRIVKEY_ENCRYPTION_KEY
-const RATE_LIMIT_MODULE_PATH = new URL("../rate-limit.ts", import.meta.url).pathname
-const EMAIL_CONFIG_MODULE_PATH = new URL("../email-config.ts", import.meta.url).pathname
+const RATE_LIMIT_MODULE_PATH = fileURLToPath(new URL("../rate-limit.ts", import.meta.url))
+const EMAIL_CONFIG_MODULE_PATH = fileURLToPath(new URL("../email-config.ts", import.meta.url))
 const mutableEnv = process.env as Record<string, string | undefined>
 
 function restoreEnv() {
@@ -130,7 +131,7 @@ async function loadAuthModuleForEmailTests(params?: {
   const mockRateLimitModule = () => ({
     checkRateLimit,
     RATE_LIMITS: {
-      AUTH_MAGIC_LINK: { limit: 3, windowSeconds: 3600 },
+      AUTH_MAGIC_LINK: { limit: 5, windowSeconds: 900 },
       AUTH_NOSTR: { limit: 3, windowSeconds: 3600 },
       AUTH_ANONYMOUS_RECONNECT: { limit: 3, windowSeconds: 3600 },
       AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
@@ -226,7 +227,7 @@ describe("auth email provider runtime + magic link flow", () => {
       })
     ).rejects.toThrow("Too many sign-in attempts. Please try again later.")
 
-    expect(mocks.checkRateLimit).toHaveBeenCalledWith("auth-magic-link:alice@example.com", 3, 3600)
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith("auth-magic-link:alice@example.com", 5, 900)
     expect(warnSpy).toHaveBeenCalledWith("Rate limit exceeded for magic link: a***@example.com")
     expect(mocks.createTransport).not.toHaveBeenCalled()
   })
@@ -244,7 +245,7 @@ describe("auth email provider runtime + magic link flow", () => {
       },
     })
 
-    expect(mocks.checkRateLimit).toHaveBeenCalledWith("auth-magic-link:alice@example.com", 3, 3600)
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith("auth-magic-link:alice@example.com", 5, 900)
     expect(mocks.createTransport).toHaveBeenCalledWith(DEFAULT_RUNTIME_CONFIG.server)
     expect(mocks.sendMail).toHaveBeenCalledWith(
       expect.objectContaining({

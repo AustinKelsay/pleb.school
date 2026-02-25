@@ -189,8 +189,13 @@ if (authConfig.providers.email.enabled) {
 
           if (!rateLimit.success) {
             // Redact email for logging (keep first char + domain for debugging)
-            const [local, domain] = email.split("@")
-            const redacted = `${local[0]}***@${domain}`
+            const redacted = (() => {
+              if (email.includes("@")) {
+                const [local, domain] = email.split("@")
+                return `${local?.[0] || ""}***@${domain || ""}`
+              }
+              return `${email?.[0] || ""}***`
+            })()
             console.warn(`Rate limit exceeded for magic link: ${redacted}`)
             throw new Error("Too many sign-in attempts. Please try again later.")
           }

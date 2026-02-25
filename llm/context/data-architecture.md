@@ -174,6 +174,39 @@ const deletedCount = await AuditLogAdapter.deleteOlderThan(new Date("2026-01-01T
 const anonymizedCount = await AuditLogAdapter.anonymizeByUserId(userId)
 ```
 
+#### `AuditLogClient` Type
+
+`AuditLogClient` is exported from `src/lib/db-adapter.ts` as:
+
+```typescript
+type AuditLogClient = Pick<typeof prisma, "auditLog">
+```
+
+It exists so maintenance helpers can accept either the default Prisma client or a transaction-scoped client with an `auditLog` model surface.
+
+Relevant adapter methods:
+- `deleteOlderThan(cutoff: Date): Promise<number>`
+  Deletes records where `createdAt < cutoff` and returns deleted row count.
+- `anonymizeByUserId(userId: string): Promise<number>`
+- `anonymizeByUserId(client: AuditLogClient, userId: string): Promise<number>`
+  Nulls `ip`/`userAgent` fields for matching rows and returns updated row count.
+
+Usage example:
+
+```typescript
+import { AuditLogAdapter, type AuditLogClient } from "@/lib/db-adapter"
+
+const cutoff = new Date("2026-01-01T00:00:00.000Z")
+const deleted = await AuditLogAdapter.deleteOlderThan(cutoff)
+
+const updated = await AuditLogAdapter.anonymizeByUserId("user-123")
+
+// Optional client overload (for transaction-scoped calls)
+async function runWithClient(client: AuditLogClient) {
+  await AuditLogAdapter.anonymizeByUserId(client, "user-123")
+}
+```
+
 #### Retention Purge Semantics (`deleteOlderThan`)
 
 `deleteOlderThan(cutoff)` is intentionally implemented as a single interactive Prisma transaction with explicit timeout settings. Inside that transaction, it acquires a PostgreSQL advisory transaction lock using `AUDIT_LOG_MAINTENANCE_LOCK_KEY`, then repeatedly deletes old rows in batches using `AUDIT_LOG_DELETE_BATCH_SIZE` until no matching rows remain.

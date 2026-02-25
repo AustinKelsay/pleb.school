@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { fileURLToPath } from "url"
 
 const originalGithubClientId = process.env.GITHUB_CLIENT_ID
 const originalGithubClientSecret = process.env.GITHUB_CLIENT_SECRET
 const originalNodeEnv = process.env.NODE_ENV
 const mutableEnv = process.env as Record<string, string | undefined>
 
-const RATE_LIMIT_MODULE_PATH = new URL("../rate-limit.ts", import.meta.url).pathname
-const PRISMA_MODULE_PATH = new URL("../prisma.ts", import.meta.url).pathname
+const RATE_LIMIT_MODULE_PATH = fileURLToPath(new URL("../rate-limit.ts", import.meta.url))
+const PRISMA_MODULE_PATH = fileURLToPath(new URL("../prisma.ts", import.meta.url))
+const EMAIL_CONFIG_MODULE_PATH = fileURLToPath(new URL("../email-config.ts", import.meta.url))
 
 function restoreEnv() {
   if (originalGithubClientId === undefined) {
@@ -111,6 +113,9 @@ async function loadAuthModuleForAnonymousTests(params?: {
     }),
   }))
   vi.doMock("../email-config", () => ({
+    resolveEmailRuntimeConfig: vi.fn().mockReturnValue(null),
+  }))
+  vi.doMock(EMAIL_CONFIG_MODULE_PATH, () => ({
     resolveEmailRuntimeConfig: vi.fn().mockReturnValue(null),
   }))
   // Vitest may resolve modules via either relative imports or resolved path aliases.

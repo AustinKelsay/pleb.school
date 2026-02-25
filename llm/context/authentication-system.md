@@ -180,13 +180,16 @@ const user = await prisma.user.findUnique({
 })
 
 // 3. Generate new rotated token
-const newToken = generateReconnectToken()
+const { token: newToken, tokenHash: newTokenHash } = generateReconnectToken()
 await prisma.user.update({
   where: { id: user.id },
-  data: { anonReconnectTokenHash: hashToken(newToken) }
+  data: { anonReconnectTokenHash: newTokenHash }
 })
 
-// 4. Client calls endpoint so server rotates token hash and sets a new cookie
+// 4. Set rotated httpOnly cookie value
+cookieStore.set('anon-reconnect-token', newToken, cookieOptions)
+
+// 5. Client calls endpoint so server rotates token hash and sets a new cookie
 await fetch('/api/auth/anon-reconnect', { method: 'POST', credentials: 'include' })
 ```
 
