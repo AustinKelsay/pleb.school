@@ -5,16 +5,17 @@
  * Rate limited to 3 emails per address per hour to prevent spam.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
-import { sanitizeEmail } from '@/lib/api-utils'
-import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import crypto from 'crypto'
+import { getServerSession } from 'next-auth'
+import { NextRequest, NextResponse } from 'next/server'
 import { createTransport } from 'nodemailer'
+import { z } from 'zod'
+
+import { authOptions } from '@/lib/auth'
+import { sanitizeEmail } from '@/lib/api-utils'
 import { resolveEmailRuntimeConfig, SmtpSetupError } from '@/lib/email-config'
+import { prisma } from '@/lib/prisma'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {

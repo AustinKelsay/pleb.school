@@ -34,6 +34,44 @@ function tokenEquals(expected: string, provided: string): boolean {
   return crypto.timingSafeEqual(expectedHash, providedHash)
 }
 
+function isLocalhostRequest(req: NextRequest): boolean {
+  const allowedHosts = new Set(["localhost", "127.0.0.1", "::1"])
+  const hostname = req.nextUrl.hostname.toLowerCase()
+  if (allowedHosts.has(hostname)) {
+    return true
+  }
+
+  const rawHostHeader = req.headers.get("host")?.trim().toLowerCase()
+  if (!rawHostHeader) {
+    return false
+  }
+
+  const hostFromHeader = (() => {
+    // RFC 3986 bracketed IPv6 literal, e.g. [::1]:3000
+    if (rawHostHeader.startsWith("[")) {
+      const endBracketIndex = rawHostHeader.indexOf("]")
+      if (endBracketIndex === -1) {
+        return null
+      }
+      return rawHostHeader.slice(1, endBracketIndex)
+    }
+
+    const firstColonIndex = rawHostHeader.indexOf(":")
+    if (firstColonIndex === -1) {
+      return rawHostHeader
+    }
+
+    // Unbracketed IPv6 literals contain multiple colons and no separate port segment.
+    if (rawHostHeader.indexOf(":", firstColonIndex + 1) !== -1) {
+      return rawHostHeader
+    }
+
+    return rawHostHeader.slice(0, firstColonIndex)
+  })()
+
+  return hostFromHeader ? allowedHosts.has(hostFromHeader) : false
+}
+
 function isAuthorized(req: NextRequest): boolean {
   const isProduction = process.env.NODE_ENV === "production"
   const expected = isProduction
@@ -55,8 +93,11 @@ function isAuthorized(req: NextRequest): boolean {
 
   const bearerToken = extractBearerToken(req)
 
-  // Backward-compatible query token support for local/manual testing only.
-  const queryToken = !isProduction
+  // Query token support is opt-in for local/manual testing only.
+  const allowQueryToken = !isProduction
+    && process.env.ALLOW_URL_TOKEN === "true"
+    && isLocalhostRequest(req)
+  const queryToken = allowQueryToken
     ? req.nextUrl.searchParams.get("token")?.trim() ?? null
     : null
 

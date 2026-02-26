@@ -10,7 +10,7 @@
 import { useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { signIn, getSession } from "next-auth/react"
+import { signIn } from "next-auth/react"
 import { hasNip07Support } from "snstr"
 import { Mail, Github, Zap, KeyRound, UserX, Sparkles, ArrowRight, HelpCircle, Shield, ChevronDown } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -76,11 +76,6 @@ export default function SignInPage() {
   // Token is stored in an httpOnly cookie via API (XSS-safe).
   const persistAnonymousSessionIdentity = useCallback(async () => {
     try {
-      const session = await getSession()
-      if (session?.provider !== 'anonymous') {
-        return
-      }
-
       // Store the reconnect token in an httpOnly cookie via API (XSS-safe)
       const response = await fetch('/api/auth/anon-reconnect', {
         method: 'POST',

@@ -14,7 +14,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getEnv } from '@/lib/env'
 import { generateReconnectToken } from '@/lib/anon-reconnect-token'
-import { prisma } from '@/lib/prisma'
+import { UserAdapter } from '@/lib/db-adapter'
 
 const COOKIE_NAME = 'anon-reconnect-token'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year (same as token validity concept)
@@ -57,10 +57,7 @@ export async function POST() {
     }
 
     const { token, tokenHash } = generateReconnectToken()
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { anonReconnectTokenHash: tokenHash },
-    })
+    await UserAdapter.setAnonReconnectTokenHash(session.user.id, tokenHash)
 
     const cookieStore = await cookies()
 
@@ -105,10 +102,7 @@ export async function DELETE() {
 
     // Revoke server-side reconnect credential for the authenticated subject.
     try {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: { anonReconnectTokenHash: null },
-      })
+      await UserAdapter.setAnonReconnectTokenHash(session.user.id, null)
     } catch (error) {
       console.error('Failed to revoke reconnect token hash:', error)
       const errorResponse = NextResponse.json(

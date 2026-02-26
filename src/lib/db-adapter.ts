@@ -126,6 +126,23 @@ export class PurchaseAdapter {
 }
 
 // ============================================================================
+// USER ADAPTER
+// ============================================================================
+
+export class UserAdapter {
+  /**
+   * Persist the anonymous reconnect token hash for a user.
+   * Pass `null` to revoke any existing reconnect token hash.
+   */
+  static async setAnonReconnectTokenHash(userId: string, tokenHash: string | null): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { anonReconnectTokenHash: tokenHash },
+    })
+  }
+}
+
+// ============================================================================
 // AUDIT LOG ADAPTER
 // ============================================================================
 

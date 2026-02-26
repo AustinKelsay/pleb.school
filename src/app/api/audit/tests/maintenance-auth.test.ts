@@ -21,23 +21,28 @@ const mockResolveAuditLogRetentionDays = vi.mocked(resolveAuditLogRetentionDays)
 const originalAuditCronSecret = process.env.AUDIT_LOG_CRON_SECRET
 const originalCronSecret = process.env.CRON_SECRET
 const originalNodeEnv = process.env.NODE_ENV
+const originalAllowUrlToken = process.env.ALLOW_URL_TOKEN
 
 const mutableEnv = process.env as Record<string, string | undefined>
 
 function createRequest({
   method,
   authorization,
+  hostHeader,
   token,
   jsonBody,
   rawBody,
+  baseUrl = "https://pleb.school/api/audit/maintenance",
 }: {
   method: "GET" | "POST"
   authorization?: string
+  hostHeader?: string
   token?: string
   jsonBody?: unknown
   rawBody?: string
+  baseUrl?: string
 }): NextRequest {
-  const url = new URL("https://pleb.school/api/audit/maintenance")
+  const url = new URL(baseUrl)
   if (token) {
     url.searchParams.set("token", token)
   }
@@ -45,6 +50,9 @@ function createRequest({
   const headers = new Headers()
   if (authorization) {
     headers.set("authorization", authorization)
+  }
+  if (hostHeader) {
+    headers.set("host", hostHeader)
   }
 
   let body: BodyInit | undefined
@@ -67,6 +75,7 @@ describe("audit maintenance authorization", () => {
   beforeEach(() => {
     mutableEnv.NODE_ENV = "test"
     mutableEnv.AUDIT_LOG_CRON_SECRET = "audit-secret"
+    delete mutableEnv.ALLOW_URL_TOKEN
     delete mutableEnv.CRON_SECRET
 
     mockPurgeExpiredAuditLogs.mockResolvedValue({
@@ -98,6 +107,12 @@ describe("audit maintenance authorization", () => {
       delete mutableEnv.NODE_ENV
     } else {
       mutableEnv.NODE_ENV = originalNodeEnv
+    }
+
+    if (originalAllowUrlToken === undefined) {
+      delete mutableEnv.ALLOW_URL_TOKEN
+    } else {
+      mutableEnv.ALLOW_URL_TOKEN = originalAllowUrlToken
     }
   })
 
@@ -155,13 +170,60 @@ describe("audit maintenance authorization", () => {
     expect(response.status).toBe(401)
   })
 
-  it("allows query token outside production", async () => {
+  it("allows query token only with explicit opt-in on localhost", async () => {
+    mutableEnv.NODE_ENV = "development"
+    mutableEnv.ALLOW_URL_TOKEN = "true"
+
+    const response = await GET(
+      createRequest({
+        method: "GET",
+        token: "audit-secret",
+        baseUrl: "http://localhost:3000/api/audit/maintenance",
+      })
+    )
+
+    expect(response.status).toBe(200)
+  })
+
+  it("rejects query token when opt-in is missing", async () => {
     mutableEnv.NODE_ENV = "development"
 
     const response = await GET(
       createRequest({
         method: "GET",
         token: "audit-secret",
+        baseUrl: "http://localhost:3000/api/audit/maintenance",
+      })
+    )
+
+    expect(response.status).toBe(401)
+  })
+
+  it("rejects query token when request is not localhost even with opt-in", async () => {
+    mutableEnv.NODE_ENV = "development"
+    mutableEnv.ALLOW_URL_TOKEN = "true"
+
+    const response = await GET(
+      createRequest({
+        method: "GET",
+        token: "audit-secret",
+        baseUrl: "https://pleb.school/api/audit/maintenance",
+      })
+    )
+
+    expect(response.status).toBe(401)
+  })
+
+  it("allows query token via IPv6 localhost host-header fallback", async () => {
+    mutableEnv.NODE_ENV = "development"
+    mutableEnv.ALLOW_URL_TOKEN = "true"
+
+    const response = await GET(
+      createRequest({
+        method: "GET",
+        token: "audit-secret",
+        baseUrl: "https://pleb.school/api/audit/maintenance",
+        hostHeader: "[::1]:3000",
       })
     )
 
@@ -170,6 +232,7 @@ describe("audit maintenance authorization", () => {
 
   it("rejects query token in production", async () => {
     mutableEnv.NODE_ENV = "production"
+    mutableEnv.ALLOW_URL_TOKEN = "true"
 
     const response = await GET(
       createRequest({

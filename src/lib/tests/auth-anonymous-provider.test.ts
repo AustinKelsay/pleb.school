@@ -118,51 +118,36 @@ async function loadAuthModuleForAnonymousTests(params?: {
   vi.doMock(EMAIL_CONFIG_MODULE_PATH, () => ({
     resolveEmailRuntimeConfig: vi.fn().mockReturnValue(null),
   }))
+  const rateLimits = {
+    AUTH_MAGIC_LINK: { limit: 3, windowSeconds: 3600 },
+    AUTH_NOSTR: { limit: 3, windowSeconds: 3600 },
+    AUTH_ANONYMOUS_RECONNECT: { limit: 3, windowSeconds: 3600 },
+    AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
+    AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
+  }
+  const mockRateLimitModule = () => ({
+    checkRateLimit,
+    RATE_LIMITS: rateLimits,
+    getClientIp,
+  })
+  const mockPrismaModule = () => ({
+    prisma: {
+      user: {
+        findUnique,
+        update,
+        create,
+      },
+    },
+  })
   // Vitest may resolve modules via either relative imports or resolved path aliases.
   // Keep both vi.doMock forms for email-config (EMAIL_CONFIG_MODULE_PATH), rate-limit
   // (RATE_LIMIT_MODULE_PATH; checkRateLimit/getClientIp), and prisma (PRISMA_MODULE_PATH;
   // prisma.user.findUnique/update/create) so interception stays stable unless module
   // resolution strategy changes.
-  vi.doMock("../rate-limit", () => ({
-    checkRateLimit,
-    RATE_LIMITS: {
-      AUTH_MAGIC_LINK: { limit: 3, windowSeconds: 3600 },
-      AUTH_NOSTR: { limit: 3, windowSeconds: 3600 },
-      AUTH_ANONYMOUS_RECONNECT: { limit: 3, windowSeconds: 3600 },
-      AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
-      AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
-    },
-    getClientIp,
-  }))
-  vi.doMock(RATE_LIMIT_MODULE_PATH, () => ({
-    checkRateLimit,
-    RATE_LIMITS: {
-      AUTH_MAGIC_LINK: { limit: 3, windowSeconds: 3600 },
-      AUTH_NOSTR: { limit: 3, windowSeconds: 3600 },
-      AUTH_ANONYMOUS_RECONNECT: { limit: 3, windowSeconds: 3600 },
-      AUTH_ANONYMOUS_PER_IP: { limit: 5, windowSeconds: 3600 },
-      AUTH_ANONYMOUS_GLOBAL: { limit: 50, windowSeconds: 3600 },
-    },
-    getClientIp,
-  }))
-  vi.doMock("../prisma", () => ({
-    prisma: {
-      user: {
-        findUnique,
-        update,
-        create,
-      },
-    },
-  }))
-  vi.doMock(PRISMA_MODULE_PATH, () => ({
-    prisma: {
-      user: {
-        findUnique,
-        update,
-        create,
-      },
-    },
-  }))
+  vi.doMock("../rate-limit", mockRateLimitModule)
+  vi.doMock(RATE_LIMIT_MODULE_PATH, mockRateLimitModule)
+  vi.doMock("../prisma", mockPrismaModule)
+  vi.doMock(PRISMA_MODULE_PATH, mockPrismaModule)
   vi.doMock("next/headers", () => ({
     cookies: cookiesFn,
   }))
