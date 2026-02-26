@@ -114,4 +114,49 @@ describe("AuditLogAdapter.deleteOlderThan", () => {
       })
     )
   })
+
+  it("accumulates deleted counts across multiple batches", async () => {
+    const findManyMock = vi.mocked(prisma.auditLog.findMany)
+    const deleteManyMock = vi.mocked(prisma.auditLog.deleteMany)
+    const cutoff = new Date(Date.now() - 60_000)
+
+    findManyMock
+      .mockResolvedValueOnce([{ id: "log-1" }, { id: "log-2" }] as any)
+      .mockResolvedValueOnce([{ id: "log-3" }, { id: "log-4" }, { id: "log-5" }] as any)
+      .mockResolvedValueOnce([] as any)
+    deleteManyMock
+      .mockResolvedValueOnce({ count: 2 } as { count: number })
+      .mockResolvedValueOnce({ count: 3 } as { count: number })
+
+    const result = await AuditLogAdapter.deleteOlderThan(cutoff)
+
+    expect(result).toBe(5)
+    expect(findManyMock).toHaveBeenCalledTimes(3)
+    expect(findManyMock).toHaveBeenNthCalledWith(1, {
+      where: {
+        createdAt: {
+          lt: cutoff,
+        },
+      },
+      select: { id: true },
+      take: AUDIT_LOG_DELETE_BATCH_SIZE,
+    })
+    expect(findManyMock).toHaveBeenNthCalledWith(2, {
+      where: {
+        createdAt: {
+          lt: cutoff,
+        },
+      },
+      select: { id: true },
+      take: AUDIT_LOG_DELETE_BATCH_SIZE,
+    })
+    expect(deleteManyMock).toHaveBeenCalledTimes(2)
+    expect(prisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        maxWait: AUDIT_LOG_PURGE_TX_MAX_WAIT_MS,
+        timeout: AUDIT_LOG_PURGE_TX_TIMEOUT_MS,
+      })
+    )
+  })
 })

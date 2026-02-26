@@ -115,7 +115,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const parsed = bodySchema.safeParse(body)
     if (!parsed.success) {
-      console.error("Invalid audit maintenance request body:", parsed.error.issues)
+      console.error("Invalid audit maintenance request body.", {
+        issueCount: parsed.error.issues.length,
+      })
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
     parsedBody = parsed.data

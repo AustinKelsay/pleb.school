@@ -119,8 +119,10 @@ async function loadAuthModuleForAnonymousTests(params?: {
     resolveEmailRuntimeConfig: vi.fn().mockReturnValue(null),
   }))
   // Vitest may resolve modules via either relative imports or resolved path aliases.
-  // Keep both mocks for checkRateLimit/getClientIp (RATE_LIMIT_MODULE_PATH) and prisma (PRISMA_MODULE_PATH)
-  // so test interception is stable unless module resolution strategy changes.
+  // Keep both vi.doMock forms for email-config (EMAIL_CONFIG_MODULE_PATH), rate-limit
+  // (RATE_LIMIT_MODULE_PATH; checkRateLimit/getClientIp), and prisma (PRISMA_MODULE_PATH;
+  // prisma.user.findUnique/update/create) so interception stays stable unless module
+  // resolution strategy changes.
   vi.doMock("../rate-limit", () => ({
     checkRateLimit,
     RATE_LIMITS: {

@@ -98,11 +98,14 @@ describe("audit-log-maintenance", () => {
 
   it("throws when getAuditLogCutoffDate receives invalid retention days", () => {
     const now = new Date("2026-02-24T00:00:00.000Z")
+    expect(() => getAuditLogCutoffDate(0, now)).toThrow(
+      "retentionDays must be an integer between 1 and 3650."
+    )
     expect(() => getAuditLogCutoffDate(-1, now)).toThrow(
-      "retentionDays must be a non-negative integer."
+      "retentionDays must be an integer between 1 and 3650."
     )
     expect(() => getAuditLogCutoffDate(1.5, now)).toThrow(
-      "retentionDays must be a non-negative integer."
+      "retentionDays must be an integer between 1 and 3650."
     )
   })
 

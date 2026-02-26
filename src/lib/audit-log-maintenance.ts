@@ -61,8 +61,15 @@ export function getAuditLogCutoffDate(
   retentionDays: number,
   now: Date = new Date()
 ): Date {
-  if (!Number.isFinite(retentionDays) || !Number.isInteger(retentionDays) || retentionDays < 0) {
-    throw new RangeError("retentionDays must be a non-negative integer.")
+  if (
+    !Number.isFinite(retentionDays) ||
+    !Number.isInteger(retentionDays) ||
+    retentionDays < MIN_RETENTION_DAYS ||
+    retentionDays > MAX_RETENTION_DAYS
+  ) {
+    throw new RangeError(
+      `retentionDays must be an integer between ${MIN_RETENTION_DAYS} and ${MAX_RETENTION_DAYS}.`
+    )
   }
 
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
