@@ -1,8 +1,8 @@
 /**
  * Anonymous Reconnect Token Cookie API
  *
- * Stores the reconnect token in an httpOnly cookie instead of localStorage,
- * protecting it from XSS attacks. The token is only accessible server-side.
+ * Stores the reconnect token in an httpOnly cookie, protecting it from XSS
+ * attacks. The token is only accessible server-side.
  *
  * POST: Set the reconnect token cookie (called after successful anonymous login)
  * DELETE: Clear the reconnect token cookie (called on logout or token invalidation)
@@ -12,25 +12,39 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getEnv } from '@/lib/env'
+import { generateReconnectToken } from '@/lib/anon-reconnect-token'
+import { prisma } from '@/lib/prisma'
 
 const COOKIE_NAME = 'anon-reconnect-token'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year (same as token validity concept)
+const env = getEnv()
+
+function clearReconnectCookie(response: NextResponse) {
+  response.cookies.set(COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  })
+}
 
 /**
- * POST: Store the reconnect token from the current session into an httpOnly cookie
+ * POST: Rotate reconnect token server-side and set an httpOnly cookie
  *
- * The token is retrieved from the authenticated session, not from the request body,
- * ensuring only legitimately authenticated users can set their own token.
+ * Token generation and hash persistence happen server-side to avoid exposing
+ * reconnect credentials to client-visible session payloads.
  */
 export async function POST() {
   try {
     const session = await getServerSession(authOptions)
 
-    // Must be an authenticated anonymous user with a reconnect token
-    if (!session?.user?.reconnectToken) {
+    // Must be an authenticated anonymous user
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'No reconnect token available' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
@@ -42,12 +56,18 @@ export async function POST() {
       )
     }
 
+    const { token, tokenHash } = generateReconnectToken()
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { anonReconnectTokenHash: tokenHash },
+    })
+
     const cookieStore = await cookies()
 
     // Set httpOnly cookie - cannot be accessed by JavaScript
-    cookieStore.set(COOKIE_NAME, session.user.reconnectToken, {
+    cookieStore.set(COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: COOKIE_MAX_AGE,
@@ -70,22 +90,43 @@ export async function POST() {
  */
 export async function DELETE() {
   try {
-    const cookieStore = await cookies()
-    // Clear cookie using same attributes as when setting to ensure proper removal
-    cookieStore.set(COOKIE_NAME, '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 0,
-    })
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      const response = NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+      clearReconnectCookie(response)
+      return response
+    }
 
-    return NextResponse.json({ success: true })
+    const response = NextResponse.json({ success: true })
+    clearReconnectCookie(response)
+
+    // Revoke server-side reconnect credential for the authenticated subject.
+    try {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { anonReconnectTokenHash: null },
+      })
+    } catch (error) {
+      console.error('Failed to revoke reconnect token hash:', error)
+      const errorResponse = NextResponse.json(
+        { error: 'Failed to revoke reconnect token' },
+        { status: 500 }
+      )
+      clearReconnectCookie(errorResponse)
+      return errorResponse
+    }
+
+    return response
   } catch (error) {
     console.error('Failed to clear reconnect cookie:', error)
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Failed to clear reconnect cookie' },
       { status: 500 }
     )
+    clearReconnectCookie(response)
+    return response
   }
 }

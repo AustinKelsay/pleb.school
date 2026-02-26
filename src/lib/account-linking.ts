@@ -33,6 +33,8 @@ import type { Prisma, User } from '@/generated/prisma'
 import { generateKeypair } from 'snstr'
 import { syncUserProfileFromNostr } from './nostr-profile'
 import { encryptPrivkey, decryptPrivkey } from './privkey-crypto'
+import { AuditLogAdapter } from './db-adapter'
+import type { AuditLogClient } from './db-adapter'
 
 /**
  * Provider types that can be linked
@@ -544,6 +546,10 @@ export async function mergeAccounts(
       await tx.session.deleteMany({
         where: { userId: secondaryUserId }
       })
+
+      // User row is being deleted; anonymize PII in immutable audit records first.
+      const auditLogClient: AuditLogClient = tx
+      await AuditLogAdapter.anonymizeByUserId(auditLogClient, secondaryUserId)
 
       // Delete secondary user
       await tx.user.delete({

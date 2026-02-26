@@ -307,11 +307,25 @@ await auditLog(session.user.id, 'purchase.claim', { resourceId, amountPaid }, re
 > **PII notice:** `ip` and `userAgent` are personal data under GDPR/CCPA, stored under
 > legitimate-interest (security/fraud prevention). Ensure:
 > - A retention/purge job deletes records older than your policy period (e.g. 90 days).
-> - User deletion requests trigger anonymisation of `ip`/`userAgent` in these rows.
+> - User deletion requests trigger anonymization of `ip`/`userAgent` in these rows.
 > - The legal basis is documented in your privacy policy.
 >
 > **Sensitive data:** Never include passwords, tokens, API keys, or raw user input in
 > the `details` argument. Log only safe metadata (e.g. provider name, content ID).
+
+### Retention and Anonymization Pipeline (Implemented)
+
+- Retention days are controlled by `AUDIT_LOG_RETENTION_DAYS` (default: `90`, allowed range: `1..3650`).
+- Scheduled purge endpoint: `GET /api/audit/maintenance`.
+- Optional targeted anonymization: `POST /api/audit/maintenance` with `{ "anonymizeUserId": "<id>" }`.
+- Endpoint authorization:
+  - `Authorization: Bearer <token>` required.
+  - Secret source: in production, `AUDIT_LOG_CRON_SECRET` is required; outside production, `CRON_SECRET` is accepted as a convenience fallback.
+  - Query-string `token` is accepted only outside production for local/manual testing.
+- Adapter-level maintenance primitives:
+  - `AuditLogAdapter.deleteOlderThan(cutoff)`
+  - `AuditLogAdapter.anonymizeByUserId(userId)`
+- Account merge/delete flow now nulls `ip` and `userAgent` before deleting the secondary user row.
 
 ### Logged Events
 
@@ -451,7 +465,9 @@ DATABASE_URL=...
 Runtime validation:
 
 - `src/lib/env.ts` performs normalized parsing and format validation (for example URL/key shape checks).
-- Required/critical vars are enforced by the modules/endpoints that use them (fail-closed at runtime), avoiding build-time failures from unrelated routes.
+- In production deployments, `src/lib/env.ts` enforces a fail-fast required env contract (`DATABASE_URL`, `NEXTAUTH_SECRET` or `AUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) and rejects insecure/malformed values (for example non-HTTPS `NEXTAUTH_URL`). Vercel previews (`VERCEL_ENV=preview`) still validate core DB/auth secret requirements while allowing preview-optional keys (`NEXTAUTH_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) to be omitted; if `NEXTAUTH_SECRET`/`AUTH_SECRET` are both missing in preview, a fallback secret is derived and written to `process.env` for NextAuth compatibility (deterministic when deployment seed vars like `VERCEL_GIT_COMMIT_SHA`/`VERCEL_DEPLOYMENT_ID` are present, entropy-augmented only as a last resort).
+- This shifts failures from late runtime to startup time, reducing partial-outage risk from misconfiguration.
+- SMTP settings are centralized in `src/lib/email-config.ts`; when email auth is enabled, production requires a valid SMTP contract (`EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, `EMAIL_FROM`) and fails fast on invalid/missing values.
 
 **Safe for config files** (client-visible):
 

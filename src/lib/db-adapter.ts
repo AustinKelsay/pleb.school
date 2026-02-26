@@ -141,6 +141,14 @@ export interface AuditLogCreateInput {
   userAgent?: string | null
 }
 
+export type AuditLogClient = Pick<typeof prisma, 'auditLog'>
+export const AUDIT_LOG_DELETE_BATCH_SIZE = 10_000
+
+/** Bigint key for pg_try_advisory_xact_lock during audit log purge. Ensures only one maintenance worker processes at a time. */
+const AUDIT_LOG_MAINTENANCE_LOCK_KEY = 0x6175646974 // "audit" in hex, fits in JS safe integer
+export const AUDIT_LOG_PURGE_TX_MAX_WAIT_MS = 10_000
+export const AUDIT_LOG_PURGE_TX_TIMEOUT_MS = 300_000
+
 /**
  * Adapter for persisting audit logs.
  * Centralizes AuditLog writes so callers (e.g. audit-logger) never access Prisma directly.
@@ -162,6 +170,98 @@ export class AuditLogAdapter {
         userAgent: input.userAgent ?? null,
       },
     })
+  }
+
+  /**
+   * Delete audit log records older than the given cutoff timestamp.
+   * Uses a PostgreSQL advisory lock so only one maintenance worker processes at a time,
+   * preventing double-counting and redundant work when concurrent jobs run.
+   *
+   * @param cutoff - Records with createdAt < cutoff are deleted
+   * @returns Number of deleted rows (0 if another worker holds the lock)
+   */
+  static async deleteOlderThan(cutoff: Date): Promise<number> {
+    if (!Number.isFinite(cutoff.getTime())) {
+      throw new TypeError("cutoff must be a valid Date.")
+    }
+
+    if (cutoff.getTime() > Date.now()) {
+      throw new RangeError("cutoff must not be in the future.")
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const [row] = await tx.$queryRaw<
+        [{ pg_try_advisory_xact_lock: boolean }]
+      >`SELECT pg_try_advisory_xact_lock(${AUDIT_LOG_MAINTENANCE_LOCK_KEY}) AS "pg_try_advisory_xact_lock"`
+      if (!row?.pg_try_advisory_xact_lock) {
+        return 0
+      }
+
+      let totalDeleted = 0
+      while (true) {
+        const rows = await tx.auditLog.findMany({
+          where: {
+            createdAt: {
+              lt: cutoff,
+            },
+          },
+          select: { id: true },
+          take: AUDIT_LOG_DELETE_BATCH_SIZE,
+        })
+
+        if (rows.length === 0) {
+          break
+        }
+
+        const ids = rows.map((row) => row.id)
+        const result = await tx.auditLog.deleteMany({
+          where: {
+            id: { in: ids },
+          },
+        })
+        totalDeleted += result.count
+      }
+      return totalDeleted
+    }, {
+      maxWait: AUDIT_LOG_PURGE_TX_MAX_WAIT_MS,
+      timeout: AUDIT_LOG_PURGE_TX_TIMEOUT_MS,
+    })
+  }
+
+  /**
+   * Anonymize PII columns for all audit records matching a user ID.
+   * Intentionally preserves action/details/timestamps for forensic integrity.
+   *
+   * @param userId - User identifier stored in audit logs
+   * @returns Number of updated rows
+   */
+  static async anonymizeByUserId(userId: string): Promise<number>
+  static async anonymizeByUserId(client: AuditLogClient, userId: string): Promise<number>
+  static async anonymizeByUserId(
+    userIdOrClient: string | AuditLogClient,
+    maybeUserId?: string
+  ): Promise<number> {
+    const client = typeof userIdOrClient === 'string' ? prisma : userIdOrClient
+    const userId = typeof userIdOrClient === 'string' ? userIdOrClient : maybeUserId
+
+    if (!userId) {
+      throw new Error('userId is required')
+    }
+
+    const result = await client.auditLog.updateMany({
+      where: {
+        userId,
+        OR: [
+          { ip: { not: null } },
+          { userAgent: { not: null } },
+        ],
+      },
+      data: {
+        ip: null,
+        userAgent: null,
+      },
+    })
+    return result.count
   }
 }
 

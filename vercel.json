@@ -3,7 +3,10 @@
     {
       "path": "/api/views/flush",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/audit/maintenance",
+      "schedule": "27 3 * * *"
     }
   ]
 }
-

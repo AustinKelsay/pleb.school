@@ -10,13 +10,13 @@ Tests token generation and verification for anonymous account reconnection.
 ## Functions Tested
 
 ### `generateReconnectToken()`
-Generates a new random reconnect token and its SHA-256 hash. Returns an object with `{ token, tokenHash }` where `token` is a 64-character hex string (256-bit random) for client storage, and `tokenHash` is the SHA-256 hash for database storage.
+Generates a new random reconnect token and its SHA-256 hash. Returns an object with `{ token, tokenHash }` where `token` is a 64-character hex string (256-bit random) stored in an httpOnly cookie, and `tokenHash` is the SHA-256 hash for database storage.
 
 ### `hashToken(token)`
 Hashes a plaintext token using SHA-256. Returns a 64-character hex string. Used internally by `generateReconnectToken()` and for computing hashes during token verification.
 
 ### `verifyToken(token, storedHash)`
-Verifies a plaintext token against a stored hash using constant-time comparison to prevent timing attacks. Returns `true` if the token matches the hash, `false` otherwise. Takes two parameters: the token from the client and the hash stored in the database.
+Verifies a plaintext token against a stored hash using constant-time comparison to prevent timing attacks. Returns `true` if the token matches the hash, `false` otherwise. Takes two parameters: the token from the httpOnly cookie and the hash stored in the database.
 
 ## Test Coverage
 
@@ -72,14 +72,14 @@ Anonymous signup
     ↓
 generateReconnectToken() → { token, tokenHash }
     ↓
-Store token in httpOnly cookie + localStorage (dual storage)
+Store token in httpOnly cookie
 Store tokenHash in database (anonReconnectTokenHash field)
     ↓
 Browser closed, session expires
     ↓
 Return to site
     ↓
-Client sends token → Server computes hashToken(token)
+Browser includes cookie automatically on requests → Server computes hashToken(token)
     ↓
 Direct O(1) lookup: findUnique({ where: { anonReconnectTokenHash: computedHash } })
     ↓

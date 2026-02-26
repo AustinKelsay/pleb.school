@@ -21,8 +21,10 @@ const prismaLogLevels: Prisma.LogLevel[] = enableQueryLogging
   : ['warn', 'error']
 
 const pool = globalForPrisma.pool ?? new Pool({
-  // Keep non-production contexts flexible while enforcing production validation in env.ts.
-  connectionString: env.DATABASE_URL ?? 'postgresql://placeholder:5432/placeholder',
+  // When env.DATABASE_URL is undefined, the pg client falls back to libpq environment
+  // variables (PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD), not DATABASE_URL.
+  // Production safety is enforced by getEnv() in src/lib/env.ts.
+  connectionString: env.DATABASE_URL, // undefined => pg uses libpq PG* vars above
 })
 
 const adapter = new PrismaPg(pool)
