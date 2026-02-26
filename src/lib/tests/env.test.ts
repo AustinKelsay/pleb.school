@@ -17,6 +17,7 @@ const MANAGED_KEYS = [
   "KV_REST_API_URL",
   "KV_REST_API_TOKEN",
   "VIEWS_CRON_SECRET",
+  "AUDIT_LOG_CRON_SECRET",
 ] as const
 
 type ManagedKey = typeof MANAGED_KEYS[number]
@@ -65,6 +66,7 @@ function validProductionEnv(overrides: Partial<Record<ManagedKey, string>> = {})
     KV_REST_API_URL: "https://example.upstash.io",
     KV_REST_API_TOKEN: "upstash-token",
     VIEWS_CRON_SECRET: "cron-secret",
+    AUDIT_LOG_CRON_SECRET: "audit-cron-secret",
     ...overrides,
   }
 }
@@ -123,6 +125,7 @@ describe("env", () => {
     expect(error.message).toContain("KV_REST_API_URL is required in production.")
     expect(error.message).toContain("KV_REST_API_TOKEN is required in production.")
     expect(error.message).toContain("VIEWS_CRON_SECRET is required in production.")
+    expect(error.message).toContain("AUDIT_LOG_CRON_SECRET is required in production.")
   })
 
   it("still enforces core production vars (except derived NEXTAUTH_SECRET) on Vercel preview deployments", async () => {
@@ -145,6 +148,7 @@ describe("env", () => {
         KV_REST_API_URL: "",
         KV_REST_API_TOKEN: "",
         VIEWS_CRON_SECRET: "",
+        AUDIT_LOG_CRON_SECRET: "",
       })
     )
     expect(env.NODE_ENV).toBe("production")
@@ -153,6 +157,7 @@ describe("env", () => {
     expect(env.KV_REST_API_URL).toBeUndefined()
     expect(env.KV_REST_API_TOKEN).toBeUndefined()
     expect(env.VIEWS_CRON_SECRET).toBeUndefined()
+    expect(env.AUDIT_LOG_CRON_SECRET).toBeUndefined()
   })
 
   it("derives NEXTAUTH_URL from VERCEL_URL in preview when NEXTAUTH_URL is missing", async () => {

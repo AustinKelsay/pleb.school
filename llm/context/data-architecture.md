@@ -151,6 +151,23 @@ const resourcePurchases = await PurchaseAdapter.findByUserAndResource(userId, re
 const purchaseCount = await PurchaseAdapter.countByCourse(courseId)
 ```
 
+### UserAdapter
+
+```typescript
+import { UserAdapter } from "@/lib/db-adapter"
+
+// Set or revoke anonymous reconnect credential hash
+await UserAdapter.setAnonReconnectTokenHash(userId, tokenHash)
+await UserAdapter.setAnonReconnectTokenHash(userId, null)
+```
+
+Method contract:
+- `setAnonReconnectTokenHash(userId: string, tokenHash: string | null): Promise<void>`
+- Purpose: persist the current anonymous reconnect token hash, or revoke reconnect access when `null`.
+- Side effect: updates `User.anonReconnectTokenHash` on the target user row.
+- Consistency: single-row Prisma `update` by primary key (`id`); callers can wrap in higher-level transactions if needed.
+- Indexing note: `anonReconnectTokenHash` is unique-indexed in the schema for O(1) reconnect lookup in auth flows.
+
 ### AuditLogAdapter
 
 Responsible for persisting audit logs (security-sensitive operations). Use via `auditLog()` in `@/lib/audit-logger` — do not call the adapter directly from API routes; use the audit logger which handles normalization and error semantics (audit logging must never throw).
@@ -231,6 +248,9 @@ commit transaction and return total deleted rows
 ```
 
 Operational notes:
+- Constants:
+  - `AUDIT_LOG_MAINTENANCE_LOCK_KEY = 0x6175646974` (`418581342580` decimal) is the PostgreSQL advisory lock ID used by `deleteOlderThan(cutoff)` to coordinate a single active purge worker.
+  - `AUDIT_LOG_DELETE_BATCH_SIZE = 10_000` is the per-loop delete batch size; tune based on DB capacity/lock pressure if needed.
 - Lock semantics: only one purge worker proceeds at a time; concurrent workers receive `0` (lock not acquired), which is a coordination signal and not necessarily "nothing to delete."
 - Transactional behavior: all batches in that purge run are committed atomically at transaction commit.
 - Failure mode: if the transaction errors (including timeout), the run rolls back and should be retried by the next maintenance invocation.

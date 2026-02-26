@@ -11,11 +11,13 @@ const PRODUCTION_REQUIRED_VARS: Array<keyof RuntimeEnv> = [
   "KV_REST_API_URL",
   "KV_REST_API_TOKEN",
   "VIEWS_CRON_SECRET",
+  "AUDIT_LOG_CRON_SECRET",
 ]
 const PREVIEW_OPTIONAL_VARS = new Set<keyof RuntimeEnv>([
   "KV_REST_API_URL",
   "KV_REST_API_TOKEN",
   "VIEWS_CRON_SECRET",
+  "AUDIT_LOG_CRON_SECRET",
 ])
 
 const rawEnvSchema = z.object({
@@ -32,6 +34,7 @@ const rawEnvSchema = z.object({
   KV_REST_API_URL: z.string().optional(),
   KV_REST_API_TOKEN: z.string().optional(),
   VIEWS_CRON_SECRET: z.string().optional(),
+  AUDIT_LOG_CRON_SECRET: z.string().optional(),
 }).passthrough()
 
 export type RuntimeEnv = {
@@ -44,6 +47,7 @@ export type RuntimeEnv = {
   KV_REST_API_URL?: string
   KV_REST_API_TOKEN?: string
   VIEWS_CRON_SECRET?: string
+  AUDIT_LOG_CRON_SECRET?: string
 }
 
 let cachedEnv: RuntimeEnv | null = null
@@ -130,6 +134,7 @@ export function getEnv(): RuntimeEnv {
     KV_REST_API_URL: normalize(raw.KV_REST_API_URL),
     KV_REST_API_TOKEN: normalize(raw.KV_REST_API_TOKEN),
     VIEWS_CRON_SECRET: normalize(raw.VIEWS_CRON_SECRET),
+    AUDIT_LOG_CRON_SECRET: normalize(raw.AUDIT_LOG_CRON_SECRET),
   }
 
   const issues: string[] = []

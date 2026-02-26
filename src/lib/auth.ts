@@ -151,6 +151,33 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;")
 }
 
+function buildMagicLinkRateLimitKey(email: string): string {
+  const normalizedEmail = email.trim().toLowerCase()
+  const hashedIdentifier = crypto.createHash("sha256").update(normalizedEmail).digest("hex")
+  return `auth-magic-link:${hashedIdentifier}`
+}
+
+function shouldUseStrictEmailRuntimeConfig(): boolean {
+  if (process.env.NODE_ENV !== "production") {
+    return false
+  }
+
+  const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase()
+  if (vercelEnv === "preview") {
+    return false
+  }
+  if (vercelEnv) {
+    return vercelEnv === "production"
+  }
+
+  // In generic CI (non-deployment) builds, avoid hard-failing on SMTP config.
+  if (process.env.CI === "true") {
+    return false
+  }
+
+  return true
+}
+
 
 // Build providers array based on configuration
 const providers = []
@@ -158,7 +185,7 @@ const providers = []
 // Add Email Provider if enabled
 if (authConfig.providers.email.enabled) {
   const emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
-    strict: process.env.NODE_ENV === "production",
+    strict: shouldUseStrictEmailRuntimeConfig(),
     context: "NextAuth EmailProvider",
   })
 
@@ -181,8 +208,9 @@ if (authConfig.providers.email.enabled) {
           const escapedUrl = escapeHtml(url)
 
           // Rate limit by email address
+          const rateLimitKey = buildMagicLinkRateLimitKey(email)
           const rateLimit = await checkRateLimit(
-            `auth-magic-link:${email.toLowerCase()}`,
+            rateLimitKey,
             RATE_LIMITS.AUTH_MAGIC_LINK.limit,
             RATE_LIMITS.AUTH_MAGIC_LINK.windowSeconds
           )

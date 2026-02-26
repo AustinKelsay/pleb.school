@@ -321,7 +321,10 @@ await auditLog(session.user.id, 'purchase.claim', { resourceId, amountPaid }, re
 - Endpoint authorization:
   - `Authorization: Bearer <token>` required.
   - Secret source: in production, `AUDIT_LOG_CRON_SECRET` is required; outside production, `CRON_SECRET` is accepted as a convenience fallback.
-  - Query-string `token` is accepted only outside production for local/manual testing.
+  - Query-string `token` is accepted only when all of the following are true:
+    - request is outside production
+    - `ALLOW_URL_TOKEN === "true"`
+    - request host passes localhost-only validation (`localhost`, `127.0.0.1`, or `::1`)
 - Adapter-level maintenance primitives:
   - `AuditLogAdapter.deleteOlderThan(cutoff)`
   - `AuditLogAdapter.anonymizeByUserId(userId)`
@@ -465,7 +468,7 @@ DATABASE_URL=...
 Runtime validation:
 
 - `src/lib/env.ts` performs normalized parsing and format validation (for example URL/key shape checks).
-- In production deployments, `src/lib/env.ts` enforces a fail-fast required env contract (`DATABASE_URL`, `NEXTAUTH_SECRET` or `AUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) and rejects insecure/malformed values (for example non-HTTPS `NEXTAUTH_URL`). Vercel previews (`VERCEL_ENV=preview`) still validate core DB/auth secret requirements while allowing preview-optional keys (`NEXTAUTH_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`) to be omitted; if `NEXTAUTH_SECRET`/`AUTH_SECRET` are both missing in preview, a fallback secret is derived and written to `process.env` for NextAuth compatibility (deterministic when deployment seed vars like `VERCEL_GIT_COMMIT_SHA`/`VERCEL_DEPLOYMENT_ID` are present, entropy-augmented only as a last resort).
+- In production deployments, `src/lib/env.ts` enforces a fail-fast required env contract (`DATABASE_URL`, `NEXTAUTH_SECRET` or `AUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`, `AUDIT_LOG_CRON_SECRET`) and rejects insecure/malformed values (for example non-HTTPS `NEXTAUTH_URL`). Vercel previews (`VERCEL_ENV=preview`) still validate core DB/auth secret requirements while allowing preview-optional keys (`KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`, `AUDIT_LOG_CRON_SECRET`) to be omitted; if `NEXTAUTH_URL` is missing but `VERCEL_URL` is present, `NEXTAUTH_URL` is derived from `VERCEL_URL`. If `NEXTAUTH_SECRET`/`AUTH_SECRET` are both missing in preview, a fallback secret is derived and written to `process.env` for NextAuth compatibility (deterministic when deployment seed vars like `VERCEL_GIT_COMMIT_SHA`/`VERCEL_DEPLOYMENT_ID` are present, entropy-augmented only as a last resort).
 - This shifts failures from late runtime to startup time, reducing partial-outage risk from misconfiguration.
 - SMTP settings are centralized in `src/lib/email-config.ts`; when email auth is enabled, production requires a valid SMTP contract (`EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, `EMAIL_FROM`) and fails fast on invalid/missing values.
 

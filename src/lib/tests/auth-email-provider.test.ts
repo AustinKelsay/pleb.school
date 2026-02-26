@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { fileURLToPath } from "url"
+import crypto from "crypto"
 
 type RateLimitResult = {
   success: boolean
@@ -34,6 +35,9 @@ const originalDatabaseUrl = process.env.DATABASE_URL
 const originalNextAuthSecret = process.env.NEXTAUTH_SECRET
 const originalNextAuthUrl = process.env.NEXTAUTH_URL
 const originalPrivkeyEncryptionKey = process.env.PRIVKEY_ENCRYPTION_KEY
+const originalViewsCronSecret = process.env.VIEWS_CRON_SECRET
+const originalAuditLogCronSecret = process.env.AUDIT_LOG_CRON_SECRET
+const originalCi = process.env.CI
 const RATE_LIMIT_MODULE_PATH = fileURLToPath(new URL("../rate-limit.ts", import.meta.url))
 const EMAIL_CONFIG_MODULE_PATH = fileURLToPath(new URL("../email-config.ts", import.meta.url))
 const mutableEnv = process.env as Record<string, string | undefined>
@@ -86,6 +90,24 @@ function restoreEnv() {
   } else {
     process.env.PRIVKEY_ENCRYPTION_KEY = originalPrivkeyEncryptionKey
   }
+
+  if (originalViewsCronSecret === undefined) {
+    delete process.env.VIEWS_CRON_SECRET
+  } else {
+    process.env.VIEWS_CRON_SECRET = originalViewsCronSecret
+  }
+
+  if (originalAuditLogCronSecret === undefined) {
+    delete process.env.AUDIT_LOG_CRON_SECRET
+  } else {
+    process.env.AUDIT_LOG_CRON_SECRET = originalAuditLogCronSecret
+  }
+
+  if (originalCi === undefined) {
+    delete process.env.CI
+  } else {
+    process.env.CI = originalCi
+  }
 }
 
 async function loadAuthModuleForEmailTests(params?: {
@@ -93,6 +115,8 @@ async function loadAuthModuleForEmailTests(params?: {
   rateLimitResult?: RateLimitResult
   sendMailResult?: { rejected: string[]; pending: string[] }
   nodeEnv?: string
+  vercelEnv?: string
+  ci?: string
   resolveEmailError?: Error
 }) {
   vi.resetModules()
@@ -100,12 +124,24 @@ async function loadAuthModuleForEmailTests(params?: {
   process.env.GITHUB_CLIENT_ID = "test-github-client-id"
   process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret"
   mutableEnv.NODE_ENV = params?.nodeEnv ?? "test"
+  if (params?.vercelEnv === undefined) {
+    delete process.env.VERCEL_ENV
+  } else {
+    process.env.VERCEL_ENV = params.vercelEnv
+  }
+  if (params?.ci === undefined) {
+    delete process.env.CI
+  } else {
+    process.env.CI = params.ci
+  }
+
   if (mutableEnv.NODE_ENV === "production") {
-    process.env.VERCEL_ENV = "preview"
     process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/pleb_school?schema=public"
     process.env.NEXTAUTH_SECRET = "x".repeat(32)
     process.env.NEXTAUTH_URL = "https://pleb.school"
     process.env.PRIVKEY_ENCRYPTION_KEY = "ab".repeat(32)
+    process.env.VIEWS_CRON_SECRET = "views-cron-secret"
+    process.env.AUDIT_LOG_CRON_SECRET = "audit-log-cron-secret"
   }
 
   const checkRateLimit = vi.fn().mockResolvedValue(
@@ -205,9 +241,46 @@ describe("auth email provider runtime + magic link flow", () => {
     await expect(
       loadAuthModuleForEmailTests({
         nodeEnv: "production",
+        vercelEnv: "production",
         resolveEmailError: new Error("NextAuth EmailProvider: Missing required SMTP env vars: EMAIL_FROM."),
       })
     ).rejects.toThrow("NextAuth EmailProvider: Missing required SMTP env vars: EMAIL_FROM.")
+  })
+
+  it("skips EmailProvider registration for preview deploys when SMTP config is incomplete", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const { emailProvider, mocks } = await loadAuthModuleForEmailTests({
+      nodeEnv: "production",
+      vercelEnv: "preview",
+      runtimeConfig: null,
+    })
+
+    expect(emailProvider).toBeUndefined()
+    expect(mocks.resolveEmailRuntimeConfig).toHaveBeenCalledWith(process.env, {
+      strict: false,
+      context: "NextAuth EmailProvider",
+    })
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Skipping EmailProvider registration outside production.")
+    )
+  })
+
+  it("skips EmailProvider registration in non-deployment CI builds when SMTP config is incomplete", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const { emailProvider, mocks } = await loadAuthModuleForEmailTests({
+      nodeEnv: "production",
+      ci: "true",
+      runtimeConfig: null,
+    })
+
+    expect(emailProvider).toBeUndefined()
+    expect(mocks.resolveEmailRuntimeConfig).toHaveBeenCalledWith(process.env, {
+      strict: false,
+      context: "NextAuth EmailProvider",
+    })
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Skipping EmailProvider registration outside production.")
+    )
   })
 
   it("throws a rate-limit error and logs a redacted email when checkRateLimit fails", async () => {
@@ -227,7 +300,8 @@ describe("auth email provider runtime + magic link flow", () => {
       })
     ).rejects.toThrow("Too many sign-in attempts. Please try again later.")
 
-    expect(mocks.checkRateLimit).toHaveBeenCalledWith("auth-magic-link:alice@example.com", 5, 900)
+    const expectedHashedKey = `auth-magic-link:${crypto.createHash("sha256").update("alice@example.com").digest("hex")}`
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith(expectedHashedKey, 5, 900)
     expect(warnSpy).toHaveBeenCalledWith("Rate limit exceeded for magic link: a***@example.com")
     expect(mocks.createTransport).not.toHaveBeenCalled()
   })
@@ -245,7 +319,8 @@ describe("auth email provider runtime + magic link flow", () => {
       },
     })
 
-    expect(mocks.checkRateLimit).toHaveBeenCalledWith("auth-magic-link:alice@example.com", 5, 900)
+    const expectedHashedKey = `auth-magic-link:${crypto.createHash("sha256").update("alice@example.com").digest("hex")}`
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith(expectedHashedKey, 5, 900)
     expect(mocks.createTransport).toHaveBeenCalledWith(DEFAULT_RUNTIME_CONFIG.server)
     expect(mocks.sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
