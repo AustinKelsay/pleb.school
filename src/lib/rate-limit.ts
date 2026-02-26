@@ -6,8 +6,14 @@
  */
 
 import { kv } from "@vercel/kv"
+import { isTemporaryEnvPlaceholder } from "@/lib/env-placeholders"
 
-const hasKV = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
+const hasKV = Boolean(
+  process.env.KV_REST_API_URL
+  && process.env.KV_REST_API_TOKEN
+  && !isTemporaryEnvPlaceholder(process.env.KV_REST_API_URL)
+  && !isTemporaryEnvPlaceholder(process.env.KV_REST_API_TOKEN)
+)
 const isProduction = process.env.NODE_ENV === "production"
 const isProductionMissingKV = isProduction && !hasKV
 

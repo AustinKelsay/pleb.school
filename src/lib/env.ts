@@ -1,9 +1,10 @@
 import { z } from "zod"
 import { createHash, randomBytes } from "crypto"
+import { buildTemporaryEnvPlaceholder } from "./env-placeholders"
 
 type NodeEnv = "development" | "test" | "production"
 const MIN_NEXTAUTH_SECRET_LENGTH = 32
-const PRODUCTION_REQUIRED_VARS: Array<keyof RuntimeEnv> = [
+const PRODUCTION_REQUIRED_VARS = [
   "DATABASE_URL",
   "NEXTAUTH_SECRET",
   "NEXTAUTH_URL",
@@ -12,8 +13,10 @@ const PRODUCTION_REQUIRED_VARS: Array<keyof RuntimeEnv> = [
   "KV_REST_API_TOKEN",
   "VIEWS_CRON_SECRET",
   "AUDIT_LOG_CRON_SECRET",
-]
-const PREVIEW_OPTIONAL_VARS = new Set<keyof RuntimeEnv>([
+] as const
+type ProductionRequiredVar = typeof PRODUCTION_REQUIRED_VARS[number]
+
+const PREVIEW_OPTIONAL_VARS = new Set<ProductionRequiredVar>([
   "KV_REST_API_URL",
   "KV_REST_API_TOKEN",
   "VIEWS_CRON_SECRET",
@@ -51,6 +54,7 @@ export type RuntimeEnv = {
 }
 
 let cachedEnv: RuntimeEnv | null = null
+type EnvMutationKey = keyof RuntimeEnv | "AUTH_SECRET"
 
 function normalize(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
@@ -116,6 +120,54 @@ function buildPreviewSecretFallback(raw: z.infer<typeof rawEnvSchema>): string {
   return createHash("sha256").update(seed).digest("hex")
 }
 
+function buildProductionPlaceholderSeed(raw: z.infer<typeof rawEnvSchema>): string {
+  const seedParts = [
+    normalize(raw.VERCEL_GIT_COMMIT_SHA),
+    normalize(raw.VERCEL_DEPLOYMENT_ID),
+    normalize(raw.VERCEL_URL),
+    normalize(raw.NEXTAUTH_URL),
+  ].filter((part): part is string => Boolean(part))
+
+  if (seedParts.length === 0) {
+    console.warn(
+      "Production env placeholder seed has no VERCEL_GIT_COMMIT_SHA/VERCEL_DEPLOYMENT_ID/VERCEL_URL/NEXTAUTH_URL. " +
+      "Adding runtime entropy as last-resort fallback; placeholder secrets will rotate on cold starts."
+    )
+    seedParts.push(randomBytes(32).toString("hex"))
+  }
+
+  return seedParts.join("|")
+}
+
+function buildProductionPlaceholder(
+  key: ProductionRequiredVar,
+  raw: z.infer<typeof rawEnvSchema>,
+  seed: string
+): string {
+  const hash = createHash("sha256").update(`${seed}|${key}`).digest("hex")
+
+  switch (key) {
+    case "DATABASE_URL":
+      return `postgresql://placeholder:${hash.slice(0, 16)}@127.0.0.1:5432/placeholder?schema=public`
+    case "NEXTAUTH_URL": {
+      const host = normalize(raw.VERCEL_URL)?.replace(/^https?:\/\//, "")
+      return host ? `https://${host}` : "https://placeholder.pleb.school"
+    }
+    case "PRIVKEY_ENCRYPTION_KEY":
+      return hash
+    case "NEXTAUTH_SECRET":
+      return buildTemporaryEnvPlaceholder("nextauth-secret", hash)
+    case "KV_REST_API_URL":
+      return buildTemporaryEnvPlaceholder("kv-rest-api-url", hash)
+    case "KV_REST_API_TOKEN":
+      return buildTemporaryEnvPlaceholder("kv-rest-api-token", hash)
+    case "VIEWS_CRON_SECRET":
+      return buildTemporaryEnvPlaceholder("views-cron-secret", hash)
+    case "AUDIT_LOG_CRON_SECRET":
+      return buildTemporaryEnvPlaceholder("audit-log-cron-secret", hash)
+  }
+}
+
 export function getEnv(): RuntimeEnv {
   if (cachedEnv) {
     return cachedEnv
@@ -140,6 +192,7 @@ export function getEnv(): RuntimeEnv {
   const issues: string[] = []
   const isProductionDeployment = env.NODE_ENV === "production"
   const isPreviewDeployment = env.VERCEL_ENV === "preview"
+  const envMutations: Partial<Record<EnvMutationKey, string>> = {}
 
   if (isProductionDeployment && isPreviewDeployment && !env.NEXTAUTH_URL) {
     const previewHost = normalize(raw.VERCEL_URL)?.replace(/^https?:\/\//, "")
@@ -161,6 +214,31 @@ export function getEnv(): RuntimeEnv {
     env.NEXTAUTH_SECRET = fallbackSecretForPreview
     console.warn(
       "NEXTAUTH_SECRET missing on preview deployment; using fallback secret (will set process.env after validation)."
+    )
+  }
+
+  const productionBootstrapKeys: ProductionRequiredVar[] = []
+  if (isProductionDeployment && !isPreviewDeployment) {
+    const seed = buildProductionPlaceholderSeed(raw)
+
+    for (const key of PRODUCTION_REQUIRED_VARS) {
+      if (!env[key]) {
+        const placeholder = buildProductionPlaceholder(key, raw, seed)
+        env[key] = placeholder
+        envMutations[key] = placeholder
+        productionBootstrapKeys.push(key)
+
+        if (key === "NEXTAUTH_SECRET" && !normalize(raw.AUTH_SECRET)) {
+          envMutations.AUTH_SECRET = placeholder
+        }
+      }
+    }
+  }
+
+  if (productionBootstrapKeys.length > 0) {
+    console.warn(
+      "Missing production env vars detected; temporary placeholders were applied for: " +
+      `${productionBootstrapKeys.join(", ")}. Replace these placeholders with real secrets/config values immediately.`
     )
   }
 
@@ -198,9 +276,15 @@ export function getEnv(): RuntimeEnv {
   }
 
   if (fallbackSecretForPreview) {
-    process.env.NEXTAUTH_SECRET = fallbackSecretForPreview
+    envMutations.NEXTAUTH_SECRET = fallbackSecretForPreview
     if (!normalize(process.env.AUTH_SECRET)) {
-      process.env.AUTH_SECRET = fallbackSecretForPreview
+      envMutations.AUTH_SECRET = fallbackSecretForPreview
+    }
+  }
+
+  for (const [key, value] of Object.entries(envMutations)) {
+    if (value) {
+      process.env[key] = value
     }
   }
 

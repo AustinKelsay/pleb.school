@@ -242,6 +242,10 @@ Production gating is defined in `.github/workflows/deploy-gate.yml`.
 | `MAX_RECEIPT_AGE_MS` | No | Override zap receipt max age in milliseconds for purchase claim validation |
 | `NEXT_PUBLIC_MIN_ZAP_SATS` | No | Override minimum sats enforced in purchase dialog |
 
+Temporary bootstrap behavior:
+- In `NODE_ENV=production`, `src/lib/env.ts` now auto-injects temporary placeholder values for any missing required env vars so first deployments do not fail closed at build/startup.
+- These placeholders are intentionally temporary and insecure; replace them in your deployment environment immediately before public launch.
+
 ## Tech Stack
 
 - **Next.js 15** with App Router

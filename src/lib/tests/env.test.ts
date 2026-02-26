@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { TEMP_ENV_PLACEHOLDER_PREFIX } from "../env-placeholders"
 
 const MODULE_PATH = "../env"
 const VALID_HEX_KEY = "ab".repeat(32)
@@ -115,17 +116,19 @@ describe("env", () => {
     ).rejects.toThrow("PRIVKEY_ENCRYPTION_KEY must be a 32-byte key in hex (64 chars) or base64 format.")
   })
 
-  it("requires critical env vars in production", async () => {
-    const error = await loadEnvWith({ NODE_ENV: "production" }).catch((err) => err as Error)
-    expect(error).toBeInstanceOf(Error)
-    expect(error.message).toContain("DATABASE_URL is required in production.")
-    expect(error.message).toContain("NEXTAUTH_SECRET is required in production.")
-    expect(error.message).toContain("NEXTAUTH_URL is required in production.")
-    expect(error.message).toContain("PRIVKEY_ENCRYPTION_KEY is required in production.")
-    expect(error.message).toContain("KV_REST_API_URL is required in production.")
-    expect(error.message).toContain("KV_REST_API_TOKEN is required in production.")
-    expect(error.message).toContain("VIEWS_CRON_SECRET is required in production.")
-    expect(error.message).toContain("AUDIT_LOG_CRON_SECRET is required in production.")
+  it("bootstraps missing critical env vars in production with temporary placeholders", async () => {
+    const env = await loadEnvWith({ NODE_ENV: "production" })
+
+    expect(env.DATABASE_URL).toContain("postgresql://placeholder:")
+    expect(env.NEXTAUTH_SECRET).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
+    expect(env.NEXTAUTH_URL).toBe("https://placeholder.pleb.school")
+    expect(env.PRIVKEY_ENCRYPTION_KEY).toMatch(/^[0-9a-f]{64}$/)
+    expect(env.KV_REST_API_URL).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
+    expect(env.KV_REST_API_TOKEN).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
+    expect(env.VIEWS_CRON_SECRET).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
+    expect(env.AUDIT_LOG_CRON_SECRET).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
+    expect(process.env.NEXTAUTH_SECRET).toBe(env.NEXTAUTH_SECRET)
+    expect(process.env.AUTH_SECRET).toBe(env.NEXTAUTH_SECRET)
   })
 
   it("still enforces core production vars (except derived NEXTAUTH_SECRET) on Vercel preview deployments", async () => {

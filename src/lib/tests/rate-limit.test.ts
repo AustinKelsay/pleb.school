@@ -213,6 +213,28 @@ describe("rate-limit", () => {
       expect(result4.success).toBe(false)
       expect(result4.remaining).toBe(0)
     })
+
+    it("treats temporary placeholder KV values as missing", async () => {
+      vi.resetModules()
+      process.env.KV_REST_API_URL = "__PLEB_TEMP_ENV__:kv-rest-api-url:test"
+      process.env.KV_REST_API_TOKEN = "__PLEB_TEMP_ENV__:kv-rest-api-token:test"
+      mutableEnv.NODE_ENV = "test"
+
+      vi.doMock("@vercel/kv", () => ({
+        kv: {
+          eval: vi.fn(),
+        },
+      }))
+
+      const { checkRateLimit } = await import(MODULE_PATH)
+      const { kv } = await import("@vercel/kv")
+
+      const result = await checkRateLimit("placeholder-kv", 1, 60)
+
+      expect(result.success).toBe(true)
+      expect(result.remaining).toBe(0)
+      expect(kv.eval).not.toHaveBeenCalled()
+    })
   })
 
   describe("production configuration safety", () => {

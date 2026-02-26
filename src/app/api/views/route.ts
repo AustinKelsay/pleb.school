@@ -4,12 +4,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { kv } from "@vercel/kv"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { isTemporaryEnvPlaceholder } from "@/lib/env-placeholders"
 
 // Fallback in-memory store for local dev when KV env vars are not set
 const memory = (globalThis as any).__viewCounterMemory || new Map<string, number>()
 ;(globalThis as any).__viewCounterMemory = memory
 
-const hasKV = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
+const hasKV = Boolean(
+  process.env.KV_REST_API_URL
+  && process.env.KV_REST_API_TOKEN
+  && !isTemporaryEnvPlaceholder(process.env.KV_REST_API_URL)
+  && !isTemporaryEnvPlaceholder(process.env.KV_REST_API_TOKEN)
+)
 const KEY_MAX_LENGTH = 300
 const NAMESPACE_REGEX = /^[a-z0-9_-]{1,32}$/i
 const ENTITY_ID_REGEX = /^[a-zA-Z0-9:_-]{1,128}$/
