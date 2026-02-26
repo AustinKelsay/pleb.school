@@ -96,6 +96,22 @@ describe("audit-log-maintenance", () => {
     expect(cutoff.toISOString()).toBe("2026-01-25T00:00:00.000Z")
   })
 
+  it("throws when getAuditLogCutoffDate receives invalid retention days", () => {
+    const now = new Date("2026-02-24T00:00:00.000Z")
+    expect(() => getAuditLogCutoffDate(-1, now)).toThrow(
+      "retentionDays must be a non-negative integer."
+    )
+    expect(() => getAuditLogCutoffDate(1.5, now)).toThrow(
+      "retentionDays must be a non-negative integer."
+    )
+  })
+
+  it("throws when getAuditLogCutoffDate receives an invalid now date", () => {
+    expect(() => getAuditLogCutoffDate(30, new Date("invalid"))).toThrow(
+      "now must be a valid Date."
+    )
+  })
+
   it("purges records older than computed cutoff and returns summary", async () => {
     const now = new Date("2026-02-24T10:00:00.000Z")
     mockDeleteOlderThan.mockResolvedValue(7)

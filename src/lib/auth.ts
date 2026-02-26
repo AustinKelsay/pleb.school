@@ -464,10 +464,11 @@ if (authConfig.providers.anonymous.enabled) {
             const cookieStore = await cookies()
             cookieToken = cookieStore.get(COOKIE_NAME)?.value
           } catch (error) {
-            logger.warn('Failed to read reconnect cookie; falling back to new anonymous account flow', {
+            logger.warn('Failed to read reconnect cookie; aborting anonymous auth attempt', {
               cookieName: COOKIE_NAME,
               error: error instanceof Error ? error.message : String(error),
             })
+            throw error
           }
           const reconnectToken = cookieToken
 

@@ -91,7 +91,7 @@ export async function POST() {
 export async function DELETE() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session?.user?.id) {
       const response = NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -111,6 +111,12 @@ export async function DELETE() {
       })
     } catch (error) {
       console.error('Failed to revoke reconnect token hash:', error)
+      const errorResponse = NextResponse.json(
+        { error: 'Failed to revoke reconnect token' },
+        { status: 500 }
+      )
+      clearReconnectCookie(errorResponse)
+      return errorResponse
     }
 
     return response

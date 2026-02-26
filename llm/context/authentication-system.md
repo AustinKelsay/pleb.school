@@ -166,7 +166,7 @@ The reconnect token is stored in an **httpOnly cookie** (`anon-reconnect-token`)
 
 **API Endpoints:**
 - `POST /api/auth/anon-reconnect`: Rotate reconnect token server-side and set httpOnly cookie
-- `DELETE /api/auth/anon-reconnect`: Clear httpOnly cookie
+- `DELETE /api/auth/anon-reconnect`: Clear httpOnly cookie and null `anonReconnectTokenHash` server-side to revoke reconnect credentials
 
 **Reconnection Flow:**
 ```typescript

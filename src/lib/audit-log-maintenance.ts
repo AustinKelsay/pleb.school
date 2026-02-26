@@ -61,6 +61,14 @@ export function getAuditLogCutoffDate(
   retentionDays: number,
   now: Date = new Date()
 ): Date {
+  if (!Number.isFinite(retentionDays) || !Number.isInteger(retentionDays) || retentionDays < 0) {
+    throw new RangeError("retentionDays must be a non-negative integer.")
+  }
+
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    throw new TypeError("now must be a valid Date.")
+  }
+
   return new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000)
 }
 
