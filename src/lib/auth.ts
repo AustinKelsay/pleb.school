@@ -179,6 +179,7 @@ function shouldUseStrictEmailRuntimeConfig(): boolean {
 }
 
 
+
 // Build providers array based on configuration
 const providers = []
 
