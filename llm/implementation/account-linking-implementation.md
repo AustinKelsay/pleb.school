@@ -139,15 +139,14 @@ Anonymous users can persist their session across browser restarts using a secure
 - `hashToken(token)` - SHA-256 hash for database storage
 - `verifyToken(token, hash)` - Constant-time comparison
 
-**Client Storage (`src/lib/anonymous-client-storage.ts`):**
-- New format: `{ reconnectToken, pubkey, userId, updatedAt }`
-- Legacy detection: `hasLegacyPersistedIdentity()` detects old privkey format
-- Migration: `getLegacyIdentityForMigration()` reads legacy format for one-time migration
+**Reconnect Cookie API (`src/app/api/auth/anon-reconnect/route.ts`):**
+- Stores reconnect token in httpOnly cookie (`anon-reconnect-token`)
+- Cookie is set/rotated after successful anonymous auth
+- Cookie is cleared on explicit reset/logout flow
 
 **Anonymous Provider Flow (`src/lib/auth.ts`):**
 1. **Token reconnection**: Verify token against `anonReconnectTokenHash`, rotate token on success
-2. **Legacy migration**: Validate privkey, generate new token, store hash
-3. **New account**: Generate keypair + token, store hash
+2. **New account**: Generate keypair + token, store hash
 
 **Database Field:**
 `User.anonReconnectTokenHash` stores SHA-256 hash (only hash stored, never plaintext token).

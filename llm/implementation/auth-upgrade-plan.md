@@ -101,13 +101,9 @@ Changes:
 - Publishing hooks treat anonymous accounts as server-side signers; the UI exposes the stored key so users can export it.
 - Sign-in messaging clarifies that anonymous access never requires NIP-07 (extensions only show up when explicitly linking Nostr).
 
-### 2.5 Data Migration & Backfill
+### 2.5 Greenfield Scope
 
-Legacy production data may still contain mismatched `profileSource/primaryProvider` values. No migration script is present in the repo; if needed, a one-off migration should:
-- Null any lingering `privkey` rows where `profileSource='nostr'`.
-- Re-run `syncUserProfileFromNostr` for users whose `primaryProvider` already equals `'nostr'` but have stale profile fields.
-- Backfill `profileSource` anywhere it is `NULL` by mirroring `primaryProvider`.
-- Optionally flag anonymous `Account` rows that no longer own the active pubkey to simplify analytics.
+This launch is treated as greenfield. Legacy migration/backfill work is intentionally out of scope unless legacy user import is introduced later.
 
 ### 2.6 API & UI Adjustments
 
@@ -126,19 +122,15 @@ Manual checklist (per environment):
 3. **OAuth → Nostr upgrade**: sign in via GitHub, link NIP-07, verify server-side keys removed and signing uses extension.
 4. **Nostr-first + OAuth login**: Link GitHub, log out/in using GitHub, ensure publishing still routes through NIP-07 since `privkey` absent.
 5. **Anon publishing without extension**: ensure resource publish succeeds (server-side signing).
-6. **Migration script dry-run**: run against staging DB, inspect logs before applying in production.
-
 Document outcomes in PR checklists and note which flows were smoke-tested (Nostr link, email link, GitHub link, unlink, make primary).
 
 ## 3. Open Considerations
 
-- Historical clean-up script (see §2.5) is not in this repo.
 - Consider pruning dormant anonymous Account rows once a user migrates to Nostr-first to simplify analytics.
 - Admin tooling already exists via `/api/account/preferences`, but we may want explicit UI for support to resolve edge cases faster.
 
 ## 4. Operational Checklist
 
 1. Keep GitHub/Email credentials up to date for both sign-in and linking flows.
-2. Run the forthcoming migration script before cutting a production release if legacy users exist.
-3. Maintain relay availability for the Nostr sync helper; sync is best-effort and leaves existing DB values intact if relays fail.
-4. Monitor logs for `Failed to sync Nostr profile after linking` to proactively catch relay issues.
+2. Maintain relay availability for the Nostr sync helper; sync is best-effort and leaves existing DB values intact if relays fail.
+3. Monitor logs for `Failed to sync Nostr profile after linking` to proactively catch relay issues.

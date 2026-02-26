@@ -15,7 +15,6 @@ declare module 'next-auth' {
       pubkey?: string
       username?: string
       hasEphemeralKeys?: boolean  // True if user has platform-managed ephemeral keys (anonymous, email, github)
-      reconnectToken?: string  // Secure reconnect token for anonymous session persistence
       nostrProfile?: Record<string, unknown>  // Complete Nostr profile from NIP-01 kind 0 event
       nip05?: string
       lud16?: string
@@ -31,7 +30,7 @@ declare module 'next-auth' {
     image?: string | null
     avatar?: string
     pubkey?: string
-    reconnectToken?: string  // Returned from anonymous provider for client storage
+    reconnectToken?: string  // Internal handoff during auth callbacks (not exposed on client session)
   }
 }
 

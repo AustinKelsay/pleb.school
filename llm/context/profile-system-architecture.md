@@ -46,11 +46,9 @@ Linking flows automatically migrate users along the chain:
 ### Anonymous Session Persistence
 Anonymous users can persist their session across browser restarts using a secure reconnect token system:
 
-**Storage Format (localStorage):**
-```typescript
-// Secure format - no private keys stored (matches PersistedAnonymousIdentity type)
-{ reconnectToken: "random_hex", pubkey: "...", userId: "...", updatedAt: 1704067200000 }
-```
+**Storage Mechanism:**
+- Reconnect token is stored in an httpOnly cookie (`anon-reconnect-token`) via `/api/auth/anon-reconnect`.
+- Database stores only `User.anonReconnectTokenHash` (SHA-256), never plaintext token.
 
 **Security Properties:**
 - Token is random, cannot derive private key or sign Nostr events
@@ -59,15 +57,12 @@ Anonymous users can persist their session across browser restarts using a secure
 - O(1) lookup via unique index on hash (not O(n) scan)
 
 **Reconnection Flow:**
-1. Client sends reconnect token with anonymous sign-in
+1. Browser sends reconnect cookie with anonymous sign-in request
 2. Server computes `hashToken(token)` and queries by hash (O(1) indexed lookup)
 3. On success: generate new token, update hash in database
-4. Client stores new rotated token
+4. Client calls `/api/auth/anon-reconnect` to store the rotated token in cookie
 
 **Edge Case:** If DB update succeeds but response is lost (network failure), client has stale token and next login fails. This is accepted for ephemeral anonymous accounts - user can create a new anonymous account.
-
-**Legacy Migration:**
-Users with old localStorage format (privkey) are automatically migrated on next login - server validates privkey, generates token, client stores new format. This migration is intentionally silent (no user notification) since anonymous accounts are ephemeral and the security upgrade is transparent to users.
 
 ### Profile Source Priority
 
@@ -239,7 +234,7 @@ model User {
   // Account linking fields
   primaryProvider        String?   // Primary authentication provider
   profileSource          String?   @default("oauth") // "nostr" or "oauth"
-  anonReconnectTokenHash String?   // SHA-256 hash for anonymous session persistence
+  anonReconnectTokenHash String?   @unique // SHA-256 hash for anonymous session persistence
 
   accounts               Account[]
   sessions               Session[]

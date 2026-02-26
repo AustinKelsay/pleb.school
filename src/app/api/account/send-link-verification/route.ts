@@ -5,15 +5,17 @@
  * Rate limited to 3 emails per address per hour to prevent spam.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
-import { sanitizeEmail } from '@/lib/api-utils'
-import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import crypto from 'crypto'
-import nodemailer from 'nodemailer'
+import { getServerSession } from 'next-auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { createTransport } from 'nodemailer'
+import { z } from 'zod'
+
+import { authOptions } from '@/lib/auth'
+import { sanitizeEmail } from '@/lib/api-utils'
+import { resolveEmailRuntimeConfig, SmtpSetupError } from '@/lib/email-config'
+import { prisma } from '@/lib/prisma'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,6 +99,13 @@ export async function POST(request: NextRequest) {
     const lookupId = crypto.randomBytes(8).toString('hex')
     const expires = new Date(Date.now() + 3600000) // 1 hour from now
 
+    // Resolve email runtime config first so SMTP misconfiguration fails before any DB writes.
+    const emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
+      strict: true,
+      context: 'Account linking verification email'
+    })
+    const transporter = createTransport(emailRuntimeConfig.server)
+
     // Store verification record: identifier carries context; token holds short code; lookupId is used in URL
     await prisma.verificationToken.create({
       data: {
@@ -107,34 +116,10 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Send verification email
-    const port = parseInt(process.env.EMAIL_SERVER_PORT || '587', 10)
-    const secureEnv = process.env.EMAIL_SERVER_SECURE
-    const secure = typeof secureEnv === 'string'
-      ? /^(true|1|yes)$/i.test(secureEnv)
-      : port === 465
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_SERVER_HOST,
-      port,
-      secure,
-      auth: {
-        user: process.env.EMAIL_SERVER_USER,
-        pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
-      // Enforce STARTTLS when not using implicit TLS (port 465)
-      requireTLS: !secure,
-      tls: {
-        minVersion: 'TLSv1.2',
-        ciphers: 'TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256',
-        rejectUnauthorized: true,
-      },
-    })
-
     const verificationUrl = `${process.env.NEXTAUTH_URL}/verify-email?ref=${lookupId}`
 
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+      from: emailRuntimeConfig.from,
       to: normalizedEmail,
       subject: 'Verify your email to link your account',
       html: `
@@ -166,6 +151,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Send verification email error:', error)
+    if (error instanceof SmtpSetupError) {
+      return NextResponse.json(
+        { error: 'Email service is not configured' },
+        { status: 503 }
+      )
+    }
     return NextResponse.json(
       { error: 'Failed to send verification email' },
       { status: 500 }

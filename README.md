@@ -1,6 +1,6 @@
 # pleb.school
 
-A Nostr-native course platform built with Next.js 15 and React 19. Fork this repo to launch your own white-label learning hub with Lightning payments and decentralized content.
+A Nostr-native course platform built with Next.js. Fork this repo to launch your own white-label learning hub with Lightning payments and decentralized content.
 
 ## Quick Start
 

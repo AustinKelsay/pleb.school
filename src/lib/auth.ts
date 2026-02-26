@@ -82,6 +82,7 @@ import { generateReconnectToken, hashToken } from './anon-reconnect-token'
 import { normalizeHexPubkey } from './nostr-keys'
 import logger from './logger'
 import { createTransport } from 'nodemailer'
+import { resolveEmailRuntimeConfig } from "./email-config"
 import crypto from 'crypto'
 
 /**
@@ -104,43 +105,6 @@ function generateAnonymousUserData(pubkey: string) {
     username,
     avatar
   }
-}
-
-/**
- * Look up an existing ephemeral user (anonymous/email/github) using a persisted private key
- * This is primarily used to let anonymous accounts reconnect using browser-stored keys.
- */
-async function findUserByPrivateKey(privateKeyInput: string) {
-  const privateKeyHex = normalizePrivateKey(privateKeyInput)
-  const publicKey = derivePublicKey(privateKeyHex)
-
-  if (!verifyNostrPubkey(publicKey)) {
-    throw new Error('Derived invalid public key format')
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { pubkey: publicKey }
-  })
-
-  if (!user) {
-    throw new Error('No account found for this private key')
-  }
-
-  const storedPrivkey = decryptPrivkey(user.privkey)
-  if (!storedPrivkey) {
-    throw new Error('Private key mismatch for this account')
-  }
-
-  // Security: Use constant-time comparison to prevent timing attacks
-  // Normalize stored key to lowercase to match normalized input (handles legacy mixed-case storage)
-  const storedBuffer = Buffer.from(storedPrivkey.toLowerCase(), 'utf8')
-  const inputBuffer = Buffer.from(privateKeyHex, 'utf8')
-  if (storedBuffer.length !== inputBuffer.length ||
-      !crypto.timingSafeEqual(storedBuffer, inputBuffer)) {
-    throw new Error('Private key mismatch for this account')
-  }
-
-  return user
 }
 
 /**
@@ -178,71 +142,120 @@ function derivePublicKey(privateKeyHex: string): string {
   }
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+function buildMagicLinkRateLimitKey(email: string): string {
+  const normalizedEmail = email.trim().toLowerCase()
+  const hashedIdentifier = crypto.createHash("sha256").update(normalizedEmail).digest("hex")
+  return `auth-magic-link:${hashedIdentifier}`
+}
+
+function shouldUseStrictEmailRuntimeConfig(): boolean {
+  if (process.env.NODE_ENV !== "production") {
+    return false
+  }
+
+  const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase()
+  if (vercelEnv === "preview") {
+    return false
+  }
+  if (vercelEnv) {
+    return vercelEnv === "production"
+  }
+
+  // In generic CI (non-deployment) builds, avoid hard-failing on SMTP config.
+  if (process.env.CI === "true") {
+    return false
+  }
+
+  return true
+}
+
 
 // Build providers array based on configuration
 const providers = []
 
 // Add Email Provider if enabled
 if (authConfig.providers.email.enabled) {
-  providers.push(
-    EmailProvider({
-      server: {
-        host: process.env.EMAIL_SERVER_HOST,
-        port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
-        auth: {
-          user: process.env.EMAIL_SERVER_USER,
-          pass: process.env.EMAIL_SERVER_PASSWORD,
+  const emailRuntimeConfig = resolveEmailRuntimeConfig(process.env, {
+    strict: shouldUseStrictEmailRuntimeConfig(),
+    context: "NextAuth EmailProvider",
+  })
+
+  if (!emailRuntimeConfig) {
+    console.warn(
+      "Email provider is enabled but SMTP config is incomplete. " +
+      "Skipping EmailProvider registration outside production."
+    )
+  } else {
+    providers.push(
+      EmailProvider({
+        server: emailRuntimeConfig.server,
+        from: emailRuntimeConfig.from,
+        maxAge: authConfig.providers.email.maxAge,
+        /**
+         * Custom sendVerificationRequest with rate limiting
+         * Prevents email flooding by limiting magic link requests per email address
+         */
+        async sendVerificationRequest({ identifier: email, url, provider }) {
+          const escapedUrl = escapeHtml(url)
+
+          // Rate limit by email address
+          const rateLimitKey = buildMagicLinkRateLimitKey(email)
+          const rateLimit = await checkRateLimit(
+            rateLimitKey,
+            RATE_LIMITS.AUTH_MAGIC_LINK.limit,
+            RATE_LIMITS.AUTH_MAGIC_LINK.windowSeconds
+          )
+
+          if (!rateLimit.success) {
+            // Redact email for logging (keep first char + domain for debugging)
+            const redacted = (() => {
+              if (email.includes("@")) {
+                const [local, domain] = email.split("@")
+                return `${local?.[0] || ""}***@${domain || ""}`
+              }
+              return `${email?.[0] || ""}***`
+            })()
+            console.warn(`Rate limit exceeded for magic link: ${redacted}`)
+            throw new Error("Too many sign-in attempts. Please try again later.")
+          }
+
+          // Send the email using nodemailer
+          const transport = createTransport(provider.server)
+          const result = await transport.sendMail({
+            to: email,
+            from: provider.from,
+            subject: "Sign in to pleb.school",
+            text: `Sign in to pleb.school\n\nClick this link to sign in:\n${url}\n\nIf you didn't request this, you can ignore this email.\n`,
+            html: `
+              <div style="max-width: 480px; margin: 0 auto; font-family: sans-serif;">
+                <h2 style="color: #1a1a1a;">Sign in to pleb.school</h2>
+                <p>Click the button below to sign in:</p>
+                <a href="${escapedUrl}" style="display: inline-block; padding: 12px 24px; background: #7c3aed; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
+                  Sign in
+                </a>
+                <p style="color: #666; font-size: 14px;">Or copy this link: ${escapedUrl}</p>
+                <p style="color: #999; font-size: 12px;">If you didn't request this, you can ignore this email.</p>
+              </div>
+            `,
+          })
+
+          const failed = result.rejected.concat(result.pending).filter(Boolean)
+          if (failed.length) {
+            throw new Error(`Email could not be sent to ${failed.join(", ")}`)
+          }
         },
-      },
-      from: process.env.EMAIL_FROM,
-      maxAge: authConfig.providers.email.maxAge,
-      /**
-       * Custom sendVerificationRequest with rate limiting
-       * Prevents email flooding by limiting magic link requests per email address
-       */
-      async sendVerificationRequest({ identifier: email, url, provider }) {
-        // Rate limit by email address
-        const rateLimit = await checkRateLimit(
-          `auth-magic-link:${email.toLowerCase()}`,
-          RATE_LIMITS.AUTH_MAGIC_LINK.limit,
-          RATE_LIMITS.AUTH_MAGIC_LINK.windowSeconds
-        )
-
-        if (!rateLimit.success) {
-          // Redact email for logging (keep first char + domain for debugging)
-          const [local, domain] = email.split('@')
-          const redacted = `${local[0]}***@${domain}`
-          console.warn(`Rate limit exceeded for magic link: ${redacted}`)
-          throw new Error('Too many sign-in attempts. Please try again later.')
-        }
-
-        // Send the email using nodemailer
-        const transport = createTransport(provider.server)
-        const result = await transport.sendMail({
-          to: email,
-          from: provider.from,
-          subject: 'Sign in to pleb.school',
-          text: `Sign in to pleb.school\n\nClick this link to sign in:\n${url}\n\nIf you didn't request this, you can ignore this email.\n`,
-          html: `
-            <div style="max-width: 480px; margin: 0 auto; font-family: sans-serif;">
-              <h2 style="color: #1a1a1a;">Sign in to pleb.school</h2>
-              <p>Click the button below to sign in:</p>
-              <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #7c3aed; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
-                Sign in
-              </a>
-              <p style="color: #666; font-size: 14px;">Or copy this link: ${url}</p>
-              <p style="color: #999; font-size: 12px;">If you didn't request this, you can ignore this email.</p>
-            </div>
-          `,
-        })
-
-        const failed = result.rejected.concat(result.pending).filter(Boolean)
-        if (failed.length) {
-          throw new Error(`Email could not be sent to ${failed.join(', ')}`)
-        }
-      },
-    })
-  )
+      })
+    )
+  }
 }
 
 // Add Nostr Provider if enabled
@@ -456,29 +469,20 @@ if (authConfig.providers.anonymous.enabled) {
       id: 'anonymous',
       name: 'Anonymous',
       credentials: {
-        reconnectToken: {
-          label: 'Reconnect Token',
-          type: 'hidden'
-        },
-        privateKey: {
-          label: 'Legacy Private Key (migration only)',
-          type: 'hidden'
-        },
         generateKeys: {
           label: 'Generate Keys',
           type: 'hidden',
           value: 'true'
         }
       },
-      async authorize(credentials) {
+      async authorize(_credentials) {
         try {
           // ============================================================
-          // Secure token-based reconnection (no private keys in localStorage)
+          // Secure token-based reconnection via httpOnly cookie.
           // See: llm/context/authentication-system.md
           //
-          // Priority order for reconnect token:
-          // 1. httpOnly cookie 'anon-reconnect-token' (secure path, XSS-resistant)
-          // 2. credentials.reconnectToken (legacy localStorage fallback, being phased out)
+          // Reconnect token source:
+          // - httpOnly cookie 'anon-reconnect-token' (secure path, XSS-resistant)
           // ============================================================
           const COOKIE_NAME = 'anon-reconnect-token'
           let cookieToken: string | undefined
@@ -487,10 +491,14 @@ if (authConfig.providers.anonymous.enabled) {
             const { cookies } = await import('next/headers')
             const cookieStore = await cookies()
             cookieToken = cookieStore.get(COOKIE_NAME)?.value
-          } catch {
-            // cookies() may not be available in all contexts
+          } catch (error) {
+            logger.warn('Failed to read reconnect cookie; aborting anonymous auth attempt', {
+              cookieName: COOKIE_NAME,
+              error: error instanceof Error ? error.message : String(error),
+            })
+            throw error
           }
-          const reconnectToken = cookieToken || credentials?.reconnectToken
+          const reconnectToken = cookieToken
 
           if (reconnectToken) {
             // Rate limit by token hash
@@ -498,8 +506,8 @@ if (authConfig.providers.anonymous.enabled) {
               .update(reconnectToken).digest('hex').substring(0, 16)
             const tokenRateLimit = await checkRateLimit(
               `auth-anon-token:${tokenHash}`,
-              RATE_LIMITS.AUTH_NOSTR.limit,
-              RATE_LIMITS.AUTH_NOSTR.windowSeconds
+              RATE_LIMITS.AUTH_ANONYMOUS_RECONNECT.limit,
+              RATE_LIMITS.AUTH_ANONYMOUS_RECONNECT.windowSeconds
             )
 
             if (!tokenRateLimit.success) {
@@ -553,53 +561,6 @@ if (authConfig.providers.anonymous.enabled) {
               avatar: syncedUser.avatar || undefined,
               pubkey: syncedUser.pubkey || undefined,
               reconnectToken: newToken, // Return new rotated token
-            }
-          }
-
-          // ============================================================
-          // Legacy privkey migration path (auto-migrates to token format)
-          // ============================================================
-          if (credentials?.privateKey) {
-            // Rate limit returning users by a hash of their private key
-            const keyHash = crypto.createHash('sha256')
-              .update(credentials.privateKey).digest('hex').substring(0, 16)
-            const returnRateLimit = await checkRateLimit(
-              `auth-anon-return:${keyHash}`,
-              RATE_LIMITS.AUTH_NOSTR.limit,
-              RATE_LIMITS.AUTH_NOSTR.windowSeconds
-            )
-
-            if (!returnRateLimit.success) {
-              throw new Error('Too many authentication attempts. Please try again later.')
-            }
-
-            const existingUser = await findUserByPrivateKey(credentials.privateKey)
-            logger.debug('Completed legacy private key migration')
-
-            // Generate new reconnect token and store hash
-            const { token: newToken, tokenHash: newTokenHash } = generateReconnectToken()
-            await prisma.user.update({
-              where: { id: existingUser.id },
-              data: { anonReconnectTokenHash: newTokenHash }
-            })
-
-            // NOSTR-FIRST: Keep resumed anonymous users in sync with their live Nostr profile
-            let syncedUser = existingUser
-            if (existingUser.pubkey) {
-              const refreshed = await syncUserProfileFromNostr(existingUser.id, existingUser.pubkey)
-              if (refreshed) {
-                syncedUser = refreshed
-                logger.debug('Synced anonymous profile from Nostr on legacy migration')
-              }
-            }
-
-            return {
-              id: syncedUser.id,
-              email: syncedUser.email,
-              username: syncedUser.username || undefined,
-              avatar: syncedUser.avatar || undefined,
-              pubkey: syncedUser.pubkey || undefined,
-              reconnectToken: newToken, // Return token for client to store
             }
           }
 
@@ -871,7 +832,7 @@ export const authOptions: NextAuthOptions = {
         token.avatar = user.avatar || user.image || undefined
         token.provider = account?.provider
         token.email = user.email || undefined
-        // Pass reconnect token through JWT for client storage
+        // Carry reconnect token through JWT so the reconnect-cookie endpoint can rotate/set it.
         token.reconnectToken = user.reconnectToken || undefined
         
         /**
@@ -934,8 +895,6 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.username as string
         // Add provider to session for client-side signing detection
         session.provider = token.provider as string
-        // Pass reconnect token to client for secure localStorage persistence
-        session.user.reconnectToken = token.reconnectToken as string | undefined
         // Add additional Nostr profile fields to session
         Object.assign(session.user, {
           nip05: token.nip05,
@@ -1085,11 +1044,8 @@ export const authOptions: NextAuthOptions = {
        * OAUTH-FIRST: EPHEMERAL KEYPAIR GENERATION ON SIGN IN
        * ====================================================
        * 
-       * For existing OAuth-first users (email/GitHub) who signed up before 
-       * the ephemeral keypair system, generate background Nostr keys on sign-in.
-       * 
-       * This ensures backward compatibility - all OAuth-first users get 
-       * background Nostr capabilities without knowing about it.
+       * Ensure OAuth-first users always have a platform-managed keypair.
+       * If a record is missing keys for any reason, repair it at sign-in.
        * 
        * Exclusions (these providers handle keys differently):
        * - 'nostr': Nostr-first users provide their own keys via NIP07
