@@ -136,6 +136,16 @@ export function getEnv(): RuntimeEnv {
   const isProductionDeployment = env.NODE_ENV === "production"
   const isPreviewDeployment = env.VERCEL_ENV === "preview"
 
+  if (isProductionDeployment && isPreviewDeployment && !env.NEXTAUTH_URL) {
+    const previewHost = normalize(raw.VERCEL_URL)?.replace(/^https?:\/\//, "")
+    if (previewHost) {
+      env.NEXTAUTH_URL = `https://${previewHost}`
+      console.warn(
+        "NEXTAUTH_URL missing on preview deployment; deriving NEXTAUTH_URL from VERCEL_URL."
+      )
+    }
+  }
+
   // NextAuth reads secrets directly from process.env, so this preview fallback must
   // populate process.env.NEXTAUTH_SECRET/AUTH_SECRET in addition to env.NEXTAUTH_SECRET.
   // We set env.NEXTAUTH_SECRET for validation; process.env is mutated only after validation

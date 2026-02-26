@@ -155,6 +155,18 @@ describe("env", () => {
     expect(env.VIEWS_CRON_SECRET).toBeUndefined()
   })
 
+  it("derives NEXTAUTH_URL from VERCEL_URL in preview when NEXTAUTH_URL is missing", async () => {
+    const env = await loadEnvWith(
+      validProductionEnv({
+        VERCEL_ENV: "preview",
+        NEXTAUTH_URL: "",
+        VERCEL_URL: "plebschool-preview.vercel.app",
+      })
+    )
+
+    expect(env.NEXTAUTH_URL).toBe("https://plebschool-preview.vercel.app")
+  })
+
   it("requires NEXTAUTH_URL to use https in production", async () => {
     await expect(
       loadEnvWith(

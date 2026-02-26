@@ -37,7 +37,7 @@ jobs:
           --health-retries 10
     env:
       CI: "true"
-      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_URL: "https://localhost:3000"
       NEXTAUTH_SECRET: "ci-nextauth-secret-not-for-production"
       PRIVKEY_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       GITHUB_CLIENT_ID: "ci-github-client-id"
