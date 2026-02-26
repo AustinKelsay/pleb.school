@@ -168,6 +168,7 @@ function buildProductionPlaceholder(
   }
 }
 
+
 export function getEnv(): RuntimeEnv {
   if (cachedEnv) {
     return cachedEnv
@@ -203,6 +204,7 @@ export function getEnv(): RuntimeEnv {
       )
     }
   }
+
 
   // NextAuth reads secrets directly from process.env, so this preview fallback must
   // populate process.env.NEXTAUTH_SECRET/AUTH_SECRET in addition to env.NEXTAUTH_SECRET.
@@ -241,6 +243,7 @@ export function getEnv(): RuntimeEnv {
       `${productionBootstrapKeys.join(", ")}. Replace these placeholders with real secrets/config values immediately.`
     )
   }
+
 
   const hasValidNextAuthUrl = env.NEXTAUTH_URL ? isValidAbsoluteUrl(env.NEXTAUTH_URL) : false
 
