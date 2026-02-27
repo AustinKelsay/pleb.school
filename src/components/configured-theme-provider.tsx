@@ -15,15 +15,19 @@ interface ConfiguredThemeProviderProps {
 export function ConfiguredThemeProvider({ children }: ConfiguredThemeProviderProps) {
   const configDarkMode = getDefaultDarkMode()
   
+  const showThemeToggle = shouldShowThemeToggle()
+
   // Determine the default theme based on configuration
   let defaultTheme: "light" | "dark" | "system" = "system"
   if (configDarkMode === true) {
     defaultTheme = "dark"
   } else if (configDarkMode === false) {
     defaultTheme = "light"
+  } else if (!showThemeToggle) {
+    // next-themes ignores "system" when enableSystem=false, so choose concrete fallback
+    defaultTheme = "light"
   }
 
-  const showThemeToggle = shouldShowThemeToggle()
   const forcedTheme = !showThemeToggle && configDarkMode !== null
     ? (configDarkMode ? "dark" : "light")
     : undefined

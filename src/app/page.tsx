@@ -160,6 +160,7 @@ export default function Home() {
                     loop
                     playsInline
                     controls
+                    aria-label="Homepage hero video preview"
                   />
                 </div>
               ) : (
