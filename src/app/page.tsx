@@ -130,19 +130,19 @@ export default function Home() {
                   </Button>
                 </Link>
                 {isExternalWatchDemoHref ? (
-                  <a href={watchDemoHref} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="lg" className="w-full sm:w-auto sm:flex-none">
+                  <Button asChild variant="outline" size="lg" className="w-full sm:w-auto sm:flex-none">
+                    <a href={watchDemoHref} target="_blank" rel="noopener noreferrer">
                       <Video className="h-4 w-4 mr-2" />
                       {homepage.hero.buttons.watchDemo}
-                    </Button>
-                  </a>
+                    </a>
+                  </Button>
                 ) : (
-                  <Link href={watchDemoHref}>
-                    <Button variant="outline" size="lg" className="w-full sm:w-auto sm:flex-none">
+                  <Button asChild variant="outline" size="lg" className="w-full sm:w-auto sm:flex-none">
+                    <Link href={watchDemoHref}>
                       <Video className="h-4 w-4 mr-2" />
                       {homepage.hero.buttons.watchDemo}
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 )}
               </div>
             </div>
