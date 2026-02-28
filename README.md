@@ -280,7 +280,9 @@ import { ViewsText } from '@/components/ui/views-text'
 
 Repository variables for `.github/workflows/views-flush-monitor.yml`:
 - `VIEWS_FLUSH_MONITOR_ENABLED` (`true`/`false`, default `false`): enable/disable the monitor.
+  - Set to `true` in production on `main`.
 - `VIEWS_STATUS_BASE_URL`: required when monitoring is enabled, e.g. `https://your-production-host`.
+  - This workflow only runs from `main` and only when `VIEWS_FLUSH_MONITOR_ENABLED=true`.
 - `VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD`: optional; defaults to `3`.
 
 Secrets:

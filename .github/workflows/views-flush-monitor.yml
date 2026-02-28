@@ -15,6 +15,7 @@ concurrency:
 jobs:
   monitor:
     name: monitor-views-flush
+    if: github.ref == 'refs/heads/main' && vars.VIEWS_FLUSH_MONITOR_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -23,13 +24,7 @@ jobs:
       VIEWS_CRON_SECRET: ${{ secrets.VIEWS_CRON_SECRET }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
-      - name: views-flush monitor disabled
-        if: vars.VIEWS_FLUSH_MONITOR_ENABLED != 'true'
-        run: |
-          echo "views-flush-monitor is disabled (set VIEWS_FLUSH_MONITOR_ENABLED=true to enable)."
-
       - name: Validate monitor configuration
-        if: vars.VIEWS_FLUSH_MONITOR_ENABLED == 'true'
         run: |
           if [ -z "$VIEWS_STATUS_BASE_URL" ]; then
             echo "Missing required repo variable: VIEWS_STATUS_BASE_URL"
@@ -46,7 +41,6 @@ jobs:
 
       - name: Query views flush status endpoint
         id: status
-        if: vars.VIEWS_FLUSH_MONITOR_ENABLED == 'true'
         run: |
           set -euo pipefail
           STATUS_URL="${VIEWS_STATUS_BASE_URL%/}/api/views/flush?status=1"
@@ -90,7 +84,7 @@ jobs:
           fi
 
       - name: Notify Slack on failure
-        if: failure() && env.SLACK_WEBHOOK_URL != '' && vars.VIEWS_FLUSH_MONITOR_ENABLED == 'true'
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
         run: |
           set -euo pipefail
           MESSAGE=$(jq -nc \

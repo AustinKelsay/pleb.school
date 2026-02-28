@@ -30,6 +30,7 @@ Configure these repository settings:
 Repository variables:
 1. `VIEWS_FLUSH_MONITOR_ENABLED`  
    Set to `true` to enable monitoring on this repo (recommended for production).  
+   The workflow runs only when this is set to `true` and the workflow is executing on `main`.
    Omit or set anything else to leave the workflow disabled (useful for forks).
 
    Defaults: `false`
