@@ -321,7 +321,7 @@ export const completeThemes: CompleteTheme[] = [
       "--primary-foreground": "oklch(0 0 0)",
       "--secondary": "oklch(0.2686 0 0)",
       "--secondary-foreground": "oklch(0.9219 0 0)",
-      "--muted": "oklch(0.2686 0 0)",
+      "--muted": "oklch(0.3200 0 0)",
       "--muted-foreground": "oklch(0.7155 0 0)",
       "--accent": "oklch(0.4732 0.1247 46.2007)",
       "--accent-foreground": "oklch(0.9243 0.1151 95.7459)",
