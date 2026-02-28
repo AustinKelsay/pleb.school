@@ -113,6 +113,7 @@
     "homepage.hero.description": "One-paragraph description below the title",
     "homepage.hero.buttons.startLearning": "Primary CTA button text",
     "homepage.hero.buttons.watchDemo": "Secondary CTA button text",
+    "homepage.hero.buttons.watchDemoHref": "Optional destination for the secondary hero CTA. Supports internal paths (/about) and external URLs (https://...). Defaults to /demo when omitted.",
     "search": "Search page hero, tabs, empty/error states, and summary text",
     "verifyEmail": "Email verification page titles, labels, errors, and buttons",
     "about.steps": "Three cards under the About page “How to make it yours” section",
@@ -126,6 +127,8 @@
     "homepage.visual.screenLabel": "Main label shown inside the hero preview card",
     "homepage.visual.primaryBadge": "Top-right badge text above the hero preview card",
     "homepage.visual.secondaryBadge": "Bottom-left badge text below the hero preview card",
+    "homepage.visual.videoUrl": "Optional hero video URL. When set, homepage renders a video in place of the static visual.",
+    "homepage.visual.videoPoster": "Optional poster image URL shown before hero video playback.",
     "homepage.cta.title": "CTA title line",
     "homepage.cta.description": "CTA description paragraph",
     "homepage.cta.buttons.getStarted": "Primary CTA in the footer section",
@@ -248,7 +251,8 @@
       "description": "pleb.school is the reference deployment of a configurable, open source education stack. Fork it, point it at your own relays and database, and run a fully branded Nostr-native course and content platform for your community.",
       "buttons": {
         "startLearning": "Explore demo content",
-        "watchDemo": "Watch platform demo"
+        "watchDemo": "Watch platform demo",
+        "watchDemoHref": "/courses"
       }
     },
     "stats": {
@@ -276,7 +280,9 @@
     "visual": {
       "screenLabel": "Nostr-native course & content stack",
       "primaryBadge": "Demo deployment",
-      "secondaryBadge": "Configurable & self-hosted"
+      "secondaryBadge": "Configurable & self-hosted",
+      "videoUrl": "",
+      "videoPoster": ""
     },
     "cta": {
       "title": "Ready to run your own instance?",

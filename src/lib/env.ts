@@ -168,6 +168,7 @@ function buildProductionPlaceholder(
   }
 }
 
+
 export function getEnv(): RuntimeEnv {
   if (cachedEnv) {
     return cachedEnv
@@ -193,6 +194,17 @@ export function getEnv(): RuntimeEnv {
   const isProductionDeployment = env.NODE_ENV === "production"
   const isPreviewDeployment = env.VERCEL_ENV === "preview"
   const envMutations: Partial<Record<EnvMutationKey, string>> = {}
+
+  if (isProductionDeployment && isPreviewDeployment && !env.NEXTAUTH_URL) {
+    const previewHost = normalize(raw.VERCEL_URL)?.replace(/^https?:\/\//, "")
+    if (previewHost) {
+      env.NEXTAUTH_URL = `https://${previewHost}`
+      console.warn(
+        "NEXTAUTH_URL missing on preview deployment; deriving NEXTAUTH_URL from VERCEL_URL."
+      )
+    }
+  }
+
 
   if (isProductionDeployment && isPreviewDeployment && !env.NEXTAUTH_URL) {
     const previewHost = normalize(raw.VERCEL_URL)?.replace(/^https?:\/\//, "")
@@ -241,6 +253,7 @@ export function getEnv(): RuntimeEnv {
       `${productionBootstrapKeys.join(", ")}. Replace these placeholders with real secrets/config values immediately.`
     )
   }
+
 
   const hasValidNextAuthUrl = env.NEXTAUTH_URL ? isValidAbsoluteUrl(env.NEXTAUTH_URL) : false
 
