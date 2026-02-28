@@ -28,8 +28,12 @@ Example (GitHub+Nostr only):
 Header control visibility and defaults for color theme, font, and dark mode.
 
 - `ui.showThemeSelector|showFontToggle|showThemeToggle` hide or show controls.
-- `defaults.theme|font|darkMode` set initial selections (not hard locks). To lock, hide the corresponding control.
-- Priority: user localStorage (if present) > defaults.* > library/system defaults.
+- `defaults.theme|font|darkMode` set initial selections.
+- **Strict lock behavior:**
+  - If `ui.showThemeSelector=false`, saved `complete-theme` is ignored and config default theme is enforced.
+  - If `ui.showFontToggle=false`, saved `font-override` is ignored and config default font is enforced.
+  - If `ui.showThemeToggle=false` and `defaults.darkMode` is set, light/dark mode is forced to that value.
+- Priority when controls are shown: localStorage > defaults.* > library/system defaults.
 
 Example (dark + clean-slate):
 ```json
@@ -52,6 +56,8 @@ All user-facing strings for navigation, homepage, about page, content pages, err
 - `site.*` controls global title/description/brand name.
 - `homepage.*` powers the landing page hero, stats, sections, and CTA.
 - `homepage.hero.title.useAnimated` toggles the rotating hero keywords.
+- `homepage.hero.buttons.watchDemoHref` controls the secondary hero CTA destination (internal path or external URL).
+- `homepage.visual.videoUrl` and optional `homepage.visual.videoPoster` let you configure hero video media without code changes.
 - `search.*` drives search page title/description, input placeholder, tab labels, summary, and empty/error messages.
 - `about.*` powers the About page hero, feature sections, and CTA.
 - `payments.purchaseDialog` and `payments.zapDialog` hold toasts/status text for Lightning payments.

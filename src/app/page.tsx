@@ -92,6 +92,11 @@ export default function Home() {
     icon: getStatIconComponent(stat.icon)
   }))
 
+  const watchDemoHref = homepage.hero.buttons.watchDemoHref || "/demo"
+  const isExternalWatchDemoHref = /^https?:\/\//i.test(watchDemoHref)
+  const heroVideoUrl = homepage.visual.videoUrl
+  const heroVideoPoster = homepage.visual.videoPoster
+
   return (
     <HomepageWithPrefetch>
       <MainLayout>
@@ -124,25 +129,50 @@ export default function Home() {
                     {homepage.hero.buttons.startLearning}
                   </Button>
                 </Link>
-                <Link href="/demo">
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto sm:flex-none">
-                    <Video className="h-4 w-4 mr-2" />
-                    {homepage.hero.buttons.watchDemo}
+                {isExternalWatchDemoHref ? (
+                  <Button asChild variant="outline" size="lg" className="w-full sm:w-auto sm:flex-none">
+                    <a href={watchDemoHref} target="_blank" rel="noopener noreferrer">
+                      <Video className="h-4 w-4 mr-2" />
+                      {homepage.hero.buttons.watchDemo}
+                    </a>
                   </Button>
-                </Link>
+                ) : (
+                  <Button asChild variant="outline" size="lg" className="w-full sm:w-auto sm:flex-none">
+                    <Link href={watchDemoHref}>
+                      <Video className="h-4 w-4 mr-2" />
+                      {homepage.hero.buttons.watchDemo}
+                    </Link>
+                  </Button>
+                )}
               </div>
             </div>
 
             {/* Visual */}
             <div className="relative order-first lg:order-last mb-4 sm:mb-0">
-              <div className="aspect-video rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-border">
-                <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-16 lg:h-20 w-16 lg:w-20 items-center justify-center rounded-full bg-primary/20">
-                    <Zap className="h-8 lg:h-10 w-8 lg:w-10 text-primary" />
-                  </div>
-                  <p className="text-sm lg:text-base text-muted-foreground">{homepage.visual.screenLabel}</p>
+              {heroVideoUrl ? (
+                <div className="aspect-video rounded-lg border border-border overflow-hidden bg-black">
+                  <video
+                    className="h-full w-full object-cover"
+                    src={heroVideoUrl}
+                    poster={heroVideoPoster}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                    aria-label="Homepage hero video preview"
+                  />
                 </div>
-              </div>
+              ) : (
+                <div className="aspect-video rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-border">
+                  <div className="text-center">
+                    <div className="mx-auto mb-4 flex h-16 lg:h-20 w-16 lg:w-20 items-center justify-center rounded-full bg-primary/20">
+                      <Zap className="h-8 lg:h-10 w-8 lg:w-10 text-primary" />
+                    </div>
+                    <p className="text-sm lg:text-base text-muted-foreground">{homepage.visual.screenLabel}</p>
+                  </div>
+                </div>
+              )}
 
               {/* Floating content type cards */}
               <div className="absolute -top-1 sm:-top-2 lg:-top-4 -right-1 sm:-right-2 lg:-right-4 z-10">

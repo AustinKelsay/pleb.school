@@ -13,7 +13,12 @@ import {
   availableFonts,
   FontConfig
 } from "@/lib/theme-config"
-import { getDefaultTheme as getConfigDefaultTheme, getDefaultFont } from "@/lib/theme-ui-config"
+import {
+  getDefaultTheme as getConfigDefaultTheme,
+  getDefaultFont,
+  shouldShowThemeSelector,
+  shouldShowFontToggle,
+} from "@/lib/theme-ui-config"
 
 interface SimpleThemeContextType {
   currentTheme: ThemeName
@@ -46,19 +51,23 @@ export function ThemeColorProvider({ children }: { children: ReactNode }) {
 
   // Initialize from localStorage after mount (prevents hydration mismatch)
   useEffect(() => {
-    const savedTheme = localStorage.getItem("complete-theme") as ThemeName
-    const savedFont = localStorage.getItem("font-override")
-    
-    // Only use saved values if no config defaults are set, or if saved values exist
-    const themeToUse = savedTheme && completeThemes.find(theme => theme.value === savedTheme) 
-      ? savedTheme 
+    const allowThemeSelection = shouldShowThemeSelector()
+    const allowFontOverride = shouldShowFontToggle()
+
+    const savedTheme = allowThemeSelection
+      ? (localStorage.getItem("complete-theme") as ThemeName | null)
+      : null
+    const savedFont = allowFontOverride ? localStorage.getItem("font-override") : null
+
+    const themeToUse = savedTheme && completeThemes.find((theme) => theme.value === savedTheme)
+      ? savedTheme
       : (configDefaultTheme || defaultThemeName)
-    
-    const fontToUse = savedFont || configDefaultFont
-    
+
+    const fontToUse = allowFontOverride ? (savedFont || configDefaultFont) : (configDefaultFont || null)
+
     setCurrentThemeState(themeToUse)
     setFontOverrideState(fontToUse)
-    
+
     setMounted(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -77,12 +86,18 @@ export function ThemeColorProvider({ children }: { children: ReactNode }) {
   // Setter with localStorage persistence
   const setCurrentTheme = (theme: ThemeName) => {
     setCurrentThemeState(theme)
-    localStorage.setItem("complete-theme", theme)
+    if (shouldShowThemeSelector()) {
+      localStorage.setItem("complete-theme", theme)
+    }
   }
-  
+
   // Font override setter
   const setFontOverride = (font: string | null) => {
     setFontOverrideState(font)
+    if (!shouldShowFontToggle()) {
+      return
+    }
+
     if (font) {
       localStorage.setItem("font-override", font)
     } else {
