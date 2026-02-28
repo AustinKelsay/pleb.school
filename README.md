@@ -238,6 +238,7 @@ Production gating is defined in `.github/workflows/deploy-gate.yml`.
 | `VIEWS_FLUSH_STALE_AFTER_MINUTES` | No | Staleness threshold (minutes) used by `/api/views/flush?status=1`. Default: `60` |
 | `AUDIT_LOG_CRON_SECRET` | Yes (production, if audit maintenance cron enabled) | Secret used for `/api/audit/maintenance` authorization (Bearer token). For Vercel cron, set `CRON_SECRET` to the same value. |
 | `AUDIT_LOG_RETENTION_DAYS` | No | Audit log retention window in days for purge job. Default: `90` |
+| `VIEWS_FLUSH_MONITOR_ENABLED` | No (repo variable) | GitHub Actions toggle for views-flush monitor workflow. Set to `true` in production to enable repo-native alerting. |
 | `NEXT_PUBLIC_ENABLE_REMOTE_FONTS` | No | Runtime remote font loading toggle (`true`/`false`). Default: `false` in production, `true` in dev/test |
 | `MAX_RECEIPT_AGE_MS` | No | Override zap receipt max age in milliseconds for purchase claim validation |
 | `NEXT_PUBLIC_MIN_ZAP_SATS` | No | Override minimum sats enforced in purchase dialog |
@@ -274,6 +275,17 @@ import { ViewsText } from '@/components/ui/views-text'
 - `GET /api/views/flush?status=1` — flush health payload (`lastSuccessAt`, `consecutiveFailures`, `isStale`, etc.; same auth as flush)
 - `GET /api/audit/maintenance` — purge old audit logs (cron; requires `Authorization: Bearer $AUDIT_LOG_CRON_SECRET` in production)
 - `GET /sitemap.xml` — runtime-generated (dynamic) and includes DB-backed course/resource URLs when available
+
+### Views Flush Monitoring (GitHub Actions)
+
+Repository variables for `.github/workflows/views-flush-monitor.yml`:
+- `VIEWS_FLUSH_MONITOR_ENABLED` (`true`/`false`, default `false`): enable/disable the monitor.
+- `VIEWS_STATUS_BASE_URL`: required when monitoring is enabled, e.g. `https://your-production-host`.
+- `VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD`: optional; defaults to `3`.
+
+Secrets:
+- `VIEWS_CRON_SECRET`: must match the runtime secret for `/api/views/flush`.
+- `SLACK_WEBHOOK_URL`: optional; sends failure summaries when set.
 
 ## Documentation
 

@@ -28,10 +28,18 @@ Schedule:
 Configure these repository settings:
 
 Repository variables:
+1. `VIEWS_FLUSH_MONITOR_ENABLED`  
+   Set to `true` to enable monitoring on this repo (recommended for production).  
+   Omit or set anything else to leave the workflow disabled (useful for forks).
+
+   Defaults: `false`
+
 1. `VIEWS_STATUS_BASE_URL`  
    Example: `https://your-production-host`
+   Required only when `VIEWS_FLUSH_MONITOR_ENABLED=true`.
 2. `VIEWS_FLUSH_ALERT_FAILURE_THRESHOLD`  
    Recommended: `3`
+   Optional; workflow defaults to `3` if unset.
 
 Repository secrets:
 1. `VIEWS_CRON_SECRET`  
