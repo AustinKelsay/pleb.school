@@ -1,4 +1,4 @@
-import type { NostrEvent } from "snstr"
+import type { NostrEvent } from "@/data/types"
 
 type EventForATag = Pick<NostrEvent, "kind" | "pubkey" | "tags">
 

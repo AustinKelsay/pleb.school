@@ -40,4 +40,14 @@ describe("getEventATag", () => {
       } as any)
     ).toBeUndefined()
   })
+
+  it("returns undefined for whitespace-only d-tag values", () => {
+    expect(
+      getEventATag({
+        kind: 30023,
+        pubkey: "abcdef",
+        tags: [["d", "   "]],
+      } as any)
+    ).toBeUndefined()
+  })
 })

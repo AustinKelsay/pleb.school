@@ -107,6 +107,7 @@ export function ContentCard({
   const eventId = isContent ? getEventId(item.noteId) : undefined
   const eventATag = isContent ? item.noteATag : undefined
   const interactionCardRef = useRef<HTMLDivElement | null>(null)
+  const instructorPubkey = isContent ? item.instructorPubkey : undefined
   
   const { interactions, isLoadingZaps, isLoadingLikes, isLoadingComments, zapInsights } = useInteractions({
     eventId,
@@ -119,19 +120,21 @@ export function ContentCard({
   // Fetch instructor profile when component mounts and has instructor data
   useEffect(() => {
     const fetchInstructorProfile = async () => {
-      if (isContent && 'instructorPubkey' in item && item.instructorPubkey) {
-        try {
-          const profileEvent = await fetchProfile(item.instructorPubkey)
-          const normalizedProfile = normalizeKind0(profileEvent)
-          setInstructorProfile(normalizedProfile)
-        } catch (error) {
-          console.error('Error fetching instructor profile:', error)
-        }
+      if (!instructorPubkey) {
+        return
+      }
+
+      try {
+        const profileEvent = await fetchProfile(instructorPubkey)
+        const normalizedProfile = normalizeKind0(profileEvent)
+        setInstructorProfile(normalizedProfile)
+      } catch (error) {
+        console.error('Error fetching instructor profile:', error)
       }
     }
 
     fetchInstructorProfile()
-  }, [isContent, fetchProfile, normalizeKind0, item])
+  }, [instructorPubkey, fetchProfile, normalizeKind0])
 
   const navigateToContent = () => {
     if (!isContent) return
