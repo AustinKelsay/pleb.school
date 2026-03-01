@@ -40,7 +40,6 @@ async function loadChromium() {
     'playwright not found. Install it first: cd /tmp && mkdir -p pw && cd pw && npm init -y && npm install playwright'
   );
 }
-
 // ── Configuration ──────────────────────────────────────────────────────────
 
 const MIN_VOTES = 4;
