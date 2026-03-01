@@ -7,7 +7,7 @@
   "defaults": {
     "theme": null,
     "font": null,
-    "darkMode": null
+    "darkMode": true
   },
   "_comments": {
     "_overview": "Theme configuration system — controls visibility of theme controls and default selections for color theme, font, and dark mode.",
