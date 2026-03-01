@@ -120,8 +120,15 @@ export function useResourcesListQuery(options: UseResourcesListQueryOptions = {}
       }
     : resourcesQuery.data
 
+  const isLoading = resourcesQuery.isLoading || purchasesOverlay.isLoading
+  const isError = resourcesQuery.isError || purchasesOverlay.isError
+  const error = resourcesQuery.error ?? purchasesOverlay.error
+
   return {
     ...resourcesQuery,
+    isLoading,
+    isError,
+    error,
     data: mergedData,
     refetch: () =>
       Promise.all([resourcesQuery.refetch(), purchasesOverlay.refetch()]),

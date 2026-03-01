@@ -2,8 +2,8 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useSession, signOut } from "next-auth/react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { signOut, useSession } from "next-auth/react"
 import { Check, Moon, Type } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -53,7 +53,7 @@ const CreateIcon = getNavigationIcon('create')
  * Features brand logo, search functionality, and authentication
  * Uses Container component for consistent spacing with page content
  */
-export function Header() {
+export const Header = () => {
   const { site, navigation } = useCopy()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { fontOverride, setFontOverride, themeConfig, currentTheme, setCurrentTheme, availableThemes } = useThemeColor()
@@ -331,11 +331,11 @@ export function Header() {
     }
   }, [loadAggregatedProfile])
 
-  function handleThemeSelect(themeName: ThemeName) {
+  const handleThemeSelect = (themeName: ThemeName) => {
     setCurrentTheme(themeName)
   }
 
-  function handleSearch(e: React.FormEvent) {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery)}`)

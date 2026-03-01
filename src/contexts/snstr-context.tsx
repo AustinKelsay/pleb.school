@@ -37,7 +37,7 @@ interface SnstrProviderProps {
 }
 
 // Provider component
-export function SnstrProvider({ children, relays, relaySet = 'default' }: SnstrProviderProps) {
+export const SnstrProvider = ({ children, relays, relaySet = 'default' }: SnstrProviderProps) => {
   // Use provided relays, or fall back to config-based relay set
   const activeRelays = relays || (nostrConfig as NostrRelayConfig).relays[relaySet] || DEFAULT_RELAYS;
   // Use ref to ensure single instance across re-renders
@@ -92,7 +92,7 @@ export function SnstrProvider({ children, relays, relaySet = 'default' }: SnstrP
 }
 
 // Hook to use the context
-export function useSnstrContext(): SnstrContextType {
+export const useSnstrContext = (): SnstrContextType => {
   const context = useContext(SnstrContext);
   if (!context) {
     throw new Error('useSnstrContext must be used within SnstrProvider');

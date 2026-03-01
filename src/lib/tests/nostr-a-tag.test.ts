@@ -23,6 +23,16 @@ describe("getEventATag", () => {
     expect(getEventATag(event)).toBeUndefined()
   })
 
+  it("accepts the addressable lower boundary kind (30000)", () => {
+    const event = {
+      kind: 30000,
+      pubkey: "ABCDEF",
+      tags: [["d", "course-1"]],
+    } as any
+
+    expect(getEventATag(event)).toBe("30000:abcdef:course-1")
+  })
+
   it("returns undefined when d-tag or pubkey is missing", () => {
     expect(
       getEventATag({
@@ -49,5 +59,10 @@ describe("getEventATag", () => {
         tags: [["d", "   "]],
       } as any)
     ).toBeUndefined()
+  })
+
+  it("returns undefined for nullish events", () => {
+    expect(getEventATag(null)).toBeUndefined()
+    expect(getEventATag(undefined)).toBeUndefined()
   })
 })

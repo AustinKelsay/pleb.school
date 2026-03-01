@@ -9,6 +9,7 @@ import { useSnstrContext } from '@/contexts/snstr-context'
 import { Course, Lesson, Resource } from '@/data/types'
 import { NostrEvent, RelayPool } from 'snstr'
 import logger from '@/lib/logger'
+import { useSession } from '@/hooks/useSession'
 import { useViewerPurchasesOverlay } from '@/hooks/useViewerPurchasesOverlay'
 
 // Types for enhanced course data
@@ -75,6 +76,7 @@ export const coursesQueryKeys = {
   listPaginated: (page: number, pageSize: number) => [...coursesQueryKeys.lists(), { page, pageSize }] as const,
   details: () => [...coursesQueryKeys.all, 'detail'] as const,
   detail: (id: string) => [...coursesQueryKeys.details(), id] as const,
+  detailForViewer: (id: string, viewerKey: string) => [...coursesQueryKeys.detail(id), { viewerKey }] as const,
   notes: () => [...coursesQueryKeys.all, 'notes'] as const,
   note: (noteId: string) => [...coursesQueryKeys.notes(), noteId] as const,
   lessons: () => [...coursesQueryKeys.all, 'lessons'] as const,
@@ -429,6 +431,13 @@ export async function fetchCourseWithLessons(courseId: string, relayPool: RelayP
  */
 export function useCourseQuery(courseId: string, options: UseCourseQueryOptions = {}): CourseQueryResult {
   const { relayPool, relays } = useSnstrContext()
+  const { data: session, status } = useSession()
+  const viewerKey =
+    status === 'authenticated'
+      ? session?.user?.id ?? 'authenticated'
+      : status === 'loading'
+        ? 'loading'
+        : 'anonymous'
   
   const {
     enabled = true,
@@ -441,7 +450,7 @@ export function useCourseQuery(courseId: string, options: UseCourseQueryOptions 
   } = options
 
   const query = useQuery({
-    queryKey: coursesQueryKeys.detail(courseId),
+    queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
     queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
     enabled: enabled && !!courseId,
     staleTime,
