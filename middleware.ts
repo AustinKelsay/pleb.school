@@ -115,7 +115,9 @@ export function middleware(request: NextRequest) {
 
   // Fallback to current known-good relays if config/environment is empty
   if (relayList.size === 0) {
-    ;['wss://relay.primal.net', 'wss://nos.lol', 'wss://relay.damus.io'].forEach((r) => relayList.add(r))
+    ;['wss://relay.primal.net', 'wss://nos.lol', 'wss://relay.damus.io'].forEach((r) => {
+      relayList.add(r)
+    })
   }
 
   const connectSrc = [

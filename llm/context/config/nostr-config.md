@@ -275,7 +275,6 @@ const normalized = normalizeRelayUrl(url) // "wss://relay.damus.io"
     "default": [
       "wss://relay.damus.io",
       "wss://nos.lol",
-      "wss://relay.primal.net",
       "wss://relay.primal.net"
     ],
     "content": [

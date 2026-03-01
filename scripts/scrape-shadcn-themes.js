@@ -18,26 +18,28 @@
  * The output JSON can be used to generate TypeScript for theme-config.ts.
  */
 
-// Try to load playwright from common locations
-let chromium;
-try {
-  chromium = require('playwright').chromium;
-} catch {
-  try {
-    chromium = require('/tmp/pw/node_modules/playwright').chromium;
-  } catch {
+async function loadChromium() {
+  const importCandidates = [
+    'playwright',
+    '/tmp/pw/node_modules/playwright',
+    '/tmp/pw/node_modules/playwright/index.js',
+    '/tmp/theme-extract/node_modules/playwright',
+    '/tmp/theme-extract/node_modules/playwright/index.js'
+  ];
+
+  for (const specifier of importCandidates) {
     try {
-      chromium = require('/tmp/theme-extract/node_modules/playwright').chromium;
+      const mod = await import(specifier);
+      if (mod?.chromium) return mod.chromium;
     } catch {
-      console.error('Error: playwright not found. Install it first:');
-      console.error('  cd /tmp && mkdir -p pw && cd pw && npm init -y && npm install playwright');
-      process.exit(1);
+      // Try next candidate
     }
   }
-}
 
-const fs = require('fs');
-const path = require('path');
+  throw new Error(
+    'playwright not found. Install it first: cd /tmp && mkdir -p pw && cd pw && npm init -y && npm install playwright'
+  );
+}
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -57,12 +59,26 @@ const REQUIRED_VARS = [
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function getExistingThemeValues() {
-  // Read theme-config.ts and extract existing theme values
-  const configPath = path.resolve(__dirname, '../src/lib/theme-config.ts');
-  const content = fs.readFileSync(configPath, 'utf8');
-  const matches = content.match(/value:\s*"([^"]+)"/g) || [];
-  return new Set(matches.map(m => m.match(/"([^"]+)"/)[1]));
+function getExistingThemeValues(fsModule, pathModule) {
+  // Read theme-config.ts and extract only theme identifiers from ThemeName/completeThemes blocks
+  const configPath = pathModule.resolve(__dirname, '../src/lib/theme-config.ts');
+  const content = fsModule.readFileSync(configPath, 'utf8');
+
+  const themeNameBlock = content.match(/export\s+type\s+ThemeName\s*=\s*([\s\S]*?)\n\s*export\s+/);
+  if (themeNameBlock) {
+    const themeValues = Array.from(themeNameBlock[1].matchAll(/"([^"]+)"/g), (match) => match[1]);
+    if (themeValues.length > 0) return new Set(themeValues);
+  }
+
+  const completeThemesBlock = content.match(
+    /export\s+const\s+completeThemes\s*:\s*CompleteTheme\[\]\s*=\s*\[([\s\S]*?)\n\]\n\s*\n\s*export\s+function\s+getCompleteTheme/
+  );
+  if (completeThemesBlock) {
+    const themeValues = Array.from(completeThemesBlock[1].matchAll(/value:\s*"([^"]+)"/g), (match) => match[1]);
+    if (themeValues.length > 0) return new Set(themeValues);
+  }
+
+  return new Set();
 }
 
 function cleanName(name) {
@@ -146,11 +162,14 @@ function parseCssBlock(cssText) {
 // ── Main ───────────────────────────────────────────────────────────────────
 
 (async () => {
-  const existingThemes = getExistingThemeValues();
-  console.error(`Existing themes in codebase: ${existingThemes.size}`);
-
   let browser;
   try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const chromium = await loadChromium();
+    const existingThemes = getExistingThemeValues(fs, path);
+    console.error(`Existing themes in codebase: ${existingThemes.size}`);
+
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
 
@@ -283,6 +302,9 @@ function parseCssBlock(cssText) {
         console.error(`  | "${t.value}"`);
       }
     }
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exitCode = 1;
   } finally {
     if (browser) await browser.close();
   }
