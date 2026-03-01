@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResourceAdapter } from '@/lib/db-adapter'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+
+const PUBLIC_LIST_CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=300'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
     const searchParams = request.nextUrl.searchParams
     const page = searchParams.get('page')
     const pageSize = searchParams.get('pageSize')
@@ -45,20 +44,33 @@ export async function GET(request: NextRequest) {
         page: parsedPage,
         pageSize: parsedPageSize,
         includeLessonResources,
-        userId: session?.user?.id,
       })
 
-      return NextResponse.json({
-        data: result.data,
-        pagination: result.pagination,
-      })
+      return NextResponse.json(
+        {
+          data: result.data,
+          pagination: result.pagination,
+        },
+        {
+          headers: {
+            'Cache-Control': PUBLIC_LIST_CACHE_CONTROL,
+          },
+        }
+      )
     }
 
-    const resources = await ResourceAdapter.findAll({ includeLessonResources, userId: session?.user?.id })
+    const resources = await ResourceAdapter.findAll({ includeLessonResources })
 
-    return NextResponse.json({
-      resources,
-    })
+    return NextResponse.json(
+      {
+        resources,
+      },
+      {
+        headers: {
+          'Cache-Control': PUBLIC_LIST_CACHE_CONTROL,
+        },
+      }
+    )
   } catch (error) {
     console.error('Failed to fetch resources:', error)
     return NextResponse.json(

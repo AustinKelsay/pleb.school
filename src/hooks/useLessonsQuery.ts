@@ -93,13 +93,14 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
     return []
   }
 
-  // First, fetch all lessons for the course from API
-  const response = await fetch(`/api/courses/${courseId}/lessons`)
+  // Fetch the course payload that already contains ordered lessons/resources.
+  const response = await fetch(`/api/courses/${courseId}`)
   if (!response.ok) {
     throw new Error('Failed to fetch lessons')
   }
   const data = await response.json()
-  const lessons = data.lessons || []
+  const courseData = data.course || data.data
+  const lessons = courseData?.lessons || []
   
   if (lessons.length === 0) {
     return []
@@ -107,29 +108,21 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
 
   logger.debug('Fetching lessons for course', { courseId, count: lessons.length })
   
-  // Get all resource IDs from lessons that have them
-  const resourceIds = lessons
-    .filter((lesson: any) => lesson.resourceId)
-    .map((lesson: any) => lesson.resourceId!)
-  
-  // Fetch all resources in parallel from API
-  const resourcePromises = resourceIds.map(async (id: string) => {
-    const response = await fetch(`/api/resources/${id}`)
-    if (!response.ok) return null
-    const data = await response.json()
-    return data.resource || data.data || null
-  })
-  const resourceResults = await Promise.all(resourcePromises)
-  const resources = resourceResults.filter((resource): resource is ResourceWithNote => resource !== null)
-
   // Create a map of resources by ID for quick lookup
+  const resources = lessons
+    .map((lesson: any) => lesson.resource)
+    .filter((resource: unknown): resource is ResourceWithNote => Boolean(resource && typeof resource === 'object'))
   const resourcesMap = new Map<string, ResourceWithNote>()
-  resources.forEach(resource => resourcesMap.set(resource.id, resource))
+  resources.forEach((resource: ResourceWithNote) => {
+    if (resource.id) {
+      resourcesMap.set(resource.id, resource)
+    }
+  })
 
   // Collect all resource IDs that need Nostr notes fetched
   const resourceIdsForNotes = resources
-    .filter(resource => resource.id && !resource.note)
-    .map(resource => resource.id)
+    .filter((resource: ResourceWithNote) => resource.id && !resource.note)
+    .map((resource: ResourceWithNote) => resource.id)
 
   // Fetch missing notes in batch if any
   if (resourceIdsForNotes.length > 0) {
@@ -153,7 +146,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
       })
       
       // Update resource notes
-      resources.forEach(resource => {
+      resources.forEach((resource: ResourceWithNote) => {
         if (resource.id && notesMap.has(resource.id)) {
           resource.note = notesMap.get(resource.id)
           resourcesMap.set(resource.id, resource)
@@ -161,7 +154,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
       })
     } catch (error) {
       console.error('Failed to fetch lesson resource notes from real Nostr:', error)
-      resources.forEach(resource => {
+      resources.forEach((resource: ResourceWithNote) => {
         if (resource.id && !resource.note) {
           resource.noteError = error instanceof Error ? error.message : 'Failed to fetch note'
           resourcesMap.set(resource.id, resource)
@@ -210,18 +203,18 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
     select,
   } = options
 
-  // First, fetch lessons and resources separately
+  // Fetch lessons from the course endpoint, which includes attached resources.
   const lessonsQuery = useQuery({
     queryKey: lessonsQueryKeys.course(courseId),
     queryFn: async () => {
       if (!courseId) return []
-      // Fetch lessons from API endpoint
-      const response = await fetch(`/api/courses/${courseId}/lessons`)
+      const response = await fetch(`/api/courses/${courseId}`)
       if (!response.ok) {
         throw new Error('Failed to fetch lessons')
       }
       const data = await response.json()
-      const lessons = data.lessons || []
+      const courseData = data.course || data.data
+      const lessons = courseData?.lessons || []
       logger.debug('Fetched lessons from API', { courseId, count: lessons.length })
       return lessons
     },
@@ -236,32 +229,8 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
 
   // Extract resource IDs from lessons
   const resourceIds = (lessonsQuery.data || [])
-    .filter((lesson: any) => lesson.resourceId)
-    .map((lesson: any) => lesson.resourceId!)
-
-  // Fetch resources separately
-  const resourcesQuery = useQuery({
-    queryKey: [...lessonsQueryKeys.course(courseId), 'resources'],
-    queryFn: async () => {
-      if (resourceIds.length === 0) return []
-      // Fetch resources from API endpoints
-      const resourcePromises = resourceIds.map(async (id: string) => {
-        const response = await fetch(`/api/resources/${id}`)
-        if (!response.ok) return null
-        const data = await response.json()
-        return data.resource || data.data || null
-      })
-      const resourceResults = await Promise.all(resourcePromises)
-      return resourceResults.filter((resource): resource is Resource => resource !== null)
-    },
-    enabled: enabled && resourceIds.length > 0,
-    staleTime,
-    gcTime,
-    refetchOnWindowFocus,
-    refetchOnMount,
-    retry,
-    retryDelay,
-  })
+    .map((lesson: any) => lesson.resource?.id)
+    .filter((resourceId: unknown): resourceId is string => typeof resourceId === 'string')
 
   // Fetch notes using unified hook (this provides deduplication)
   const notesQuery = useResourceNotes(resourceIds, {
@@ -274,20 +243,17 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
     retryDelay,
   })
 
-  // Create a map of resources by ID for quick lookup
-  const resourcesMap = new Map<string, ResourceWithNote>()
-  ;(resourcesQuery.data || []).forEach(resource => {
-    const noteResult = notesQuery.notes.get(resource.id)
-    resourcesMap.set(resource.id, {
-      ...resource,
-      note: noteResult?.note,
-      noteError: noteResult?.noteError,
-    })
-  })
-
-  // Combine lessons with their resources and parse metadata
+  // Combine lessons with their resources and parsed metadata
   const lessonsWithResources: LessonWithResource[] = (lessonsQuery.data || []).map((lesson: any) => {
-    const resource = lesson.resourceId ? resourcesMap.get(lesson.resourceId) : undefined
+    const baseResource = lesson.resource as ResourceWithNote | undefined
+    const noteResult = baseResource?.id ? notesQuery.notes.get(baseResource.id) : undefined
+    const resource = baseResource
+      ? {
+          ...baseResource,
+          note: noteResult?.note ?? baseResource.note,
+          noteError: noteResult?.noteError ?? baseResource.noteError,
+        }
+      : undefined
     const parsedData = parseLessonFromNote(resource?.note)
     
     // Default title if no parsed title available
@@ -312,9 +278,9 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
   // Apply select transformation if provided
   const finalData = select ? select(sortedLessons) : sortedLessons
 
-  const isLoading = lessonsQuery.isLoading || resourcesQuery.isLoading || notesQuery.isLoading
-  const isError = lessonsQuery.isError || resourcesQuery.isError || notesQuery.isError
-  const error = lessonsQuery.error || resourcesQuery.error || notesQuery.error
+  const isLoading = lessonsQuery.isLoading || notesQuery.isLoading
+  const isError = lessonsQuery.isError || notesQuery.isError
+  const error = lessonsQuery.error || notesQuery.error
 
   return {
     lessons: finalData,
@@ -323,7 +289,6 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
     error,
     refetch: () => {
       lessonsQuery.refetch()
-      resourcesQuery.refetch()
       notesQuery.refetch()
     },
   }

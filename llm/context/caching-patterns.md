@@ -107,3 +107,20 @@ const course = await globalCache.get(
 3. Use pattern invalidation for bulk operations
 4. Use tags for cross-entity relationships
 5. Monitor hit rates in production
+
+## Public List + Private Overlay Pattern
+
+For high-traffic content surfaces, list endpoints should stay cacheable while
+viewer-specific state is layered separately:
+
+- Public base lists:
+  - `GET /api/courses/list`
+  - `GET /api/resources/list`
+  - Return cache headers (`public, s-maxage=...`) so CDN caching can absorb load.
+- Private overlay:
+  - `POST /api/purchases/overlay`
+  - Returns only the authenticated user's purchases for a provided set of
+    `courseIds`/`resourceIds` and uses `Cache-Control: private, no-store`.
+- Client merge:
+  - Fetch public list first (`useCoursesQuery` / `useResourcesListQuery`).
+  - Merge purchase overlays (`useViewerPurchasesOverlay`) for badges/access UI.

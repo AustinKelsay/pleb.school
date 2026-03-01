@@ -7,9 +7,7 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSnstrContext } from '@/contexts/snstr-context'
 import { fetchCoursesWithNotes, coursesQueryKeys } from './useCoursesQuery'
-import { fetchResourceNotesBatch, resourceNotesQueryKeys } from './useResourceNotes'
-import { fetchVideoResources, videosQueryKeys } from './useVideosQuery'
-import { fetchDocumentResources, documentsQueryKeys } from './useDocumentsQuery'
+import { fetchResourcesList, resourcesListQueryKeys } from './useResourcesListQuery'
 import logger from '@/lib/logger'
 
 interface UsePrefetchContentOptions {
@@ -51,23 +49,12 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
         )
       }
 
-      // Prefetch video resources
-      if (prefetchVideos) {
+      // Prefetch shared resource list once for both videos and documents.
+      if (prefetchVideos || prefetchDocuments) {
         promises.push(
           queryClient.prefetchQuery({
-            queryKey: videosQueryKeys.lists(),
-            queryFn: () => fetchVideoResources(),
-            staleTime: 10 * 60 * 1000, // 10 minutes
-          })
-        )
-      }
-
-      // Prefetch document resources
-      if (prefetchDocuments) {
-        promises.push(
-          queryClient.prefetchQuery({
-            queryKey: documentsQueryKeys.lists(),
-            queryFn: () => fetchDocumentResources(),
+            queryKey: resourcesListQueryKeys.list(false),
+            queryFn: () => fetchResourcesList(),
             staleTime: 10 * 60 * 1000, // 10 minutes
           })
         )

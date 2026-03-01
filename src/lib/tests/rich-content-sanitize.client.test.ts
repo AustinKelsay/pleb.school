@@ -22,5 +22,11 @@ describe("sanitizeRichContent", () => {
     expect(result).toContain("youtube.com")
     expect(result).toContain("<iframe")
   })
-})
 
+  it("preserves native video controls attribute", () => {
+    const input = '<video controls src="https://example.com/video.mp4"></video>'
+    const result = sanitizeRichContent(input)
+    expect(result).toContain("<video")
+    expect(result).toContain("controls")
+  })
+})

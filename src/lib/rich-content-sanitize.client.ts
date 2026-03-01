@@ -19,6 +19,7 @@ export function sanitizeRichContent(content: string): string {
       "class", "id",
       "href", "target", "rel",
       "src", "alt", "title", "width", "height",
+      "controls",
       "frameborder", "allowfullscreen", "allow", "loading",
       "colspan", "rowspan",
     ],
@@ -26,4 +27,3 @@ export function sanitizeRichContent(content: string): string {
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
   })
 }
-

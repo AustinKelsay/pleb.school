@@ -9,6 +9,7 @@ import { useSnstrContext } from '@/contexts/snstr-context'
 import { Course, Lesson, Resource } from '@/data/types'
 import { NostrEvent, RelayPool } from 'snstr'
 import logger from '@/lib/logger'
+import { useViewerPurchasesOverlay } from '@/hooks/useViewerPurchasesOverlay'
 
 // Types for enhanced course data
 export interface CourseWithNote extends Course {
@@ -493,8 +494,19 @@ export function useCoursesQuery(options: UseCoursesQueryOptions = {}): CoursesQu
     retryDelay,
   })
 
+  const courseIds = query.data?.courses.map((course) => course.id) ?? []
+  const purchasesOverlay = useViewerPurchasesOverlay({
+    enabled: enabled && courseIds.length > 0,
+    courseIds,
+  })
+
+  const coursesWithPurchases = (query.data?.courses ?? []).map((course) => ({
+    ...course,
+    purchases: purchasesOverlay.data.courses[course.id] ?? course.purchases,
+  }))
+
   // Apply select transformation if provided
-  const finalData = select && query.data?.courses ? select(query.data.courses) : query.data?.courses || []
+  const finalData = select ? select(coursesWithPurchases) : coursesWithPurchases
 
   return {
     courses: finalData,
@@ -502,8 +514,10 @@ export function useCoursesQuery(options: UseCoursesQueryOptions = {}): CoursesQu
     isError: query.isError,
     error: query.error,
     pagination: query.data?.pagination,
-    refetch: query.refetch,
+    refetch: () => {
+      query.refetch()
+      purchasesOverlay.refetch()
+    },
   }
 }
-
 

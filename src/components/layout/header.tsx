@@ -27,12 +27,13 @@ import { shouldShowThemeSelector, shouldShowFontToggle, shouldShowThemeToggle } 
 import { useTheme } from "next-themes"
 import { useThemeColor } from "@/contexts/theme-context"
 import { availableFonts, ThemeName } from "@/lib/theme-config"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useSession, signOut } from "next-auth/react"
-import { useAdminInfo } from "@/hooks/useAdmin"
+import { useIsAdmin } from "@/hooks/useAdmin"
 import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-events"
 import { isAnonymousAvatar, isAnonymousUsername } from "@/lib/anonymous-identity"
+import adminConfig from "../../../config/admin.json"
 
 const AVATAR_STORAGE_KEY = "ns.header.avatar"
 const DISPLAY_NAME_STORAGE_KEY = "ns.header.display-name"
@@ -56,10 +57,11 @@ export function Header() {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { fontOverride, setFontOverride, themeConfig, currentTheme, setCurrentTheme, availableThemes } = useThemeColor()
   const router = useRouter()
+  const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState("")
   const { data: session } = useSession()
   const sessionUser = session?.user
-  const { adminInfo } = useAdminInfo()
+  const { isAdmin, isModerator } = useIsAdmin()
   const isMountedRef = useRef(true)
 
   const readFromStorage = (key: string, fallback?: string) => {
@@ -75,6 +77,7 @@ export function Header() {
 
   const aggregatedIdentityLoadedRef = useRef(false)
   const lastSessionUserIdRef = useRef<string | null>(null)
+  const aggregatedProfileFetchKeyRef = useRef<string | null>(null)
 
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(() =>
     readFromStorage(AVATAR_STORAGE_KEY, session?.user?.image || undefined)
@@ -85,10 +88,11 @@ export function Header() {
       session?.user?.name || session?.user?.username || undefined
     )
   )
-  const canCreateContent =
-    Boolean(adminInfo?.isAdmin) ||
-    Boolean(adminInfo?.permissions?.createCourse) ||
-    Boolean(adminInfo?.permissions?.createResource)
+  const canCreateContent = isAdmin
+    ? Boolean(adminConfig.admins.permissions.createCourse || adminConfig.admins.permissions.createResource)
+    : isModerator
+      ? Boolean(adminConfig.moderators.permissions.createCourse || adminConfig.moderators.permissions.createResource)
+      : false
 
   const clearIdentityCache = useCallback(() => {
     aggregatedIdentityLoadedRef.current = false
@@ -245,8 +249,27 @@ export function Header() {
   }, [sessionUser?.id])
 
   useEffect(() => {
-    loadAggregatedProfile()
-  }, [loadAggregatedProfile])
+    if (!sessionUser?.id) {
+      aggregatedProfileFetchKeyRef.current = null
+      return
+    }
+
+    const shouldRefreshOnProfilePage = pathname?.startsWith("/profile")
+    const shouldBootstrapIdentity = !avatarUrl && !displayName
+
+    if (!shouldRefreshOnProfilePage && !shouldBootstrapIdentity) {
+      return
+    }
+
+    const fetchScope = shouldRefreshOnProfilePage ? "profile" : "bootstrap"
+    const fetchKey = `${sessionUser.id}:${fetchScope}`
+    if (aggregatedProfileFetchKeyRef.current === fetchKey) {
+      return
+    }
+
+    aggregatedProfileFetchKeyRef.current = fetchKey
+    void loadAggregatedProfile()
+  }, [avatarUrl, displayName, loadAggregatedProfile, pathname, sessionUser?.id])
 
   useEffect(() => {
     if (typeof window === "undefined") {

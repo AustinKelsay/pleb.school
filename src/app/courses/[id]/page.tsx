@@ -12,7 +12,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, type LessonWithResource } from '@/hooks/useLessonsQuery'
-import { parseCourseEvent, parseEvent } from '@/data/types'
+import { parseCourseEvent } from '@/data/types'
 import { encodePublicKey } from 'snstr'
 import { useCopy, getCopy } from '@/lib/copy'
 import { ZapThreads } from '@/components/ui/zap-threads'
@@ -33,7 +33,6 @@ const EducationIcon = getCourseIcon('education')
 import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseActions } from '@/components/purchase/purchase-actions'
-import { useSession } from 'next-auth/react'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { AdditionalLinksList } from '@/components/ui/additional-links-card'
 import type { AdditionalLink } from '@/types/additional-links'
@@ -143,11 +142,9 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
  */
 function CoursePageContent({ courseId }: { courseId: string }) {
   const { fetchProfile, normalizeKind0 } = useNostr()
-  const { status: sessionStatus } = useSession()
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
-  const [serverPrice, setServerPrice] = useState<number | null>(null)
-  const [serverPurchased, setServerPurchased] = useState<boolean>(false)
-  const { course, errors, pricing } = useCopy()
+  const [purchaseStatusOverride, setPurchaseStatusOverride] = useState<boolean | null>(null)
+  const { course } = useCopy()
   
   const resolved = React.useMemo(() => resolveUniversalId(courseId), [courseId])
   const resolvedCourseId = resolved?.resolvedId
@@ -196,40 +193,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const loading = courseLoading || lessonsLoading
 
   useEffect(() => {
-    const controller = new AbortController()
-
-    const fetchCourseMeta = async () => {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      if (!uuidRegex.test(courseId)) return
-      try {
-        const res = await fetch(`/api/courses/${courseId}`, { signal: controller.signal })
-        if (!res.ok) return
-        const body = await res.json()
-        const data = body?.course
-        if (typeof data?.price === 'number') {
-          setServerPrice(data.price)
-        }
-        if (Array.isArray(data?.purchases) && typeof data?.price === 'number') {
-          const paid = data.purchases.some((p: any) => {
-            const snapshot = p?.priceAtPurchase
-            const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
-            const required = Math.min(snapshotValid ? snapshot : data.price, data.price)
-            return (p?.amountPaid ?? 0) >= (required ?? 0)
-          })
-          setServerPurchased(paid)
-        }
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return
-        console.error('Failed to fetch course meta', err)
-      }
-    }
-
-    if (sessionStatus !== 'loading') {
-      fetchCourseMeta()
-    }
-
-    return () => controller.abort()
-  }, [courseId, sessionStatus])
+    setPurchaseStatusOverride(null)
+  }, [resolvedCourseId])
 
   // useEffect must be called unconditionally before any early returns
   useEffect(() => {
@@ -368,6 +333,22 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     }
   }
 
+  const serverPrice = typeof courseData?.price === 'number' ? courseData.price : null
+  const purchasedFromCourseData = Array.isArray(courseData?.purchases) && typeof courseData?.price === 'number'
+    ? courseData.purchases.some((purchase: any) => {
+        const snapshot = purchase?.priceAtPurchase
+        const snapshotValid =
+          snapshot !== null &&
+          snapshot !== undefined &&
+          typeof snapshot === 'number' &&
+          snapshot >= 0
+        const required = snapshotValid
+          ? Math.min(snapshot, serverPrice ?? 0)
+          : (serverPrice ?? 0)
+        return (purchase?.amountPaid ?? 0) >= (required ?? 0)
+      })
+    : false
+  const serverPurchased = purchaseStatusOverride ?? purchasedFromCourseData
   const priceSats =
     serverPrice ?? dbPrice ?? nostrPrice ?? 0
   isPremium = priceSats > 0
@@ -478,7 +459,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
             recentZaps={recentZaps}
             viewerZapReceipts={viewerZapReceipts}
             onPurchaseComplete={() => {
-              setServerPurchased(true)
+              setPurchaseStatusOverride(true)
             }}
           />
           )}

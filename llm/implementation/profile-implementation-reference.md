@@ -199,7 +199,7 @@ The verification page is implemented at `src/app/verify-email/page.tsx` and post
 ### Real-Time Identity Refresh
 
 - `src/lib/profile-events.ts` exports `PROFILE_UPDATED_EVENT`; client components dispatch it after link/unlink or profile edits.
-- The header (`src/components/layout/header.tsx`) listens for that event, refetches `/api/profile/aggregated`, and updates cached avatar/display name.
+- The header (`src/components/layout/header.tsx`) listens for that event and refreshes `/api/profile/aggregated` to update cached avatar/display name.
 - `LinkedAccountsManager` and `ProfileEditForms` call `dispatchProfileUpdatedEvent` to keep UI components in sync without full-page reloads.
 
 **Note:** This uses DOM custom events which only propagate within a single browser tab. Other open tabs will see updated data on their next page load or mount, but won't receive real-time updates. Cross-tab sync (via `BroadcastChannel` or `storage` events) is not currently implemented.
@@ -341,7 +341,7 @@ interface UserPreferences {
 
 ### Caching Strategy
 - No server-side cache for `/api/profile/aggregated` today.
-- Header caches avatar/name in localStorage and refreshes on `profile:updated`.
+- Header caches avatar/name in localStorage and only auto-fetches aggregated profile for bootstrap/profile-page contexts (plus explicit `profile:updated` events).
 - GitHub fetches include retry/backoff + 429 handling inside `fetchGitHubProfile`.
 
 ### Query Optimization

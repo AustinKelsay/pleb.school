@@ -201,6 +201,19 @@ export async function GET(req: NextRequest) {
 }
 ```
 
+## Performance Pattern: Cacheable Lists + Auth Overlay
+
+To prevent user-specific data from disabling CDN caching on hot list endpoints:
+
+1. Serve public list data from cacheable routes:
+   - `GET /api/courses/list`
+   - `GET /api/resources/list`
+2. Serve per-viewer purchase data separately:
+   - `POST /api/purchases/overlay` with `{ courseIds, resourceIds }`
+3. Merge overlay client-side in hooks/UI.
+
+This keeps list traffic cache-friendly while preserving correct purchase state.
+
 ## Type Exports
 
 ```typescript

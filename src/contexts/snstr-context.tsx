@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, ReactNode } from 'react';
 import { RelayPool, Filter, NostrEvent } from 'snstr';
 import nostrConfig from '../../config/nostr.json';
 import { DEFAULT_RELAYS } from '@/lib/nostr-relays';
@@ -46,6 +46,13 @@ export function SnstrProvider({ children, relays, relaySet = 'default' }: SnstrP
   if (!poolRef.current) {
     poolRef.current = new RelayPool(activeRelays);
   }
+
+  useEffect(() => {
+    const pool = poolRef.current
+    return () => {
+      pool?.close()
+    }
+  }, [])
 
   // Simple subscribe method that uses the shared pool
   const subscribe = async (
