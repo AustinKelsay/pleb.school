@@ -346,6 +346,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
 
     let viewerZapTotal = 0;
     let viewerHasZapped = false;
+    const viewerZaps: ZapReceiptSummary[] = [];
     for (const zap of zapSummariesRef.current) {
       const payerKeys = Array.from(
         new Set(
@@ -358,11 +359,14 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
       if (payerKeys.some((k) => k === currentUserPubkey)) {
         viewerHasZapped = true;
         viewerZapTotal += zap.amountSats ?? 0;
+        viewerZaps.push(zap);
       }
     }
 
     setHasZappedWithLightning(viewerHasZapped);
     setViewerZapTotalSats(viewerZapTotal);
+    viewerZapReceiptsRef.current = viewerZaps.slice(0, MAX_VIEWER_ZAPS);
+    setViewerZapReceipts(viewerZapReceiptsRef.current);
   }, [currentUserPubkey]);
 
   // Set up intersection observer for visibility-based subscription management
