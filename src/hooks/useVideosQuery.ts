@@ -21,7 +21,7 @@ export interface VideosQueryResult {
   isLoading: boolean
   isError: boolean
   error: Error | null
-  refetch: () => void
+  refetch: () => Promise<unknown[]>
   pagination?: {
     page: number
     pageSize: number
@@ -172,9 +172,7 @@ export function useVideosQuery(options: UseVideosQueryOptions = {}): VideosQuery
     isError,
     error,
     pagination: resourcesQuery.data?.pagination,
-    refetch: () => {
-      resourcesQuery.refetch()
-      notesQuery.refetch()
-    },
+    refetch: () =>
+      Promise.all([resourcesQuery.refetch(), notesQuery.refetch()]),
   }
 }

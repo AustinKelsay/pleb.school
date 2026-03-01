@@ -3,8 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 
 import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import type { Prisma } from "@/generated/prisma"
+import { PurchaseAdapter } from "@/lib/db-adapter"
 
 const requestSchema = z.object({
   resourceIds: z.array(z.string().min(1)).max(500).optional().default([]),
@@ -67,30 +66,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const orFilters: Prisma.PurchaseWhereInput[] = []
-    if (resourceIds.length > 0) {
-      orFilters.push({ resourceId: { in: resourceIds } })
-    }
-    if (courseIds.length > 0) {
-      orFilters.push({ courseId: { in: courseIds } })
-    }
-
-    const purchases = await prisma.purchase.findMany({
-      where: {
-        userId: session.user.id,
-        OR: orFilters,
-      },
-      select: {
-        id: true,
-        amountPaid: true,
-        priceAtPurchase: true,
-        createdAt: true,
-        updatedAt: true,
-        resourceId: true,
-        courseId: true,
-      },
-      orderBy: { createdAt: "desc" },
-    })
+    const purchases = await PurchaseAdapter.findByUserWithResourcesOrCourses(
+      session.user.id,
+      resourceIds,
+      courseIds
+    )
 
     const response = emptyOverlayResponse()
 

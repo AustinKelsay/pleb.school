@@ -166,8 +166,8 @@ function buildProductionPlaceholder(
       return buildTemporaryEnvPlaceholder("kv-rest-api-token", hash)
     case "VIEWS_CRON_SECRET":
       return buildTemporaryEnvPlaceholder("views-cron-secret", hash)
-    case "AUDIT_LOG_CRON_SECRET":
-      return buildTemporaryEnvPlaceholder("audit-log-cron-secret", hash)
+    default:
+      throw new Error(`No production placeholder available for ${key}`)
   }
 }
 

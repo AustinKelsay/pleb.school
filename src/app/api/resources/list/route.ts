@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResourceAdapter } from '@/lib/db-adapter'
-import { parseOptionalPositiveInt } from '@/lib/api-utils'
-
-const PUBLIC_LIST_CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=300'
+import { parseOptionalPositiveInt, PUBLIC_LIST_CACHE_CONTROL } from '@/lib/api-utils'
 
 export async function GET(request: NextRequest) {
   try {

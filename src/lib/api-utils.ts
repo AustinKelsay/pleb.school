@@ -152,6 +152,8 @@ export function validateSearchParams<T>(
   return validateRequest(schema, data)
 }
 
+export const PUBLIC_LIST_CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=300'
+
 export function parseOptionalPositiveInt(value: string | null): number | null | undefined {
   if (value === null) return undefined
   const parsed = Number.parseInt(value, 10)

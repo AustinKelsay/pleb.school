@@ -89,6 +89,12 @@ export interface PurchaseRecord {
   createdAt: Date
 }
 
+export interface PurchaseOverlayRecord extends PurchaseRecord {
+  updatedAt: Date
+  resourceId?: string | null
+  courseId?: string | null
+}
+
 export class PurchaseAdapter {
   static async findByUserAndCourse(userId: string, courseId: string): Promise<PurchaseRecord[]> {
     const purchases = await prisma.purchase.findMany({
@@ -115,6 +121,50 @@ export class PurchaseAdapter {
       amountPaid: purchase.amountPaid,
       priceAtPurchase: purchase.priceAtPurchase,
       createdAt: purchase.createdAt
+    }))
+  }
+
+  static async findByUserWithResourcesOrCourses(
+    userId: string,
+    resourceIds: string[],
+    courseIds: string[]
+  ): Promise<PurchaseOverlayRecord[]> {
+    const orFilters: Prisma.PurchaseWhereInput[] = []
+    if (resourceIds.length > 0) {
+      orFilters.push({ resourceId: { in: resourceIds } })
+    }
+    if (courseIds.length > 0) {
+      orFilters.push({ courseId: { in: courseIds } })
+    }
+    if (orFilters.length === 0) {
+      return []
+    }
+
+    const purchases = await prisma.purchase.findMany({
+      where: {
+        userId,
+        OR: orFilters,
+      },
+      select: {
+        id: true,
+        amountPaid: true,
+        priceAtPurchase: true,
+        createdAt: true,
+        updatedAt: true,
+        resourceId: true,
+        courseId: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return purchases.map((purchase) => ({
+      id: purchase.id,
+      amountPaid: purchase.amountPaid,
+      priceAtPurchase: purchase.priceAtPurchase,
+      createdAt: purchase.createdAt,
+      updatedAt: purchase.updatedAt,
+      resourceId: purchase.resourceId,
+      courseId: purchase.courseId,
     }))
   }
 

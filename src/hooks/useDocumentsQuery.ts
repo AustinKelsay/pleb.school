@@ -32,26 +32,6 @@ export interface DocumentsQueryResult {
   }
 }
 
-// Query keys factory for better cache management
-export const documentsQueryKeys = {
-  all: ['documents'] as const,
-  lists: () => ['documents', 'list'] as const,
-  list: (includeLessonResources = false) => (
-    includeLessonResources
-      ? [...documentsQueryKeys.lists(), { includeLessonResources: true }] as const
-      : documentsQueryKeys.lists()
-  ),
-  listPaginated: (page: number, pageSize: number, includeLessonResources = false) => (
-    includeLessonResources
-      ? [...documentsQueryKeys.lists(), { page, pageSize, includeLessonResources: true }] as const
-      : [...documentsQueryKeys.lists(), { page, pageSize }] as const
-  ),
-  details: () => [...documentsQueryKeys.all, 'detail'] as const,
-  detail: (id: string) => [...documentsQueryKeys.details(), id] as const,
-  notes: () => [...documentsQueryKeys.all, 'notes'] as const,
-  note: (noteId: string) => [...documentsQueryKeys.notes(), noteId] as const,
-}
-
 // Options for the hook
 interface DocumentPaginationOptions extends PaginationOptions {
   /**

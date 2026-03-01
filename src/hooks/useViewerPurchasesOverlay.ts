@@ -57,6 +57,12 @@ async function fetchViewerPurchasesOverlay(payload: {
   }
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      const body = await response.text().catch(() => "")
+      throw new Error(
+        `Failed to fetch purchases overlay (${response.status})${body ? `: ${body}` : ""}`
+      )
+    }
     return EMPTY_OVERLAY
   }
 

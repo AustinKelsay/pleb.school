@@ -14,8 +14,7 @@ export function HomepageWithPrefetch({ children }: HomepageWithPrefetchProps) {
   // Prefetch all content types after initial page load
   usePrefetchContent({
     prefetchCourses: true,
-    prefetchVideos: true,
-    prefetchDocuments: true,
+    prefetchResources: true,
   })
 
   return <>{children}</>

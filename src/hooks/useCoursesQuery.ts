@@ -40,7 +40,7 @@ export interface CoursesQueryResult {
   isLoading: boolean
   isError: boolean
   error: Error | null
-  refetch: () => void
+  refetch: () => Promise<unknown[]>
   pagination?: {
     page: number
     pageSize: number
