@@ -205,8 +205,9 @@ export function isLikelyEncryptedContent(content: string): boolean {
   }
 
   // Some tools prefix payload version before a compact ciphertext blob.
-  if (/^v\d+:[A-Za-z0-9+/=_-]+$/.test(trimmed)) {
-    return true
+  const versionedPayload = trimmed.match(/^v\d+:([A-Za-z0-9+/=_-]+)$/)
+  if (versionedPayload) {
+    return versionedPayload[1].length >= 96
   }
 
   // Generic ciphertext heuristic: long, single-line, mostly base64-like chars.

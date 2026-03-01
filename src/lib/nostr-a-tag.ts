@@ -7,7 +7,7 @@ type EventForATag = Pick<NostrEvent, "kind" | "pubkey" | "tags">
  * Returns undefined for non-addressable events or when required fields are missing.
  */
 export function getEventATag(event?: EventForATag | null): string | undefined {
-  if (!event || typeof event.kind !== "number" || event.kind < 30000) {
+  if (!event || typeof event.kind !== "number" || event.kind < 30000 || event.kind >= 40000) {
     return undefined
   }
 

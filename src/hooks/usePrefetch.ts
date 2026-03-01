@@ -2,7 +2,8 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useSnstrContext } from '@/contexts/snstr-context';
-import { coursesQueryKeys } from './useCoursesQuery';
+import { useSession } from '@/hooks/useSession';
+import { coursesQueryKeys, getCourseViewerKey } from './useCoursesQuery';
 import { lessonsQueryKeys } from './useLessonsQuery';
 import { resourceNotesQueryKeys } from './useResourceNotes';
 import { resourcesListQueryKeys } from './useResourcesListQuery';
@@ -14,6 +15,8 @@ import { resourcesListQueryKeys } from './useResourcesListQuery';
 export function usePrefetch() {
   const queryClient = useQueryClient();
   const { relayPool, relays } = useSnstrContext();
+  const { data: session, status } = useSession();
+  const viewerKey = getCourseViewerKey(status, session?.user?.id);
 
   const prefetchResourcesList = (page: number, pageSize: number) => {
     import('./useResourcesListQuery').then(({ fetchResourcesList }) => {
@@ -35,7 +38,7 @@ export function usePrefetch() {
     // Import the fetch function dynamically to avoid circular dependencies
     import('./useCoursesQuery').then(({ fetchCourseWithLessons }) => {
       queryClient.prefetchQuery({
-        queryKey: coursesQueryKeys.detail(courseId),
+        queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
         queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
         staleTime: 5 * 60 * 1000, // Consider fresh for 5 minutes
       });
@@ -152,7 +155,7 @@ export function usePrefetch() {
     
     switch (type) {
       case 'course':
-        queryKey = coursesQueryKeys.detail(args[0] as string);
+        queryKey = coursesQueryKeys.detailForViewer(args[0] as string, viewerKey);
         break;
       case 'lesson':
         queryKey = coursesQueryKeys.lesson(args[0] as string, args[1] as string);

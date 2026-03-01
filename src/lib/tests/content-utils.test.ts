@@ -156,9 +156,14 @@ describe("isLikelyEncryptedContent", () => {
     expect(isLikelyEncryptedContent(ciphertext)).toBe(true)
   })
 
-  it("detects version-prefixed compact payloads", () => {
-    const payload = "v2:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+  it("detects long version-prefixed compact payloads", () => {
+    const payload = `v2:${"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".repeat(2)}`
     expect(isLikelyEncryptedContent(payload)).toBe(true)
+  })
+
+  it("returns false for short version-prefixed payloads", () => {
+    const payload = "v2:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+    expect(isLikelyEncryptedContent(payload)).toBe(false)
   })
 
   it("detects long base64-like single-line payloads", () => {

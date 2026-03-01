@@ -117,6 +117,19 @@ export interface UseLessonQueryOptions {
   retryDelay?: number
 }
 
+export function getCourseViewerKey(
+  status: "authenticated" | "loading" | "unauthenticated",
+  userId?: string | null
+): string {
+  if (status === "authenticated") {
+    return userId ?? "authenticated"
+  }
+  if (status === "loading") {
+    return "loading"
+  }
+  return "anonymous"
+}
+
 /**
  * Fetch a single lesson with its resource and course details
  */
