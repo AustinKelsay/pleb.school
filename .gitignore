@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Prisma v7 generated client
 /src/generated/
+
+# local scripts
+/scripts/
