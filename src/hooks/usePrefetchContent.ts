@@ -7,15 +7,16 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSnstrContext } from '@/contexts/snstr-context'
 import { fetchCoursesWithNotes, coursesQueryKeys } from './useCoursesQuery'
-import { fetchResourceNotesBatch, resourceNotesQueryKeys } from './useResourceNotes'
-import { fetchVideoResources, videosQueryKeys } from './useVideosQuery'
-import { fetchDocumentResources, documentsQueryKeys } from './useDocumentsQuery'
+import { fetchResourcesList, resourcesListQueryKeys } from './useResourcesListQuery'
 import logger from '@/lib/logger'
 
 interface UsePrefetchContentOptions {
   enabled?: boolean
   prefetchCourses?: boolean
+  prefetchResources?: boolean
+  /** @deprecated Use prefetchResources instead. */
   prefetchVideos?: boolean
+  /** @deprecated Use prefetchResources instead. */
   prefetchDocuments?: boolean
 }
 
@@ -27,9 +28,11 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
   const {
     enabled = true,
     prefetchCourses = true,
+    prefetchResources,
     prefetchVideos = true,
     prefetchDocuments = true,
   } = options
+  const shouldPrefetchResources = prefetchResources ?? (prefetchVideos || prefetchDocuments)
 
   const queryClient = useQueryClient()
   const { relayPool, relays } = useSnstrContext()
@@ -51,23 +54,12 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
         )
       }
 
-      // Prefetch video resources
-      if (prefetchVideos) {
+      // Prefetch the shared resource list once for resource sections.
+      if (shouldPrefetchResources) {
         promises.push(
           queryClient.prefetchQuery({
-            queryKey: videosQueryKeys.lists(),
-            queryFn: () => fetchVideoResources(),
-            staleTime: 10 * 60 * 1000, // 10 minutes
-          })
-        )
-      }
-
-      // Prefetch document resources
-      if (prefetchDocuments) {
-        promises.push(
-          queryClient.prefetchQuery({
-            queryKey: documentsQueryKeys.lists(),
-            queryFn: () => fetchDocumentResources(),
+            queryKey: resourcesListQueryKeys.list(false),
+            queryFn: () => fetchResourcesList(),
             staleTime: 10 * 60 * 1000, // 10 minutes
           })
         )
@@ -86,7 +78,7 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
     const timeoutId = setTimeout(prefetchData, 1000)
 
     return () => clearTimeout(timeoutId)
-  }, [enabled, prefetchCourses, prefetchVideos, prefetchDocuments, queryClient, relayPool, relays])
+  }, [enabled, prefetchCourses, shouldPrefetchResources, queryClient, relayPool, relays])
 }
 
 /**

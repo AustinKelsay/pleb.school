@@ -379,9 +379,9 @@ export default function RootLayout({ children }) {
         <QueryProvider>
           <SessionProvider>
             <ThemeProvider>
-              <SnstrProvider>
+              <RouteScopedSnstrProvider>
                 {children}
-              </SnstrProvider>
+              </RouteScopedSnstrProvider>
             </ThemeProvider>
           </SessionProvider>
         </QueryProvider>
@@ -390,6 +390,9 @@ export default function RootLayout({ children }) {
   )
 }
 ```
+
+Notes:
+- `RouteScopedSnstrProvider` prevents relay pool initialization on non-Nostr routes (for example `/auth/*`, `/about`, `/feeds`, `/subscribe`, `/verify-email`).
 
 ## State Management
 

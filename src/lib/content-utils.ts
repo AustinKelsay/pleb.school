@@ -3,7 +3,6 @@
  * Handles both documents (markdown) and videos (embedded content)
  */
 
-import DOMPurify from "isomorphic-dompurify"
 // import { nostrFreeContentEvents, nostrPaidContentEvents } from '@/data/nostr-events'
 import { ResourceDisplay, NostrFreeContentEvent, NostrPaidContentEvent } from "@/data/types"
 import { tagsToAdditionalLinks } from "@/lib/additional-links"
@@ -118,40 +117,29 @@ function extractVideoUrl(content: string): string | undefined {
 }
 
 /**
- * Clean HTML content for safe display using DOMPurify
- * Removes XSS vectors including script tags, event handlers, javascript: URLs
+ * Escape HTML-sensitive characters for safe inline rendering in non-rich contexts.
+ *
+ * Note: rich HTML sanitization for markdown/video rendering lives in
+ * `src/lib/rich-content-sanitize.client.ts` and must only run in client code.
  */
 export function sanitizeContent(content: string): string {
-  return DOMPurify.sanitize(content, {
-    ALLOWED_TAGS: [
-      // Structure
-      "div", "span", "p", "br", "hr",
-      // Headings
-      "h1", "h2", "h3", "h4", "h5", "h6",
-      // Lists
-      "ul", "ol", "li",
-      // Text formatting
-      "strong", "em", "b", "i", "u", "s", "code", "pre", "blockquote",
-      // Links and media
-      "a", "img", "iframe", "video", "source", "audio",
-      // Tables
-      "table", "thead", "tbody", "tr", "th", "td",
-    ],
-    ALLOWED_ATTR: [
-      // Common (no "style" to prevent CSS injection/UI redressing)
-      "class", "id",
-      // Links
-      "href", "target", "rel",
-      // Media
-      "src", "alt", "title", "width", "height",
-      // iframes (any https domain; ALLOWED_URI_REGEXP controls src)
-      "frameborder", "allowfullscreen", "allow", "loading",
-      // Tables
-      "colspan", "rowspan",
-    ],
-    ALLOW_DATA_ATTR: false,
-    // Block dangerous protocols
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  if (!content) return ""
+
+  return content.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;"
+      case "<":
+        return "&lt;"
+      case ">":
+        return "&gt;"
+      case "\"":
+        return "&quot;"
+      case "'":
+        return "&#39;"
+      default:
+        return char
+    }
   })
 }
 

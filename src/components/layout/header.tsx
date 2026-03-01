@@ -1,38 +1,40 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
+import { useSession, signOut } from "next-auth/react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Check, Moon, Type } from "lucide-react"
+import { useTheme } from "next-themes"
+
+import { ThemeSelector } from "@/components/theme-selector"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Moon, Type, Check } from "lucide-react"
-import { getNavigationIcon } from "@/lib/copy-icons"
-import { Container } from "./container"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { ThemeSelector } from "@/components/theme-selector"
-import { FontToggle } from "@/components/font-toggle"
+import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import Link from "next/link"
-import { useCopy } from "@/lib/copy"
-import { shouldShowThemeSelector, shouldShowFontToggle, shouldShowThemeToggle } from "@/lib/theme-ui-config"
-import { useTheme } from "next-themes"
+import { FontToggle } from "@/components/font-toggle"
 import { useThemeColor } from "@/contexts/theme-context"
-import { availableFonts, ThemeName } from "@/lib/theme-config"
-import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { useSession, signOut } from "next-auth/react"
-import { useAdminInfo } from "@/hooks/useAdmin"
-import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-events"
+import { useIsAdmin } from "@/hooks/useAdmin"
 import { isAnonymousAvatar, isAnonymousUsername } from "@/lib/anonymous-identity"
+import { useCopy } from "@/lib/copy"
+import { getNavigationIcon } from "@/lib/copy-icons"
+import { availableFonts, ThemeName } from "@/lib/theme-config"
+import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-events"
+import { shouldShowThemeSelector, shouldShowFontToggle, shouldShowThemeToggle } from "@/lib/theme-ui-config"
+import adminConfig from "../../../config/admin.json"
+import { Container } from "./container"
 
 const AVATAR_STORAGE_KEY = "ns.header.avatar"
 const DISPLAY_NAME_STORAGE_KEY = "ns.header.display-name"
@@ -56,10 +58,11 @@ export function Header() {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { fontOverride, setFontOverride, themeConfig, currentTheme, setCurrentTheme, availableThemes } = useThemeColor()
   const router = useRouter()
+  const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState("")
   const { data: session } = useSession()
   const sessionUser = session?.user
-  const { adminInfo } = useAdminInfo()
+  const { isAdmin, isModerator } = useIsAdmin()
   const isMountedRef = useRef(true)
 
   const readFromStorage = (key: string, fallback?: string) => {
@@ -75,6 +78,8 @@ export function Header() {
 
   const aggregatedIdentityLoadedRef = useRef(false)
   const lastSessionUserIdRef = useRef<string | null>(null)
+  const aggregatedProfileFetchKeyRef = useRef<string | null>(null)
+  const aggregatedProfileFetchInFlightRef = useRef<string | null>(null)
 
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(() =>
     readFromStorage(AVATAR_STORAGE_KEY, session?.user?.image || undefined)
@@ -85,10 +90,11 @@ export function Header() {
       session?.user?.name || session?.user?.username || undefined
     )
   )
-  const canCreateContent =
-    Boolean(adminInfo?.isAdmin) ||
-    Boolean(adminInfo?.permissions?.createCourse) ||
-    Boolean(adminInfo?.permissions?.createResource)
+  const canCreateContent = isAdmin
+    ? Boolean(adminConfig.admins.permissions.createCourse || adminConfig.admins.permissions.createResource)
+    : isModerator
+      ? Boolean(adminConfig.moderators.permissions.createCourse || adminConfig.moderators.permissions.createResource)
+      : false
 
   const clearIdentityCache = useCallback(() => {
     aggregatedIdentityLoadedRef.current = false
@@ -204,15 +210,15 @@ export function Header() {
     sessionUser,
   ])
 
-  const loadAggregatedProfile = useCallback(async () => {
+  const loadAggregatedProfile = useCallback(async (): Promise<boolean> => {
     if (!sessionUser?.id) {
-      return
+      return false
     }
     try {
       const response = await fetch("/api/profile/aggregated", { cache: "no-store" })
-      if (!response.ok) return
+      if (!response.ok) return false
       const data = await response.json()
-      if (!isMountedRef.current) return
+      if (!isMountedRef.current) return false
 
       if (data?.image?.value) {
         setAvatarUrl(data.image.value as string)
@@ -239,14 +245,49 @@ export function Header() {
         }
       }
       aggregatedIdentityLoadedRef.current = true
+      return true
     } catch (error) {
       console.error("Failed to refresh aggregated profile for header", error)
+      return false
     }
   }, [sessionUser?.id])
 
   useEffect(() => {
-    loadAggregatedProfile()
-  }, [loadAggregatedProfile])
+    if (!sessionUser?.id) {
+      aggregatedProfileFetchKeyRef.current = null
+      aggregatedProfileFetchInFlightRef.current = null
+      return
+    }
+
+    const shouldRefreshOnProfilePage = pathname?.startsWith("/profile")
+    const shouldBootstrapIdentity = !avatarUrl && !displayName
+
+    if (!shouldRefreshOnProfilePage && !shouldBootstrapIdentity) {
+      return
+    }
+
+    const fetchScope = shouldRefreshOnProfilePage ? "profile" : "bootstrap"
+    const fetchKey = `${sessionUser.id}:${fetchScope}`
+    if (
+      aggregatedProfileFetchKeyRef.current === fetchKey ||
+      aggregatedProfileFetchInFlightRef.current === fetchKey
+    ) {
+      return
+    }
+
+    aggregatedProfileFetchInFlightRef.current = fetchKey
+    void (async () => {
+      const succeeded = await loadAggregatedProfile()
+      if (succeeded) {
+        aggregatedProfileFetchKeyRef.current = fetchKey
+      } else if (aggregatedProfileFetchKeyRef.current === fetchKey) {
+        aggregatedProfileFetchKeyRef.current = null
+      }
+      if (aggregatedProfileFetchInFlightRef.current === fetchKey) {
+        aggregatedProfileFetchInFlightRef.current = null
+      }
+    })()
+  }, [avatarUrl, displayName, loadAggregatedProfile, pathname, sessionUser?.id])
 
   useEffect(() => {
     if (typeof window === "undefined") {

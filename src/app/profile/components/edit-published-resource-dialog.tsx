@@ -45,12 +45,12 @@ type EditPublishedResourceDialogProps = {
   onSuccess?: () => void
 }
 
-export function EditPublishedResourceDialog({
+export const EditPublishedResourceDialog = ({
   open,
   onOpenChange,
   data,
   onSuccess,
-}: EditPublishedResourceDialogProps) {
+}: EditPublishedResourceDialogProps) => {
   const mutation = useRepublishResourceMutation()
   const [error, setError] = useState<string | null>(null)
   const [topicInput, setTopicInput] = useState('')

@@ -469,9 +469,11 @@ Runtime validation:
 
 - `src/lib/env.ts` performs normalized parsing and format validation (for example URL/key shape checks).
 - In production deployments, `src/lib/env.ts` validates required env shape (`DATABASE_URL`, `NEXTAUTH_SECRET` or `AUTH_SECRET`, `NEXTAUTH_URL`, `PRIVKEY_ENCRYPTION_KEY`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`, `AUDIT_LOG_CRON_SECRET`) and rejects malformed/insecure values (for example non-HTTPS `NEXTAUTH_URL`).
-- For non-preview production deployments only, if a required key is missing, `src/lib/env.ts` currently injects a temporary placeholder and writes it to `process.env` so deployment can bootstrap; deployment metadata seeds are used when available, with runtime entropy fallback when absent. Warnings are emitted and placeholders must be replaced before launch.
+- For non-preview production deployments, `AUDIT_LOG_CRON_SECRET` is fail-fast: if missing, `getEnv()` throws and deployment must be fixed before serving traffic.
+- Other production bootstrap placeholders still exist for selected keys to keep startup behavior compatible, but they should be treated as temporary only.
 - Vercel previews (`VERCEL_ENV=preview`) still validate core DB/auth secret requirements while allowing preview-optional keys (`KV_REST_API_URL`, `KV_REST_API_TOKEN`, `VIEWS_CRON_SECRET`, `AUDIT_LOG_CRON_SECRET`) to be omitted; if `NEXTAUTH_URL` is missing but `VERCEL_URL` is present, `NEXTAUTH_URL` is derived from `VERCEL_URL`. If `NEXTAUTH_SECRET`/`AUTH_SECRET` are both missing in preview, a fallback secret is derived and written to `process.env` for NextAuth compatibility (deterministic when deployment seed vars like `VERCEL_GIT_COMMIT_SHA`/`VERCEL_DEPLOYMENT_ID` are present, entropy-augmented only as a last resort).
 - SMTP settings are centralized in `src/lib/email-config.ts`; when email auth is enabled, production requires a valid SMTP contract (`EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, `EMAIL_FROM`) and fails fast on invalid/missing values.
+- Production Postgres connection strings should use explicit SSL mode to avoid pg parser warnings; prefer `sslmode=verify-full` in `DATABASE_URL`.
 
 **Safe for config files** (client-visible):
 

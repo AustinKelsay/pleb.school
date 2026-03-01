@@ -22,6 +22,9 @@ const PREVIEW_OPTIONAL_VARS = new Set<ProductionRequiredVar>([
   "VIEWS_CRON_SECRET",
   "AUDIT_LOG_CRON_SECRET",
 ])
+const NON_BOOTSTRAPPABLE_PROD_VARS = new Set<ProductionRequiredVar>([
+  "AUDIT_LOG_CRON_SECRET",
+])
 
 const rawEnvSchema = z.object({
   NODE_ENV: z.string().optional(),
@@ -163,8 +166,8 @@ function buildProductionPlaceholder(
       return buildTemporaryEnvPlaceholder("kv-rest-api-token", hash)
     case "VIEWS_CRON_SECRET":
       return buildTemporaryEnvPlaceholder("views-cron-secret", hash)
-    case "AUDIT_LOG_CRON_SECRET":
-      return buildTemporaryEnvPlaceholder("audit-log-cron-secret", hash)
+    default:
+      throw new Error(`No production placeholder available for ${key}`)
   }
 }
 
@@ -194,18 +197,6 @@ export function getEnv(): RuntimeEnv {
   const isProductionDeployment = env.NODE_ENV === "production"
   const isPreviewDeployment = env.VERCEL_ENV === "preview"
   const envMutations: Partial<Record<EnvMutationKey, string>> = {}
-
-  if (isProductionDeployment && isPreviewDeployment && !env.NEXTAUTH_URL) {
-    const previewHost = normalize(raw.VERCEL_URL)?.replace(/^https?:\/\//, "")
-    if (previewHost) {
-      env.NEXTAUTH_URL = `https://${previewHost}`
-      console.warn(
-        "NEXTAUTH_URL missing on preview deployment; deriving NEXTAUTH_URL from VERCEL_URL."
-      )
-    }
-  }
-
-
   if (isProductionDeployment && isPreviewDeployment && !env.NEXTAUTH_URL) {
     const previewHost = normalize(raw.VERCEL_URL)?.replace(/^https?:\/\//, "")
     if (previewHost) {
@@ -235,6 +226,9 @@ export function getEnv(): RuntimeEnv {
 
     for (const key of PRODUCTION_REQUIRED_VARS) {
       if (!env[key]) {
+        if (NON_BOOTSTRAPPABLE_PROD_VARS.has(key)) {
+          continue
+        }
         const placeholder = buildProductionPlaceholder(key, raw, seed)
         env[key] = placeholder
         envMutations[key] = placeholder

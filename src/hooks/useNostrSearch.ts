@@ -276,7 +276,8 @@ function calculateMatchScore(keyword: string, title: string, description: string
 function highlightKeyword(text: string, keyword: string): string {
   if (!text || !keyword) return text
   
-  const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi')
+  const safeKeyword = sanitizeContent(keyword)
+  const regex = new RegExp(`(${escapeRegExp(safeKeyword)})`, 'gi')
   return text.replace(regex, '<mark>$1</mark>')
 }
 

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ConfiguredThemeProvider } from "@/components/configured-theme-provider";
+import { RouteScopedSnstrProvider } from "@/components/providers/route-scoped-snstr-provider";
 import { ThemeColorProvider } from "@/contexts/theme-context";
-import { SnstrProvider } from "@/contexts/snstr-context";
 import { QueryProvider } from "@/contexts/query-provider";
 import { SessionProvider } from "@/contexts/session-provider";
 import { ToastProvider } from "@/hooks/use-toast";
@@ -37,9 +37,9 @@ export default function RootLayout({
             <QueryProvider>
               <SessionProvider>
                 <ToastProvider>
-                  <SnstrProvider>
+                  <RouteScopedSnstrProvider>
                     {children}
-                  </SnstrProvider>
+                  </RouteScopedSnstrProvider>
                 </ToastProvider>
               </SessionProvider>
             </QueryProvider>
