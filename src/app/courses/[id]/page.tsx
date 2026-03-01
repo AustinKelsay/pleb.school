@@ -376,7 +376,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                      instructorProfile?.display_name || 
                      (courseData.userId ? formatNpubWithEllipsis(courseData.userId) : 'Unknown')
   const nostrIdentifier = formatNoteIdentifier(courseData.note, courseId)
-  const nostrUrl = nostrIdentifier ? `https://nostr.band/${nostrIdentifier}` : null
+  const nostrUrl = nostrIdentifier ? `https://njump.me/${nostrIdentifier}` : null
   
   // Use only real interaction data - no fallbacks
   const zapsCount = interactions.zaps

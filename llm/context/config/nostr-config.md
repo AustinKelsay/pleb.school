@@ -275,15 +275,14 @@ const normalized = normalizeRelayUrl(url) // "wss://relay.damus.io"
     "default": [
       "wss://relay.damus.io",
       "wss://nos.lol",
-      "wss://relay.primal.net",
-      "wss://relay.nostr.band"
+      "wss://relay.primal.net"
     ],
     "content": [
       "wss://nos.lol",
-      "wss://relay.nostr.band"
+      "wss://relay.primal.net"
     ],
     "profile": [
-      "wss://relay.nostr.band",
+      "wss://relay.primal.net",
       "wss://nos.lol"
     ]
   }
@@ -299,7 +298,7 @@ const normalized = normalizeRelayUrl(url) // "wss://relay.damus.io"
     "zapThreads": [
       "wss://nos.lol",
       "wss://relay.damus.io",
-      "wss://relay.nostr.band"
+      "wss://relay.primal.net"
     ]
   }
 }

@@ -772,4 +772,4 @@ KV_REST_API_TOKEN=...
 NODE_ENV=development
 ```
 
-Note: Nostr **profile fetch** uses the fixed relay list in `src/lib/nostr-profile.ts` (relay.nostr.band, nos.lol, damus). Relay publishing uses `getRelays(...)` from `config/nostr.json`.
+Note: Nostr **profile fetch** uses the fixed relay list in `src/lib/nostr-profile.ts` (relay.primal.net, nos.lol, damus). Relay publishing uses `getRelays(...)` from `config/nostr.json`.
