@@ -202,3 +202,32 @@ export function extractVideoBodyMarkdown(content: string): string {
 
   return body
 }
+
+/**
+ * Lightweight heuristic for encrypted event bodies (NIP-04/NIP-44 style payloads).
+ * Used to avoid surfacing ciphertext directly in edit forms.
+ */
+export function isLikelyEncryptedContent(content: string): boolean {
+  const trimmed = content?.trim()
+  if (!trimmed) return false
+
+  // NIP-04 payload format: "<base64>?iv=<base64>"
+  if (/^[A-Za-z0-9+/=]+\?iv=[A-Za-z0-9+/=]+$/.test(trimmed)) {
+    return true
+  }
+
+  // Some tools prefix payload version before a compact ciphertext blob.
+  if (/^v\d+:[A-Za-z0-9+/=_-]+$/.test(trimmed)) {
+    return true
+  }
+
+  // Generic ciphertext heuristic: long, single-line, mostly base64-like chars.
+  if (trimmed.includes("\n") || trimmed.length < 96) {
+    return false
+  }
+
+  const base64LikeChars = (trimmed.match(/[A-Za-z0-9+/=]/g) || []).length
+  const ratio = base64LikeChars / trimmed.length
+
+  return ratio > 0.9 && !trimmed.includes("http") && !trimmed.includes("<")
+}
