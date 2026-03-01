@@ -106,6 +106,9 @@ const { data: lessons, isLoading } = useLessonsQuery(courseId)
 // Returns ordered lessons with resource/draft data
 ```
 
+Notes:
+- Uses `/api/courses/[id]/lessons` so course structure (lesson count, titles, premium badges) is visible regardless of purchase status, enabling preview before buy.
+
 ## Draft Hooks
 
 ### useDraftsQuery

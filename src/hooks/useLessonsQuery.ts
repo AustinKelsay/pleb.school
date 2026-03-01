@@ -97,14 +97,13 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
     return []
   }
 
-  // Fetch the course payload that already contains ordered lessons/resources.
-  const response = await fetch(`/api/courses/${courseId}`)
+  // Fetch from dedicated lessons endpoint so structure is visible regardless of purchase status.
+  const response = await fetch(`/api/courses/${courseId}/lessons`)
   if (!response.ok) {
     throw new Error('Failed to fetch lessons')
   }
   const data = await response.json()
-  const courseData = data.course || data.data
-  const lessons = courseData?.lessons || []
+  const lessons = data.lessons || []
   
   if (lessons.length === 0) {
     return []
@@ -207,18 +206,17 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
     select,
   } = options
 
-  // Fetch lessons from the course endpoint, which includes attached resources.
+  // Fetch lessons from dedicated endpoint so course structure is visible regardless of purchase.
   const lessonsQuery = useQuery({
     queryKey: lessonsQueryKeys.course(courseId),
     queryFn: async () => {
       if (!courseId) return []
-      const response = await fetch(`/api/courses/${courseId}`)
+      const response = await fetch(`/api/courses/${courseId}/lessons`)
       if (!response.ok) {
         throw new Error('Failed to fetch lessons')
       }
       const data = await response.json()
-      const courseData = data.course || data.data
-      const lessons = courseData?.lessons || []
+      const lessons = data.lessons || []
       logger.debug('Fetched lessons from API', { courseId, count: lessons.length })
       return lessons
     },
