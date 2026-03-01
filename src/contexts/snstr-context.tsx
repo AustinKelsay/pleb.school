@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { RelayPool, Filter, NostrEvent } from 'snstr';
 import nostrConfig from '../../config/nostr.json';
 import { DEFAULT_RELAYS } from '@/lib/nostr-relays';
@@ -55,7 +55,7 @@ export function SnstrProvider({ children, relays, relaySet = 'default' }: SnstrP
   }, [])
 
   // Simple subscribe method that uses the shared pool
-  const subscribe = async (
+  const subscribe = useCallback(async (
     filters: Filter[], 
     onEvent: (event: NostrEvent, relayUrl: string) => void,
     onEose?: () => void
@@ -66,20 +66,23 @@ export function SnstrProvider({ children, relays, relaySet = 'default' }: SnstrP
       onEvent,
       onEose || (() => {})
     );
-  };
+  }, [activeRelays]);
 
   // Simple publish method that uses the shared pool
-  const publish = async (event: NostrEvent) => {
+  const publish = useCallback(async (event: NostrEvent) => {
     const publishPromises = poolRef.current!.publish(activeRelays, event);
     return Promise.all(publishPromises);
-  };
+  }, [activeRelays]);
 
-  const contextValue: SnstrContextType = {
-    relayPool: poolRef.current,
-    relays: activeRelays,
-    subscribe,
-    publish
-  };
+  const contextValue: SnstrContextType = useMemo(
+    () => ({
+      relayPool: poolRef.current!,
+      relays: activeRelays,
+      subscribe,
+      publish
+    }),
+    [activeRelays, subscribe, publish]
+  );
 
   return (
     <SnstrContext.Provider value={contextValue}>

@@ -211,14 +211,15 @@ export function Header() {
   ])
 
   const loadAggregatedProfile = useCallback(async (): Promise<boolean> => {
-    if (!sessionUser?.id) {
+    const currentUserId = sessionUser?.id
+    if (!currentUserId) {
       return false
     }
     try {
       const response = await fetch("/api/profile/aggregated", { cache: "no-store" })
       if (!response.ok) return false
       const data = await response.json()
-      if (!isMountedRef.current) return false
+      if (!isMountedRef.current || lastSessionUserIdRef.current !== currentUserId) return false
 
       if (data?.image?.value) {
         setAvatarUrl(data.image.value as string)
@@ -260,9 +261,9 @@ export function Header() {
     }
 
     const shouldRefreshOnProfilePage = pathname?.startsWith("/profile")
-    const shouldBootstrapIdentity = !avatarUrl && !displayName
+    const missingAnyIdentity = !avatarUrl || !displayName
 
-    if (!shouldRefreshOnProfilePage && !shouldBootstrapIdentity) {
+    if (!shouldRefreshOnProfilePage && !missingAnyIdentity) {
       return
     }
 

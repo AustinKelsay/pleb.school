@@ -38,6 +38,7 @@ export interface ZapInsights {
 const MAX_STORED_ZAPS = 200;
 const MAX_RECENT_ZAPS = 200;
 const MAX_VIEWER_ZAPS = 200;
+const INITIAL_LOAD_TIMEOUT_MS = 8000;
 
 const NIP10_MARKERS = ['root', 'reply', 'mention'] as const;
 
@@ -218,7 +219,7 @@ export interface UseInteractionsOptions {
   realtime?: boolean;
   staleTime?: number;
   enabled?: boolean; // Allow manual control
-  elementRef?: React.RefObject<HTMLElement>; // For visibility tracking
+  elementRef?: React.RefObject<HTMLElement | null>; // For visibility tracking
   currentUserPubkey?: string; // Optional override for identifying viewer reactions
 }
 
@@ -245,7 +246,14 @@ export interface InteractionsQueryResult {
 }
 
 export function useInteractions(options: UseInteractionsOptions): InteractionsQueryResult {
-  const { eventId, eventATag, elementRef, enabled: manualEnabled = true, currentUserPubkey: explicitPubkey } = options;
+  const {
+    eventId,
+    eventATag,
+    elementRef,
+    enabled: manualEnabled = true,
+    currentUserPubkey: explicitPubkey,
+    realtime = true,
+  } = options;
   const { subscribe } = useSnstrContext();
   const { data: session } = useSession();
   const normalizedSessionPubkey = session?.user?.pubkey?.toLowerCase();
@@ -277,7 +285,8 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
   const seenLikesRef = useRef<Set<string>>(new Set());
   const seenCommentsRef = useRef<Set<string>>(new Set());
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadSettledRef = useRef(false);
   const zapSummariesRef = useRef<ZapReceiptSummary[]>([]);
   const zapSenderTotalsRef = useRef<Map<string, { totalMsats: number; lastZapAt: number }>>(new Map());
   const unknownZapCountRef = useRef(0);
@@ -289,6 +298,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
   const [viewerZapTotalSats, setViewerZapTotalSats] = useState(0);
   const currentUserPubkeyRef = useRef<string | null>(null);
   const viewerZapReceiptsRef = useRef<ZapReceiptSummary[]>([]);
+  const loadedSnapshotTargetRef = useRef<string | null>(null);
 
   const resetInteractionStorage = () => {
     zapsRef.current = [];
@@ -308,6 +318,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     setViewerZapReceipts([]);
     setHasZappedWithLightning(false);
     setViewerZapTotalSats(0);
+    initialLoadSettledRef.current = false;
   };
 
   useEffect(() => {
@@ -382,6 +393,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
   useEffect(() => {
     // Only subscribe if enabled, visible, and has valid eventId/aTag
     const hasTarget = Boolean((eventId && eventId.length === 64) || eventATag)
+    const targetKey = `${eventId ?? ""}|${eventATag ?? ""}`
     const shouldSubscribe = manualEnabled && isVisible && hasTarget;
     
     if (!shouldSubscribe) {
@@ -390,12 +402,13 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
         subscriptionRef.current.close();
         subscriptionRef.current = null;
       }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
+      if (initialLoadTimeoutRef.current) {
+        clearTimeout(initialLoadTimeoutRef.current);
+        initialLoadTimeoutRef.current = null;
       }
 
       if (!hasTarget) {
+        loadedSnapshotTargetRef.current = null;
         resetInteractionStorage();
         setInteractions({ zaps: 0, likes: 0, comments: 0, replies: 0, threadComments: 0 });
         setIsLoading(false);
@@ -411,6 +424,10 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
       return;
     }
 
+    if (!realtime && loadedSnapshotTargetRef.current === targetKey) {
+      return;
+    }
+
     resetInteractionStorage();
     setIsLoading(true);
     setIsLoadingZaps(true);
@@ -423,6 +440,27 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     zapsRef.current = [];
     likesRef.current = [];
     commentsRef.current = [];
+
+    const settleInitialLoad = (closeSubscription = false) => {
+      if (initialLoadSettledRef.current) {
+        return;
+      }
+      initialLoadSettledRef.current = true;
+      if (initialLoadTimeoutRef.current) {
+        clearTimeout(initialLoadTimeoutRef.current);
+        initialLoadTimeoutRef.current = null;
+      }
+      setIsLoadingZaps(false);
+      setIsLoadingLikes(false);
+      setIsLoadingComments(false);
+      setIsLoading(false);
+      loadedSnapshotTargetRef.current = targetKey;
+
+      if (closeSubscription && subscriptionRef.current) {
+        subscriptionRef.current.close();
+        subscriptionRef.current = null;
+      }
+    };
 
     const updateCounts = () => {
       // NIP-10 thread parsing: differentiate direct replies from nested thread comments
@@ -559,7 +597,8 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
                   seenLikesRef.current.add(eventIdKey);
                   likesRef.current.push(event);
                   setIsLoadingLikes(false);
-                  if (currentUserPubkey && event.pubkey?.toLowerCase() === currentUserPubkey) {
+                  const normalizedCurrent = currentUserPubkeyRef.current;
+                  if (normalizedCurrent && event.pubkey?.toLowerCase() === normalizedCurrent) {
                     setUserReactionEventId(eventIdKey);
                   }
                   updateCounts();
@@ -574,28 +613,25 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
                 }
                 break;
             }
+          },
+          () => {
+            settleInitialLoad(!realtime);
           }
         );
 
         subscriptionRef.current = subscription;
 
-        // Give subscription time to receive initial data
-        setTimeout(() => {
-          setIsLoadingZaps(false);
-          setIsLoadingLikes(false);
-          setIsLoadingComments(false);
-          setIsLoading(false);
-        }, 5000); // Wait 5 seconds for initial data
+        if (!realtime && initialLoadSettledRef.current) {
+          subscription.close();
+          subscriptionRef.current = null;
+          return;
+        }
 
-        // Dynamic timeout based on visibility
-        // If not visible for 30 seconds, close the subscription
-        if (!isVisible) {
-          timeoutRef.current = setTimeout(() => {
-            if (subscriptionRef.current && !isVisible) {
-              subscriptionRef.current.close();
-              subscriptionRef.current = null;
-            }
-          }, 30000);
+        // Safety timeout in case some relays never send EOSE.
+        if (!initialLoadSettledRef.current) {
+          initialLoadTimeoutRef.current = setTimeout(() => {
+            settleInitialLoad(!realtime);
+          }, INITIAL_LOAD_TIMEOUT_MS);
         }
 
       } catch (err) {
@@ -617,12 +653,12 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
         subscriptionRef.current.close();
         subscriptionRef.current = null;
       }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
+      if (initialLoadTimeoutRef.current) {
+        clearTimeout(initialLoadTimeoutRef.current);
+        initialLoadTimeoutRef.current = null;
       }
     };
-  }, [eventId, eventATag, subscribe, manualEnabled, isVisible, currentUserPubkey]);
+  }, [eventId, eventATag, subscribe, manualEnabled, isVisible, realtime]);
 
   const getDirectReplies = () => {
     return interactions.replies;
@@ -640,6 +676,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     }
     
     // Reset data
+    loadedSnapshotTargetRef.current = null;
     resetInteractionStorage();
     setInteractions({ zaps: 0, likes: 0, comments: 0, replies: 0, threadComments: 0 });
 

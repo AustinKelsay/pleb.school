@@ -10,6 +10,7 @@ const requestSchema = z.object({
   courseIds: z.array(z.string().min(1)).max(500).optional().default([]),
 })
 const MAX_TOTAL_UNIQUE_IDS = 500
+const NO_STORE_HEADERS = { "Cache-Control": "private, no-store" } as const
 
 type PurchaseSummary = {
   id: string
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json(emptyOverlayResponse(), {
-        headers: { "Cache-Control": "private, no-store" },
+        headers: NO_STORE_HEADERS,
       })
     }
 
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (!parsedBody.success) {
       return NextResponse.json(
         { error: "Invalid request payload", details: parsedBody.error.issues },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       )
     }
 
@@ -72,13 +73,13 @@ export async function POST(request: NextRequest) {
             },
           ],
         },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       )
     }
 
     if (resourceIds.length === 0 && courseIds.length === 0) {
       return NextResponse.json(emptyOverlayResponse(), {
-        headers: { "Cache-Control": "private, no-store" },
+        headers: NO_STORE_HEADERS,
       })
     }
 
@@ -115,13 +116,13 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(response, {
-      headers: { "Cache-Control": "private, no-store" },
+      headers: NO_STORE_HEADERS,
     })
   } catch (error) {
     console.error("Failed to fetch purchases overlay:", error)
     return NextResponse.json(
       { error: "Failed to fetch purchases overlay" },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     )
   }
 }

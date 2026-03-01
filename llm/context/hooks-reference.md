@@ -340,6 +340,11 @@ await search({
 
 Fetches zaps, comments, and likes for content.
 
+Notes:
+- Pass both `eventId` and `eventATag` when available so interactions that tag `#e` or `#a` are both counted.
+- `realtime: false` performs an initial relay snapshot and then closes the subscription at EOSE/timeout (lower fanout for list pages like home).
+- `elementRef` enables visibility-gated subscriptions for card grids/carousels.
+
 ```typescript
 import { useInteractions } from '@/hooks/useInteractions'
 
@@ -354,9 +359,9 @@ const {
   error
 } = useInteractions({
   eventId,
-  eventKind,
-  eventIdentifier,
-  eventPubkey
+  eventATag,
+  realtime: false,
+  elementRef: cardRef
 })
 ```
 
