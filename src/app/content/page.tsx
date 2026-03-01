@@ -30,6 +30,7 @@ import { isNip19String, tryDecodeNip19Entity } from "@/lib/nip19-utils"
 import { getRelays, type RelaySet } from "@/lib/nostr-relays"
 import { useContentConfig } from "@/hooks/useContentConfig"
 import { tagsToAdditionalLinks } from "@/lib/additional-links"
+import { getEventATag } from "@/lib/nostr-a-tag"
 
 const HEX_EVENT_ID_REGEX = /^[0-9a-f]{64}$/i
 
@@ -250,6 +251,7 @@ export default function ContentPage() {
           topics: course.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
           additionalLinks: tagsToAdditionalLinks(course.note?.tags, 'r'),
           noteId: course.note?.id || course.noteId,
+          noteATag: getEventATag(course.note),
           purchases: course.purchases,
         }
         allItems.push(courseItem)
@@ -282,6 +284,7 @@ export default function ContentPage() {
           topics: video.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
           additionalLinks: tagsToAdditionalLinks(video.note?.tags, 'r'),
           noteId: video.note?.id || video.noteId,
+          noteATag: getEventATag(video.note),
           purchases: video.purchases,
         }
         allItems.push(videoItem)
@@ -314,6 +317,7 @@ export default function ContentPage() {
           topics: document.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
           additionalLinks: tagsToAdditionalLinks(document.note?.tags, 'r'),
           noteId: document.note?.id || document.noteId,
+          noteATag: getEventATag(document.note),
           purchases: document.purchases,
         }
         allItems.push(documentItem)

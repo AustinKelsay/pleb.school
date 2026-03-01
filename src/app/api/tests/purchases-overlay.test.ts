@@ -57,6 +57,7 @@ describe("POST /api/purchases/overlay", () => {
     const body = await response.json()
 
     expect(response.status).toBe(400)
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store")
     expect(body.error).toBe("Invalid request payload")
     expect(mockFindByUserWithResourcesOrCourses).not.toHaveBeenCalled()
   })
@@ -81,6 +82,7 @@ describe("POST /api/purchases/overlay", () => {
     const body = await response.json()
 
     expect(response.status).toBe(400)
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store")
     expect(body.error).toBe("Invalid request payload")
     expect(mockFindByUserWithResourcesOrCourses).not.toHaveBeenCalled()
   })
@@ -95,8 +97,21 @@ describe("POST /api/purchases/overlay", () => {
     const body = await response.json()
 
     expect(response.status).toBe(400)
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store")
     expect(body.error).toBe("Invalid request payload")
     expect(mockFindByUserWithResourcesOrCourses).not.toHaveBeenCalled()
+  })
+
+  it("returns a private non-cacheable 500 response on adapter failures", async () => {
+    mockGetServerSession.mockResolvedValue({ user: { id: "user-1" } } as any)
+    mockFindByUserWithResourcesOrCourses.mockRejectedValue(new Error("db down"))
+
+    const response = await POST(createRequest({ resourceIds: ["r1"] }) as any)
+    const body = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store")
+    expect(body.error).toBe("Failed to fetch purchases overlay")
   })
 
   it("returns grouped purchases for requested resource/course IDs", async () => {

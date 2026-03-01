@@ -484,6 +484,8 @@ export interface ContentItem {
   additionalLinks: AdditionalLink[]
   // Nostr event ID for zapthreads integration
   noteId?: string
+  // Nostr addressable event reference (`kind:pubkey:d`) for interaction lookups
+  noteATag?: string
   // Search-related fields
   matchedFields?: ('title' | 'description' | 'content' | 'tags')[]
   purchases?: Array<{

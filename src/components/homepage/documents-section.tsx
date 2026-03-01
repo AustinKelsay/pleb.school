@@ -8,6 +8,7 @@ import { Section } from "@/components/layout";
 import { useHomepageSectionConfig } from "@/hooks/useContentConfig";
 import { applyContentFilters } from "@/lib/content-config";
 import { tagsToAdditionalLinks } from "@/lib/additional-links";
+import { getEventATag } from "@/lib/nostr-a-tag";
 
 /**
  * Client component for fetching and displaying document resources
@@ -151,6 +152,7 @@ function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
     topics: document.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
     additionalLinks: tagsToAdditionalLinks(document.note?.tags, 'r'),
     noteId: document.note?.id || document.noteId,
+    noteATag: getEventATag(document.note),
     purchases: document.purchases,
   };
 

@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { useSession } from '@/hooks/useSession'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -144,6 +145,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const { fetchProfile, normalizeKind0 } = useNostr()
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
   const [purchaseStatusOverride, setPurchaseStatusOverride] = useState<boolean | null>(null)
+  const { data: session } = useSession()
+  const sessionUserId = session?.user?.id ?? null
   const { course } = useCopy()
   
   const resolved = React.useMemo(() => resolveUniversalId(courseId), [courseId])
@@ -194,7 +197,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
 
   useEffect(() => {
     setPurchaseStatusOverride(null)
-  }, [resolvedCourseId])
+  }, [resolvedCourseId, sessionUserId])
 
   // useEffect must be called unconditionally before any early returns
   useEffect(() => {
