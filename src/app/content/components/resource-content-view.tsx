@@ -733,8 +733,6 @@ export function ResourceContentView({
         />
       )}
 
-      {courseCta && !showHero && courseCta}
-
       <div className="space-y-6">
         {locked ? (
           <>

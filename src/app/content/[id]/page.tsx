@@ -636,7 +636,8 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           </div>
 
           {/* Resource Content - Conditionally render preview or full content */}
-          <div className="flex justify-end">
+          <div className="flex justify-end items-center gap-2">
+            {!requiresPreviewGate && courseAccessCta}
             <Button variant="outline" size="sm" onClick={() => setIsFullWidth(prev => !prev)}>
               {isFullWidth ? (
                 <>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Section } from '@/components/layout/section'
-import { formatContentForDisplay, extractVideoBodyMarkdown } from '@/lib/content-utils'
+import { formatContentForDisplay, extractVideoBodyMarkdown, isLikelyEncryptedContent } from '@/lib/content-utils'
 import { parseCourseEvent, parseEvent } from '@/data/types'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
@@ -358,6 +358,8 @@ let courseInstructorPubkey = ''
   const formattedContent = formatContentForDisplay(content.content)
   const playbackUrl = resolveLessonVideoUrl(content.videoUrl, content.content, content.type)
   const videoBodyMarkdown = content.type === 'video' ? extractVideoBodyMarkdown(content.content) : ''
+  const hasEncryptedBody = isLikelyEncryptedContent(formattedContent)
+  const hasEncryptedVideoBody = isLikelyEncryptedContent(videoBodyMarkdown)
   
   // Use enhanced lesson displays from useLessonsQuery hook
   const currentLessonIndex = lessonDisplays.findIndex(l => 
@@ -490,12 +492,22 @@ let courseInstructorPubkey = ''
                 videoUrl={playbackUrl}
                 thumbnailUrl={resourceImage}
               />
-              {videoBodyMarkdown && (
+              {videoBodyMarkdown && !hasEncryptedVideoBody && (
                 <MarkdownRenderer content={videoBodyMarkdown} />
               )}
             </>
           ) : (
-            <MarkdownRenderer content={formattedContent} />
+            hasEncryptedBody ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">
+                    Lesson body is unavailable in this view.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <MarkdownRenderer content={formattedContent} />
+            )
           )}
         </div>
         

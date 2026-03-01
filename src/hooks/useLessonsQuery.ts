@@ -60,6 +60,43 @@ export interface UseLessonsQueryOptions {
   select?: (data: LessonWithResource[]) => LessonWithResource[]
 }
 
+function getKindPriority(kind: number): number {
+  if (kind === 30023) return 3
+  if (kind === 30402) return 2
+  if (kind === 30403) return 1
+  return 0
+}
+
+function selectPreferredNote(
+  existing: NostrEvent | undefined,
+  candidate: NostrEvent | undefined
+): NostrEvent | undefined {
+  if (!candidate) {
+    return existing
+  }
+
+  if (!existing) {
+    return candidate
+  }
+
+  if (candidate.created_at > existing.created_at) {
+    return candidate
+  }
+
+  if (candidate.created_at < existing.created_at) {
+    return existing
+  }
+
+  const candidatePriority = getKindPriority(candidate.kind)
+  const existingPriority = getKindPriority(existing.kind)
+
+  if (candidatePriority > existingPriority) {
+    return candidate
+  }
+
+  return existing
+}
+
 /**
  * Parse lesson title and metadata from Nostr resource note
  */
@@ -122,9 +159,9 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
     }
   })
 
-  // Collect all resource IDs that need Nostr notes fetched
+  // Collect all resource IDs so relays can refresh stale local note snapshots.
   const resourceIdsForNotes = resources
-    .filter((resource: ResourceWithNote) => resource.id && !resource.note)
+    .filter((resource: ResourceWithNote) => resource.id)
     .map((resource: ResourceWithNote) => resource.id)
 
   // Fetch missing notes in batch if any
@@ -144,14 +181,21 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
       notes.forEach(note => {
         const dTag = note.tags.find(tag => tag[0] === 'd')
         if (dTag && dTag[1]) {
-          notesMap.set(dTag[1], note)
+          const existing = notesMap.get(dTag[1])
+          const preferred = selectPreferredNote(existing, note)
+          if (preferred) {
+            notesMap.set(dTag[1], preferred)
+          }
         }
       })
       
       // Update resource notes
       resources.forEach((resource: ResourceWithNote) => {
-        if (resource.id && notesMap.has(resource.id)) {
-          resource.note = notesMap.get(resource.id)
+        if (resource.id) {
+          const latestNote = selectPreferredNote(resource.note, notesMap.get(resource.id))
+          if (latestNote) {
+            resource.note = latestNote
+          }
           resourcesMap.set(resource.id, resource)
         }
       })
@@ -252,7 +296,7 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
     const resource = baseResource
       ? {
           ...baseResource,
-          note: noteResult?.note ?? baseResource.note,
+          note: selectPreferredNote(baseResource.note, noteResult?.note),
           noteError: noteResult?.noteError ?? baseResource.noteError,
         }
       : undefined

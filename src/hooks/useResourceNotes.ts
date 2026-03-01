@@ -39,6 +39,40 @@ export interface UseResourceNotesOptions {
   retryDelay?: number
 }
 
+function getKindPriority(kind: number): number {
+  // Prefer canonical public content events over paid/draft variants when timestamps tie.
+  if (kind === 30023) return 3
+  if (kind === 30402) return 2
+  if (kind === 30403) return 1
+  return 0
+}
+
+function selectPreferredNote(
+  existing: NostrEvent | undefined,
+  candidate: NostrEvent
+): NostrEvent {
+  if (!existing) {
+    return candidate
+  }
+
+  if (candidate.created_at > existing.created_at) {
+    return candidate
+  }
+
+  if (candidate.created_at < existing.created_at) {
+    return existing
+  }
+
+  const candidatePriority = getKindPriority(candidate.kind)
+  const existingPriority = getKindPriority(existing.kind)
+
+  if (candidatePriority > existingPriority) {
+    return candidate
+  }
+
+  return existing
+}
+
 /**
  * Fetch resource notes in batch with deduplication
  * This is the core function that prevents redundant network requests
@@ -73,7 +107,8 @@ export async function fetchResourceNotesBatch(
     notes.forEach(note => {
       const dTag = note.tags.find(tag => tag[0] === "d")
       if (dTag && dTag[1]) {
-        notesMap.set(dTag[1], note)
+        const existing = notesMap.get(dTag[1])
+        notesMap.set(dTag[1], selectPreferredNote(existing, note))
       }
     })
 
