@@ -124,9 +124,6 @@ export function getCourseViewerKey(
   if (status === "authenticated") {
     return userId ?? "authenticated"
   }
-  if (status === "loading") {
-    return "loading"
-  }
   return "anonymous"
 }
 
@@ -445,12 +442,7 @@ export async function fetchCourseWithLessons(courseId: string, relayPool: RelayP
 export function useCourseQuery(courseId: string, options: UseCourseQueryOptions = {}): CourseQueryResult {
   const { relayPool, relays } = useSnstrContext()
   const { data: session, status } = useSession()
-  const viewerKey =
-    status === 'authenticated'
-      ? session?.user?.id ?? 'authenticated'
-      : status === 'loading'
-        ? 'loading'
-        : 'anonymous'
+  const viewerKey = getCourseViewerKey(status, session?.user?.id)
   
   const {
     enabled = true,
