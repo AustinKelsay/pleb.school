@@ -5,24 +5,28 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { useSnstrContext } from '@/contexts/snstr-context'
-import { Lesson, Resource } from '@/data/types'
-import { useResourceNotes } from './useResourceNotes'
 import { NostrEvent, RelayPool } from 'snstr'
+
+import { useSnstrContext } from '@/contexts/snstr-context'
+import { Lesson } from '@/data/types'
 import logger from '@/lib/logger'
 
-// Types for enhanced lesson data with resource information
-export interface ResourceWithNote extends Resource {
-  note?: NostrEvent
-  noteError?: string
-}
+import type {
+  LessonWithResource as CourseLessonWithResource,
+  ResourceWithNote,
+} from './useCoursesQuery'
+import { useResourceNotes } from './useResourceNotes'
 
-export interface LessonWithResource extends Lesson {
-  resource?: ResourceWithNote
+// Types for enhanced lesson data with resource information
+export interface LessonWithResource extends CourseLessonWithResource {
   title?: string
   description?: string
   type?: string
   isPremium?: boolean
+}
+
+interface LessonFromAPI extends Lesson {
+  resource?: ResourceWithNote
 }
 
 export interface LessonsQueryResult {
@@ -110,7 +114,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
   
   // Create a map of resources by ID for quick lookup
   const resources = lessons
-    .map((lesson: any) => lesson.resource)
+    .map((lesson: LessonFromAPI) => lesson.resource)
     .filter((resource: unknown): resource is ResourceWithNote => Boolean(resource && typeof resource === 'object'))
   const resourcesMap = new Map<string, ResourceWithNote>()
   resources.forEach((resource: ResourceWithNote) => {
@@ -153,7 +157,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
         }
       })
     } catch (error) {
-      console.error('Failed to fetch lesson resource notes from real Nostr:', error)
+      logger.error('Failed to fetch lesson resource notes from real Nostr', error)
       resources.forEach((resource: ResourceWithNote) => {
         if (resource.id && !resource.note) {
           resource.noteError = error instanceof Error ? error.message : 'Failed to fetch note'
@@ -164,7 +168,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
   }
 
   // Combine lessons with their resources and parse metadata
-  const lessonsWithResources: LessonWithResource[] = lessons.map((lesson: any) => {
+  const lessonsWithResources: LessonWithResource[] = lessons.map((lesson: LessonFromAPI) => {
     const resource = lesson.resourceId ? resourcesMap.get(lesson.resourceId) : undefined
     const parsedData = parseLessonFromNote(resource?.note)
     
@@ -185,7 +189,7 @@ async function fetchLessonsForCourse(courseId: string, relayPool: RelayPool, rel
   })
 
   // Return lessons sorted by index (already sorted from DB, but ensure consistency)
-  return lessonsWithResources.sort((a, b) => a.index - b.index)
+  return [...lessonsWithResources].sort((a, b) => a.index - b.index)
 }
 
 /**
@@ -229,7 +233,7 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
 
   // Extract resource IDs from lessons
   const resourceIds = (lessonsQuery.data || [])
-    .map((lesson: any) => lesson.resource?.id)
+    .map((lesson: LessonFromAPI) => lesson.resource?.id)
     .filter((resourceId: unknown): resourceId is string => typeof resourceId === 'string')
 
   // Fetch notes using unified hook (this provides deduplication)
@@ -244,7 +248,7 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
   })
 
   // Combine lessons with their resources and parsed metadata
-  const lessonsWithResources: LessonWithResource[] = (lessonsQuery.data || []).map((lesson: any) => {
+  const lessonsWithResources: LessonWithResource[] = (lessonsQuery.data || []).map((lesson: LessonFromAPI) => {
     const baseResource = lesson.resource as ResourceWithNote | undefined
     const noteResult = baseResource?.id ? notesQuery.notes.get(baseResource.id) : undefined
     const resource = baseResource
@@ -273,7 +277,7 @@ export function useLessonsQuery(courseId: string, options: UseLessonsQueryOption
   })
 
   // Sort lessons by index
-  const sortedLessons = lessonsWithResources.sort((a, b) => a.index - b.index)
+  const sortedLessons = [...lessonsWithResources].sort((a, b) => a.index - b.index)
 
   // Apply select transformation if provided
   const finalData = select ? select(sortedLessons) : sortedLessons

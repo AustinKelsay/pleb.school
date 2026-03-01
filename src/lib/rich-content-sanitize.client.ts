@@ -17,7 +17,7 @@ export function sanitizeRichContent(content: string): string {
     ],
     ALLOWED_ATTR: [
       "class", "id",
-      "href", "target", "rel",
+      "href", "rel",
       "src", "alt", "title", "width", "height",
       "controls",
       "frameborder", "allowfullscreen", "allow", "loading",

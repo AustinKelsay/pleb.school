@@ -45,8 +45,8 @@ export const resourcesListQueryKeys = {
 
 export async function fetchResourcesList(options?: ResourcePaginationOptions): Promise<ResourcesListResult> {
   const queryParams = new URLSearchParams()
-  if (options?.page) queryParams.append("page", options.page.toString())
-  if (options?.pageSize) queryParams.append("pageSize", options.pageSize.toString())
+  if (options?.page !== undefined) queryParams.append("page", options.page.toString())
+  if (options?.pageSize !== undefined) queryParams.append("pageSize", options.pageSize.toString())
   if (options?.includeLessonResources) {
     queryParams.append("includeLessonResources", "true")
   }
@@ -79,12 +79,19 @@ export function useResourcesListQuery(options: UseResourcesListQueryOptions = {}
     pageSize,
     includeLessonResources = false,
   } = options
+  const hasPagination = page !== undefined || pageSize !== undefined
+  const canonicalPage = page !== undefined ? page : 1
+  const canonicalPageSize = pageSize !== undefined ? pageSize : 50
 
   const resourcesQuery = useQuery({
-    queryKey: page !== undefined || pageSize !== undefined
-      ? resourcesListQueryKeys.listPaginated(page || 1, pageSize || 50, includeLessonResources)
+    queryKey: hasPagination
+      ? resourcesListQueryKeys.listPaginated(canonicalPage, canonicalPageSize, includeLessonResources)
       : resourcesListQueryKeys.list(includeLessonResources),
-    queryFn: () => fetchResourcesList({ page, pageSize, includeLessonResources }),
+    queryFn: () => fetchResourcesList({
+      page: hasPagination ? canonicalPage : undefined,
+      pageSize: hasPagination ? canonicalPageSize : undefined,
+      includeLessonResources,
+    }),
     enabled,
     staleTime,
     gcTime,

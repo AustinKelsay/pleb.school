@@ -514,10 +514,7 @@ export function useCoursesQuery(options: UseCoursesQueryOptions = {}): CoursesQu
     isError: query.isError,
     error: query.error,
     pagination: query.data?.pagination,
-    refetch: () => {
-      query.refetch()
-      purchasesOverlay.refetch()
-    },
+    refetch: () =>
+      Promise.all([query.refetch(), purchasesOverlay.refetch()]),
   }
 }
-

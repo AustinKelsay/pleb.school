@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResourceAdapter } from '@/lib/db-adapter'
+import { parseOptionalPositiveInt } from '@/lib/api-utils'
 
 const PUBLIC_LIST_CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=300'
 
@@ -13,15 +14,6 @@ export async function GET(request: NextRequest) {
     // to preserve the original standalone library behaviour.
     const includeLessonResourcesParam = searchParams.get('includeLessonResources')
     const includeLessonResources = includeLessonResourcesParam === 'true' || includeLessonResourcesParam === '1'
-
-    const parseOptionalPositiveInt = (value: string | null) => {
-      if (value === null) return undefined
-      const parsed = Number.parseInt(value, 10)
-      if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed <= 0) {
-        return null
-      }
-      return parsed
-    }
 
     const parsedPage = parseOptionalPositiveInt(page)
     if (parsedPage === null) {

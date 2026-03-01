@@ -10,7 +10,7 @@ interface RouteScopedSnstrProviderProps {
   children: ReactNode
 }
 
-export function RouteScopedSnstrProvider({ children }: RouteScopedSnstrProviderProps) {
+export const RouteScopedSnstrProvider = ({ children }: RouteScopedSnstrProviderProps) => {
   const pathname = usePathname()
 
   if (!shouldEnableSnstrForPathname(pathname)) {

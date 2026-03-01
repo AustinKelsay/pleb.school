@@ -152,6 +152,15 @@ export function validateSearchParams<T>(
   return validateRequest(schema, data)
 }
 
+export function parseOptionalPositiveInt(value: string | null): number | null | undefined {
+  if (value === null) return undefined
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null
+  }
+  return parsed
+}
+
 // ============================================================================
 // ERROR HANDLING
 // ============================================================================

@@ -198,8 +198,8 @@ The verification page is implemented at `src/app/verify-email/page.tsx` and post
 
 ### Real-Time Identity Refresh
 
-- `src/lib/profile-events.ts` exports `PROFILE_UPDATED_EVENT`; client components dispatch it after link/unlink or profile edits.
-- The header (`src/components/layout/header.tsx`) listens for that event and refreshes `/api/profile/aggregated` to update cached avatar/display name.
+- `src/lib/profile-events.ts` exports `PROFILE_UPDATED_EVENT` (`"profile:updated"`); client components dispatch this constant after link/unlink or profile edits.
+- The header (`src/components/layout/header.tsx`) listens for `PROFILE_UPDATED_EVENT` (`"profile:updated"`) and refreshes `/api/profile/aggregated` to update cached avatar/display name.
 - `LinkedAccountsManager` and `ProfileEditForms` call `dispatchProfileUpdatedEvent` to keep UI components in sync without full-page reloads.
 
 **Note:** This uses DOM custom events which only propagate within a single browser tab. Other open tabs will see updated data on their next page load or mount, but won't receive real-time updates. Cross-tab sync (via `BroadcastChannel` or `storage` events) is not currently implemented.

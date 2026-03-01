@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { CourseAdapter } from '@/lib/db-adapter'
+import { parseOptionalPositiveInt } from '@/lib/api-utils'
 
 const PUBLIC_LIST_CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=300'
 
@@ -9,15 +10,6 @@ export async function GET(request: NextRequest) {
     const page = searchParams.get('page')
     const pageSize = searchParams.get('pageSize')
     
-    const parseOptionalPositiveInt = (value: string | null) => {
-      if (value === null) return undefined
-      const parsed = Number.parseInt(value, 10)
-      if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed <= 0) {
-        return null
-      }
-      return parsed
-    }
-
     const parsedPage = parseOptionalPositiveInt(page)
     if (parsedPage === null) {
       return NextResponse.json(
@@ -40,7 +32,10 @@ export async function GET(request: NextRequest) {
         pageSize: parsedPageSize
       })
       return NextResponse.json(
-        result,
+        {
+          data: result.data,
+          pagination: result.pagination,
+        },
         {
           headers: {
             'Cache-Control': PUBLIC_LIST_CACHE_CONTROL,

@@ -11,9 +11,11 @@ describe("shouldEnableSnstrForPathname", () => {
   })
 
   it("disables Snstr across auth routes", () => {
+    expect(shouldEnableSnstrForPathname("/auth")).toBe(false)
     expect(shouldEnableSnstrForPathname("/auth/signin")).toBe(false)
     expect(shouldEnableSnstrForPathname("/auth/error")).toBe(false)
     expect(shouldEnableSnstrForPathname("/auth/verify-request")).toBe(false)
+    expect(shouldEnableSnstrForPathname("/authentic")).toBe(true)
   })
 
   it("keeps Snstr enabled for content-facing routes", () => {

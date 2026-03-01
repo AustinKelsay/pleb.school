@@ -29,4 +29,12 @@ describe("sanitizeRichContent", () => {
     expect(result).toContain("<video")
     expect(result).toContain("controls")
   })
+
+  it("strips target attributes from links", () => {
+    const input = '<a href="https://example.com" target="_blank">Link</a>'
+    const result = sanitizeRichContent(input)
+    expect(result).toContain("<a")
+    expect(result).toContain('href="https://example.com"')
+    expect(result).not.toContain("target=")
+  })
 })
