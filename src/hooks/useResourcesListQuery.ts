@@ -102,8 +102,9 @@ export function useResourcesListQuery(options: UseResourcesListQueryOptions = {}
   })
 
   const resourceIds = resourcesQuery.data?.resources.map((resource) => resource.id) ?? []
+  const overlayEnabled = enabled && resourceIds.length > 0
   const purchasesOverlay = useViewerPurchasesOverlay({
-    enabled: enabled && resourceIds.length > 0,
+    enabled: overlayEnabled,
     resourceIds,
   })
 
@@ -130,7 +131,16 @@ export function useResourcesListQuery(options: UseResourcesListQueryOptions = {}
     isError,
     error,
     data: mergedData,
-    refetch: () =>
-      Promise.all([resourcesQuery.refetch(), purchasesOverlay.refetch()]),
+    refetch: async () => {
+      const resourcesResult = await resourcesQuery.refetch()
+      const latestResourceIds = resourcesResult.data?.resources.map((resource) => resource.id) ?? []
+      const latestOverlayEnabled = enabled && latestResourceIds.length > 0
+
+      if (latestOverlayEnabled) {
+        await purchasesOverlay.refetch()
+      }
+
+      return resourcesResult
+    },
   }
 }

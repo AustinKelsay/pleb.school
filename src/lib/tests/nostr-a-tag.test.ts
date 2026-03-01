@@ -23,6 +23,24 @@ describe("getEventATag", () => {
     expect(getEventATag(event)).toBeUndefined()
   })
 
+  it("accepts kind 30000 and rejects kinds outside 30000-39999", () => {
+    expect(
+      getEventATag({
+        kind: 30000,
+        pubkey: "ABCDEF",
+        tags: [["d", "course-1"]],
+      } as any)
+    ).toBe("30000:abcdef:course-1")
+
+    expect(
+      getEventATag({
+        kind: 40000,
+        pubkey: "abcdef",
+        tags: [["d", "not-addressable"]],
+      } as any)
+    ).toBeUndefined()
+  })
+
   it("returns undefined when d-tag or pubkey is missing", () => {
     expect(
       getEventATag({
