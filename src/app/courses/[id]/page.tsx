@@ -3,14 +3,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { encodePublicKey } from 'snstr'
-import {
-  BookOpen,
-  Play,
-  Tag,
-  ExternalLink
-} from 'lucide-react'
-
 import { useSession } from '@/hooks/useSession'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -22,21 +14,29 @@ import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, type LessonWithResource } from '@/hooks/useLessonsQuery'
 import { parseCourseEvent } from '@/data/types'
+import { encodePublicKey } from 'snstr'
 import { useCopy, getCopy } from '@/lib/copy'
 import { ZapThreads } from '@/components/ui/zap-threads'
 import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { useInteractions } from '@/hooks/useInteractions'
 import { preserveLineBreaks } from '@/lib/text-utils'
 import { resolveUniversalId } from '@/lib/universal-router'
+import {
+  BookOpen,
+  Play,
+  Tag,
+  ExternalLink
+} from 'lucide-react'
 import { getCourseIcon } from '@/lib/copy-icons'
+
+const EducationIcon = getCourseIcon('education')
+
 import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseActions } from '@/components/purchase/purchase-actions'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { AdditionalLinksList } from '@/components/ui/additional-links-card'
 import type { AdditionalLink } from '@/types/additional-links'
-
-const EducationIcon = getCourseIcon('education')
 
 interface CoursePageProps {
   params: {
@@ -307,7 +307,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   let parsedCourseNote: ReturnType<typeof parseCourseEvent> | null = null
 
   // Start with database data (minimal Course type)
-  const hasDbPrice = Number.isFinite(courseData.price)
+  const hasDbPrice = typeof courseData.price === 'number' && !Number.isNaN(courseData.price)
   isPremium = hasDbPrice ? (courseData.price ?? 0) > 0 : false
   const dbPrice = hasDbPrice ? courseData.price ?? 0 : null
   let nostrPrice = 0
@@ -336,19 +336,18 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     }
   }
 
-  const serverPrice = Number.isFinite(courseData?.price) ? courseData.price : null
-  const safeNostrPrice = Number.isFinite(nostrPrice) ? nostrPrice : null
-  const candidatePriceUsed = serverPrice ?? dbPrice ?? safeNostrPrice
-  const priceUsed = Number.isFinite(candidatePriceUsed) ? candidatePriceUsed : null
-  const hasValidPriceUsed = typeof priceUsed === 'number' && Number.isFinite(priceUsed)
-  const purchasedFromCourseData = Array.isArray(courseData?.purchases) && hasValidPriceUsed
+  const serverPrice = typeof courseData?.price === 'number' ? courseData.price : null
+  const priceUsed =
+    serverPrice ??
+    dbPrice ??
+    (typeof nostrPrice === 'number' && Number.isFinite(nostrPrice) ? nostrPrice : null)
+  const purchasedFromCourseData = Array.isArray(courseData?.purchases) && typeof priceUsed === 'number'
     ? courseData.purchases.some((purchase: any) => {
         const snapshot = purchase?.priceAtPurchase
         const snapshotValid =
           snapshot !== null &&
           snapshot !== undefined &&
           typeof snapshot === 'number' &&
-          Number.isFinite(snapshot) &&
           snapshot >= 0
         const required = snapshotValid
           ? Math.min(snapshot, priceUsed)
@@ -357,7 +356,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
       })
     : false
   const serverPurchased = purchaseStatusOverride ?? purchasedFromCourseData
-  const priceSats = hasValidPriceUsed ? priceUsed : 0
+  const priceSats = priceUsed ?? 0
   isPremium = priceSats > 0
 
   const instructor = instructorProfile?.name || 
