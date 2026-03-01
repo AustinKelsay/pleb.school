@@ -334,7 +334,11 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   }
 
   const serverPrice = typeof courseData?.price === 'number' ? courseData.price : null
-  const purchasedFromCourseData = Array.isArray(courseData?.purchases) && typeof courseData?.price === 'number'
+  const priceUsed =
+    serverPrice ??
+    dbPrice ??
+    (typeof nostrPrice === 'number' && Number.isFinite(nostrPrice) ? nostrPrice : null)
+  const purchasedFromCourseData = Array.isArray(courseData?.purchases) && typeof priceUsed === 'number'
     ? courseData.purchases.some((purchase: any) => {
         const snapshot = purchase?.priceAtPurchase
         const snapshotValid =
@@ -343,14 +347,13 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           typeof snapshot === 'number' &&
           snapshot >= 0
         const required = snapshotValid
-          ? Math.min(snapshot, serverPrice ?? 0)
-          : (serverPrice ?? 0)
+          ? Math.min(snapshot, priceUsed)
+          : priceUsed
         return (purchase?.amountPaid ?? 0) >= (required ?? 0)
       })
     : false
   const serverPurchased = purchaseStatusOverride ?? purchasedFromCourseData
-  const priceSats =
-    serverPrice ?? dbPrice ?? nostrPrice ?? 0
+  const priceSats = priceUsed ?? 0
   isPremium = priceSats > 0
 
   const instructor = instructorProfile?.name || 

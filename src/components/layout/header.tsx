@@ -322,7 +322,7 @@ export function Header() {
           } catch {}
         }
       }
-      loadAggregatedProfile()
+      void loadAggregatedProfile()
     }
     window.addEventListener(PROFILE_UPDATED_EVENT, handler)
     return () => {

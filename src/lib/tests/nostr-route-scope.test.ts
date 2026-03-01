@@ -5,6 +5,7 @@ import { shouldEnableSnstrForPathname } from "@/lib/nostr-route-scope"
 describe("shouldEnableSnstrForPathname", () => {
   it("disables Snstr on explicitly non-Nostr pages", () => {
     expect(shouldEnableSnstrForPathname("/about")).toBe(false)
+    expect(shouldEnableSnstrForPathname("/about/")).toBe(false)
     expect(shouldEnableSnstrForPathname("/feeds")).toBe(false)
     expect(shouldEnableSnstrForPathname("/subscribe")).toBe(false)
     expect(shouldEnableSnstrForPathname("/verify-email")).toBe(false)

@@ -9,6 +9,7 @@ const requestSchema = z.object({
   resourceIds: z.array(z.string().min(1)).max(500).optional().default([]),
   courseIds: z.array(z.string().min(1)).max(500).optional().default([]),
 })
+const MAX_TOTAL_UNIQUE_IDS = 500
 
 type PurchaseSummary = {
   id: string
@@ -59,6 +60,21 @@ export async function POST(request: NextRequest) {
 
     const resourceIds = uniqueNonEmptyIds(parsedBody.data.resourceIds)
     const courseIds = uniqueNonEmptyIds(parsedBody.data.courseIds)
+    const totalLookupIds = resourceIds.length + courseIds.length
+    if (totalLookupIds > MAX_TOTAL_UNIQUE_IDS) {
+      return NextResponse.json(
+        {
+          error: "Invalid request payload",
+          details: [
+            {
+              message: `Combined unique IDs exceed limit of ${MAX_TOTAL_UNIQUE_IDS}`,
+              path: ["resourceIds", "courseIds"],
+            },
+          ],
+        },
+        { status: 400 }
+      )
+    }
 
     if (resourceIds.length === 0 && courseIds.length === 0) {
       return NextResponse.json(emptyOverlayResponse(), {

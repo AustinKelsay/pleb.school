@@ -72,6 +72,33 @@ describe("POST /api/purchases/overlay", () => {
     expect(mockFindByUserWithResourcesOrCourses).not.toHaveBeenCalled()
   })
 
+  it("returns 400 when combined unique IDs exceed the shared limit", async () => {
+    mockGetServerSession.mockResolvedValue({ user: { id: "user-1" } } as any)
+    const resourceIds = Array.from({ length: 300 }, (_, index) => `r-${index}`)
+    const courseIds = Array.from({ length: 250 }, (_, index) => `c-${index}`)
+
+    const response = await POST(createRequest({ resourceIds, courseIds }) as any)
+    const body = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(body.error).toBe("Invalid request payload")
+    expect(mockFindByUserWithResourcesOrCourses).not.toHaveBeenCalled()
+  })
+
+  it("returns 400 when resource and course arrays overlap but total lookup IDs exceed limit", async () => {
+    mockGetServerSession.mockResolvedValue({ user: { id: "user-1" } } as any)
+    const overlappingIds = Array.from({ length: 500 }, (_, index) => `id-${index}`)
+
+    const response = await POST(
+      createRequest({ resourceIds: overlappingIds, courseIds: overlappingIds }) as any
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(body.error).toBe("Invalid request payload")
+    expect(mockFindByUserWithResourcesOrCourses).not.toHaveBeenCalled()
+  })
+
   it("returns grouped purchases for requested resource/course IDs", async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: "user-1" } } as any)
     mockFindByUserWithResourcesOrCourses.mockResolvedValue([

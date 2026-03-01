@@ -45,4 +45,5 @@ next-env.d.ts
 /src/generated/
 
 # local scripts
-/scripts/
+/scripts/local/
+/scripts/*.local.*

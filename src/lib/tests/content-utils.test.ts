@@ -180,6 +180,11 @@ describe("isLikelyEncryptedContent", () => {
     expect(isLikelyEncryptedContent("")).toBe(false)
   })
 
+  it("returns false for nullish runtime inputs", () => {
+    expect(isLikelyEncryptedContent(null as unknown as string)).toBe(false)
+    expect(isLikelyEncryptedContent(undefined as unknown as string)).toBe(false)
+  })
+
   it("returns false for all-whitespace input", () => {
     expect(isLikelyEncryptedContent("   \n\t  ")).toBe(false)
   })
@@ -187,6 +192,7 @@ describe("isLikelyEncryptedContent", () => {
   it("returns false for very short base64-like strings", () => {
     expect(isLikelyEncryptedContent("abc")).toBe(false)
     expect(isLikelyEncryptedContent("Q2lw")).toBe(false)
+    expect(isLikelyEncryptedContent("Q2lwaGVydA==".repeat(7))).toBe(false)
   })
 
   it("returns false for long base64-like strings containing newlines", () => {

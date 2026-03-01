@@ -156,8 +156,11 @@ export const PUBLIC_LIST_CACHE_CONTROL = 'public, s-maxage=60, stale-while-reval
 
 export function parseOptionalPositiveInt(value: string | null): number | null | undefined {
   if (value === null) return undefined
-  const parsed = Number.parseInt(value, 10)
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    return null
+  }
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
     return null
   }
   return parsed
