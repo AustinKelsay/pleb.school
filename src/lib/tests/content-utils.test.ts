@@ -15,6 +15,7 @@ import {
   extractPlainText,
   formatContentForDisplay,
   extractVideoBodyMarkdown,
+  isLikelyEncryptedContent,
 } from "../content-utils"
 
 describe("sanitizeContent", () => {
@@ -236,5 +237,32 @@ describe("extractVideoBodyMarkdown", () => {
     const input = "# Just a Title"
     const result = extractVideoBodyMarkdown(input)
     expect(result).toBe("")
+  })
+})
+
+describe("isLikelyEncryptedContent", () => {
+  it("detects NIP-04 style payloads", () => {
+    const ciphertext = "Q2lwaGVyVGV4dFBheWxvYWQ=?iv=QmFzZTY0SW5pdFZlY3Rvcg=="
+    expect(isLikelyEncryptedContent(ciphertext)).toBe(true)
+  })
+
+  it("detects version-prefixed compact payloads", () => {
+    const payload = "v2:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+    expect(isLikelyEncryptedContent(payload)).toBe(true)
+  })
+
+  it("detects long base64-like single-line payloads", () => {
+    const payload = "Q2lwaGVydGV4dA==".repeat(10)
+    expect(isLikelyEncryptedContent(payload)).toBe(true)
+  })
+
+  it("does not flag regular markdown", () => {
+    const markdown = "# Lesson\n\nThis is readable markdown body content."
+    expect(isLikelyEncryptedContent(markdown)).toBe(false)
+  })
+
+  it("does not flag normal URLs or html", () => {
+    expect(isLikelyEncryptedContent("https://example.com/watch?v=123")).toBe(false)
+    expect(isLikelyEncryptedContent("<div>Visible content</div>")).toBe(false)
   })
 })

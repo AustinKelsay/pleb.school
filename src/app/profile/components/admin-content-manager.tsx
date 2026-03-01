@@ -41,7 +41,7 @@ import {
 import DraftsClient from '@/app/drafts/drafts-client'
 import { getNoteImage } from '@/lib/note-image'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
-import { extractVideoBodyMarkdown } from '@/lib/content-utils'
+import { extractVideoBodyMarkdown, isLikelyEncryptedContent } from '@/lib/content-utils'
 import { EditPublishedResourceDialog, type ResourceEditData } from './edit-published-resource-dialog'
 import { EditPublishedCourseDialog, type CourseEditData } from './edit-published-course-dialog'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
@@ -226,10 +226,12 @@ function buildResourceEditData(item: PublishedResourceItem): ResourceEditData {
 
   const additionalLinks = normalizeAdditionalLinks(parsed?.additionalLinks ?? [])
 
+  const parsedContent = parsed?.content ?? ''
   const content =
     item.type === 'video'
-      ? extractVideoBodyMarkdown(parsed?.content ?? '')
-      : parsed?.content ?? ''
+      ? extractVideoBodyMarkdown(parsedContent)
+      : parsedContent
+  const hasEncryptedContent = isLikelyEncryptedContent(content)
 
   const videoUrl =
     item.type === 'video'
@@ -244,7 +246,9 @@ function buildResourceEditData(item: PublishedResourceItem): ResourceEditData {
     id: item.id,
     title,
     summary,
-    content: content ?? '',
+    content: hasEncryptedContent ? '' : content ?? '',
+    originalContent: content ?? '',
+    hasEncryptedContent,
     price: item.price,
     image: image ?? undefined,
     topics,
