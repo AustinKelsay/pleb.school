@@ -445,7 +445,12 @@ export async function fetchCourseWithLessons(courseId: string, relayPool: RelayP
 export function useCourseQuery(courseId: string, options: UseCourseQueryOptions = {}): CourseQueryResult {
   const { relayPool, relays } = useSnstrContext()
   const { data: session, status } = useSession()
-  const viewerKey = getCourseViewerKey(status, session?.user?.id)
+  const viewerKey =
+    status === 'authenticated'
+      ? session?.user?.id ?? 'authenticated'
+      : status === 'loading'
+        ? 'loading'
+        : 'anonymous'
   
   const {
     enabled = true,
