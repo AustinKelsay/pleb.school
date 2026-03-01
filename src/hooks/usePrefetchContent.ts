@@ -6,7 +6,8 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSnstrContext } from '@/contexts/snstr-context'
-import { fetchCoursesWithNotes, coursesQueryKeys } from './useCoursesQuery'
+import { useSession } from '@/hooks/useSession'
+import { fetchCoursesWithNotes, coursesQueryKeys, getCourseViewerKey } from './useCoursesQuery'
 import { fetchResourcesList, resourcesListQueryKeys } from './useResourcesListQuery'
 import logger from '@/lib/logger'
 
@@ -88,6 +89,8 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
 export function usePrefetchCourse(courseId: string | undefined) {
   const queryClient = useQueryClient()
   const { relayPool, relays } = useSnstrContext()
+  const { data: session, status } = useSession()
+  const viewerKey = getCourseViewerKey(status, session?.user?.id)
 
   useEffect(() => {
     if (!courseId) return
@@ -96,7 +99,7 @@ export function usePrefetchCourse(courseId: string | undefined) {
       const { fetchCourseWithLessons, coursesQueryKeys } = await import('./useCoursesQuery')
       
       await queryClient.prefetchQuery({
-        queryKey: coursesQueryKeys.detail(courseId),
+        queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
         queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
         staleTime: 10 * 60 * 1000, // 10 minutes
       })
@@ -105,5 +108,5 @@ export function usePrefetchCourse(courseId: string | undefined) {
     prefetch().catch(() => {
       // Silently fail - prefetching errors shouldn't affect the user experience
     })
-  }, [courseId, queryClient, relayPool, relays])
+  }, [courseId, queryClient, relayPool, relays, viewerKey])
 }
