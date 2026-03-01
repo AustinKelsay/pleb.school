@@ -6,16 +6,18 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSnstrContext } from '@/contexts/snstr-context'
-import { fetchCoursesWithNotes, coursesQueryKeys } from './useCoursesQuery'
-import { fetchResourceNotesBatch, resourceNotesQueryKeys } from './useResourceNotes'
-import { fetchVideoResources, videosQueryKeys } from './useVideosQuery'
-import { fetchDocumentResources, documentsQueryKeys } from './useDocumentsQuery'
+import { useSession } from '@/hooks/useSession'
+import { fetchCoursesWithNotes, coursesQueryKeys, getCourseViewerKey } from './useCoursesQuery'
+import { fetchResourcesList, resourcesListQueryKeys } from './useResourcesListQuery'
 import logger from '@/lib/logger'
 
 interface UsePrefetchContentOptions {
   enabled?: boolean
   prefetchCourses?: boolean
+  prefetchResources?: boolean
+  /** @deprecated Use prefetchResources instead. */
   prefetchVideos?: boolean
+  /** @deprecated Use prefetchResources instead. */
   prefetchDocuments?: boolean
 }
 
@@ -27,9 +29,11 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
   const {
     enabled = true,
     prefetchCourses = true,
+    prefetchResources,
     prefetchVideos = true,
     prefetchDocuments = true,
   } = options
+  const shouldPrefetchResources = prefetchResources ?? (prefetchVideos || prefetchDocuments)
 
   const queryClient = useQueryClient()
   const { relayPool, relays } = useSnstrContext()
@@ -51,23 +55,12 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
         )
       }
 
-      // Prefetch video resources
-      if (prefetchVideos) {
+      // Prefetch the shared resource list once for resource sections.
+      if (shouldPrefetchResources) {
         promises.push(
           queryClient.prefetchQuery({
-            queryKey: videosQueryKeys.lists(),
-            queryFn: () => fetchVideoResources(),
-            staleTime: 10 * 60 * 1000, // 10 minutes
-          })
-        )
-      }
-
-      // Prefetch document resources
-      if (prefetchDocuments) {
-        promises.push(
-          queryClient.prefetchQuery({
-            queryKey: documentsQueryKeys.lists(),
-            queryFn: () => fetchDocumentResources(),
+            queryKey: resourcesListQueryKeys.list(false),
+            queryFn: () => fetchResourcesList(),
             staleTime: 10 * 60 * 1000, // 10 minutes
           })
         )
@@ -86,7 +79,7 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
     const timeoutId = setTimeout(prefetchData, 1000)
 
     return () => clearTimeout(timeoutId)
-  }, [enabled, prefetchCourses, prefetchVideos, prefetchDocuments, queryClient, relayPool, relays])
+  }, [enabled, prefetchCourses, shouldPrefetchResources, queryClient, relayPool, relays])
 }
 
 /**
@@ -96,6 +89,8 @@ export function usePrefetchContent(options: UsePrefetchContentOptions = {}) {
 export function usePrefetchCourse(courseId: string | undefined) {
   const queryClient = useQueryClient()
   const { relayPool, relays } = useSnstrContext()
+  const { data: session, status } = useSession()
+  const viewerKey = getCourseViewerKey(status, session?.user?.id)
 
   useEffect(() => {
     if (!courseId) return
@@ -104,7 +99,7 @@ export function usePrefetchCourse(courseId: string | undefined) {
       const { fetchCourseWithLessons, coursesQueryKeys } = await import('./useCoursesQuery')
       
       await queryClient.prefetchQuery({
-        queryKey: coursesQueryKeys.detail(courseId),
+        queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
         queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
         staleTime: 10 * 60 * 1000, // 10 minutes
       })
@@ -113,5 +108,5 @@ export function usePrefetchCourse(courseId: string | undefined) {
     prefetch().catch(() => {
       // Silently fail - prefetching errors shouldn't affect the user experience
     })
-  }, [courseId, queryClient, relayPool, relays])
+  }, [courseId, queryClient, relayPool, relays, viewerKey])
 }

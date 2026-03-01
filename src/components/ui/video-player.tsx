@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Download } from 'lucide-react'
-import { sanitizeContent } from '@/lib/content-utils'
+import { sanitizeRichContent } from '@/lib/rich-content-sanitize.client'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface VideoPlayerProps {
@@ -139,7 +139,7 @@ const VideoControls = ({ videoUrl }: { videoUrl?: string }) => {
  * Embedded video renderer
  */
 function EmbeddedVideoRenderer({ content }: { content: string }) {
-  const sanitizedContent = sanitizeContent(content)
+  const sanitizedContent = sanitizeRichContent(content)
   
   return (
     <div className="aspect-video bg-black rounded-lg overflow-hidden">
@@ -345,7 +345,7 @@ export function VideoPlayer({
  * Simple inline video embed component for HTML content
  */
 export function InlineVideoEmbed({ content, className = '' }: { content: string; className?: string }) {
-  const sanitizedContent = sanitizeContent(content)
+  const sanitizedContent = sanitizeRichContent(content)
   
   return (
     <div className={`aspect-video rounded-lg overflow-hidden ${className}`}>

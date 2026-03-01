@@ -8,6 +8,7 @@ import { Section } from "@/components/layout";
 import { useHomepageSectionConfig } from "@/hooks/useContentConfig";
 import { applyContentFilters } from "@/lib/content-config";
 import { tagsToAdditionalLinks } from "@/lib/additional-links";
+import { getEventATag } from "@/lib/nostr-a-tag";
 
 /**
  * Client component for fetching and displaying video resources
@@ -151,6 +152,7 @@ function VideoCard({ video }: { video: VideoResourceWithNote }) {
     topics: video.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
     additionalLinks: tagsToAdditionalLinks(video.note?.tags, 'r'),
     noteId: video.note?.id || video.noteId,
+    noteATag: getEventATag(video.note),
     purchases: video.purchases,
   };
 

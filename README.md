@@ -221,7 +221,7 @@ Production gating is defined in `.github/workflows/deploy-gate.yml`.
 
 | Variable | Required | Description |
 |----------|:--------:|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection |
+| `DATABASE_URL` | Yes | PostgreSQL connection (production should use explicit SSL mode, preferably `sslmode=verify-full`) |
 | `NEXTAUTH_SECRET` | Yes | JWT encryption secret |
 | `NEXTAUTH_URL` | Yes | App URL |
 | `PRIVKEY_ENCRYPTION_KEY` | Yes | Base64 32-byte key for privkey encryption |
@@ -236,7 +236,7 @@ Production gating is defined in `.github/workflows/deploy-gate.yml`.
 | `KV_REST_API_TOKEN` | Yes (production) | Vercel KV token for distributed rate limiting and view counters |
 | `VIEWS_CRON_SECRET` | Yes (production) | Secret used for `/api/views/flush` authorization (Bearer token) |
 | `VIEWS_FLUSH_STALE_AFTER_MINUTES` | No | Staleness threshold (minutes) used by `/api/views/flush?status=1`. Default: `60` |
-| `AUDIT_LOG_CRON_SECRET` | Yes (production, if audit maintenance cron enabled) | Secret used for `/api/audit/maintenance` authorization (Bearer token). For Vercel cron, set `CRON_SECRET` to the same value. |
+| `AUDIT_LOG_CRON_SECRET` | Yes (production) | Secret used for `/api/audit/maintenance` authorization (Bearer token). For Vercel cron, set `CRON_SECRET` to the same value. |
 | `AUDIT_LOG_RETENTION_DAYS` | No | Audit log retention window in days for purge job. Default: `90` |
 | `VIEWS_FLUSH_MONITOR_ENABLED` | No (repo variable) | GitHub Actions toggle for views-flush monitor workflow. Set to `true` in production to enable repo-native alerting. |
 | `NEXT_PUBLIC_ENABLE_REMOTE_FONTS` | No | Runtime remote font loading toggle (`true`/`false`). Default: `false` in production, `true` in dev/test |
@@ -244,7 +244,8 @@ Production gating is defined in `.github/workflows/deploy-gate.yml`.
 | `NEXT_PUBLIC_MIN_ZAP_SATS` | No | Override minimum sats enforced in purchase dialog |
 
 Temporary bootstrap behavior:
-- In `NODE_ENV=production`, `src/lib/env.ts` now auto-injects temporary placeholder values for any missing required env vars so first deployments do not fail closed at build/startup.
+- In `NODE_ENV=production`, `src/lib/env.ts` auto-injects temporary placeholder values for selected missing env vars to keep first deployments bootstrappable.
+- `AUDIT_LOG_CRON_SECRET` is now fail-fast in production; deployment must provide a real value.
 - These placeholders are intentionally temporary and insecure; replace them in your deployment environment immediately before public launch.
 
 ## Tech Stack

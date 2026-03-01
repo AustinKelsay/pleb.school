@@ -276,8 +276,10 @@ function calculateMatchScore(keyword: string, title: string, description: string
 function highlightKeyword(text: string, keyword: string): string {
   if (!text || !keyword) return text
   
-  const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi')
-  return text.replace(regex, '<mark>$1</mark>')
+  const safeText = sanitizeContent(text)
+  const safeKeyword = sanitizeContent(keyword)
+  const regex = new RegExp(`(${escapeRegExp(safeKeyword)})`, 'gi')
+  return safeText.replace(regex, '<mark>$1</mark>')
 }
 
 /**
@@ -300,9 +302,6 @@ function courseEventToSearchResult(event: NostrEvent, keyword: string): SearchRe
     // Only include results with a score > 0
     if (score <= 0) return null
 
-    const titleSanitized = sanitizeContent(title)
-    const descriptionSanitized = sanitizeContent(description)
-
     return {
       id: parsedEvent.d || event.id,
       type: 'course',
@@ -319,8 +318,8 @@ function courseEventToSearchResult(event: NostrEvent, keyword: string): SearchRe
       tags: parsedEvent.topics || [],
       matchedFields,
       highlights: {
-        title: highlightKeyword(titleSanitized, keyword),
-        description: highlightKeyword(descriptionSanitized, keyword)
+        title: highlightKeyword(title, keyword),
+        description: highlightKeyword(description, keyword)
       }
     }
   } catch (error) {
@@ -349,9 +348,6 @@ function resourceEventToSearchResult(event: NostrEvent, keyword: string): Search
     // Only include results with a score > 0
     if (score <= 0) return null
 
-    const titleSanitized = sanitizeContent(title)
-    const descriptionSanitized = sanitizeContent(description)
-
     return {
       id: parsedEvent.d || event.id,
       type: 'resource',
@@ -368,8 +364,8 @@ function resourceEventToSearchResult(event: NostrEvent, keyword: string): Search
       tags: parsedEvent.topics || [],
       matchedFields,
       highlights: {
-        title: highlightKeyword(titleSanitized, keyword),
-        description: highlightKeyword(descriptionSanitized, keyword)
+        title: highlightKeyword(title, keyword),
+        description: highlightKeyword(description, keyword)
       }
     }
   } catch (error) {

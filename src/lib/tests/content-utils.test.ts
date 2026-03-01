@@ -15,122 +15,33 @@ import {
   extractPlainText,
   formatContentForDisplay,
   extractVideoBodyMarkdown,
+  isLikelyEncryptedContent,
 } from "../content-utils"
 
 describe("sanitizeContent", () => {
-  describe("script tag removal", () => {
-    it("removes basic script tags", () => {
-      const input = '<div>Hello</div><script>alert("xss")</script><p>World</p>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("<script")
-      expect(result).not.toContain("alert")
-    })
-
-    it("removes script tags with attributes", () => {
-      const input = '<script type="text/javascript" src="evil.js"></script>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("<script")
-      expect(result).not.toContain("evil.js")
-    })
-
-    it("removes script tags with newlines", () => {
-      const input = `<script>
-        alert("xss")
-      </script>`
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("<script")
-      expect(result).not.toContain("alert")
-    })
-
-    it("removes multiple script tags", () => {
-      const input = '<script>one</script>text<script>two</script>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("<script")
-      expect(result).toContain("text")
-    })
+  it("escapes script tags instead of rendering them", () => {
+    const input = '<div>Hello</div><script>alert("xss")</script><p>World</p>'
+    const result = sanitizeContent(input)
+    expect(result).toContain("&lt;script&gt;")
+    expect(result).toContain("alert(&quot;xss&quot;)")
   })
 
-  // These tests verify XSS protection with DOMPurify
-  describe("XSS protection", () => {
-    it("removes event handlers from img tags", () => {
-      const input = '<img src=x onerror="alert(\'xss\')">'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("onerror")
-      expect(result).not.toContain("alert")
-    })
-
-    it("removes javascript: URLs from links", () => {
-      const input = '<a href="javascript:alert(\'xss\')">click me</a>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("javascript:")
-      expect(result).toContain("click me") // Text is preserved
-    })
-
-    it("removes SVG tags entirely (not in allowlist)", () => {
-      const input = '<svg onload="alert(\'xss\')"><circle></circle></svg>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("<svg")
-      expect(result).not.toContain("onload")
-    })
-
-    it("removes javascript: src from iframes", () => {
-      const input = '<iframe src="javascript:alert(\'xss\')"></iframe>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("javascript:")
-    })
-
-    it("removes object tags entirely (not in allowlist)", () => {
-      const input = '<object data="data:text/html,<script>alert(1)</script>"></object>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("<object")
-      expect(result).not.toContain("data:")
-    })
-
-    it("removes onclick handlers", () => {
-      const input = '<button onclick="alert(\'xss\')">Click</button>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("onclick")
-    })
-
-    it("removes onmouseover handlers", () => {
-      const input = '<div onmouseover="alert(\'xss\')">Hover</div>'
-      const result = sanitizeContent(input)
-      expect(result).not.toContain("onmouseover")
-      expect(result).toContain("Hover")
-    })
+  it("escapes event handler payloads", () => {
+    const input = '<img src=x onerror="alert(\'xss\')">'
+    const result = sanitizeContent(input)
+    expect(result).toContain("onerror=&quot;alert(&#39;xss&#39;)&quot;")
+    expect(result).toContain("&lt;img")
   })
 
-  describe("valid content preservation", () => {
-    it("preserves safe HTML content", () => {
-      const input = '<div class="container"><p>Hello World</p></div>'
-      const result = sanitizeContent(input)
-      expect(result).toBe(input)
-    })
+  it("escapes links and preserves text", () => {
+    const input = '<a href="https://example.com">Visit site</a>'
+    const result = sanitizeContent(input)
+    expect(result).toContain("&lt;a")
+    expect(result).toContain("Visit site")
+  })
 
-    it("preserves YouTube iframes", () => {
-      const input = '<iframe src="https://www.youtube.com/embed/abc123" frameborder="0" allowfullscreen></iframe>'
-      const result = sanitizeContent(input)
-      expect(result).toContain("youtube.com")
-      expect(result).toContain("iframe")
-    })
-
-    it("preserves Vimeo iframes", () => {
-      const input = '<iframe src="https://player.vimeo.com/video/123456" frameborder="0"></iframe>'
-      const result = sanitizeContent(input)
-      expect(result).toContain("vimeo.com")
-    })
-
-    it("preserves images with valid src", () => {
-      const input = '<img src="https://example.com/image.png" alt="test">'
-      const result = sanitizeContent(input)
-      expect(result).toBe(input)
-    })
-
-    it("preserves links", () => {
-      const input = '<a href="https://example.com">Visit site</a>'
-      const result = sanitizeContent(input)
-      expect(result).toBe(input)
-    })
+  it("returns empty string for empty input", () => {
+    expect(sanitizeContent("")).toBe("")
   })
 })
 
@@ -236,5 +147,74 @@ describe("extractVideoBodyMarkdown", () => {
     const input = "# Just a Title"
     const result = extractVideoBodyMarkdown(input)
     expect(result).toBe("")
+  })
+})
+
+describe("isLikelyEncryptedContent", () => {
+  it("detects NIP-04 style payloads", () => {
+    const ciphertext = "Q2lwaGVyVGV4dFBheWxvYWQ=?iv=QmFzZTY0SW5pdFZlY3Rvcg=="
+    expect(isLikelyEncryptedContent(ciphertext)).toBe(true)
+  })
+
+  it("detects long version-prefixed compact payloads", () => {
+    const payload = `v2:${"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".repeat(2)}`
+    expect(isLikelyEncryptedContent(payload)).toBe(true)
+  })
+
+  it("returns false for short version-prefixed payloads", () => {
+    const payload = "v2:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+    expect(isLikelyEncryptedContent(payload)).toBe(false)
+  })
+
+  it("detects long base64-like single-line payloads", () => {
+    const payload = "Q2lwaGVydGV4dA==".repeat(10)
+    expect(isLikelyEncryptedContent(payload)).toBe(true)
+  })
+
+  it("does not flag regular markdown", () => {
+    const markdown = "# Lesson\n\nThis is readable markdown body content."
+    expect(isLikelyEncryptedContent(markdown)).toBe(false)
+  })
+
+  it("does not flag normal URLs or html", () => {
+    expect(isLikelyEncryptedContent("https://example.com/watch?v=123")).toBe(false)
+    expect(isLikelyEncryptedContent("<div>Visible content</div>")).toBe(false)
+  })
+
+  it("returns false for empty string", () => {
+    expect(isLikelyEncryptedContent("")).toBe(false)
+  })
+
+  it("returns false for nullish runtime inputs", () => {
+    expect(isLikelyEncryptedContent(null as unknown as string)).toBe(false)
+    expect(isLikelyEncryptedContent(undefined as unknown as string)).toBe(false)
+  })
+
+  it("returns false for all-whitespace input", () => {
+    expect(isLikelyEncryptedContent("   \n\t  ")).toBe(false)
+  })
+
+  it("returns false for very short base64-like strings", () => {
+    expect(isLikelyEncryptedContent("abc")).toBe(false)
+    expect(isLikelyEncryptedContent("Q2lw")).toBe(false)
+    expect(isLikelyEncryptedContent("Q2lwaGVydA==".repeat(7))).toBe(false)
+  })
+
+  it("returns false for long base64-like strings containing newlines", () => {
+    const payload = "Q2lwaGVydGV4dA==".repeat(10)
+    expect(isLikelyEncryptedContent(payload + "\n" + payload)).toBe(false)
+  })
+
+  it("returns false for malformed version prefix with no payload", () => {
+    expect(isLikelyEncryptedContent("v2:")).toBe(false)
+    expect(isLikelyEncryptedContent("v1:")).toBe(false)
+  })
+
+  it("returns false for very long readable text", () => {
+    const longReadable =
+      "This is a long paragraph of human-readable content. It contains many words, " +
+      "punctuation marks, and spaces. Encrypted payloads are typically base64 with a high " +
+      "character density; natural language has lower density due to spaces and common letters."
+    expect(isLikelyEncryptedContent(longReadable)).toBe(false)
   })
 })

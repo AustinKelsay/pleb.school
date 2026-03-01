@@ -4,11 +4,11 @@
  * Filters resources by video type using Nostr note tags
  */
 
-import { useQuery } from '@tanstack/react-query'
 import { PaginationOptions } from '@/lib/db-adapter'
 import { Resource } from '@/data/types'
 import { useResourceNotes, filterNotesByContentType } from './useResourceNotes'
 import { NostrEvent } from 'snstr'
+import { fetchResourcesList, useResourcesListQuery } from './useResourcesListQuery'
 
 // Types for enhanced video resource data
 export interface VideoResourceWithNote extends Resource {
@@ -21,7 +21,7 @@ export interface VideosQueryResult {
   isLoading: boolean
   isError: boolean
   error: Error | null
-  refetch: () => void
+  refetch: () => Promise<unknown[]>
   pagination?: {
     page: number
     pageSize: number
@@ -91,27 +91,7 @@ export async function fetchVideoResources(options?: VideoPaginationOptions): Pro
     hasPrev: boolean
   }
 }> {
-  // Fetch resources from API
-  const queryParams = new URLSearchParams()
-  if (options?.page) queryParams.append('page', options.page.toString())
-  if (options?.pageSize) queryParams.append('pageSize', options.pageSize.toString())
-  if (options?.includeLessonResources) {
-    queryParams.append('includeLessonResources', 'true')
-  }
-  
-  const response = await fetch(`/api/resources/list${queryParams.toString() ? `?${queryParams}` : ''}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch resources')
-  }
-
-  const data = await response.json()
-  const resources = data.data || data.resources || []
-  const pagination = data.pagination
-
-  return {
-    resources,
-    pagination
-  }
+  return fetchResourcesList(options)
 }
 
 /**
@@ -134,11 +114,7 @@ export function useVideosQuery(options: UseVideosQueryOptions = {}): VideosQuery
   } = options
 
   // First, fetch all resources (without notes)
-  const resourcesQuery = useQuery({
-    queryKey: page !== undefined || pageSize !== undefined 
-      ? videosQueryKeys.listPaginated(page || 1, pageSize || 50, includeLessonResources)
-      : videosQueryKeys.list(includeLessonResources),
-    queryFn: () => fetchVideoResources({ page, pageSize, includeLessonResources }),
+  const resourcesQuery = useResourcesListQuery({
     enabled,
     staleTime,
     gcTime,
@@ -146,6 +122,9 @@ export function useVideosQuery(options: UseVideosQueryOptions = {}): VideosQuery
     refetchOnMount,
     retry,
     retryDelay,
+    page,
+    pageSize,
+    includeLessonResources,
   })
 
   // Extract resource IDs for note fetching
@@ -193,9 +172,7 @@ export function useVideosQuery(options: UseVideosQueryOptions = {}): VideosQuery
     isError,
     error,
     pagination: resourcesQuery.data?.pagination,
-    refetch: () => {
-      resourcesQuery.refetch()
-      notesQuery.refetch()
-    },
+    refetch: () =>
+      Promise.all([resourcesQuery.refetch(), notesQuery.refetch()]),
   }
 }

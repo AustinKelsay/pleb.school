@@ -3,7 +3,6 @@
  * Handles both documents (markdown) and videos (embedded content)
  */
 
-import DOMPurify from "isomorphic-dompurify"
 // import { nostrFreeContentEvents, nostrPaidContentEvents } from '@/data/nostr-events'
 import { ResourceDisplay, NostrFreeContentEvent, NostrPaidContentEvent } from "@/data/types"
 import { tagsToAdditionalLinks } from "@/lib/additional-links"
@@ -118,40 +117,29 @@ function extractVideoUrl(content: string): string | undefined {
 }
 
 /**
- * Clean HTML content for safe display using DOMPurify
- * Removes XSS vectors including script tags, event handlers, javascript: URLs
+ * Escape HTML-sensitive characters for safe inline rendering in non-rich contexts.
+ *
+ * Note: rich HTML sanitization for markdown/video rendering lives in
+ * `src/lib/rich-content-sanitize.client.ts` and must only run in client code.
  */
 export function sanitizeContent(content: string): string {
-  return DOMPurify.sanitize(content, {
-    ALLOWED_TAGS: [
-      // Structure
-      "div", "span", "p", "br", "hr",
-      // Headings
-      "h1", "h2", "h3", "h4", "h5", "h6",
-      // Lists
-      "ul", "ol", "li",
-      // Text formatting
-      "strong", "em", "b", "i", "u", "s", "code", "pre", "blockquote",
-      // Links and media
-      "a", "img", "iframe", "video", "source", "audio",
-      // Tables
-      "table", "thead", "tbody", "tr", "th", "td",
-    ],
-    ALLOWED_ATTR: [
-      // Common (no "style" to prevent CSS injection/UI redressing)
-      "class", "id",
-      // Links
-      "href", "target", "rel",
-      // Media
-      "src", "alt", "title", "width", "height",
-      // iframes (any https domain; ALLOWED_URI_REGEXP controls src)
-      "frameborder", "allowfullscreen", "allow", "loading",
-      // Tables
-      "colspan", "rowspan",
-    ],
-    ALLOW_DATA_ATTR: false,
-    // Block dangerous protocols
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  if (!content) return ""
+
+  return content.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;"
+      case "<":
+        return "&lt;"
+      case ">":
+        return "&gt;"
+      case "\"":
+        return "&quot;"
+      case "'":
+        return "&#39;"
+      default:
+        return char
+    }
   })
 }
 
@@ -201,4 +189,34 @@ export function extractVideoBodyMarkdown(content: string): string {
   body = body.replace(/<div class="video-embed"[\s\S]*?<\/div>/i, '').trim()
 
   return body
+}
+
+/**
+ * Lightweight heuristic for encrypted event bodies (NIP-04/NIP-44 style payloads).
+ * Used to avoid surfacing ciphertext directly in edit forms.
+ */
+export function isLikelyEncryptedContent(content: string): boolean {
+  const trimmed = content?.trim()
+  if (!trimmed) return false
+
+  // NIP-04 payload format: "<base64>?iv=<base64>"
+  if (/^[A-Za-z0-9+/=]+\?iv=[A-Za-z0-9+/=]+$/.test(trimmed)) {
+    return true
+  }
+
+  // Some tools prefix payload version before a compact ciphertext blob.
+  const versionedPayload = trimmed.match(/^v\d+:([A-Za-z0-9+/=_-]+)$/)
+  if (versionedPayload) {
+    return versionedPayload[1].length >= 96
+  }
+
+  // Generic ciphertext heuristic: long, single-line, mostly base64-like chars.
+  if (trimmed.includes("\n") || trimmed.length < 96) {
+    return false
+  }
+
+  const base64LikeChars = (trimmed.match(/[A-Za-z0-9+/=]/g) || []).length
+  const ratio = base64LikeChars / trimmed.length
+
+  return ratio > 0.9 && !trimmed.includes("http") && !trimmed.includes("<")
 }

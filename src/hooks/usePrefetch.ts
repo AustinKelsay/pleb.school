@@ -2,11 +2,11 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useSnstrContext } from '@/contexts/snstr-context';
-import { coursesQueryKeys } from './useCoursesQuery';
-import { videosQueryKeys } from './useVideosQuery';
-import { documentsQueryKeys } from './useDocumentsQuery';
+import { useSession } from '@/hooks/useSession';
+import { coursesQueryKeys, getCourseViewerKey } from './useCoursesQuery';
 import { lessonsQueryKeys } from './useLessonsQuery';
 import { resourceNotesQueryKeys } from './useResourceNotes';
+import { resourcesListQueryKeys } from './useResourcesListQuery';
 
 /**
  * Hook for prefetching queries to improve navigation performance
@@ -15,6 +15,18 @@ import { resourceNotesQueryKeys } from './useResourceNotes';
 export function usePrefetch() {
   const queryClient = useQueryClient();
   const { relayPool, relays } = useSnstrContext();
+  const { data: session, status } = useSession();
+  const viewerKey = getCourseViewerKey(status, session?.user?.id);
+
+  const prefetchResourcesList = (page: number, pageSize: number) => {
+    import('./useResourcesListQuery').then(({ fetchResourcesList }) => {
+      queryClient.prefetchQuery({
+        queryKey: resourcesListQueryKeys.listPaginated(page, pageSize),
+        queryFn: () => fetchResourcesList({ page, pageSize }),
+        staleTime: 5 * 60 * 1000,
+      });
+    });
+  };
 
   /**
    * Prefetch a course and its lessons on hover/focus
@@ -26,7 +38,7 @@ export function usePrefetch() {
     // Import the fetch function dynamically to avoid circular dependencies
     import('./useCoursesQuery').then(({ fetchCourseWithLessons }) => {
       queryClient.prefetchQuery({
-        queryKey: coursesQueryKeys.detail(courseId),
+        queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
         queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
         staleTime: 5 * 60 * 1000, // Consider fresh for 5 minutes
       });
@@ -87,23 +99,8 @@ export function usePrefetch() {
         break;
       
       case 'videos':
-        import('./useVideosQuery').then(({ fetchVideoResources }) => {
-          queryClient.prefetchQuery({
-            queryKey: videosQueryKeys.listPaginated(nextPage, pageSize),
-            queryFn: () => fetchVideoResources({ page: nextPage, pageSize }),
-            staleTime: 5 * 60 * 1000,
-          });
-        });
-        break;
-      
       case 'documents':
-        import('./useDocumentsQuery').then(({ fetchDocumentResources }) => {
-          queryClient.prefetchQuery({
-            queryKey: documentsQueryKeys.listPaginated(nextPage, pageSize),
-            queryFn: () => fetchDocumentResources({ page: nextPage, pageSize }),
-            staleTime: 5 * 60 * 1000,
-          });
-        });
+        prefetchResourcesList(nextPage, pageSize);
         break;
     }
   };
@@ -158,20 +155,16 @@ export function usePrefetch() {
     
     switch (type) {
       case 'course':
-        queryKey = coursesQueryKeys.detail(args[0] as string);
+        queryKey = coursesQueryKeys.detailForViewer(args[0] as string, viewerKey);
         break;
       case 'lesson':
         queryKey = coursesQueryKeys.lesson(args[0] as string, args[1] as string);
         break;
       case 'videos':
-        queryKey = args[1] !== undefined 
-          ? videosQueryKeys.listPaginated(args[0] as number, args[1] as number)
-          : videosQueryKeys.lists();
-        break;
       case 'documents':
         queryKey = args[1] !== undefined 
-          ? documentsQueryKeys.listPaginated(args[0] as number, args[1] as number)
-          : documentsQueryKeys.lists();
+          ? resourcesListQueryKeys.listPaginated(args[0] as number, args[1] as number)
+          : resourcesListQueryKeys.list();
         break;
       case 'resource-notes':
         queryKey = resourceNotesQueryKeys.batch(args[0] as string[]);

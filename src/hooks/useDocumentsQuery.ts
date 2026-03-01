@@ -4,11 +4,11 @@
  * Filters resources by document type using Nostr note tags
  */
 
-import { useQuery } from '@tanstack/react-query'
 import { PaginationOptions } from '@/lib/db-adapter'
 import { Resource } from '@/data/types'
 import { useResourceNotes, filterNotesByContentType } from './useResourceNotes'
 import { NostrEvent } from 'snstr'
+import { fetchResourcesList, useResourcesListQuery } from './useResourcesListQuery'
 
 // Types for enhanced document resource data
 export interface DocumentResourceWithNote extends Resource {
@@ -30,26 +30,6 @@ export interface DocumentsQueryResult {
     hasNext: boolean
     hasPrev: boolean
   }
-}
-
-// Query keys factory for better cache management
-export const documentsQueryKeys = {
-  all: ['documents'] as const,
-  lists: () => ['documents', 'list'] as const,
-  list: (includeLessonResources = false) => (
-    includeLessonResources
-      ? [...documentsQueryKeys.lists(), { includeLessonResources: true }] as const
-      : documentsQueryKeys.lists()
-  ),
-  listPaginated: (page: number, pageSize: number, includeLessonResources = false) => (
-    includeLessonResources
-      ? [...documentsQueryKeys.lists(), { page, pageSize, includeLessonResources: true }] as const
-      : [...documentsQueryKeys.lists(), { page, pageSize }] as const
-  ),
-  details: () => [...documentsQueryKeys.all, 'detail'] as const,
-  detail: (id: string) => [...documentsQueryKeys.details(), id] as const,
-  notes: () => [...documentsQueryKeys.all, 'notes'] as const,
-  note: (noteId: string) => [...documentsQueryKeys.notes(), noteId] as const,
 }
 
 // Options for the hook
@@ -87,27 +67,7 @@ export async function fetchDocumentResources(options?: DocumentPaginationOptions
     hasPrev: boolean
   }
 }> {
-  // Fetch resources from API
-  const queryParams = new URLSearchParams()
-  if (options?.page) queryParams.append('page', options.page.toString())
-  if (options?.pageSize) queryParams.append('pageSize', options.pageSize.toString())
-  if (options?.includeLessonResources) {
-    queryParams.append('includeLessonResources', 'true')
-  }
-  
-  const response = await fetch(`/api/resources/list${queryParams.toString() ? `?${queryParams}` : ''}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch resources')
-  }
-
-  const data = await response.json()
-  const resources = data.data || data.resources || []
-  const pagination = data.pagination
-
-  return {
-    resources,
-    pagination
-  }
+  return fetchResourcesList(options)
 }
 
 /**
@@ -130,11 +90,7 @@ export function useDocumentsQuery(options: UseDocumentsQueryOptions = {}): Docum
   } = options
 
   // First, fetch all resources (without notes)
-  const resourcesQuery = useQuery({
-    queryKey: page !== undefined || pageSize !== undefined 
-      ? documentsQueryKeys.listPaginated(page || 1, pageSize || 50, includeLessonResources)
-      : documentsQueryKeys.list(includeLessonResources),
-    queryFn: () => fetchDocumentResources({ page, pageSize, includeLessonResources }),
+  const resourcesQuery = useResourcesListQuery({
     enabled,
     staleTime,
     gcTime,
@@ -142,6 +98,9 @@ export function useDocumentsQuery(options: UseDocumentsQueryOptions = {}): Docum
     refetchOnMount,
     retry,
     retryDelay,
+    page,
+    pageSize,
+    includeLessonResources,
   })
 
   // Extract resource IDs for note fetching

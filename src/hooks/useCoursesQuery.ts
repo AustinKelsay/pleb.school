@@ -9,6 +9,8 @@ import { useSnstrContext } from '@/contexts/snstr-context'
 import { Course, Lesson, Resource } from '@/data/types'
 import { NostrEvent, RelayPool } from 'snstr'
 import logger from '@/lib/logger'
+import { useSession } from '@/hooks/useSession'
+import { useViewerPurchasesOverlay } from '@/hooks/useViewerPurchasesOverlay'
 
 // Types for enhanced course data
 export interface CourseWithNote extends Course {
@@ -39,7 +41,7 @@ export interface CoursesQueryResult {
   isLoading: boolean
   isError: boolean
   error: Error | null
-  refetch: () => void
+  refetch: () => Promise<unknown[]>
   pagination?: {
     page: number
     pageSize: number
@@ -74,6 +76,7 @@ export const coursesQueryKeys = {
   listPaginated: (page: number, pageSize: number) => [...coursesQueryKeys.lists(), { page, pageSize }] as const,
   details: () => [...coursesQueryKeys.all, 'detail'] as const,
   detail: (id: string) => [...coursesQueryKeys.details(), id] as const,
+  detailForViewer: (id: string, viewerKey: string) => [...coursesQueryKeys.detail(id), { viewerKey }] as const,
   notes: () => [...coursesQueryKeys.all, 'notes'] as const,
   note: (noteId: string) => [...coursesQueryKeys.notes(), noteId] as const,
   lessons: () => [...coursesQueryKeys.all, 'lessons'] as const,
@@ -112,6 +115,16 @@ export interface UseLessonQueryOptions {
   refetchOnMount?: boolean
   retry?: boolean | number
   retryDelay?: number
+}
+
+export function getCourseViewerKey(
+  status: "authenticated" | "loading" | "unauthenticated",
+  userId?: string | null
+): string {
+  if (status === "authenticated") {
+    return userId ?? "authenticated"
+  }
+  return "anonymous"
 }
 
 /**
@@ -428,6 +441,8 @@ export async function fetchCourseWithLessons(courseId: string, relayPool: RelayP
  */
 export function useCourseQuery(courseId: string, options: UseCourseQueryOptions = {}): CourseQueryResult {
   const { relayPool, relays } = useSnstrContext()
+  const { data: session, status } = useSession()
+  const viewerKey = getCourseViewerKey(status, session?.user?.id)
   
   const {
     enabled = true,
@@ -440,7 +455,7 @@ export function useCourseQuery(courseId: string, options: UseCourseQueryOptions 
   } = options
 
   const query = useQuery({
-    queryKey: coursesQueryKeys.detail(courseId),
+    queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
     queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
     enabled: enabled && !!courseId,
     staleTime,
@@ -493,17 +508,27 @@ export function useCoursesQuery(options: UseCoursesQueryOptions = {}): CoursesQu
     retryDelay,
   })
 
+  const courseIds = query.data?.courses.map((course) => course.id) ?? []
+  const purchasesOverlay = useViewerPurchasesOverlay({
+    enabled: enabled && courseIds.length > 0,
+    courseIds,
+  })
+
+  const coursesWithPurchases = (query.data?.courses ?? []).map((course) => ({
+    ...course,
+    purchases: purchasesOverlay.data.courses[course.id] ?? course.purchases,
+  }))
+
   // Apply select transformation if provided
-  const finalData = select && query.data?.courses ? select(query.data.courses) : query.data?.courses || []
+  const finalData = select ? select(coursesWithPurchases) : coursesWithPurchases
 
   return {
     courses: finalData,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
+    isLoading: query.isLoading || purchasesOverlay.isLoading,
+    isError: query.isError || purchasesOverlay.isError,
+    error: query.error ?? purchasesOverlay.error,
     pagination: query.data?.pagination,
-    refetch: query.refetch,
+    refetch: () =>
+      Promise.all([query.refetch(), purchasesOverlay.refetch()]),
   }
 }
-
-

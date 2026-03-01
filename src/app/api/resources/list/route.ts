@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResourceAdapter } from '@/lib/db-adapter'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { parseOptionalPositiveInt, PUBLIC_LIST_CACHE_CONTROL } from '@/lib/api-utils'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
     const searchParams = request.nextUrl.searchParams
     const page = searchParams.get('page')
     const pageSize = searchParams.get('pageSize')
@@ -14,15 +12,6 @@ export async function GET(request: NextRequest) {
     // to preserve the original standalone library behaviour.
     const includeLessonResourcesParam = searchParams.get('includeLessonResources')
     const includeLessonResources = includeLessonResourcesParam === 'true' || includeLessonResourcesParam === '1'
-
-    const parseOptionalPositiveInt = (value: string | null) => {
-      if (value === null) return undefined
-      const parsed = Number.parseInt(value, 10)
-      if (!Number.isFinite(parsed) || Number.isNaN(parsed) || parsed <= 0) {
-        return null
-      }
-      return parsed
-    }
 
     const parsedPage = parseOptionalPositiveInt(page)
     if (parsedPage === null) {
@@ -45,20 +34,33 @@ export async function GET(request: NextRequest) {
         page: parsedPage,
         pageSize: parsedPageSize,
         includeLessonResources,
-        userId: session?.user?.id,
       })
 
-      return NextResponse.json({
-        data: result.data,
-        pagination: result.pagination,
-      })
+      return NextResponse.json(
+        {
+          data: result.data,
+          pagination: result.pagination,
+        },
+        {
+          headers: {
+            'Cache-Control': PUBLIC_LIST_CACHE_CONTROL,
+          },
+        }
+      )
     }
 
-    const resources = await ResourceAdapter.findAll({ includeLessonResources, userId: session?.user?.id })
+    const resources = await ResourceAdapter.findAll({ includeLessonResources })
 
-    return NextResponse.json({
-      resources,
-    })
+    return NextResponse.json(
+      {
+        resources,
+      },
+      {
+        headers: {
+          'Cache-Control': PUBLIC_LIST_CACHE_CONTROL,
+        },
+      }
+    )
   } catch (error) {
     console.error('Failed to fetch resources:', error)
     return NextResponse.json(

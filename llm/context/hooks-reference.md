@@ -18,6 +18,10 @@ function CoursesPage() {
 }
 ```
 
+Notes:
+- Uses `/api/courses/list` as a public cacheable base query.
+- Merges viewer-specific purchase state through `/api/purchases/overlay` only when the user is authenticated.
+
 ### useResourcesQuery / usePublishedContentQuery
 
 Fetches published resources (videos, documents).
@@ -42,6 +46,10 @@ import { useVideosQuery } from '@/hooks/useVideosQuery'
 const { data: videos, isLoading } = useVideosQuery()
 ```
 
+Notes:
+- Shares the underlying resources list query with `useDocumentsQuery` to avoid duplicate `/api/resources/list` requests when both hooks are mounted.
+- Inherits viewer purchase overlays from `useResourcesListQuery`, so purchase badges can hydrate without making the base resources list user-specific.
+
 ### useDocumentsQuery
 
 Fetches document resources only.
@@ -50,6 +58,41 @@ Fetches document resources only.
 import { useDocumentsQuery } from '@/hooks/useDocumentsQuery'
 
 const { data: documents, isLoading } = useDocumentsQuery()
+```
+
+Notes:
+- Shares the underlying resources list query with `useVideosQuery` so content/homepage surfaces do not double-fetch the same list.
+- Inherits viewer purchase overlays from `useResourcesListQuery` for authenticated purchase badges.
+
+### useResourcesListQuery
+
+Low-level shared resources list hook used by `useVideosQuery` and `useDocumentsQuery`.
+
+```typescript
+import { useResourcesListQuery } from "@/hooks/useResourcesListQuery"
+
+const resourcesQuery = useResourcesListQuery({
+  page: 1,
+  pageSize: 50,
+  includeLessonResources: false,
+})
+```
+
+Notes:
+- Uses `/api/resources/list` as a public cacheable list API.
+- Uses `useViewerPurchasesOverlay` to merge per-user purchases without making the primary list endpoint dynamic.
+
+### useViewerPurchasesOverlay
+
+Authenticated overlay hook for purchase state on top of public content lists.
+
+```typescript
+import { useViewerPurchasesOverlay } from "@/hooks/useViewerPurchasesOverlay"
+
+const overlay = useViewerPurchasesOverlay({
+  resourceIds: ["resource-id-1", "resource-id-2"],
+  courseIds: ["course-id-1"],
+})
 ```
 
 ### useLessonsQuery
@@ -297,6 +340,11 @@ await search({
 
 Fetches zaps, comments, and likes for content.
 
+Notes:
+- Pass both `eventId` and `eventATag` when available so interactions that tag `#e` or `#a` are both counted.
+- `realtime: false` performs an initial relay snapshot and then closes the subscription at EOSE/timeout (lower fanout for list pages like home).
+- `elementRef` enables visibility-gated subscriptions for card grids/carousels.
+
 ```typescript
 import { useInteractions } from '@/hooks/useInteractions'
 
@@ -311,9 +359,9 @@ const {
   error
 } = useInteractions({
   eventId,
-  eventKind,
-  eventIdentifier,
-  eventPubkey
+  eventATag,
+  realtime: false,
+  elementRef: cardRef
 })
 ```
 

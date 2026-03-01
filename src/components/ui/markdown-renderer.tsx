@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ExternalLink, Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { sanitizeContent } from '@/lib/content-utils'
+import { sanitizeRichContent } from '@/lib/rich-content-sanitize.client'
 
 // Import highlight.js theme for syntax highlighting
 import 'highlight.js/styles/github-dark.css'
@@ -442,7 +442,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content, classN
   ], [])
 
   // Sanitize content to remove XSS vectors before rendering
-  const sanitizedContent = useMemo(() => sanitizeContent(content), [content])
+  const sanitizedContent = useMemo(() => sanitizeRichContent(content), [content])
 
   // Memoize the rendered content
   const renderedContent = useMemo(() => (

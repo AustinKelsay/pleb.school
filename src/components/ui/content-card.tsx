@@ -19,7 +19,7 @@ import {
 import type { ContentItem } from "@/data/types"
 import { contentTypeIcons } from "@/data/config"
 import { useRouter } from 'next/navigation'
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useNostr, type NormalizedProfile } from "@/hooks/useNostr"
 import { useInteractions } from "@/hooks/useInteractions"
 import { encodePublicKey, decodeAddress } from "snstr"
@@ -105,9 +105,14 @@ export function ContentCard({
 
   // Get interaction data from Nostr if this is a content item with a note ID
   const eventId = isContent ? getEventId(item.noteId) : undefined
+  const eventATag = isContent ? item.noteATag : undefined
+  const interactionCardRef = useRef<HTMLDivElement | null>(null)
+  const instructorPubkey = isContent ? item.instructorPubkey : undefined
   
   const { interactions, isLoadingZaps, isLoadingLikes, isLoadingComments, zapInsights } = useInteractions({
     eventId,
+    eventATag,
+    elementRef: interactionCardRef,
     realtime: false,
     staleTime: 5 * 60 * 1000 // 5 minutes
   })
@@ -115,19 +120,21 @@ export function ContentCard({
   // Fetch instructor profile when component mounts and has instructor data
   useEffect(() => {
     const fetchInstructorProfile = async () => {
-      if (isContent && 'instructorPubkey' in item && item.instructorPubkey) {
-        try {
-          const profileEvent = await fetchProfile(item.instructorPubkey)
-          const normalizedProfile = normalizeKind0(profileEvent)
-          setInstructorProfile(normalizedProfile)
-        } catch (error) {
-          console.error('Error fetching instructor profile:', error)
-        }
+      if (!instructorPubkey) {
+        return
+      }
+
+      try {
+        const profileEvent = await fetchProfile(instructorPubkey)
+        const normalizedProfile = normalizeKind0(profileEvent)
+        setInstructorProfile(normalizedProfile)
+      } catch (error) {
+        console.error('Error fetching instructor profile:', error)
       }
     }
 
     fetchInstructorProfile()
-  }, [isContent, fetchProfile, normalizeKind0, item])
+  }, [instructorPubkey, fetchProfile, normalizeKind0])
 
   const navigateToContent = () => {
     if (!isContent) return
@@ -180,10 +187,11 @@ export function ContentCard({
   const isPurchased = purchasedCount > 0
 
   return (
-    <Card
-      className={`overflow-hidden transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer group flex flex-col h-full ${className}`}
-      onClick={handleCardClick}
-    >
+    <div ref={interactionCardRef} className="h-full">
+      <Card
+        className={`overflow-hidden transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer group flex flex-col h-full ${className}`}
+        onClick={handleCardClick}
+      >
       {/* Thumbnail/Image Area - 16:9 aspect ratio like YouTube */}
       <div className="relative aspect-video bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 overflow-hidden">
         {/* Background pattern for visual interest */}
@@ -343,7 +351,7 @@ export function ContentCard({
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0 flex-grow flex flex-col">
+        <CardContent className="pt-0 flex-grow flex flex-col">
         {/* Description */}
         <CardDescription className="text-sm leading-relaxed line-clamp-3 mb-4">
           {item.description}
@@ -424,7 +432,8 @@ export function ContentCard({
             </Button>
           )}
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

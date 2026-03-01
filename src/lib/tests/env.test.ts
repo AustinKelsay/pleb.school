@@ -116,8 +116,17 @@ describe("env", () => {
     ).rejects.toThrow("PRIVKEY_ENCRYPTION_KEY must be a 32-byte key in hex (64 chars) or base64 format.")
   })
 
-  it("bootstraps missing critical env vars in production with temporary placeholders", async () => {
-    const env = await loadEnvWith({ NODE_ENV: "production" })
+  it("fails fast in production when AUDIT_LOG_CRON_SECRET is missing", async () => {
+    await expect(loadEnvWith({ NODE_ENV: "production" })).rejects.toThrow(
+      "AUDIT_LOG_CRON_SECRET is required in production."
+    )
+  })
+
+  it("bootstraps other missing production vars when AUDIT_LOG_CRON_SECRET is set", async () => {
+    const env = await loadEnvWith({
+      NODE_ENV: "production",
+      AUDIT_LOG_CRON_SECRET: "audit-cron-secret",
+    })
 
     expect(env.DATABASE_URL).toContain("postgresql://placeholder:")
     expect(env.NEXTAUTH_SECRET).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
@@ -126,7 +135,7 @@ describe("env", () => {
     expect(env.KV_REST_API_URL).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
     expect(env.KV_REST_API_TOKEN).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
     expect(env.VIEWS_CRON_SECRET).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
-    expect(env.AUDIT_LOG_CRON_SECRET).toContain(TEMP_ENV_PLACEHOLDER_PREFIX)
+    expect(env.AUDIT_LOG_CRON_SECRET).toBe("audit-cron-secret")
     expect(process.env.NEXTAUTH_SECRET).toBe(env.NEXTAUTH_SECRET)
     expect(process.env.AUTH_SECRET).toBe(env.NEXTAUTH_SECRET)
   })
