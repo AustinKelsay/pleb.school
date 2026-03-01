@@ -22,7 +22,7 @@ NIP-01 is the foundational specification for Nostr, outlining the basic protocol
 import { Nostr } from 'snstr';
 
 // Initialize client with relays
-const client = new Nostr(['wss://relay.nostr.band']);
+const client = new Nostr(['wss://relay.primal.net']);
 
 // Generate or import keys
 const keys = await client.generateKeys();
@@ -42,7 +42,7 @@ console.log(`Published event with ID: ${event.id}`);
 ```typescript
 import { Nostr, RelayEvent } from 'snstr';
 
-const client = new Nostr(['wss://relay.nostr.band']);
+const client = new Nostr(['wss://relay.primal.net']);
 
 // Connect to relays
 await client.connectToRelays();
@@ -69,7 +69,7 @@ client.unsubscribe(subIds);
 ```typescript
 import { Nostr } from 'snstr';
 
-const client = new Nostr(['wss://relay.nostr.band', 'wss://nos.lol']);
+const client = new Nostr(['wss://relay.primal.net', 'wss://nos.lol']);
 await client.connectToRelays();
 
 // Fetch multiple events from all connected relays
@@ -166,7 +166,7 @@ import { createEvent } from 'snstr';
 
 // Initialize with multiple relays
 const pool = new RelayPool([
-  'wss://relay.nostr.band',
+  'wss://relay.primal.net',
   'wss://nos.lol',
   'wss://relay.damus.io'
 ]);
@@ -182,12 +182,12 @@ const event = createEvent({
   privateKey: 'your-private-key'
 });
 
-const publishPromises = pool.publish(['wss://relay.nostr.band', 'wss://nos.lol'], event);
+const publishPromises = pool.publish(['wss://relay.primal.net', 'wss://nos.lol'], event);
 const results = await Promise.all(publishPromises);
 
 // Subscribe across multiple relays
 const subscription = await pool.subscribe(
-  ['wss://relay.nostr.band', 'wss://nos.lol'],
+  ['wss://relay.primal.net', 'wss://nos.lol'],
   [{ kinds: [1], limit: 10 }],
   (event, relayUrl) => {
     console.log(`Received event from ${relayUrl}:`, event);
@@ -199,14 +199,14 @@ const subscription = await pool.subscribe(
 
 // Query for events synchronously
 const events = await pool.querySync(
-  ['wss://relay.nostr.band', 'wss://nos.lol'],
+  ['wss://relay.primal.net', 'wss://nos.lol'],
   { kinds: [1], authors: ['pubkey'], limit: 5 },
   { timeout: 10000 }
 );
 
 // Get a single event (most recent)
 const latestEvent = await pool.get(
-  ['wss://relay.nostr.band', 'wss://nos.lol'],
+  ['wss://relay.primal.net', 'wss://nos.lol'],
   { kinds: [1], authors: ['pubkey'] },
   { timeout: 5000 }
 );
@@ -222,7 +222,7 @@ import { RelayPool, RemoveRelayResult } from 'snstr/nip01/relayPool';
 
 // Initialize with connection options
 const pool = new RelayPool(
-  ['wss://relay.nostr.band'],
+  ['wss://relay.primal.net'],
   {
     relayOptions: {
       connectionTimeout: 10000,
@@ -258,7 +258,7 @@ switch (removeResult) {
 }
 
 // Close specific relays
-await pool.close(['wss://relay.nostr.band', 'wss://nos.lol']);
+await pool.close(['wss://relay.primal.net', 'wss://nos.lol']);
 ```
 
 #### Error Handling and Resilience
@@ -267,14 +267,14 @@ await pool.close(['wss://relay.nostr.band', 'wss://nos.lol']);
 import { RelayPool } from 'snstr/nip01/relayPool';
 
 const pool = new RelayPool([
-  'wss://relay.nostr.band',
+  'wss://relay.primal.net',
   'wss://invalid-relay.com', // This will fail gracefully
   'wss://nos.lol'
 ]);
 
 // Subscribe with error handling
 const subscription = await pool.subscribe(
-  ['wss://relay.nostr.band', 'wss://invalid-relay.com', 'wss://nos.lol'],
+  ['wss://relay.primal.net', 'wss://invalid-relay.com', 'wss://nos.lol'],
   [{ kinds: [1], limit: 10 }],
   (event, relayUrl) => {
     console.log(`Event from ${relayUrl}:`, event);
@@ -287,7 +287,7 @@ const subscription = await pool.subscribe(
 // Query with timeout and error handling
 try {
   const events = await pool.querySync(
-    ['wss://relay.nostr.band', 'wss://unreliable-relay.com'],
+    ['wss://relay.primal.net', 'wss://unreliable-relay.com'],
     { kinds: [1], limit: 5 },
     { timeout: 5000 } // 5 second timeout
   );
@@ -340,7 +340,7 @@ const options: NostrOptions = {
   }
 };
 
-const client = new Nostr(['wss://relay.nostr.band'], options);
+const client = new Nostr(['wss://relay.primal.net'], options);
 ```
 
 #### Partial Configuration
@@ -348,7 +348,7 @@ const client = new Nostr(['wss://relay.nostr.band'], options);
 You can configure only specific limits; unspecified limits will use defaults:
 
 ```typescript
-const client = new Nostr(['wss://relay.nostr.band'], {
+const client = new Nostr(['wss://relay.primal.net'], {
   rateLimits: {
     subscribe: { limit: 200, windowMs: 30000 } // Only configure subscriptions
     // publish and fetch will use default limits
@@ -361,7 +361,7 @@ const client = new Nostr(['wss://relay.nostr.band'], {
 Adjust the time window for different use cases:
 
 ```typescript
-const client = new Nostr(['wss://relay.nostr.band'], {
+const client = new Nostr(['wss://relay.primal.net'], {
   rateLimits: {
     subscribe: { limit: 10, windowMs: 5000 },   // 10 per 5 seconds
     publish: { limit: 50, windowMs: 30000 },    // 50 per 30 seconds
@@ -411,7 +411,7 @@ When rate limits are exceeded, a `SecurityValidationError` is thrown:
 ```typescript
 import { Nostr } from 'snstr';
 
-const client = new Nostr(['wss://relay.nostr.band'], {
+const client = new Nostr(['wss://relay.primal.net'], {
   rateLimits: {
     subscribe: { limit: 1, windowMs: 60000 } // Very restrictive for demo
   }
@@ -444,7 +444,7 @@ try {
 For applications that need to make many requests quickly:
 
 ```typescript
-const client = new Nostr(['wss://relay.nostr.band'], {
+const client = new Nostr(['wss://relay.primal.net'], {
   rateLimits: {
     subscribe: { limit: 500, windowMs: 60000 },
     publish: { limit: 300, windowMs: 60000 },
@@ -458,7 +458,7 @@ const client = new Nostr(['wss://relay.nostr.band'], {
 For public services or when you want to be conservative:
 
 ```typescript
-const client = new Nostr(['wss://relay.nostr.band'], {
+const client = new Nostr(['wss://relay.primal.net'], {
   rateLimits: {
     subscribe: { limit: 20, windowMs: 60000 },
     publish: { limit: 30, windowMs: 60000 },
@@ -472,7 +472,7 @@ const client = new Nostr(['wss://relay.nostr.band'], {
 For development where you want more permissive limits:
 
 ```typescript
-const client = new Nostr(['wss://relay.nostr.band'], {
+const client = new Nostr(['wss://relay.primal.net'], {
   rateLimits: {
     subscribe: { limit: 1000, windowMs: 60000 },
     publish: { limit: 1000, windowMs: 60000 },
@@ -489,7 +489,7 @@ RelayPool uses the same rate limiting mechanism, applied per operation across al
 import { RelayPool } from 'snstr/nip01/relayPool';
 
 const pool = new RelayPool(
-  ['wss://relay.nostr.band', 'wss://nos.lol'],
+  ['wss://relay.primal.net', 'wss://nos.lol'],
   {
     rateLimits: {
       subscribe: { limit: 100, windowMs: 60000 }
@@ -499,7 +499,7 @@ const pool = new RelayPool(
 
 // Rate limits apply to the total operations across all relays
 await pool.subscribe(
-  ['wss://relay.nostr.band', 'wss://nos.lol'], // 2 relays
+  ['wss://relay.primal.net', 'wss://nos.lol'], // 2 relays
   [{ kinds: [1], limit: 10 }], // Each relay gets the same subscription
   (event, relayUrl) => console.log(`Event from ${relayUrl}`)
 );
@@ -529,7 +529,7 @@ await pool.subscribe(
 ```typescript
 import { Nostr, RelayEvent } from 'snstr';
 
-const client = new Nostr(['wss://relay.nostr.band']);
+const client = new Nostr(['wss://relay.primal.net']);
 
 // Handle various relay events
 client.on(RelayEvent.Connect, (relay) => {
@@ -554,7 +554,7 @@ client.on(RelayEvent.Notice, (relay, message) => {
 ```typescript
 import { Nostr } from 'snstr';
 
-const client = new Nostr(['wss://relay.nostr.band']);
+const client = new Nostr(['wss://relay.primal.net']);
 await client.connectToRelays();
 
 // Complex filtering

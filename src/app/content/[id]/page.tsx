@@ -373,7 +373,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   // Only courses and paid resources keep the preview wall; everything else opens directly.
   const requiresPreviewGate = isCourseContent || isPaidResource
   const nostrIdentifier = formatNoteIdentifier(event, resourceId)
-  const nostrUrl = nostrIdentifier ? `https://nostr.band/${nostrIdentifier}` : null
+  const nostrUrl = nostrIdentifier ? `https://njump.me/${nostrIdentifier}` : null
   
   // Use only real interaction data - no fallbacks
   const zapsCount = interactions.zaps

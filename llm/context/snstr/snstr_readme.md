@@ -140,7 +140,7 @@ import { Nostr, RelayEvent } from "snstr";
 
 async function main() {
   // Initialize with relays and connection timeout
-  const client = new Nostr(["wss://relay.nostr.band"]);
+  const client = new Nostr(["wss://relay.primal.net"]);
 
   // Generate keypair
   const keys = await client.generateKeys();
@@ -200,7 +200,7 @@ SNSTR includes built-in rate limiting to prevent abuse. Configure custom limits 
 ```typescript
 import { Nostr } from "snstr";
 
-const client = new Nostr(["wss://relay.nostr.band"], {
+const client = new Nostr(["wss://relay.primal.net"], {
   rateLimits: {
     subscribe: { limit: 100, windowMs: 60000 }, // 100 per minute (default: 50)
     publish: { limit: 200, windowMs: 60000 },   // 200 per minute (default: 100)
@@ -222,7 +222,7 @@ import { RelayPool, generateKeypair, createEvent } from "snstr";
 async function relayPoolExample() {
   // Initialize RelayPool with multiple relays
   const pool = new RelayPool([
-    "wss://relay.nostr.band",
+    "wss://relay.primal.net",
     "wss://nos.lol", 
     "wss://relay.damus.io"
   ]);
@@ -239,14 +239,14 @@ async function relayPoolExample() {
   });
 
   const publishPromises = pool.publish(
-    ["wss://relay.nostr.band", "wss://nos.lol"], 
+    ["wss://relay.primal.net", "wss://nos.lol"], 
     event
   );
   const results = await Promise.all(publishPromises);
 
   // Subscribe across multiple relays with automatic failover
   const subscription = await pool.subscribe(
-    ["wss://relay.nostr.band", "wss://nos.lol", "wss://relay.damus.io"],
+    ["wss://relay.primal.net", "wss://nos.lol", "wss://relay.damus.io"],
     [{ kinds: [1], limit: 10 }],
     (event, relayUrl) => {
       console.log(`Event from ${relayUrl}:`, event.content);
@@ -258,7 +258,7 @@ async function relayPoolExample() {
 
   // Query events synchronously from multiple relays
   const events = await pool.querySync(
-    ["wss://relay.nostr.band", "wss://nos.lol"],
+    ["wss://relay.primal.net", "wss://nos.lol"],
     { kinds: [1], limit: 5 },
     { timeout: 10000 }
   );
@@ -278,7 +278,7 @@ relayPoolExample().catch(console.error);
 import { Nostr } from "snstr";
 
 async function queryExample() {
-  const client = new Nostr(["wss://relay.nostr.band", "wss://nos.lol"]);
+  const client = new Nostr(["wss://relay.primal.net", "wss://nos.lol"]);
   await client.connectToRelays();
 
   // Fetch multiple events from all connected relays

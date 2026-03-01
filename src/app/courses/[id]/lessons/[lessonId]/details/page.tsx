@@ -366,7 +366,7 @@ let courseInstructorPubkey = ''
   const safeLessonIndex = currentLessonIndex >= 0 ? currentLessonIndex : 0
   const prevLesson = safeLessonIndex > 0 ? lessonDisplays[safeLessonIndex - 1] : null
   const nextLesson = safeLessonIndex < lessonDisplays.length - 1 ? lessonDisplays[safeLessonIndex + 1] : null
-  const nostrUrl = resourceNote?.id ? `https://nostr.band/${resourceNote.id}` : null
+  const nostrUrl = resourceNote?.id ? `https://njump.me/${resourceNote.id}` : null
 
   const heroNavCtas = (
     <div className="flex items-center gap-2 flex-wrap justify-end">
