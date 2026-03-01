@@ -293,6 +293,17 @@ Republishing:
 4. Publishes to relays (replaces old event)
 5. Updates noteId if changed
 
+### Encrypted Legacy Body Handling (Published Resource Editor)
+
+The published resource edit dialog now guards against legacy encrypted/ciphertext bodies:
+
+1. Detects likely encrypted body content using `isLikelyEncryptedContent(...)`
+2. Does **not** show ciphertext directly in the body textarea by default
+3. Preserves original encrypted body content on save for metadata-only updates (price/title/summary/topics/links)
+4. Allows explicit manual replacement via **Replace Body Manually** when an editor wants to overwrite the body
+
+This prevents price transitions (for example paid -> free) from being blocked by unreadable body content.
+
 ## API Endpoints
 
 ### Resource Drafts

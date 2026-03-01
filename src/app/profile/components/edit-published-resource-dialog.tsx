@@ -27,6 +27,8 @@ export type ResourceEditData = {
   title: string
   summary: string
   content: string
+  originalContent?: string
+  hasEncryptedContent?: boolean
   price: number
   image?: string
   topics: string[]
@@ -54,6 +56,7 @@ export function EditPublishedResourceDialog({
   const [topicInput, setTopicInput] = useState('')
   const [linkTitleInput, setLinkTitleInput] = useState('')
   const [linkUrlInput, setLinkUrlInput] = useState('')
+  const [preserveEncryptedContent, setPreserveEncryptedContent] = useState(false)
 
   const [formState, setFormState] = useState<ResourceEditData | null>(data ?? null)
 
@@ -66,6 +69,7 @@ export function EditPublishedResourceDialog({
       setTopicInput('')
       setLinkTitleInput('')
       setLinkUrlInput('')
+      setPreserveEncryptedContent(Boolean(data.hasEncryptedContent))
       setError(null)
     }
   }, [data, open])
@@ -218,7 +222,10 @@ export function EditPublishedResourceDialog({
     return {
       title: formState.title.trim(),
       summary: formState.summary.trim(),
-      content: formState.content,
+      content:
+        preserveEncryptedContent && formState.hasEncryptedContent
+          ? formState.originalContent ?? formState.content
+          : formState.content,
       price:
         Number.isFinite(formState.price) && formState.price >= 0
           ? formState.price
@@ -412,9 +419,33 @@ export function EditPublishedResourceDialog({
                     </span>
                   )}
                 </Label>
+                {formState.hasEncryptedContent && preserveEncryptedContent && (
+                  <Alert>
+                    <AlertDescription className="space-y-3">
+                      <p>
+                        This resource body appears encrypted from a previous publish. It will be preserved as-is
+                        so you can safely update price and metadata.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPreserveEncryptedContent(false)}
+                      >
+                        Replace Body Manually
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <Textarea
                   rows={8}
                   value={formState.content}
+                  disabled={Boolean(formState.hasEncryptedContent && preserveEncryptedContent)}
+                  placeholder={
+                    formState.hasEncryptedContent && preserveEncryptedContent
+                      ? 'Encrypted content is being preserved.'
+                      : undefined
+                  }
                   onChange={event =>
                     setFormState(prev =>
                       prev ? { ...prev, content: event.target.value } : prev
