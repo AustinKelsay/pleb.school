@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { useSession } from "@/hooks/useSession"
@@ -79,15 +79,35 @@ async function fetchViewerPurchasesOverlay(payload: {
 
 export function useViewerPurchasesOverlay(options: UseViewerPurchasesOverlayOptions = {}) {
   const { data: session, status } = useSession()
+  const resourceIdsInput = options.resourceIds ?? []
+  const courseIdsInput = options.courseIds ?? []
 
-  const resourceIds = useMemo(
-    () => uniqueIds(options.resourceIds ?? []),
-    [options.resourceIds]
-  )
-  const courseIds = useMemo(
-    () => uniqueIds(options.courseIds ?? []),
-    [options.courseIds]
-  )
+  const resourceIdsCacheRef = useRef<{ inputKey: string; value: string[] }>({
+    inputKey: "__unset__",
+    value: [],
+  })
+  const courseIdsCacheRef = useRef<{ inputKey: string; value: string[] }>({
+    inputKey: "__unset__",
+    value: [],
+  })
+
+  const resourceIdsInputKey = JSON.stringify(resourceIdsInput)
+  if (resourceIdsCacheRef.current.inputKey !== resourceIdsInputKey) {
+    resourceIdsCacheRef.current = {
+      inputKey: resourceIdsInputKey,
+      value: uniqueIds(resourceIdsInput),
+    }
+  }
+  const resourceIds = resourceIdsCacheRef.current.value
+
+  const courseIdsInputKey = JSON.stringify(courseIdsInput)
+  if (courseIdsCacheRef.current.inputKey !== courseIdsInputKey) {
+    courseIdsCacheRef.current = {
+      inputKey: courseIdsInputKey,
+      value: uniqueIds(courseIdsInput),
+    }
+  }
+  const courseIds = courseIdsCacheRef.current.value
 
   const enabled = options.enabled ?? true
   const shouldFetch =
