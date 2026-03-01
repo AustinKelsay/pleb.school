@@ -72,7 +72,7 @@ export function EditPublishedResourceDialog({
       setPreserveEncryptedContent(Boolean(data.hasEncryptedContent))
       setError(null)
     }
-  }, [data, open])
+  }, [data])
 
   const isVideo = formState?.type === 'video'
 

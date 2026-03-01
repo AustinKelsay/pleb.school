@@ -6,13 +6,31 @@
 import { Course, Resource } from '@/data/types'
 import { CourseWithNote, ResourceWithNote } from '@/lib/db-adapter'
 import { parseCourseEvent, parseEvent } from '@/data/types'
-import { sanitizeContent } from '@/lib/content-utils'
 
 /**
  * Escape special regex characters to prevent ReDoS attacks
  */
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case '&':
+        return '&amp;'
+      case '<':
+        return '&lt;'
+      case '>':
+        return '&gt;'
+      case '"':
+        return '&quot;'
+      case '\'':
+        return '&#39;'
+      default:
+        return char
+    }
+  })
 }
 
 export type MatchedField = 'title' | 'description' | 'content' | 'tags'
@@ -85,9 +103,11 @@ function calculateMatchScore(keyword: string, title: string, description: string
  */
 function highlightKeyword(text: string, keyword: string): string {
   if (!text || !keyword) return text
-  
-  const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi')
-  return text.replace(regex, '<mark>$1</mark>')
+
+  const safeText = escapeHtml(text)
+  const safeKeyword = escapeHtml(keyword)
+  const regex = new RegExp(`(${escapeRegExp(safeKeyword)})`, 'gi')
+  return safeText.replace(regex, '<mark>$1</mark>')
 }
 
 /**
@@ -116,9 +136,6 @@ export function searchCourses(courses: CourseWithNote[], keyword: string): Searc
     
     // Only include results with a score > 0
     if (score > 0) {
-      const titleSanitized = sanitizeContent(title)
-      const descriptionSanitized = sanitizeContent(description)
-      
       results.push({
         id: course.id,
         type: 'course',
@@ -133,8 +150,8 @@ export function searchCourses(courses: CourseWithNote[], keyword: string): Searc
         matchScore: score,
         keyword,
         highlights: {
-          title: highlightKeyword(titleSanitized, keyword),
-          description: highlightKeyword(descriptionSanitized, keyword)
+          title: highlightKeyword(title, keyword),
+          description: highlightKeyword(description, keyword)
         }
       })
     }
@@ -169,9 +186,6 @@ export function searchResources(resources: ResourceWithNote[], keyword: string):
     
     // Only include results with a score > 0
     if (score > 0) {
-      const titleSanitized = sanitizeContent(title)
-      const descriptionSanitized = sanitizeContent(description)
-      
       results.push({
         id: resource.id,
         type: 'resource',
@@ -187,8 +201,8 @@ export function searchResources(resources: ResourceWithNote[], keyword: string):
         matchScore: score,
         keyword,
         highlights: {
-          title: highlightKeyword(titleSanitized, keyword),
-          description: highlightKeyword(descriptionSanitized, keyword)
+          title: highlightKeyword(title, keyword),
+          description: highlightKeyword(description, keyword)
         }
       })
     }
