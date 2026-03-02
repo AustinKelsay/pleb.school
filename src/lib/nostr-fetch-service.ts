@@ -291,12 +291,18 @@ export class NostrFetchService {
     const events = new Map<string, NostrEvent>()
 
     return new Promise((resolve) => {
-      let sub: { close: () => void }
+      let sub: { close: () => void } | null = null
+      let settled = false
 
-      const timeout = setTimeout(() => {
+      const finalize = () => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeout)
         if (sub) sub.close()
         resolve(Array.from(events.values()))
-      }, timeoutMs)
+      }
+
+      const timeout = setTimeout(finalize, timeoutMs)
 
       pool.subscribe(
         relays && relays.length ? relays : getRelays('default'),
@@ -305,12 +311,16 @@ export class NostrFetchService {
           events.set(event.id, event)
         },
         () => {
-          clearTimeout(timeout)
-          if (sub) sub.close()
-          resolve(Array.from(events.values()))
+          finalize()
         }
-      ).then(subscription => {
+      ).then((subscription) => {
+        if (settled) {
+          subscription.close()
+          return
+        }
         sub = subscription
+      }).catch(() => {
+        finalize()
       })
     })
   }

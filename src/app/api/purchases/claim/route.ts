@@ -24,6 +24,21 @@ import { DEFAULT_RELAYS, getRelays } from "@/lib/nostr-relays"
 import { sanitizeRelayHints } from "@/lib/nostr-relays.server"
 
 const paymentTypeEnum = z.enum(["zap", "manual", "comped", "refund"])
+const DEFAULT_RECEIPT_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+const EXTENDED_RECEIPT_AGE_MS = 365 * 24 * 60 * 60 * 1000 // 1 year for past zaps
+
+function getMaxReceiptAgeMs(allowPastZaps?: boolean): number {
+  const parsedEnvAge = process.env.MAX_RECEIPT_AGE_MS
+    ? parseInt(process.env.MAX_RECEIPT_AGE_MS, 10)
+    : null
+  const envMaxAge = parsedEnvAge !== null && Number.isFinite(parsedEnvAge) && parsedEnvAge > 0
+    ? parsedEnvAge
+    : null
+
+  return allowPastZaps
+    ? (envMaxAge ?? EXTENDED_RECEIPT_AGE_MS)
+    : (envMaxAge ?? DEFAULT_RECEIPT_AGE_MS)
+}
 
 const payloadSchema = z.object({
   resourceId: z.uuid().optional(),
@@ -152,8 +167,15 @@ async function findReceiptsByInvoice(params: {
   expectedRecipientPubkey?: string | null
   expectedEventId?: string | null
   relayHints?: string[]
+  allowPastZaps?: boolean
 }): Promise<NostrEvent[]> {
-  const { invoice, expectedRecipientPubkey, expectedEventId, relayHints } = params
+  const {
+    invoice,
+    expectedRecipientPubkey,
+    expectedEventId,
+    relayHints,
+    allowPastZaps
+  } = params
   const normalizedInvoice = invoice.trim().toLowerCase()
   if (!normalizedInvoice) return []
 
@@ -164,8 +186,8 @@ async function findReceiptsByInvoice(params: {
     ...getRelays("zapThreads")
   ]))
 
-  const now = Math.floor(Date.now() / 1000)
-  const since = now - (2 * 24 * 60 * 60) // 48 hours
+  const maxReceiptAgeMs = getMaxReceiptAgeMs(allowPastZaps)
+  const since = Math.max(0, Math.floor((Date.now() - maxReceiptAgeMs) / 1000))
   const normalizedRecipient = normalizeHexPubkey(expectedRecipientPubkey)
 
   const filters: Filter[] = []
@@ -268,18 +290,7 @@ async function validateZapProof(context: ZapValidationContext): Promise<ZapValid
   // Configurable via MAX_RECEIPT_AGE_MS env var (milliseconds).
   // Note: Duplicate receipt protection (unique zapReceiptId + JSONB checks) is the
   // primary defense; this age check provides defense-in-depth.
-  const DEFAULT_RECEIPT_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
-  const EXTENDED_RECEIPT_AGE_MS = 365 * 24 * 60 * 60 * 1000 // 1 year for past zaps
-  const parsedEnvAge = process.env.MAX_RECEIPT_AGE_MS
-    ? parseInt(process.env.MAX_RECEIPT_AGE_MS, 10)
-    : null
-  // Validate env var: must be a finite positive number, otherwise fall back to defaults
-  const envMaxAge = (parsedEnvAge !== null && Number.isFinite(parsedEnvAge) && parsedEnvAge > 0)
-    ? parsedEnvAge
-    : null
-  const maxReceiptAgeMs = allowPastZaps
-    ? (envMaxAge ?? EXTENDED_RECEIPT_AGE_MS)
-    : (envMaxAge ?? DEFAULT_RECEIPT_AGE_MS)
+  const maxReceiptAgeMs = getMaxReceiptAgeMs(allowPastZaps)
   const receiptAgeMs = Date.now() - (zapReceipt.created_at * 1000)
   if (receiptAgeMs > maxReceiptAgeMs) {
     // Compute human-readable age description from actual maxReceiptAgeMs
@@ -598,7 +609,8 @@ export async function POST(request: NextRequest) {
           invoice,
           expectedRecipientPubkey: priceResolution.ownerPubkey,
           expectedEventId: priceResolution.noteId,
-          relayHints
+          relayHints,
+          allowPastZaps
         })
 
         for (const receipt of matchedReceipts) {

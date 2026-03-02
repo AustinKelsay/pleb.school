@@ -37,6 +37,7 @@ import { PurchaseActions } from '@/components/purchase/purchase-actions'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { AdditionalLinksList } from '@/components/ui/additional-links-card'
 import type { AdditionalLink } from '@/types/additional-links'
+import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
 
 interface CoursePageProps {
   params: {
@@ -53,22 +54,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
 }
-
-function extractRelayHintsFromDecodedData(decodedData: unknown): string[] {
-  if (!decodedData || typeof decodedData !== 'object' || !('relays' in decodedData)) {
-    return []
-  }
-  const relays = (decodedData as { relays?: unknown }).relays
-  if (!Array.isArray(relays)) {
-    return []
-  }
-  return relays
-    .filter((relay): relay is string => typeof relay === 'string')
-    .map((relay) => relay.trim())
-    .filter(Boolean)
-}
-
-
 
 /**
  * Course lessons component - now using lessons from props

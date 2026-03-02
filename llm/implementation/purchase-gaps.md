@@ -14,8 +14,8 @@
 
 ## 4) Auto-claim/feed coupling (partially mitigated)
 - **Improved**: interaction subscriptions on detail/purchase surfaces now run realtime and use broader relay coverage (`default + zapThreads + relayHints`), reducing "refresh required" cases.
-- **Improved**: purchase dialog now runs a bounded background claim loop after invoice creation, so manual/external wallet payments can unlock when receipts propagate.
-- **Improved**: claim API now has invoice-scoped receipt lookup fallback (content/recipient-scoped scan + `bolt11` match) when receipt IDs are not yet present in the client payload.
-- **Improved**: invoice polling now rejects stale side effects after dialog cleanup/unmount, so in-flight poll responses can no longer trigger duplicate unlock toasts/callbacks.
+- **Now**: the purchase dialog now runs a bounded background claim loop after invoice creation, so manual/external wallet payments can unlock when receipts propagate.
+- **Adds**: a claim API invoice-scoped receipt lookup fallback (content/recipient-scoped scan + `bolt11` match) when receipt IDs are not yet present in the client payload.
+- **Uses**: stable invoice polling timeout and cleanup guards so in-flight poll responses can no longer trigger duplicate unlock toasts/callbacks after dialog cleanup/unmount.
 - Remaining gap: there is still no durable background worker to reconcile receipts after the user leaves/closes the page.
 - **Receipt age limit**: ~~The server previously had a hardcoded 24-hour receipt age limit that blocked "Unlock with past zaps" for older receipts.~~ **FIXED**: The claim route now supports `allowPastZaps: boolean` which extends the age limit to 1 year for the manual unlock flow. The default 24-hour limit remains for fresh zap claims (defense-in-depth). Configurable via `MAX_RECEIPT_AGE_MS` env var.

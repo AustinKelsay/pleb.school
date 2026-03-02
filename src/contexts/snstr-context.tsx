@@ -62,8 +62,16 @@ export const SnstrProvider = ({ children, relays, relaySet = 'default' }: SnstrP
     onEose?: () => void,
     relayOverride?: string[]
   ) => {
-    const relaysForSubscription = Array.isArray(relayOverride) && relayOverride.length > 0
-      ? relayOverride
+    const normalizedRelayOverride = Array.isArray(relayOverride)
+      ? Array.from(new Set(
+          relayOverride
+            .map((relay) => relay.trim())
+            .filter(Boolean)
+        ))
+      : []
+
+    const relaysForSubscription = normalizedRelayOverride.length > 0
+      ? normalizedRelayOverride
       : activeRelays;
     return poolRef.current!.subscribe(
       relaysForSubscription,

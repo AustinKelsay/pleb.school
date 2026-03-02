@@ -38,6 +38,7 @@ import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { useSession } from 'next-auth/react'
 import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
+import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
 
 interface ResourcePageProps {
   params: Promise<{
@@ -75,20 +76,6 @@ function ResourceContentSkeleton() {
       </Card>
     </div>
   )
-}
-
-function extractRelayHintsFromDecodedData(decodedData?: UniversalIdResult["decodedData"]): string[] {
-  if (!decodedData || typeof decodedData !== 'object' || !('relays' in decodedData)) {
-    return []
-  }
-  const relays = (decodedData as { relays?: unknown }).relays
-  if (!Array.isArray(relays)) {
-    return []
-  }
-  return relays
-    .filter((relay): relay is string => typeof relay === 'string')
-    .map((relay) => relay.trim())
-    .filter(Boolean)
 }
 
 /**

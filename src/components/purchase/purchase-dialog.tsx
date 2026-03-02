@@ -136,7 +136,13 @@ export function PurchaseDialog({
   const claimRelayHints = useMemo(() => {
     const hints = zapTarget?.relayHints
     if (!hints || hints.length === 0) return EMPTY_RELAY_HINTS
-    return Array.from(new Set(hints.filter((hint) => typeof hint === "string" && hint.trim().length > 0)))
+    const normalizedHints = hints
+      .filter((hint): hint is string => typeof hint === "string")
+      .map((hint) => hint.trim())
+      .filter((hint) => hint.length > 0)
+    return normalizedHints.length > 0
+      ? Array.from(new Set(normalizedHints))
+      : EMPTY_RELAY_HINTS
   }, [zapTarget?.relayHints])
 
   const [preferAnonymous, setPreferAnonymous] = useState(false)
@@ -444,7 +450,7 @@ export function PurchaseDialog({
       ? Math.max(paidSatsServer, viewerZapTotalSats)
       : paidSatsServer
   const paidSats = paidSatsServer
-  const isOwned = alreadyPurchased || paidSats >= priceSats
+  const isOwned = isOwnedByServer
   const progress = Math.min(100, Math.round((progressPaidSats / priceSats) * 100))
   // Allow manual claim once viewer zaps reach price, even if server purchase is still partial.
   const canClaimFree = eligible && isAuthed && !isOwned && viewerZapTotalSats >= priceSats

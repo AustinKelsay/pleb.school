@@ -97,6 +97,16 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
   const onSuccessRef = useRef(onAutoClaimSuccess)
   const onErrorRef = useRef(onAutoClaimError)
 
+  const resetAutoClaimState = useCallback(() => {
+    setPurchase(null)
+    setStatus("idle")
+    setError(null)
+    autoClaimedRef.current = false
+    autoClaimCooldownRef.current = 0
+    autoClaimFailCountRef.current = 0
+    autoClaimErrorNotifiedRef.current = false
+  }, [])
+
   useEffect(() => {
     onSuccessRef.current = onAutoClaimSuccess
     onErrorRef.current = onAutoClaimError
@@ -104,24 +114,12 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
 
   useEffect(() => {
     // Reset auto-claim sentinel when the user identity changes (e.g., first login or account switch)
-    setPurchase(null)
-    setStatus("idle")
-    setError(null)
-    autoClaimedRef.current = false
-    autoClaimCooldownRef.current = 0
-    autoClaimFailCountRef.current = 0
-    autoClaimErrorNotifiedRef.current = false
-  }, [sessionPubkey])
+    resetAutoClaimState()
+  }, [resetAutoClaimState, sessionPubkey])
 
   useEffect(() => {
-    setPurchase(null)
-    setStatus("idle")
-    setError(null)
-    autoClaimedRef.current = false
-    autoClaimCooldownRef.current = 0
-    autoClaimFailCountRef.current = 0
-    autoClaimErrorNotifiedRef.current = false
-  }, [courseId, resourceId])
+    resetAutoClaimState()
+  }, [courseId, resourceId, resetAutoClaimState])
 
   const eligible = useMemo(() => {
     if (!enabled) return false
@@ -284,7 +282,7 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
     let cancelled = false
 
     ;(async () => {
-      const claimed = await claimPurchase()
+      const claimed = await claimPurchase({ silent: true })
       if (cancelled) return
       if (claimed) {
         const unlocked = isPurchaseUnlockedByAmount(priceSats, claimed, alreadyPurchased)
