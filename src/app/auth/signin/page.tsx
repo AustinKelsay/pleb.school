@@ -296,7 +296,7 @@ export default function SignInPage() {
             {authConfigClient.features.showNostrProvider && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <NostrichIcon className="h-4 w-4 text-purple-500" />
+                  <span className="flex items-center justify-center h-6 w-6 rounded-full bg-purple-500/15"><NostrichIcon className="h-3.5 w-3.5 text-purple-500" /></span>
                   <span>Nostr-First (your Nostr profile is source of truth)</span>
                 </div>
                 
@@ -335,7 +335,7 @@ export default function SignInPage() {
             {(authConfigClient.features.showGithubProvider || authConfigClient.features.showEmailProvider) && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Shield className="h-4 w-4 text-blue-500" />
+                  <span className="flex items-center justify-center h-6 w-6 rounded-full bg-blue-500/15"><Shield className="h-3.5 w-3.5 text-blue-500" /></span>
                   <span>OAuth-First (traditional login + background Nostr)</span>
                 </div>
                 
@@ -443,7 +443,7 @@ export default function SignInPage() {
             {authConfigClient.features.showAnonymousProvider && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <UserX className="h-4 w-4 text-green-500" />
+                  <span className="flex items-center justify-center h-6 w-6 rounded-full bg-green-500/15"><UserX className="h-3.5 w-3.5 text-green-500" /></span>
                   <span>Anonymous Access (quickstart, lowest friction)</span>
                 </div>
                 
@@ -487,7 +487,7 @@ export default function SignInPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm font-medium text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <KeyRound className="h-4 w-4 text-amber-500" />
+                    <span className="flex items-center justify-center h-6 w-6 rounded-full bg-amber-500/15"><KeyRound className="h-3.5 w-3.5 text-amber-500" /></span>
                     <span>Account Recovery</span>
                   </div>
                   <Button
