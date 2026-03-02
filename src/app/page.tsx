@@ -78,6 +78,22 @@ function getStatIconComponent(iconName?: string): LucideIcon {
   return fallbackIcon
 }
 
+function isExternalHref(href: string): boolean {
+  return /^https?:\/\//i.test(href)
+}
+
+function normalizeHomepageCtaHref(href: string | undefined, fallback = "/content"): string {
+  const nextHref = (href || "").trim()
+  if (!nextHref) return fallback
+
+  // Legacy routes that no longer exist in this app.
+  if (nextHref === "/courses" || nextHref === "courses" || nextHref === "/demo" || nextHref === "demo") {
+    return "/content"
+  }
+
+  return nextHref
+}
+
 /**
  * Homepage component showcasing content and features
  * Uses dynamic data fetching and caching for performance
@@ -92,12 +108,12 @@ export default function Home() {
     icon: getStatIconComponent(stat.icon)
   }))
 
-  const watchDemoHref = homepage.hero.buttons.watchDemoHref || "/content"
-  const startLearningHref = homepage.hero.buttons.startLearningHref || "/content"
-  const viewCoursesHref = homepage.cta.buttons.viewCoursesHref || "/content"
-  const isExternalStartLearningHref = /^https?:\/\//i.test(startLearningHref)
-  const isExternalWatchDemoHref = /^https?:\/\//i.test(watchDemoHref)
-  const isExternalViewCoursesHref = /^https?:\/\//i.test(viewCoursesHref)
+  const watchDemoHref = normalizeHomepageCtaHref(homepage.hero.buttons.watchDemoHref, "/content")
+  const startLearningHref = normalizeHomepageCtaHref(homepage.hero.buttons.startLearningHref, "/content")
+  const viewCoursesHref = normalizeHomepageCtaHref(homepage.cta.buttons.viewCoursesHref, "/content")
+  const isExternalStartLearningHref = isExternalHref(startLearningHref)
+  const isExternalWatchDemoHref = isExternalHref(watchDemoHref)
+  const isExternalViewCoursesHref = isExternalHref(viewCoursesHref)
   const heroVideoUrl = homepage.visual.videoUrl
   const heroVideoPoster = homepage.visual.videoPoster
 
