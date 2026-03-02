@@ -9,7 +9,7 @@ import {
   supportsNostrZaps,
   verifySignature
 } from "snstr"
-import type { NostrEvent } from "snstr"
+import type { Filter, NostrEvent } from "snstr"
 
 import { authOptions } from "@/lib/auth"
 import { auditLog } from "@/lib/audit-logger"
@@ -144,6 +144,74 @@ function toReceiptList(input: unknown): NostrEvent[] {
   if (isNostrEventLike(input)) {
     return [input]
   }
+  return []
+}
+
+async function findReceiptsByInvoice(params: {
+  invoice: string
+  expectedRecipientPubkey?: string | null
+  expectedEventId?: string | null
+  relayHints?: string[]
+}): Promise<NostrEvent[]> {
+  const { invoice, expectedRecipientPubkey, expectedEventId, relayHints } = params
+  const normalizedInvoice = invoice.trim().toLowerCase()
+  if (!normalizedInvoice) return []
+
+  const relayList = Array.from(new Set([
+    ...(relayHints ?? []),
+    ...DEFAULT_RELAYS,
+    ...getRelays("content"),
+    ...getRelays("zapThreads")
+  ]))
+
+  const now = Math.floor(Date.now() / 1000)
+  const since = now - (2 * 24 * 60 * 60) // 48 hours
+  const normalizedRecipient = normalizeHexPubkey(expectedRecipientPubkey)
+
+  const filters: Filter[] = []
+  if (expectedEventId) {
+    filters.push({
+      kinds: [ZAP_RECEIPT_KIND],
+      "#e": [expectedEventId],
+      since,
+      limit: 200
+    })
+  }
+  if (normalizedRecipient) {
+    filters.push({
+      kinds: [ZAP_RECEIPT_KIND],
+      "#p": [normalizedRecipient],
+      since,
+      limit: 200
+    })
+  }
+  if (filters.length === 0) {
+    filters.push({
+      kinds: [ZAP_RECEIPT_KIND],
+      since,
+      limit: 200
+    })
+  }
+
+  const attempts = 6
+  const delayMs = 800
+  for (let i = 0; i < attempts; i++) {
+    const candidates = await NostrFetchService.fetchEventsByFilters(filters, undefined, relayList)
+    const matched = candidates.filter((event) => {
+      if (event.kind !== ZAP_RECEIPT_KIND) return false
+      const bolt11 = findTag(event, "bolt11")
+      return typeof bolt11 === "string" && bolt11.trim().toLowerCase() === normalizedInvoice
+    })
+
+    if (matched.length > 0) {
+      return matched
+    }
+
+    if (i < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
+
   return []
 }
 
@@ -522,6 +590,39 @@ export async function POST(request: NextRequest) {
         } catch (err) {
           const message = err instanceof Error ? err.message : "Unable to verify zap receipt."
           return badRequest(message)
+        }
+      }
+
+      if (proofs.length === 0 && typeof invoice === "string" && invoice.trim().length > 0) {
+        const matchedReceipts = await findReceiptsByInvoice({
+          invoice,
+          expectedRecipientPubkey: priceResolution.ownerPubkey,
+          expectedEventId: priceResolution.noteId,
+          relayHints
+        })
+
+        for (const receipt of matchedReceipts) {
+          const receiptId = receipt?.id ? String(receipt.id) : ""
+          if (!receiptId) continue
+          try {
+            const proof = await validateZapProof({
+              zapReceiptId: receiptId,
+              zapReceiptEvent: receipt,
+              invoiceHint: invoice,
+              expectedRecipientPubkey: priceResolution.ownerPubkey,
+              expectedEventId: priceResolution.noteId,
+              sessionPubkey: normalizedSessionPubkey,
+              allowedPayerPubkeys,
+              relayHints,
+              allowPastZaps
+            })
+            const already = proofs.some((p) => p.zapReceiptId.toLowerCase() === proof.zapReceiptId.toLowerCase())
+            if (!already) {
+              proofs.push(proof)
+            }
+          } catch {
+            // Ignore non-matching or invalid candidates and continue scanning.
+          }
         }
       }
 

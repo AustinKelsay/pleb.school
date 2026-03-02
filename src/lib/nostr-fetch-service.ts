@@ -3,7 +3,7 @@
  * Used by db-adapter to get content for courses and resources
  */
 
-import { NostrEvent, type RelayPool } from 'snstr'
+import { NostrEvent, type RelayPool, type Filter } from 'snstr'
 import { DEFAULT_RELAYS, getRelays } from './nostr-relays'
 
 export class NostrFetchService {
@@ -178,6 +178,43 @@ export class NostrFetchService {
     }
   }
 
+  /**
+   * Fetch events using arbitrary filters (e.g., invoice/content scoped zap receipt lookup).
+   */
+  static async fetchEventsByFilters(
+    filters: Filter[],
+    relayPool?: RelayPool,
+    relays: string[] = DEFAULT_RELAYS,
+    timeoutMs: number = 5000
+  ): Promise<NostrEvent[]> {
+    const events = new Map<string, NostrEvent>()
+
+    try {
+      // If no relay pool provided, create a temporary one
+      if (!relayPool) {
+        const { RelayPool: RP } = await import('snstr')
+        const tempPool = new RP(relays)
+
+        try {
+          const fetchedEvents = await this.fetchByFiltersWithPool(tempPool, filters, relays, timeoutMs)
+          tempPool.close()
+          return fetchedEvents
+        } catch (error) {
+          tempPool.close()
+          throw error
+        }
+      }
+
+      // Use provided relay pool
+      const fetched = await this.fetchByFiltersWithPool(relayPool, filters, relays, timeoutMs)
+      fetched.forEach((event) => events.set(event.id, event))
+      return Array.from(events.values())
+    } catch (error) {
+      console.error('Error fetching Nostr events by filters:', error)
+      return Array.from(events.values())
+    }
+  }
+
   // Private helper methods
   private static async fetchWithPool(
     pool: RelayPool,
@@ -238,6 +275,39 @@ export class NostrFetchService {
           clearTimeout(timeout)
           if (sub) sub.close()
           resolve(events)
+        }
+      ).then(subscription => {
+        sub = subscription
+      })
+    })
+  }
+
+  private static async fetchByFiltersWithPool(
+    pool: RelayPool,
+    filters: Filter[],
+    relays: string[] = getRelays('default'),
+    timeoutMs: number = 5000
+  ): Promise<NostrEvent[]> {
+    const events = new Map<string, NostrEvent>()
+
+    return new Promise((resolve) => {
+      let sub: { close: () => void }
+
+      const timeout = setTimeout(() => {
+        if (sub) sub.close()
+        resolve(Array.from(events.values()))
+      }, timeoutMs)
+
+      pool.subscribe(
+        relays && relays.length ? relays : getRelays('default'),
+        filters,
+        (event: NostrEvent) => {
+          events.set(event.id, event)
+        },
+        () => {
+          clearTimeout(timeout)
+          if (sub) sub.close()
+          resolve(Array.from(events.values()))
         }
       ).then(subscription => {
         sub = subscription

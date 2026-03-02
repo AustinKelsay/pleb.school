@@ -32,7 +32,7 @@ export interface CommentThreadsQueryResult {
  */
 export function useCommentThreads(
   eventId?: string, 
-  options: Omit<UseInteractionsOptions, 'eventId' | 'realtime'> = {}
+  options: Omit<UseInteractionsOptions, 'eventId'> = {}
 ): CommentThreadsQueryResult {
   const { 
     interactions, 
@@ -51,7 +51,6 @@ export function useCommentThreads(
     viewerZapReceipts
   } = useInteractions({
     eventId,
-    realtime: false,
     ...options
   })
 

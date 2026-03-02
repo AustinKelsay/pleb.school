@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react"
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import QRCode from "react-qr-code"
 import { 
   Check,
@@ -39,6 +39,13 @@ import { useZapSender } from "@/hooks/useZapSender"
 import { usePurchaseEligibility } from "@/hooks/usePurchaseEligibility"
 import { getPaymentsConfig, getPurchaseIcon } from "@/lib/payments-config"
 import { copyConfig } from "@/lib/copy"
+import {
+  isPurchaseUnlockedByAmount,
+  shouldFinalizeClaimFromResult,
+  shouldStopInvoiceClaimPolling
+} from "@/lib/purchase-claim-flow"
+
+const EMPTY_RELAY_HINTS: string[] = []
 
 // Icon lookup at module level (not during render) to avoid React rules violation
 const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
@@ -56,6 +63,9 @@ const purchaseAutoCloseMs = paymentsConfig.purchase?.autoCloseMs ?? 1200
 const purchaseAutoShowQr = paymentsConfig.purchase?.autoShowQr ?? false
 const purchaseProgressBasis = paymentsConfig.purchase?.progressBasis ?? "server"
 const purchaseNoteMaxBytes = paymentsConfig.purchase?.noteMaxBytes ?? 280
+const receiptWatchMaxMs = 90_000
+const receiptWatchBaseDelayMs = 3_000
+const receiptWatchMaxDelayMs = 7_000
 
 interface PurchaseDialogProps {
   isOpen: boolean
@@ -123,6 +133,11 @@ export function PurchaseDialog({
   const { toast } = useToast()
   const isAuthed = sessionStatus === "authenticated"
   const purchaseCopy = copyConfig.payments?.purchaseDialog
+  const claimRelayHints = useMemo(() => {
+    const hints = zapTarget?.relayHints
+    if (!hints || hints.length === 0) return EMPTY_RELAY_HINTS
+    return Array.from(new Set(hints.filter((hint) => typeof hint === "string" && hint.trim().length > 0)))
+  }, [zapTarget?.relayHints])
 
   const [preferAnonymous, setPreferAnonymous] = useState(false)
   const [showQr, setShowQr] = useState(false)
@@ -157,6 +172,7 @@ export function PurchaseDialog({
     eventKind,
     eventIdentifier,
     eventPubkey,
+    relayHints: claimRelayHints,
     onAutoClaimSuccess: (claimed) => {
       const snapshot = claimed.priceAtPurchase
       const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
@@ -207,6 +223,7 @@ export function PurchaseDialog({
   const paidBasis = (purchase && paidSatsServer >= requiredPrice)
     ? paidSatsServer
     : Math.max(paidSatsServer, viewerZapTotalSats)
+  const isOwnedByServer = isPurchaseUnlockedByAmount(priceSats, purchase, alreadyPurchased)
   const remaining = Math.max(0, requiredPrice - paidBasis)
   const baseAmount = remaining > 0 ? remaining : requiredPrice
   const defaultAmount = Math.max(baseAmount, MIN_ZAP)
@@ -225,6 +242,74 @@ export function PurchaseDialog({
       resetZapState()
     }
   }, [isOpen, defaultAmount, resetZapState])
+
+  useEffect(() => {
+    if (shouldStopInvoiceClaimPolling({
+      isOpen,
+      invoice: zapState.invoice,
+      isOwned: isOwnedByServer
+    })) {
+      return
+    }
+
+    let cancelled = false
+
+    const attemptClaimLoop = async () => {
+      const startedAt = Date.now()
+      let attempts = 0
+
+      while (!cancelled && (Date.now() - startedAt) < receiptWatchMaxMs) {
+        const claimed = await claimPurchase({
+          invoice: zapState.invoice,
+          paymentType: "zap",
+          zapReceiptIds: [],
+          zapReceiptEvents: [],
+          zapRequestJson: zapState.zapRequest,
+          relayHints: claimRelayHints,
+          silent: true
+        })
+        if (cancelled) {
+          return
+        }
+        if (claimed) {
+          const unlocked = shouldFinalizeClaimFromResult(priceSats, claimed, alreadyPurchased)
+          if (unlocked) {
+            toast({
+              title: purchaseCopy?.send?.unlockedTitle ?? "Unlocked!",
+              description: purchaseCopy?.send?.unlockedDescription ?? "Enjoy!"
+            })
+            onPurchaseComplete?.(claimed)
+            return
+          }
+        }
+
+        attempts += 1
+        const delayMs = Math.min(
+          receiptWatchMaxDelayMs,
+          receiptWatchBaseDelayMs + attempts * 500
+        )
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+
+    void attemptClaimLoop()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    claimPurchase,
+    claimRelayHints,
+    alreadyPurchased,
+    isOpen,
+    isOwnedByServer,
+    onPurchaseComplete,
+    priceSats,
+    purchaseCopy,
+    toast,
+    zapState.invoice,
+    zapState.zapRequest
+  ])
 
   useEffect(() => {
     if (zapState.invoice && purchaseAutoShowQr) setShowQr(true)
@@ -263,7 +348,8 @@ export function PurchaseDialog({
           amountPaidOverride: resolvedAmount,
           paymentType: "zap",
           paymentPreimage: result.paymentPreimage,
-          zapRequestJson: zapState.zapRequest
+          zapRequestJson: zapState.zapRequest,
+          relayHints: claimRelayHints
         })
         if (claimed) {
           const snapshot = claimed.priceAtPurchase
@@ -293,7 +379,7 @@ export function PurchaseDialog({
         variant: "destructive"
       })
     }
-  }, [isAuthed, isValid, remaining, sendZap, resolvedAmount, note, preferAnonymous, claimPurchase, zapState.zapRequest, priceSats, onPurchaseComplete, toast, purchaseCopy])
+  }, [isAuthed, isValid, remaining, sendZap, resolvedAmount, note, preferAnonymous, claimPurchase, claimRelayHints, zapState.zapRequest, priceSats, onPurchaseComplete, toast, purchaseCopy])
 
   const handleClaimExisting = useCallback(async () => {
     if (!isAuthed) {
@@ -301,7 +387,7 @@ export function PurchaseDialog({
       return
     }
     // Use allowPastZaps to extend the receipt age limit for unlocking with historical zaps
-    const claimed = await claimPurchase({ allowPastZaps: true })
+    const claimed = await claimPurchase({ allowPastZaps: true, relayHints: claimRelayHints })
     if (claimed) {
       toast({
         title: purchaseCopy?.send?.claimSuccessTitle ?? "Unlocked!",
@@ -311,7 +397,7 @@ export function PurchaseDialog({
     } else {
       toast({ title: purchaseCopy?.send?.claimNoneTitle ?? "No receipts found", variant: "destructive" })
     }
-  }, [claimPurchase, isAuthed, onPurchaseComplete, toast, purchaseCopy])
+  }, [claimPurchase, claimRelayHints, isAuthed, onPurchaseComplete, toast, purchaseCopy])
 
   const handleCopy = useCallback(async () => {
     if (!zapState.invoice) return
@@ -332,7 +418,8 @@ export function PurchaseDialog({
         amountPaidOverride: resolvedAmount,
         paymentType: "zap",
         paymentPreimage: zapState.paymentPreimage,
-        zapRequestJson: zapState.zapRequest
+        zapRequestJson: zapState.zapRequest,
+        relayHints: claimRelayHints
       })
       if (claimed) onPurchaseComplete?.(claimed)
     } else {
@@ -347,7 +434,8 @@ export function PurchaseDialog({
     resolvedAmount,
     onPurchaseComplete,
     purchaseCopy,
-    toast
+    toast,
+    claimRelayHints
   ])
 
   // Derived states

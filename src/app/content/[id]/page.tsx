@@ -77,6 +77,20 @@ function ResourceContentSkeleton() {
   )
 }
 
+function extractRelayHintsFromDecodedData(decodedData?: UniversalIdResult["decodedData"]): string[] {
+  if (!decodedData || typeof decodedData !== 'object' || !('relays' in decodedData)) {
+    return []
+  }
+  const relays = (decodedData as { relays?: unknown }).relays
+  if (!Array.isArray(relays)) {
+    return []
+  }
+  return relays
+    .filter((relay): relay is string => typeof relay === 'string')
+    .map((relay) => relay.trim())
+    .filter(Boolean)
+}
+
 /**
  * Resource overview component - shows metadata and description, not the actual content
  */
@@ -139,6 +153,11 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     if (!identifier) return undefined
     return `${event.kind}:${event.pubkey}:${identifier}`
   }, [event])
+
+  const routeRelayHints = useMemo(
+    () => extractRelayHintsFromDecodedData(idResult?.decodedData),
+    [idResult?.decodedData]
+  )
   
   // Get real interaction data from Nostr - call hook unconditionally at top level
   const {
@@ -155,7 +174,8 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   } = useInteractions({
     eventId: event?.id,
     eventATag,
-    realtime: false,
+    realtime: true,
+    relayHints: routeRelayHints,
     staleTime: 5 * 60 * 1000 // Use staleTime instead of cacheDuration
   })
 
@@ -493,7 +513,8 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   zapTarget={{
                     pubkey: event.pubkey,
                     lightningAddress: authorProfile?.lud16 || undefined,
-                    name: author
+                    name: author,
+                    relayHints: routeRelayHints
                   }}
                 />
                 
@@ -560,7 +581,8 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   zapTarget={{
                     pubkey: event.pubkey,
                     lightningAddress: authorProfile?.lud16 || undefined,
-                    name: author
+                    name: author,
+                    relayHints: routeRelayHints
                   }}
                   viewerZapTotalSats={viewerZapTotalSats}
                   alreadyPurchased={serverPurchased}

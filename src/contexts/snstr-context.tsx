@@ -21,7 +21,8 @@ interface SnstrContextType {
   subscribe: (
     filters: Filter[], 
     onEvent: (event: NostrEvent, relayUrl: string) => void, 
-    onEose?: () => void
+    onEose?: () => void,
+    relayOverride?: string[]
   ) => Promise<{ close: () => void }>;
   publish: (event: NostrEvent) => Promise<unknown[]>;
 }
@@ -58,10 +59,14 @@ export const SnstrProvider = ({ children, relays, relaySet = 'default' }: SnstrP
   const subscribe = useCallback(async (
     filters: Filter[], 
     onEvent: (event: NostrEvent, relayUrl: string) => void,
-    onEose?: () => void
+    onEose?: () => void,
+    relayOverride?: string[]
   ) => {
+    const relaysForSubscription = Array.isArray(relayOverride) && relayOverride.length > 0
+      ? relayOverride
+      : activeRelays;
     return poolRef.current!.subscribe(
-      activeRelays,
+      relaysForSubscription,
       filters,
       onEvent,
       onEose || (() => {})

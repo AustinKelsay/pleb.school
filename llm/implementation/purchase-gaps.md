@@ -12,7 +12,10 @@
 - When DB and Nostr price hints diverge we log and enforce DB price, but the UI can still show a stale/hinted price until refresh. Users may perceive over/undercharge.
 - Mitigation ideas: surface a "price verified" badge bound to DB price; force client refresh of price on dialog open; or block checkout if the hinted price differs by > threshold and prompt a reload.
 
-## 4) Auto-claim depends on live zap feed
-- Eligibility/auto-claim rely on `viewerZapTotalSats` derived from receipts visible to the current browser session. Zaps sent from other clients on relays we don't subscribe to won't trigger auto-claim.
-- Mitigation ideas: fetch user zap receipts server-side via relay fan-out; persist last-seen receipts per user/content; or add a backend "retry claim" helper that queries a broader relay set.
+## 4) Auto-claim/feed coupling (partially mitigated)
+- **Improved**: interaction subscriptions on detail/purchase surfaces now run realtime and use broader relay coverage (`default + zapThreads + relayHints`), reducing "refresh required" cases.
+- **Improved**: purchase dialog now runs a bounded background claim loop after invoice creation, so manual/external wallet payments can unlock when receipts propagate.
+- **Improved**: claim API now has invoice-scoped receipt lookup fallback (content/recipient-scoped scan + `bolt11` match) when receipt IDs are not yet present in the client payload.
+- **Improved**: invoice polling now rejects stale side effects after dialog cleanup/unmount, so in-flight poll responses can no longer trigger duplicate unlock toasts/callbacks.
+- Remaining gap: there is still no durable background worker to reconcile receipts after the user leaves/closes the page.
 - **Receipt age limit**: ~~The server previously had a hardcoded 24-hour receipt age limit that blocked "Unlock with past zaps" for older receipts.~~ **FIXED**: The claim route now supports `allowPastZaps: boolean` which extends the age limit to 1 year for the manual unlock flow. The default 24-hour limit remains for fresh zap claims (defense-in-depth). Configurable via `MAX_RECEIPT_AGE_MS` env var.

@@ -54,6 +54,20 @@ function formatNpubWithEllipsis(pubkey: string): string {
   }
 }
 
+function extractRelayHintsFromDecodedData(decodedData: unknown): string[] {
+  if (!decodedData || typeof decodedData !== 'object' || !('relays' in decodedData)) {
+    return []
+  }
+  const relays = (decodedData as { relays?: unknown }).relays
+  if (!Array.isArray(relays)) {
+    return []
+  }
+  return relays
+    .filter((relay): relay is string => typeof relay === 'string')
+    .map((relay) => relay.trim())
+    .filter(Boolean)
+}
+
 
 
 /**
@@ -151,6 +165,10 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   
   const resolved = React.useMemo(() => resolveUniversalId(courseId), [courseId])
   const resolvedCourseId = resolved?.resolvedId
+  const routeRelayHints = useMemo(
+    () => extractRelayHintsFromDecodedData(resolved?.decodedData),
+    [resolved?.decodedData]
+  )
 
   // Use hooks to fetch course data and lessons with Nostr integration
   // Must be called unconditionally at the top level, before any early returns
@@ -188,7 +206,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   } = useInteractions({
     eventId: noteId,
     eventATag: noteATag,
-    realtime: false,
+    realtime: true,
+    relayHints: routeRelayHints,
     staleTime: 5 * 60 * 1000,
     enabled: Boolean(noteId)
   })
@@ -433,7 +452,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                     zapTarget={{
                       pubkey: notePubkey,
                       lightningAddress: instructorProfile?.lud16 || undefined,
-                      name: instructor
+                      name: instructor,
+                      relayHints: routeRelayHints
                     }}
                   />
                 )}
@@ -457,7 +477,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
             zapTarget={{
               pubkey: notePubkey,
               lightningAddress: instructorProfile?.lud16 || undefined,
-              name: instructor
+              name: instructor,
+              relayHints: routeRelayHints
             }}
             viewerZapTotalSats={viewerZapTotal}
             alreadyPurchased={serverPurchased}

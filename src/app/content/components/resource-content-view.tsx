@@ -70,6 +70,20 @@ function formatNpubWithEllipsis(pubkey: string): string {
   }
 }
 
+function extractRelayHintsFromDecodedData(decodedData: unknown): string[] {
+  if (!decodedData || typeof decodedData !== 'object' || !('relays' in decodedData)) {
+    return []
+  }
+  const relays = (decodedData as { relays?: unknown }).relays
+  if (!Array.isArray(relays)) {
+    return []
+  }
+  return relays
+    .filter((relay): relay is string => typeof relay === 'string')
+    .map((relay) => relay.trim())
+    .filter(Boolean)
+}
+
 
 interface ContentMetadataProps {
   event: NostrEvent
@@ -78,6 +92,7 @@ interface ContentMetadataProps {
   serverPrice: number | null
   serverPurchased: boolean
   interactionData: CommentThreadsQueryResult
+  relayHints?: string[]
   onUnlock?: () => void
   hidePrimaryCta?: boolean
 }
@@ -89,6 +104,7 @@ function ContentMetadata({
   serverPrice,
   serverPurchased,
   interactionData,
+  relayHints = [],
   onUnlock,
   hidePrimaryCta = false
 }: ContentMetadataProps) {
@@ -222,7 +238,8 @@ function ContentMetadata({
         zapTarget={{
           pubkey: event.pubkey,
           lightningAddress: authorProfile?.lud16 || undefined,
-          name: parsedEvent.author || undefined
+          name: parsedEvent.author || undefined,
+          relayHints
         }}
       />
 
@@ -259,7 +276,8 @@ function ContentMetadata({
                 zapTarget={{
                   pubkey: event.pubkey,
                   lightningAddress: authorProfile?.lud16 || undefined,
-                  name: parsedEvent.author || undefined
+                  name: parsedEvent.author || undefined,
+                  relayHints
                 }}
                 viewerZapTotalSats={viewerZapTotalSats}
                 alreadyPurchased={serverPurchased}
@@ -296,6 +314,7 @@ interface ResourceMetadataHeroProps {
   unlockedViaCourse?: boolean
   unlockingCourseId?: string | null
   interactionData: CommentThreadsQueryResult
+  relayHints?: string[]
   onUnlock?: () => void
   showBackLink?: boolean
   backHref?: string
@@ -314,6 +333,7 @@ export function ResourceMetadataHero({
   unlockedViaCourse = false,
   unlockingCourseId = null,
   interactionData,
+  relayHints = [],
   onUnlock,
   showBackLink,
   backHref,
@@ -402,6 +422,7 @@ export function ResourceMetadataHero({
             serverPrice={serverPrice}
             serverPurchased={serverPurchased}
             interactionData={interactionData}
+            relayHints={relayHints}
             onUnlock={onUnlock}
             hidePrimaryCta={hidePrimaryCta}
           />
@@ -451,7 +472,15 @@ export function ResourceContentView({
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [authorProfile, setAuthorProfile] = useState<NormalizedProfile | null>(null)
   const resolvedIdentifier = useMemo(() => resolveUniversalId(resourceId), [resourceId])
-  const interactionData = useCommentThreads(event?.id, { enabled: Boolean(event?.id) })
+  const routeRelayHints = useMemo(
+    () => extractRelayHintsFromDecodedData(resolvedIdentifier?.decodedData),
+    [resolvedIdentifier?.decodedData]
+  )
+  const interactionData = useCommentThreads(event?.id, {
+    enabled: Boolean(event?.id),
+    realtime: true,
+    relayHints: routeRelayHints
+  })
   const { zapInsights, recentZaps, viewerZapTotalSats, viewerZapReceipts } = interactionData
   const handleUnlock = () => setServerPurchased(true)
 
@@ -725,6 +754,7 @@ export function ResourceContentView({
           unlockedViaCourse={unlockedViaCourse}
           unlockingCourseId={unlockingCourseId}
           interactionData={interactionData}
+          relayHints={routeRelayHints}
           onUnlock={handleUnlock}
           showBackLink={showBackLink}
           backHref={backHref}
@@ -766,7 +796,8 @@ export function ResourceContentView({
               zapTarget={{
                 pubkey: event.pubkey,
                 lightningAddress: authorProfile?.lud16 || undefined,
-                name: parsedEvent.author || undefined
+                name: parsedEvent.author || undefined,
+                relayHints: routeRelayHints
               }}
               viewerZapTotalSats={viewerZapTotalSats}
               viewerZapReceipts={viewerZapReceipts}

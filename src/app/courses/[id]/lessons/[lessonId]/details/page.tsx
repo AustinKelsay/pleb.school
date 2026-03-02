@@ -78,6 +78,20 @@ function formatNpubWithEllipsis(pubkey: string): string {
   }
 }
 
+function extractRelayHintsFromDecodedData(decodedData: unknown): string[] {
+  if (!decodedData || typeof decodedData !== 'object' || !('relays' in decodedData)) {
+    return []
+  }
+  const relays = (decodedData as { relays?: unknown }).relays
+  if (!Array.isArray(relays)) {
+    return []
+  }
+  return relays
+    .filter((relay): relay is string => typeof relay === 'string')
+    .map((relay) => relay.trim())
+    .filter(Boolean)
+}
+
 
 /**
  * Loading component for lesson content
@@ -199,6 +213,11 @@ function LessonContent({
   const resolvedLesson = React.useMemo(() => resolveUniversalId(lessonId), [lessonId])
   const resolvedCourseId = resolvedCourse?.resolvedId ?? ''
   const resolvedLessonId = resolvedLesson?.resolvedId ?? ''
+  const routeRelayHints = useMemo(() => {
+    const courseHints = extractRelayHintsFromDecodedData(resolvedCourse?.decodedData)
+    const lessonHints = extractRelayHintsFromDecodedData(resolvedLesson?.decodedData)
+    return Array.from(new Set([...courseHints, ...lessonHints]))
+  }, [resolvedCourse?.decodedData, resolvedLesson?.decodedData])
   
   // Use the new hooks to fetch lesson and course data with Nostr integration
   const { lesson: lessonData, isLoading: lessonLoading, isError: lessonError } = useLessonQuery(resolvedLessonId)
@@ -222,7 +241,11 @@ function LessonContent({
   const resourceUnlockedViaCourse = Boolean((lesson?.resource as any)?.unlockedViaCourse)
   const resourcePurchased = !resourceRequiresPurchase || resourceUnlockedViaCourse
 
-  const interactionData = useCommentThreads(resourceNote?.id, { enabled: Boolean(resourceNote?.id) && resourcePurchased })
+  const interactionData = useCommentThreads(resourceNote?.id, {
+    enabled: Boolean(resourceNote?.id) && resourcePurchased,
+    realtime: true,
+    relayHints: routeRelayHints
+  })
   const [isFullWidth, setIsFullWidth] = useState(false)
 
   if (!resolvedCourse || !resolvedLesson) {
@@ -419,6 +442,7 @@ let courseInstructorPubkey = ''
           serverPrice={lesson.resource.price ?? null}
           serverPurchased={resourcePurchased}
           interactionData={interactionData}
+          relayHints={routeRelayHints}
           showBackLink
           backHref={`/courses/${resolvedCourseId}`}
           isPremium={resourceIsPremium}

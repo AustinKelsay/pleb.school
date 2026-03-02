@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSnstrContext } from '../contexts/snstr-context';
 import { NostrEvent } from 'snstr';
 import { parseBolt11Invoice } from '@/lib/bolt11';
+import { DEFAULT_RELAYS, getRelays } from '@/lib/nostr-relays';
 
 export interface InteractionCounts {
   zaps: number;
@@ -221,6 +222,7 @@ export interface UseInteractionsOptions {
   enabled?: boolean; // Allow manual control
   elementRef?: React.RefObject<HTMLElement | null>; // For visibility tracking
   currentUserPubkey?: string; // Optional override for identifying viewer reactions
+  relayHints?: string[]; // Optional relay hints for better receipt coverage
 }
 
 export interface InteractionsQueryResult {
@@ -252,9 +254,10 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     elementRef,
     enabled: manualEnabled = true,
     currentUserPubkey: explicitPubkey,
+    relayHints,
     realtime = true,
   } = options;
-  const { subscribe } = useSnstrContext();
+  const { subscribe, relays } = useSnstrContext();
   const { data: session } = useSession();
   const normalizedSessionPubkey = session?.user?.pubkey?.toLowerCase();
   const currentUserPubkey = (explicitPubkey?.toLowerCase() || normalizedSessionPubkey) ?? null;
@@ -296,9 +299,27 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
   const [viewerZapReceipts, setViewerZapReceipts] = useState<ZapReceiptSummary[]>([]);
   const [hasZappedWithLightning, setHasZappedWithLightning] = useState(false);
   const [viewerZapTotalSats, setViewerZapTotalSats] = useState(0);
+  const [refreshTick, setRefreshTick] = useState(0);
   const currentUserPubkeyRef = useRef<string | null>(null);
   const viewerZapReceiptsRef = useRef<ZapReceiptSummary[]>([]);
   const loadedSnapshotTargetRef = useRef<string | null>(null);
+
+  const subscriptionRelays = useMemo(() => {
+    const fromHints = Array.isArray(relayHints) ? relayHints : [];
+    const candidates = [
+      ...relays,
+      ...DEFAULT_RELAYS,
+      ...getRelays('zapThreads'),
+      ...fromHints
+    ];
+
+    const normalized = candidates
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .filter(Boolean)
+      .filter((value) => value.startsWith('wss://') || value.startsWith('ws://'));
+
+    return Array.from(new Set(normalized));
+  }, [relayHints, relays]);
 
   const resetInteractionStorage = () => {
     zapsRef.current = [];
@@ -393,7 +414,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
   useEffect(() => {
     // Only subscribe if enabled, visible, and has valid eventId/aTag
     const hasTarget = Boolean((eventId && eventId.length === 64) || eventATag)
-    const targetKey = `${eventId ?? ""}|${eventATag ?? ""}`
+    const targetKey = `${eventId ?? ""}|${eventATag ?? ""}|${refreshTick}`
     const shouldSubscribe = manualEnabled && isVisible && hasTarget;
     
     if (!shouldSubscribe) {
@@ -616,7 +637,8 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
           },
           () => {
             settleInitialLoad(!realtime);
-          }
+          },
+          subscriptionRelays
         );
 
         subscriptionRef.current = subscription;
@@ -658,7 +680,7 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
         initialLoadTimeoutRef.current = null;
       }
     };
-  }, [eventId, eventATag, subscribe, manualEnabled, isVisible, realtime]);
+  }, [eventId, eventATag, subscribe, subscriptionRelays, manualEnabled, isVisible, realtime, refreshTick]);
 
   const getDirectReplies = () => {
     return interactions.replies;
@@ -680,8 +702,8 @@ export function useInteractions(options: UseInteractionsOptions): InteractionsQu
     resetInteractionStorage();
     setInteractions({ zaps: 0, likes: 0, comments: 0, replies: 0, threadComments: 0 });
 
-    // Force re-run of the effect
-    setIsLoading(true);
+    // Force re-run of the subscription effect for the same target.
+    setRefreshTick((prev) => prev + 1);
   };
 
   return {

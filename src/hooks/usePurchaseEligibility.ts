@@ -6,6 +6,11 @@ import { useSession } from "next-auth/react"
 import type { Purchase } from "@/generated/prisma"
 import type { ZapReceiptSummary } from "./useInteractions"
 import { normalizeHexPubkey } from "@/lib/nostr-keys"
+import {
+  getAutoClaimRetryDelayMs,
+  isPurchaseUnlockedByAmount,
+  shouldNotifyAutoClaimFailure
+} from "@/lib/purchase-claim-flow"
 
 type ClaimArgs = {
   zapReceiptId?: string
@@ -19,6 +24,8 @@ type ClaimArgs = {
   relayHints?: string[]
   // When true, uses extended age limit for "Unlock with past zaps" flow
   allowPastZaps?: boolean
+  // When true, suppresses user-facing error state updates for background retries
+  silent?: boolean
 }
 
 type Status = "idle" | "pending" | "success" | "error"
@@ -38,6 +45,7 @@ export interface PurchaseEligibilityOptions {
   eventKind?: number
   eventIdentifier?: string
   eventPubkey?: string
+  relayHints?: string[]
 }
 
 export interface PurchaseEligibilityResult {
@@ -50,6 +58,10 @@ export interface PurchaseEligibilityResult {
 }
 
 const DEFAULT_AUTO_CLAIM = true
+const EMPTY_RELAY_HINTS: string[] = []
+const EMPTY_ZAP_RECEIPTS: ZapReceiptSummary[] = []
+const EMPTY_RECEIPT_IDS: string[] = []
+const EMPTY_RECEIPT_EVENTS: any[] = []
 
 export function usePurchaseEligibility(options: PurchaseEligibilityOptions): PurchaseEligibilityResult {
   const {
@@ -66,7 +78,8 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
     eventId,
     eventKind,
     eventIdentifier,
-    eventPubkey
+    eventPubkey,
+    relayHints
   } = options
 
   const { status: sessionStatus, data: session } = useSession()
@@ -76,9 +89,11 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
   const [status, setStatus] = useState<Status>("idle")
   const [purchase, setPurchase] = useState<Purchase | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [autoClaimRetryTick, setAutoClaimRetryTick] = useState(0)
   const autoClaimedRef = useRef(false)
   const autoClaimCooldownRef = useRef<number>(0)
   const autoClaimFailCountRef = useRef(0)
+  const autoClaimErrorNotifiedRef = useRef(false)
   const onSuccessRef = useRef(onAutoClaimSuccess)
   const onErrorRef = useRef(onAutoClaimError)
 
@@ -89,9 +104,24 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
 
   useEffect(() => {
     // Reset auto-claim sentinel when the user identity changes (e.g., first login or account switch)
+    setPurchase(null)
+    setStatus("idle")
+    setError(null)
     autoClaimedRef.current = false
     autoClaimCooldownRef.current = 0
+    autoClaimFailCountRef.current = 0
+    autoClaimErrorNotifiedRef.current = false
   }, [sessionPubkey])
+
+  useEffect(() => {
+    setPurchase(null)
+    setStatus("idle")
+    setError(null)
+    autoClaimedRef.current = false
+    autoClaimCooldownRef.current = 0
+    autoClaimFailCountRef.current = 0
+    autoClaimErrorNotifiedRef.current = false
+  }, [courseId, resourceId])
 
   const eligible = useMemo(() => {
     if (!enabled) return false
@@ -100,6 +130,10 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
     return viewerZapTotalSats >= priceSats
   }, [alreadyPurchased, enabled, priceSats, viewerZapTotalSats])
 
+  const purchaseUnlocked = useMemo(() => {
+    return isPurchaseUnlockedByAmount(priceSats, purchase, alreadyPurchased)
+  }, [alreadyPurchased, priceSats, purchase])
+
   const normalizedEventId = eventId?.toLowerCase()
   const normalizedEventPubkey = eventPubkey?.toLowerCase()
   const normalizedEventIdentifier = eventIdentifier?.toLowerCase()
@@ -107,9 +141,10 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
     eventKind && normalizedEventPubkey && normalizedEventIdentifier
       ? `${eventKind}:${normalizedEventPubkey}:${normalizedEventIdentifier}`
       : null
+  const normalizedRelayHints = useMemo(() => relayHints ?? EMPTY_RELAY_HINTS, [relayHints])
 
   const viewerReceipts = useMemo(() => {
-    if (!zapReceipts || !sessionPubkey) return []
+    if (!zapReceipts || !sessionPubkey) return EMPTY_ZAP_RECEIPTS
     return zapReceipts.filter((zap) => {
       const payerKeys = zap.payerPubkeys ?? (zap.senderPubkey ? [zap.senderPubkey] : [])
       const matchesPayer = payerKeys.some((k) => k?.toLowerCase() === sessionPubkey)
@@ -126,14 +161,30 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
     })
   }, [zapReceipts, sessionPubkey, normalizedEventId, eventATag])
 
+  const fallbackReceipt = viewerReceipts[0]
+  const fallbackReceiptBolt11 = fallbackReceipt?.bolt11
+  const fallbackReceiptId = fallbackReceipt?.id
+  const viewerReceiptIds = useMemo(() => {
+    if (viewerReceipts.length === 0) return EMPTY_RECEIPT_IDS
+    return viewerReceipts.map((receipt) => receipt.id).filter(Boolean)
+  }, [viewerReceipts])
+  const viewerReceiptEvents = useMemo(() => {
+    if (viewerReceipts.length === 0) return EMPTY_RECEIPT_EVENTS
+    return viewerReceipts.map((receipt) => receipt.event).filter(Boolean)
+  }, [viewerReceipts])
+
   const claimPurchase = useCallback(async (args?: ClaimArgs) => {
     if (!isAuthed) {
-      setError("Sign in to claim your purchase.")
+      if (!args?.silent) {
+        setError("Sign in to claim your purchase.")
+      }
       return null
     }
 
     if (!resourceId && !courseId) {
-      setError("Missing resourceId or courseId for purchase claim.")
+      if (!args?.silent) {
+        setError("Missing resourceId or courseId for purchase claim.")
+      }
       return null
     }
 
@@ -146,23 +197,31 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
         priceSats
       )
 
-      const fallbackReceipt = viewerReceipts[0]
-      const receiptIds = args?.zapReceiptIds ?? viewerReceipts.map((r) => r.id).filter(Boolean)
+      const hasExplicitReceiptSelection =
+        args != null
+        && ("zapReceiptId" in args
+          || "zapReceiptIds" in args
+          || "zapReceiptEvents" in args)
+      const receiptIds = args?.zapReceiptIds ?? viewerReceiptIds
       const receiptEvents = args?.zapReceiptEvents
-        ?? viewerReceipts.map((r) => r.event).filter(Boolean)
+        ?? viewerReceiptEvents
       const hasSingleReceipt = (receiptIds?.length ?? 0) <= 1
 
       // Avoid sending an invoice hint when multiple zap receipts are involved; each zap has its own invoice.
-      const invoiceHint = hasSingleReceipt
-        ? (args?.invoice ?? fallbackReceipt?.bolt11)
-        : undefined
+      const invoiceHint = (() => {
+        if (args?.invoice) return args.invoice
+        if (hasExplicitReceiptSelection) return undefined
+        return hasSingleReceipt ? fallbackReceiptBolt11 : undefined
+      })()
 
       const payload = {
         resourceId,
         courseId,
         amountPaid,
         paymentType: args?.paymentType ?? "zap",
-        zapReceiptId: args?.zapReceiptId ?? (hasSingleReceipt ? fallbackReceipt?.id : undefined),
+        zapReceiptId: args?.zapReceiptId ?? (
+          !hasExplicitReceiptSelection && hasSingleReceipt ? fallbackReceiptId : undefined
+        ),
         zapReceiptIds: receiptIds,
         invoice: invoiceHint,
         paymentPreimage: args?.paymentPreimage,
@@ -170,7 +229,7 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
         nostrPrice: priceSats,
         zapReceiptJson: receiptEvents && receiptEvents.length > 0 ? receiptEvents : undefined,
         zapRequestJson: args?.zapRequestJson,
-        relayHints: args?.relayHints,
+        relayHints: args?.relayHints ?? normalizedRelayHints,
         allowPastZaps: args?.allowPastZaps,
       }
 
@@ -196,34 +255,59 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
       throw new Error("Purchase claim response missing purchase data")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to claim purchase"
-      setStatus("error")
-      setError(message)
+      if (args?.silent) {
+        setStatus("idle")
+      } else {
+        setStatus("error")
+        setError(message)
+      }
       return null
     }
-  }, [courseId, isAuthed, priceSats, resourceId, viewerZapTotalSats, viewerReceipts])
+  }, [courseId, fallbackReceiptBolt11, fallbackReceiptId, isAuthed, priceSats, normalizedRelayHints, resourceId, viewerReceiptEvents, viewerReceiptIds, viewerZapTotalSats])
 
   useEffect(() => {
     if (!autoClaim) return
     if (!eligible) return
     if (!isAuthed) return
-    if (alreadyPurchased) return
+    if (purchaseUnlocked) return
     if (autoClaimedRef.current) return
 
     const now = Date.now()
-    if (now < autoClaimCooldownRef.current) return
+    const retryDelayMs = getAutoClaimRetryDelayMs(autoClaimCooldownRef.current, now)
+    if (retryDelayMs > 0) {
+      const timeout = setTimeout(() => {
+        setAutoClaimRetryTick((tick) => tick + 1)
+      }, retryDelayMs)
+      return () => clearTimeout(timeout)
+    }
+
+    let cancelled = false
 
     ;(async () => {
       const claimed = await claimPurchase()
+      if (cancelled) return
       if (claimed) {
-        autoClaimedRef.current = true
+        const unlocked = isPurchaseUnlockedByAmount(priceSats, claimed, alreadyPurchased)
+        autoClaimedRef.current = unlocked
         autoClaimFailCountRef.current = 0
-        onSuccessRef.current?.(claimed)
+        if (unlocked) {
+          autoClaimErrorNotifiedRef.current = false
+          onSuccessRef.current?.(claimed)
+        }
+        if (!unlocked) {
+          // Keep trying for remaining receipts/amount, but avoid tight retry loops.
+          autoClaimCooldownRef.current = Date.now() + 5000
+          setAutoClaimRetryTick((tick) => tick + 1)
+        }
         return
       }
 
       // Treat null as a failure so we back off and emit an error callback.
       autoClaimFailCountRef.current += 1
-      onErrorRef.current?.("Auto-claim could not verify a purchase yet.")
+      if (shouldNotifyAutoClaimFailure(autoClaimFailCountRef.current, autoClaimErrorNotifiedRef.current)) {
+        autoClaimErrorNotifiedRef.current = true
+        onErrorRef.current?.("Auto-claim could not verify a purchase yet.")
+      }
       if (autoClaimFailCountRef.current % 3 === 0) {
         console.warn("usePurchaseEligibility: auto-claim repeated failures", {
           failures: autoClaimFailCountRef.current,
@@ -234,8 +318,13 @@ export function usePurchaseEligibility(options: PurchaseEligibilityOptions): Pur
         })
       }
       autoClaimCooldownRef.current = Date.now() + 5000
+      setAutoClaimRetryTick((tick) => tick + 1)
     })()
-  }, [alreadyPurchased, autoClaim, claimPurchase, eligible, isAuthed, courseId, priceSats, resourceId, viewerZapTotalSats])
+
+    return () => {
+      cancelled = true
+    }
+  }, [alreadyPurchased, autoClaim, autoClaimRetryTick, claimPurchase, eligible, isAuthed, courseId, priceSats, purchaseUnlocked, resourceId, viewerZapTotalSats])
 
   const resetError = useCallback(() => setError(null), [])
 
