@@ -15,6 +15,7 @@ import {
 import type { ContentItem } from "@/data/types"
 import { contentTypeIcons } from "@/data/config"
 import { useRouter } from 'next/navigation'
+import { trackEventSafe } from "@/lib/analytics"
 
 interface SearchContentCardProps {
   item: ContentItem
@@ -53,6 +54,11 @@ export function SearchContentCard({
   const router = useRouter()
 
   const handleCardClick = () => {
+    trackEventSafe("search_result_opened", {
+      content_id: item.id,
+      content_type: item.type,
+      query_length: searchKeyword?.length ?? 0,
+    })
     // Navigate to appropriate detail page based on content type
     if (item.type === 'course') {
       router.push(`/courses/${item.id}`)
@@ -149,7 +155,15 @@ export function SearchContentCard({
                   key={index}
                   variant="outline"
                   className="text-xs cursor-pointer hover:bg-accent transition-colors"
-                  onClick={() => onTagClick?.(topic)}
+                  onClick={() => {
+                    trackEventSafe("search_result_tag_clicked", {
+                      tag: topic,
+                      content_id: item.id,
+                      content_type: item.type,
+                      query_length: searchKeyword?.length ?? 0,
+                    })
+                    onTagClick?.(topic)
+                  }}
                 >
                   {searchKeyword ? (
                     <HighlightText text={topic} highlight={searchKeyword} />

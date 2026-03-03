@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { ConfiguredThemeProvider } from "@/components/configured-theme-provider";
 import { RouteScopedSnstrProvider } from "@/components/providers/route-scoped-snstr-provider";
@@ -8,6 +9,7 @@ import { SessionProvider } from "@/contexts/session-provider";
 import { ToastProvider } from "@/hooks/use-toast";
 import { copyConfig } from "@/lib/copy";
 import { availableFonts, completeThemes, defaultThemeName } from "@/lib/theme-config";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import {
   getDefaultDarkMode,
   getDefaultFont,
@@ -89,6 +91,9 @@ export default function RootLayout({
               <SessionProvider>
                 <ToastProvider>
                   <RouteScopedSnstrProvider>
+                    <Suspense fallback={null}>
+                      <PageViewTracker />
+                    </Suspense>
                     {children}
                   </RouteScopedSnstrProvider>
                 </ToastProvider>

@@ -31,6 +31,7 @@ import { getRelays, type RelaySet } from "@/lib/nostr-relays"
 import { useContentConfig } from "@/hooks/useContentConfig"
 import { tagsToAdditionalLinks } from "@/lib/additional-links"
 import { getEventATag } from "@/lib/nostr-a-tag"
+import { trackEventSafe } from "@/lib/analytics"
 
 const HEX_EVENT_ID_REGEX = /^[0-9a-f]{64}$/i
 
@@ -383,6 +384,7 @@ export default function ContentPage() {
 
   const toggleFilter = (filter: string) => {
     const newFilters = new Set(selectedFilters)
+    const filterWasSelected = selectedFilters.has(filter)
     
     if (filter === 'all') {
       setSelectedFilters(new Set(['all']))
@@ -400,9 +402,18 @@ export default function ContentPage() {
       
       setSelectedFilters(newFilters)
     }
+
+    trackEventSafe("content_filter_toggled", {
+      filter,
+      was_selected: filterWasSelected,
+      selected_count: filter === 'all' ? 1 : newFilters.size,
+    })
   }
 
   const clearAllFilters = () => {
+    trackEventSafe("content_filters_cleared", {
+      selected_count: selectedFilters.size,
+    })
     setSelectedFilters(new Set(['all']))
   }
 

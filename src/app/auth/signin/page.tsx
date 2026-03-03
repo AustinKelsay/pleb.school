@@ -7,7 +7,7 @@
 
 'use client'
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
@@ -25,6 +25,7 @@ import { authConfigClient } from "@/lib/auth-config-client"
 import { validateCallbackUrlFromParams } from "@/lib/url-utils"
 import { cn } from "@/lib/utils"
 import { NostrichIcon } from "@/components/icons/nostrich-icon"
+import { trackEventSafe } from "@/lib/analytics"
 
 interface NostrWindow extends Window {
   nostr?: {
@@ -72,6 +73,13 @@ export default function SignInPage() {
 
   const anonymousDescription = copy.anonymousCard.description
 
+  useEffect(() => {
+    trackEventSafe("signin_page_viewed", {
+      callback_url: callbackUrl,
+      has_error_param: Boolean(errorType),
+    })
+  }, [callbackUrl, errorType])
+
   // Cache the anonymous identity after a successful anon login
   // Token is stored in an httpOnly cookie via API (XSS-safe).
   const persistAnonymousSessionIdentity = useCallback(async () => {
@@ -96,6 +104,10 @@ export default function SignInPage() {
     e.preventDefault()
     if (!email) return
 
+    trackEventSafe("auth_signin_attempted", {
+      provider: "email",
+      callback_url: callbackUrl,
+    })
     setIsLoading(true)
     setError('')
     setMessage('')
@@ -108,11 +120,23 @@ export default function SignInPage() {
       })
 
       if (result?.error) {
+        trackEventSafe("auth_signin_failed", {
+          provider: "email",
+          callback_url: callbackUrl,
+        })
         setError(copy.messages.emailError)
       } else {
+        trackEventSafe("auth_signin_succeeded", {
+          provider: "email",
+          callback_url: callbackUrl,
+        })
         setMessage(copy.messages.emailSent.replace('{email}', email))
       }
     } catch (err) {
+      trackEventSafe("auth_signin_failed", {
+        provider: "email",
+        callback_url: callbackUrl,
+      })
       setError(copy.messages.genericError)
     } finally {
       setIsLoading(false)
@@ -122,11 +146,19 @@ export default function SignInPage() {
   // Handle NIP07 Nostr sign in with NIP-98 authentication
   // See: https://nips.nostr.com/98
   const handleNostrSignIn = useCallback(async () => {
+    trackEventSafe("auth_signin_attempted", {
+      provider: "nostr",
+      callback_url: callbackUrl,
+    })
     setIsNostrLoading(true)
     setError('')
 
     try {
       if (!hasNip07Support()) {
+        trackEventSafe("auth_signin_blocked", {
+          provider: "nostr",
+          reason: "extension_missing",
+        })
         setError(copy.messages.nostrExtensionMissing)
         return
       }
@@ -160,12 +192,24 @@ export default function SignInPage() {
       })
 
       if (result?.error) {
+        trackEventSafe("auth_signin_failed", {
+          provider: "nostr",
+          callback_url: callbackUrl,
+        })
         setError(copy.messages.nostrError)
       } else {
+        trackEventSafe("auth_signin_succeeded", {
+          provider: "nostr",
+          callback_url: callbackUrl,
+        })
         // Success - redirect will be handled by NextAuth
         router.push(callbackUrl)
       }
     } catch (err) {
+      trackEventSafe("auth_signin_failed", {
+        provider: "nostr",
+        callback_url: callbackUrl,
+      })
       console.error('Nostr sign in error:', err)
       setError(err instanceof Error ? err.message : copy.messages.nostrError)
     } finally {
@@ -175,6 +219,10 @@ export default function SignInPage() {
 
   // Handle GitHub sign in
   const handleGithubSignIn = useCallback(async () => {
+    trackEventSafe("auth_signin_attempted", {
+      provider: "github",
+      callback_url: callbackUrl,
+    })
     setIsGithubLoading(true)
     setError('')
 
@@ -183,6 +231,10 @@ export default function SignInPage() {
         callbackUrl,
       })
     } catch (err) {
+      trackEventSafe("auth_signin_failed", {
+        provider: "github",
+        callback_url: callbackUrl,
+      })
       console.error('GitHub sign in error:', err)
       setError(copy.messages.githubError || copy.messages.genericError)
     } finally {
@@ -192,6 +244,10 @@ export default function SignInPage() {
 
   // Handle Anonymous sign in with secure token-based reconnection
   const handleAnonymousSignIn = useCallback(async () => {
+    trackEventSafe("auth_signin_attempted", {
+      provider: "anonymous",
+      callback_url: callbackUrl,
+    })
     setIsAnonymousLoading(true)
     setError('')
 
@@ -205,6 +261,10 @@ export default function SignInPage() {
       let result = await attemptAnonymousSignIn()
 
       if (result?.error && retryableAnonErrors.has(result.error)) {
+        trackEventSafe("auth_signin_retried", {
+          provider: "anonymous",
+          reason: result.error,
+        })
         // Retry once after clearing a potentially stale reconnect cookie.
         try {
           await fetch('/api/auth/anon-reconnect', { method: 'DELETE', credentials: 'include' })
@@ -213,15 +273,27 @@ export default function SignInPage() {
       }
 
       if (result?.error) {
+        trackEventSafe("auth_signin_failed", {
+          provider: "anonymous",
+          callback_url: callbackUrl,
+        })
         setError(copy.messages.anonymousError || copy.messages.genericError)
         setMessage('')
       } else {
+        trackEventSafe("auth_signin_succeeded", {
+          provider: "anonymous",
+          callback_url: callbackUrl,
+        })
         // Success - persist the new reconnect token
         await persistAnonymousSessionIdentity()
         setMessage('')
         router.push(callbackUrl)
       }
     } catch (err) {
+      trackEventSafe("auth_signin_failed", {
+        provider: "anonymous",
+        callback_url: callbackUrl,
+      })
       console.error('Anonymous sign in error:', err)
       setError(copy.messages.anonymousError || copy.messages.genericError)
     } finally {
@@ -234,6 +306,10 @@ export default function SignInPage() {
     e.preventDefault()
     if (!privateKey) return
 
+    trackEventSafe("auth_signin_attempted", {
+      provider: "recovery",
+      callback_url: callbackUrl,
+    })
     setIsRecoveryLoading(true)
     setError('')
 
@@ -245,12 +321,24 @@ export default function SignInPage() {
       })
 
       if (result?.error) {
+        trackEventSafe("auth_signin_failed", {
+          provider: "recovery",
+          callback_url: callbackUrl,
+        })
         setError(copy.messages.recoveryError || copy.messages.genericError)
       } else {
+        trackEventSafe("auth_signin_succeeded", {
+          provider: "recovery",
+          callback_url: callbackUrl,
+        })
         // Success - redirect will be handled by NextAuth
         router.push(callbackUrl)
       }
     } catch (err) {
+      trackEventSafe("auth_signin_failed", {
+        provider: "recovery",
+        callback_url: callbackUrl,
+      })
       console.error('Recovery sign in error:', err)
       setError(copy.messages.recoveryError || copy.messages.genericError)
     } finally {
@@ -387,7 +475,12 @@ export default function SignInPage() {
                         className="w-full h-12 text-base"
                         variant="outline"
                         size="lg"
-                        onClick={() => setShowEmailForm((prev) => !prev)}
+                        onClick={() => {
+                          trackEventSafe("signin_email_form_toggled", {
+                            open: !showEmailForm,
+                          })
+                          setShowEmailForm((prev) => !prev)
+                        }}
                       >
                         <Mail className="h-5 w-5 mr-3" />
                         {showEmailForm ? 'Hide email' : 'Continue with email'}
@@ -495,7 +588,12 @@ export default function SignInPage() {
                     variant="ghost"
                     size="sm"
                     className="h-8 px-3"
-                    onClick={() => setShowRecovery((prev) => !prev)}
+                    onClick={() => {
+                      trackEventSafe("signin_recovery_toggled", {
+                        open: !showRecovery,
+                      })
+                      setShowRecovery((prev) => !prev)
+                    }}
                   >
                     {showRecovery ? 'Hide' : 'Show'}
                     <ChevronDown
@@ -569,7 +667,15 @@ export default function SignInPage() {
             <div className="text-center space-y-4 pt-4">
               <p className="text-sm text-muted-foreground">
                 Don&apos;t have an account?{' '}
-                <Link href="/" className="text-primary hover:underline font-medium">
+                <Link
+                  href="/"
+                  className="text-primary hover:underline font-medium"
+                  onClick={() => {
+                    trackEventSafe("signup_cta_clicked", {
+                      source: "signin_footer",
+                    })
+                  }}
+                >
                   Get started for free
                 </Link>
               </p>

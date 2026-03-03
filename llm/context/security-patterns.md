@@ -419,6 +419,11 @@ await prisma.user.findUnique({ where: { pubkey } })
 // Use DOMPurify for user content
 import DOMPurify from 'dompurify'
 const clean = DOMPurify.sanitize(userContent)
+
+// If a server fallback sanitizer is used, normalize + decode href/src before
+// protocol checks to block obfuscated javascript: payloads (whitespace/entities).
+// Also escape non-tag text segments so malformed/unclosed tags (`<img ...`) cannot
+// survive as executable markup in SSR output.
 ```
 
 ### ReDoS Prevention

@@ -39,6 +39,7 @@ import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { useSession } from 'next-auth/react'
 import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
+import { trackEventSafe } from '@/lib/analytics'
 
 interface ResourcePageProps {
   params: Promise<{
@@ -103,7 +104,14 @@ function ResourceOverview({ resourceId }: { resourceId: string }) {
               Click below to access the full resource content.
             </p>
             <Button size="lg" asChild>
-              <Link href={`/content/${resourceId}/details`}>
+              <Link
+                href={`/content/${resourceId}/details`}
+                onClick={() => {
+                  trackEventSafe("resource_preview_view_content_clicked", {
+                    resource_id: resourceId,
+                  })
+                }}
+              >
                 <Eye className="h-4 w-4 mr-2" />
                 View Content
               </Link>
@@ -133,6 +141,25 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(true)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [isFullWidth, setIsFullWidth] = useState(false)
+
+  const handlePurchaseDialogChange = (open: boolean) => {
+    if (open) {
+      trackEventSafe("resource_purchase_dialog_opened", {
+        resource_id: resourceId,
+        event_id: event?.id,
+      })
+    }
+    setShowPurchaseDialog(open)
+  }
+
+  const handleFullWidthToggle = () => {
+    const nextValue = !isFullWidth
+    trackEventSafe("resource_full_width_toggled", {
+      resource_id: resourceId,
+      enabled: nextValue,
+    })
+    setIsFullWidth(nextValue)
+  }
 
   const eventATag = useMemo(() => {
     if (!event || !event.kind || event.kind < 30000) return undefined
@@ -326,6 +353,15 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
       isCancelled = true
     }
   }, [resourceId, sessionStatus, viewerZapTotalSats, viewerZapReceipts?.length])
+
+  useEffect(() => {
+    if (!event) return
+    trackEventSafe("resource_detail_viewed", {
+      resource_id: resourceId,
+      event_id: event.id,
+      event_kind: event.kind,
+    })
+  }, [resourceId, event])
 
   if (loading) {
     return (
@@ -523,14 +559,31 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                     <Button
                       size="lg"
                       className="w-full sm:w-auto"
-                      onClick={() => setShowPurchaseDialog(true)}
+                      onClick={() => {
+                        trackEventSafe("resource_purchase_cta_clicked", {
+                          resource_id: resourceId,
+                          price_sats: priceSats,
+                          event_id: event.id,
+                        })
+                        setShowPurchaseDialog(true)
+                      }}
                     >
                       Purchase for {priceSats.toLocaleString()} sats
                     </Button>
                   ) : (
                     <>
                       <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                        <Link href={`/content/${resourceId}/details`}>
+                        <Link
+                          href={`/content/${resourceId}/details`}
+                          onClick={() => {
+                            trackEventSafe("resource_view_content_clicked", {
+                              resource_id: resourceId,
+                              event_id: event.id,
+                              event_kind: event.kind,
+                              source: "hero_cta",
+                            })
+                          }}
+                        >
                           {getResourceTypeIcon(type)}
                           <span className="ml-2">
                             {type === 'video' ? 'Watch Now' : serverPurchased ? 'View Content' : 'Read Now'}
@@ -557,7 +610,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           {canPurchase && (
             <PurchaseDialog
               isOpen={showPurchaseDialog}
-              onOpenChange={setShowPurchaseDialog}
+              onOpenChange={handlePurchaseDialogChange}
               title={title}
                   priceSats={priceSats}
                   resourceId={resourceId}
@@ -581,6 +634,11 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                     const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
                     const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
                     if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
+                      trackEventSafe("resource_purchase_unlocked", {
+                        resource_id: resourceId,
+                        amount_paid_sats: purchase?.amountPaid ?? 0,
+                        price_sats: priceSats,
+                      })
                       setServerPurchased(true)
                     }
                   }}
@@ -647,7 +705,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           {/* Resource Content - Conditionally render preview or full content */}
           <div className="flex justify-end items-center gap-2">
             {!requiresPreviewGate && courseAccessCta}
-            <Button variant="outline" size="sm" onClick={() => setIsFullWidth(prev => !prev)}>
+            <Button variant="outline" size="sm" onClick={handleFullWidthToggle}>
               {isFullWidth ? (
                 <>
                   <Minimize2 className="h-4 w-4 mr-2" />
@@ -712,7 +770,17 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   {nostrUrl && (
                     <div>
                       <Button variant="outline" className="w-full justify-center" asChild>
-                        <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
+                        <a
+                          href={nostrUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            trackEventSafe("resource_nostr_link_clicked", {
+                              resource_id: resourceId,
+                              event_id: event.id,
+                            })
+                          }}
+                        >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Open on Nostr
                         </a>
