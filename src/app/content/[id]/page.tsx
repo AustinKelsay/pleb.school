@@ -565,7 +565,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                           price_sats: priceSats,
                           event_id: event.id,
                         })
-                        setShowPurchaseDialog(true)
+                        handlePurchaseDialogChange(true)
                       }}
                     >
                       Purchase for {priceSats.toLocaleString()} sats

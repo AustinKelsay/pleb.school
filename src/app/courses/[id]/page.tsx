@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useSession } from '@/hooks/useSession'
@@ -153,6 +153,7 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
 function CoursePageContent({ courseId }: { courseId: string }) {
   const { fetchProfile, normalizeKind0 } = useNostr()
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
+  const trackedCourseViewKeysRef = useRef<Set<string>>(new Set())
   const [purchaseStatusOverride, setPurchaseStatusOverride] = useState<boolean | null>(null)
   const { data: session } = useSession()
   const sessionUserId = session?.user?.id ?? null
@@ -252,7 +253,10 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   }, [courseData, fetchProfile, normalizeKind0])
 
   useEffect(() => {
-    if (!courseData) return
+    if (!courseData || lessonsLoading) return
+    const viewKey = `${courseId}:${noteId ?? ''}`
+    if (trackedCourseViewKeysRef.current.has(viewKey)) return
+
     trackEventSafe("course_detail_viewed", {
       course_id: courseId,
       note_id: noteId,
@@ -260,7 +264,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
       is_premium: (courseData.price ?? 0) > 0,
       price_sats: courseData.price ?? 0,
     })
-  }, [courseData, courseId, noteId, lessonsData.length])
+    trackedCourseViewKeysRef.current.add(viewKey)
+  }, [courseData, courseId, noteId, lessonsData.length, lessonsLoading])
 
   // Early return check after all hooks (hooks must be called unconditionally)
   if (!resolvedCourseId) {

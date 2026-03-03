@@ -208,7 +208,7 @@ export default function CreateDraftForm() {
   const addTopic = () => {
     if (currentTopic.trim() && !formData.topics.includes(currentTopic.trim())) {
       trackEventSafe("draft_topic_added", {
-        topic: currentTopic.trim(),
+        topic_length: currentTopic.trim().length,
         topic_count_after: formData.topics.length + 1,
       })
       setFormData(prev => ({

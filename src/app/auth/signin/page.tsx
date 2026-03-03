@@ -7,7 +7,7 @@
 
 'use client'
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
@@ -65,6 +65,13 @@ export default function SignInPage() {
   const [showEmailForm, setShowEmailForm] = useState(false)
 
   const callbackUrl = validateCallbackUrlFromParams(searchParams, 'callbackUrl', '/')
+  const callbackPathForAnalytics = useMemo(() => {
+    try {
+      return new URL(callbackUrl, "http://localhost").pathname || "/"
+    } catch {
+      return "/"
+    }
+  }, [callbackUrl])
   const errorType = searchParams.get('error')
   const copy = authConfigClient.copy.signin
   const anonymousButtonLabel = isAnonymousLoading
@@ -75,10 +82,10 @@ export default function SignInPage() {
 
   useEffect(() => {
     trackEventSafe("signin_page_viewed", {
-      callback_url: callbackUrl,
+      callback_url: callbackPathForAnalytics,
       has_error_param: Boolean(errorType),
     })
-  }, [callbackUrl, errorType])
+  }, [callbackPathForAnalytics, errorType])
 
   // Cache the anonymous identity after a successful anon login
   // Token is stored in an httpOnly cookie via API (XSS-safe).
@@ -106,7 +113,7 @@ export default function SignInPage() {
 
     trackEventSafe("auth_signin_attempted", {
       provider: "email",
-      callback_url: callbackUrl,
+      callback_url: callbackPathForAnalytics,
     })
     setIsLoading(true)
     setError('')
@@ -122,33 +129,33 @@ export default function SignInPage() {
       if (result?.error) {
         trackEventSafe("auth_signin_failed", {
           provider: "email",
-          callback_url: callbackUrl,
+          callback_url: callbackPathForAnalytics,
         })
         setError(copy.messages.emailError)
       } else {
         trackEventSafe("auth_signin_succeeded", {
           provider: "email",
-          callback_url: callbackUrl,
+          callback_url: callbackPathForAnalytics,
         })
         setMessage(copy.messages.emailSent.replace('{email}', email))
       }
     } catch (err) {
       trackEventSafe("auth_signin_failed", {
         provider: "email",
-        callback_url: callbackUrl,
+        callback_url: callbackPathForAnalytics,
       })
       setError(copy.messages.genericError)
     } finally {
       setIsLoading(false)
     }
-  }, [email, callbackUrl, copy.messages.emailError, copy.messages.emailSent, copy.messages.genericError])
+  }, [email, callbackUrl, callbackPathForAnalytics, copy.messages.emailError, copy.messages.emailSent, copy.messages.genericError])
 
   // Handle NIP07 Nostr sign in with NIP-98 authentication
   // See: https://nips.nostr.com/98
   const handleNostrSignIn = useCallback(async () => {
     trackEventSafe("auth_signin_attempted", {
       provider: "nostr",
-      callback_url: callbackUrl,
+      callback_url: callbackPathForAnalytics,
     })
     setIsNostrLoading(true)
     setError('')
@@ -194,13 +201,13 @@ export default function SignInPage() {
       if (result?.error) {
         trackEventSafe("auth_signin_failed", {
           provider: "nostr",
-          callback_url: callbackUrl,
+          callback_url: callbackPathForAnalytics,
         })
         setError(copy.messages.nostrError)
       } else {
         trackEventSafe("auth_signin_succeeded", {
           provider: "nostr",
-          callback_url: callbackUrl,
+          callback_url: callbackPathForAnalytics,
         })
         // Success - redirect will be handled by NextAuth
         router.push(callbackUrl)
@@ -208,20 +215,20 @@ export default function SignInPage() {
     } catch (err) {
       trackEventSafe("auth_signin_failed", {
         provider: "nostr",
-        callback_url: callbackUrl,
+        callback_url: callbackPathForAnalytics,
       })
       console.error('Nostr sign in error:', err)
       setError(err instanceof Error ? err.message : copy.messages.nostrError)
     } finally {
       setIsNostrLoading(false)
     }
-  }, [callbackUrl, router, copy.messages.nostrError, copy.messages.nostrExtensionMissing])
+  }, [callbackUrl, callbackPathForAnalytics, router, copy.messages.nostrError, copy.messages.nostrExtensionMissing])
 
   // Handle GitHub sign in
   const handleGithubSignIn = useCallback(async () => {
     trackEventSafe("auth_signin_attempted", {
       provider: "github",
-      callback_url: callbackUrl,
+      callback_url: callbackPathForAnalytics,
     })
     setIsGithubLoading(true)
     setError('')
@@ -233,20 +240,20 @@ export default function SignInPage() {
     } catch (err) {
       trackEventSafe("auth_signin_failed", {
         provider: "github",
-        callback_url: callbackUrl,
+        callback_url: callbackPathForAnalytics,
       })
       console.error('GitHub sign in error:', err)
       setError(copy.messages.githubError || copy.messages.genericError)
     } finally {
       setIsGithubLoading(false)
     }
-  }, [callbackUrl, copy.messages.githubError, copy.messages.genericError])
+  }, [callbackUrl, callbackPathForAnalytics, copy.messages.githubError, copy.messages.genericError])
 
   // Handle Anonymous sign in with secure token-based reconnection
   const handleAnonymousSignIn = useCallback(async () => {
     trackEventSafe("auth_signin_attempted", {
       provider: "anonymous",
-      callback_url: callbackUrl,
+      callback_url: callbackPathForAnalytics,
     })
     setIsAnonymousLoading(true)
     setError('')
@@ -275,14 +282,14 @@ export default function SignInPage() {
       if (result?.error) {
         trackEventSafe("auth_signin_failed", {
           provider: "anonymous",
-          callback_url: callbackUrl,
+          callback_url: callbackPathForAnalytics,
         })
         setError(copy.messages.anonymousError || copy.messages.genericError)
         setMessage('')
       } else {
         trackEventSafe("auth_signin_succeeded", {
           provider: "anonymous",
-          callback_url: callbackUrl,
+          callback_url: callbackPathForAnalytics,
         })
         // Success - persist the new reconnect token
         await persistAnonymousSessionIdentity()
@@ -292,14 +299,14 @@ export default function SignInPage() {
     } catch (err) {
       trackEventSafe("auth_signin_failed", {
         provider: "anonymous",
-        callback_url: callbackUrl,
+        callback_url: callbackPathForAnalytics,
       })
       console.error('Anonymous sign in error:', err)
       setError(copy.messages.anonymousError || copy.messages.genericError)
     } finally {
       setIsAnonymousLoading(false)
     }
-  }, [callbackUrl, router, copy.messages.anonymousError, copy.messages.genericError, persistAnonymousSessionIdentity])
+  }, [callbackUrl, callbackPathForAnalytics, router, copy.messages.anonymousError, copy.messages.genericError, persistAnonymousSessionIdentity])
 
   // Handle Recovery sign in
   const handleRecoverySignIn = useCallback(async (e: React.FormEvent) => {
@@ -308,7 +315,7 @@ export default function SignInPage() {
 
     trackEventSafe("auth_signin_attempted", {
       provider: "recovery",
-      callback_url: callbackUrl,
+      callback_url: callbackPathForAnalytics,
     })
     setIsRecoveryLoading(true)
     setError('')
@@ -323,13 +330,13 @@ export default function SignInPage() {
       if (result?.error) {
         trackEventSafe("auth_signin_failed", {
           provider: "recovery",
-          callback_url: callbackUrl,
+          callback_url: callbackPathForAnalytics,
         })
         setError(copy.messages.recoveryError || copy.messages.genericError)
       } else {
         trackEventSafe("auth_signin_succeeded", {
           provider: "recovery",
-          callback_url: callbackUrl,
+          callback_url: callbackPathForAnalytics,
         })
         // Success - redirect will be handled by NextAuth
         router.push(callbackUrl)
@@ -337,14 +344,14 @@ export default function SignInPage() {
     } catch (err) {
       trackEventSafe("auth_signin_failed", {
         provider: "recovery",
-        callback_url: callbackUrl,
+        callback_url: callbackPathForAnalytics,
       })
       console.error('Recovery sign in error:', err)
       setError(copy.messages.recoveryError || copy.messages.genericError)
     } finally {
       setIsRecoveryLoading(false)
     }
-  }, [privateKey, callbackUrl, router, copy.messages.recoveryError, copy.messages.genericError])
+  }, [privateKey, callbackUrl, callbackPathForAnalytics, router, copy.messages.recoveryError, copy.messages.genericError])
 
   return (
     <TooltipProvider>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import QRCode from "react-qr-code"
 import { 
   ChevronDown, 
@@ -116,6 +116,7 @@ export function ZapDialog({
   } = useZapFormState()
   const { toast } = useToast()
   const [showQr, setShowQr] = useState(false)
+  const openedTrackedRef = useRef(false)
   const zapCopy = copyConfig.payments?.zapDialog
   const paymentsConfig = getPaymentsConfig()
 
@@ -146,11 +147,17 @@ export function ZapDialog({
   }, [isOpen, resetForm, resetZapState])
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {
+      openedTrackedRef.current = false
+      return
+    }
+    if (openedTrackedRef.current) return
+
     trackEventSafe("zap_dialog_opened", {
       target_pubkey: zapTarget?.pubkey,
       target_name: targetName,
     })
+    openedTrackedRef.current = true
   }, [isOpen, zapTarget?.pubkey, targetName])
 
   useEffect(() => {
@@ -316,10 +323,12 @@ export function ZapDialog({
                 inputMode="numeric"
                 placeholder="Custom"
                 value={customZapAmount}
-                onChange={(e) => {
+                onBlur={(e) => {
                   trackEventSafe("zap_amount_custom_changed", {
                     input_length: e.target.value.length,
                   })
+                }}
+                onChange={(e) => {
                   handleCustomAmountChange(e.target.value)
                 }}
                 className="h-8 w-20 text-sm"

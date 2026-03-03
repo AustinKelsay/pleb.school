@@ -98,12 +98,18 @@ function SearchContent() {
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (debouncedSearchQuery.length >= MIN_KEYWORD_LENGTH) {
+    const submittedQuery = searchQuery.trim()
+    setSearchQuery(submittedQuery)
+
+    if (submittedQuery.length >= MIN_KEYWORD_LENGTH) {
       trackEventSafe("search_submitted", {
-        query_length: debouncedSearchQuery.length,
+        query_length: submittedQuery.length,
         search_type: searchType,
       })
-      refetch()
+      // Avoid stale refetches when debounce has not caught up to the submitted input.
+      if (submittedQuery === debouncedSearchQuery) {
+        refetch()
+      }
     }
   }
   
