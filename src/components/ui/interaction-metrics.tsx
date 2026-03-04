@@ -13,6 +13,7 @@ import { normalizeHexPrivkey, normalizeHexPubkey } from '@/lib/nostr-keys'
 import { useZapSender } from '@/hooks/useZapSender'
 import { ZapDialog } from '@/components/zap/zap-dialog'
 import type { LightningRecipient } from '@/types/zap'
+import { trackEventSafe } from '@/lib/analytics'
 
 // Configurable interaction icons from config/payments.json (resolved at module scope)
 const ZapIcon = getInteractionIcon('zap')
@@ -191,6 +192,10 @@ export function InteractionMetrics({
 
 
   const handleScrollToComments = () => {
+    trackEventSafe("comments_scroll_clicked", {
+      event_id: eventId,
+      event_kind: eventKind,
+    })
     const commentsSection = document.querySelector('[data-comments-section]')
     if (commentsSection) {
       commentsSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -198,11 +203,21 @@ export function InteractionMetrics({
   }
 
   const handleZapDialogOpenChange = (open: boolean) => {
+    if (open) {
+      trackEventSafe("zap_dialog_open_requested", {
+        event_id: eventId,
+        event_kind: eventKind,
+      })
+    }
     setIsZapDialogOpen(open)
   }
 
   const handleSendReaction = async () => {
     if (!eventId) {
+      trackEventSafe("like_submit_blocked", {
+        reason: "missing_event_id",
+        event_kind: eventKind,
+      })
       toast({
         title: 'Reaction not available',
         description: 'This content is missing its Nostr event id, so reactions are disabled.',
@@ -216,6 +231,10 @@ export function InteractionMetrics({
     }
 
     if (hasReacted || optimisticReaction) {
+      trackEventSafe("like_submit_blocked", {
+        reason: "already_reacted",
+        event_id: eventId,
+      })
       toast({
         title: 'Already liked',
         description: 'You have already sent a reaction for this content.'
@@ -224,6 +243,10 @@ export function InteractionMetrics({
     }
 
     if (sessionStatus === 'loading') {
+      trackEventSafe("like_submit_blocked", {
+        reason: "session_loading",
+        event_id: eventId,
+      })
       toast({
         title: 'Hang tight',
         description: 'We are still loading your session. Try again in a moment.'
@@ -232,6 +255,10 @@ export function InteractionMetrics({
     }
 
     if (sessionStatus !== 'authenticated' || !session?.user) {
+      trackEventSafe("like_submit_blocked", {
+        reason: "not_authenticated",
+        event_id: eventId,
+      })
       toast({
         title: 'Sign in required',
         description: 'Sign in with a Nostr-capable account to send reactions.',
@@ -243,6 +270,10 @@ export function InteractionMetrics({
     const tags = buildReactionTags(eventId, eventPubkey, eventKind, eventIdentifier)
 
     try {
+      trackEventSafe("like_submit_attempted", {
+        event_id: eventId,
+        event_kind: eventKind,
+      })
       setIsReacting(true)
 
       let signedReaction: NostrEvent
@@ -288,12 +319,20 @@ export function InteractionMetrics({
       }
 
       await publish(signedReaction)
+      trackEventSafe("like_submit_succeeded", {
+        event_id: eventId,
+        event_kind: eventKind,
+      })
       setOptimisticReaction(true)
       toast({
         title: 'Reaction sent',
         description: 'Your like was published to the relays.'
       })
     } catch (error) {
+      trackEventSafe("like_submit_failed", {
+        event_id: eventId,
+        event_kind: eventKind,
+      })
       const description = error instanceof Error ? error.message : 'Unable to publish your reaction.'
       toast({
         title: 'Reaction failed',

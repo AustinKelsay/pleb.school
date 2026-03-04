@@ -15,6 +15,7 @@ import { useNostrSearch } from "@/hooks/useNostrSearch"
 import type { ContentItem } from '@/data/types'
 import { cn } from "@/lib/utils"
 import { copyConfig } from "@/lib/copy"
+import { trackEventSafe } from "@/lib/analytics"
 import contentConfig from "../../../config/content.json"
 
 // Get search config with defaults
@@ -97,8 +98,18 @@ function SearchContent() {
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (debouncedSearchQuery.length >= MIN_KEYWORD_LENGTH) {
-      refetch()
+    const submittedQuery = searchQuery.trim()
+    setSearchQuery(submittedQuery)
+
+    if (submittedQuery.length >= MIN_KEYWORD_LENGTH) {
+      trackEventSafe("search_submitted", {
+        query_length: submittedQuery.length,
+        search_type: searchType,
+      })
+      // Avoid stale refetches when debounce has not caught up to the submitted input.
+      if (submittedQuery === debouncedSearchQuery) {
+        refetch()
+      }
     }
   }
   
@@ -110,7 +121,12 @@ function SearchContent() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push('/')}
+            onClick={() => {
+              trackEventSafe("search_home_clicked", {
+                query_length: searchQuery.length,
+              })
+              router.push('/')
+            }}
             className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <Home className="h-4 w-4" />
@@ -157,7 +173,18 @@ function SearchContent() {
           {/* Search Type Tabs */}
               {searchQuery.length >= MIN_KEYWORD_LENGTH && (
             <div className="max-w-2xl mx-auto">
-              <Tabs value={searchType} onValueChange={(value) => setSearchType(value as 'all' | 'courses' | 'resources')}>
+              <Tabs
+                value={searchType}
+                onValueChange={(value) => {
+                  const nextType = value as 'all' | 'courses' | 'resources'
+                  trackEventSafe("search_type_changed", {
+                    from_type: searchType,
+                    to_type: nextType,
+                    query_length: searchQuery.length,
+                  })
+                  setSearchType(nextType)
+                }}
+              >
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="all" className="cursor-pointer">
                     {(searchCopy?.tabs?.all ?? "All")} {summary && `(${summary.total})`}

@@ -14,6 +14,21 @@ describe("sanitizeRichContent", () => {
     const result = sanitizeRichContent(input)
     expect(result).not.toContain("javascript:")
     expect(result).toContain("Click")
+    expect(result).not.toContain("href=")
+  })
+
+  it("removes whitespace-obfuscated javascript urls", () => {
+    const input = '<a href="   javascript:alert(1)">Click</a>'
+    const result = sanitizeRichContent(input)
+    expect(result).not.toContain("javascript:")
+    expect(result).not.toContain("href=")
+  })
+
+  it("removes entity-obfuscated javascript urls", () => {
+    const input = '<a href="java&#x09;script&#58;alert(1)">Click</a>'
+    const result = sanitizeRichContent(input)
+    expect(result).not.toContain("javascript:")
+    expect(result).not.toContain("href=")
   })
 
   it("preserves safe video embeds", () => {
@@ -36,5 +51,18 @@ describe("sanitizeRichContent", () => {
     expect(result).toContain("<a")
     expect(result).toContain('href="https://example.com"')
     expect(result).not.toContain("target=")
+  })
+
+  it("preserves safe relative links and trims surrounding whitespace", () => {
+    const input = '<a href=" /courses/test-course ">Open</a>'
+    const result = sanitizeRichContent(input)
+    expect(result).toContain('href="/courses/test-course"')
+  })
+
+  it("neutralizes malformed tags that never close", () => {
+    const input = "Before <img src=x onerror=alert(1)"
+    const result = sanitizeRichContent(input)
+    expect(result).not.toContain("<img")
+    expect(result).toContain("&lt;img")
   })
 })

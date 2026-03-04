@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useSession } from '@/hooks/useSession'
@@ -38,6 +38,7 @@ import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { AdditionalLinksList } from '@/components/ui/additional-links-card'
 import type { AdditionalLink } from '@/types/additional-links'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
+import { trackEventSafe } from '@/lib/analytics'
 
 interface CoursePageProps {
   params: {
@@ -122,7 +123,16 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
                     </div>
                   </div>
                   <Button variant="outline" size="sm" className="w-full sm:w-auto sm:flex-shrink-0" asChild>
-                    <Link href={`/courses/${courseId}/lessons/${lesson.id}/details`}>
+                    <Link
+                      href={`/courses/${courseId}/lessons/${lesson.id}/details`}
+                      onClick={() => {
+                        trackEventSafe("course_lesson_started", {
+                          course_id: courseId,
+                          lesson_id: lesson.id,
+                          lesson_index: index + 1,
+                        })
+                      }}
+                    >
                       <Play className="h-4 w-4 mr-2" />
                       <span className="sm:inline">{getCopy('course.buttons.start')}</span>
                     </Link>
@@ -143,6 +153,7 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
 function CoursePageContent({ courseId }: { courseId: string }) {
   const { fetchProfile, normalizeKind0 } = useNostr()
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
+  const trackedCourseViewKeysRef = useRef<Set<string>>(new Set())
   const [purchaseStatusOverride, setPurchaseStatusOverride] = useState<boolean | null>(null)
   const { data: session } = useSession()
   const sessionUserId = session?.user?.id ?? null
@@ -240,6 +251,21 @@ function CoursePageContent({ courseId }: { courseId: string }) {
 
     return () => { mounted = false }
   }, [courseData, fetchProfile, normalizeKind0])
+
+  useEffect(() => {
+    if (!courseData || lessonsLoading) return
+    const viewKey = `${courseId}:${noteId ?? ''}`
+    if (trackedCourseViewKeysRef.current.has(viewKey)) return
+
+    trackEventSafe("course_detail_viewed", {
+      course_id: courseId,
+      note_id: noteId,
+      lesson_count: lessonsData.length,
+      is_premium: (courseData.price ?? 0) > 0,
+      price_sats: courseData.price ?? 0,
+    })
+    trackedCourseViewKeysRef.current.add(viewKey)
+  }, [courseData, courseId, noteId, lessonsData.length, lessonsLoading])
 
   // Early return check after all hooks (hooks must be called unconditionally)
   if (!resolvedCourseId) {
@@ -471,6 +497,11 @@ function CoursePageContent({ courseId }: { courseId: string }) {
             recentZaps={recentZaps}
             viewerZapReceipts={viewerZapReceipts}
             onPurchaseComplete={() => {
+              trackEventSafe("course_purchase_unlocked", {
+                course_id: courseId,
+                note_id: noteId,
+                price_sats: priceSats,
+              })
               setPurchaseStatusOverride(true)
             }}
           />
@@ -479,7 +510,16 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
             {hasAccess ? (
               <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                <Link href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}>
+                <Link
+                  href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}
+                  onClick={() => {
+                    trackEventSafe("course_start_learning_clicked", {
+                      course_id: courseId,
+                      has_lessons: lessonsData.length > 0,
+                      first_lesson_id: lessonsData[0]?.id,
+                    })
+                  }}
+                >
                   <EducationIcon className="h-5 w-5 mr-2" />
                   Start Learning
                 </Link>
@@ -604,7 +644,17 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                   {nostrUrl && (
                     <div>
                       <Button variant="outline" className="w-full justify-center" asChild>
-                        <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
+                        <a
+                          href={nostrUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            trackEventSafe("course_nostr_link_clicked", {
+                              course_id: courseId,
+                              note_id: noteId,
+                            })
+                          }}
+                        >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Open on Nostr
                         </a>

@@ -30,6 +30,7 @@ import { useIsAdmin } from "@/hooks/useAdmin"
 import { isAnonymousAvatar, isAnonymousUsername } from "@/lib/anonymous-identity"
 import { useCopy } from "@/lib/copy"
 import { getNavigationIcon } from "@/lib/copy-icons"
+import { trackEventSafe } from "@/lib/analytics"
 import { availableFonts, ThemeName } from "@/lib/theme-config"
 import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-events"
 import { shouldShowThemeSelector, shouldShowFontToggle, shouldShowThemeToggle } from "@/lib/theme-ui-config"
@@ -111,9 +112,12 @@ export const Header = () => {
   }, [])
 
   const handleSignOut = useCallback(() => {
+    trackEventSafe("header_signout_clicked", {
+      path: pathname ?? "",
+    })
     clearIdentityCache()
     void signOut()
-  }, [clearIdentityCache])
+  }, [clearIdentityCache, pathname])
 
   useEffect(() => {
     return () => {
@@ -332,13 +336,22 @@ export const Header = () => {
   }, [loadAggregatedProfile])
 
   const handleThemeSelect = (themeName: ThemeName) => {
+    trackEventSafe("header_theme_selected", {
+      selected_theme: themeName,
+      path: pathname ?? "",
+    })
     setCurrentTheme(themeName)
   }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
+    const trimmedQuery = searchQuery.trim()
+    if (trimmedQuery) {
+      trackEventSafe("header_search_submitted", {
+        query_length: trimmedQuery.length,
+        path: pathname ?? "",
+      })
+      router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`)
     }
   }
   
@@ -347,7 +360,15 @@ export const Header = () => {
       <Container className="flex h-16 items-center">
         {/* Left Section */}
         <div className="flex flex-1 items-center space-x-1 sm:space-x-2">
-          <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+          <Link
+            href="/"
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+            onClick={() => {
+              trackEventSafe("header_brand_clicked", {
+                path: pathname ?? "",
+              })
+            }}
+          >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
               <BrandIcon className="h-4 w-4 text-primary-foreground" />
             </div>
@@ -361,16 +382,56 @@ export const Header = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem asChild>
-                <Link href="/content">{navigation.menuItems.content}</Link>
+                <Link
+                  href="/content"
+                  onClick={() => {
+                    trackEventSafe("header_menu_clicked", {
+                      target: "content",
+                      path: pathname ?? "",
+                    })
+                  }}
+                >
+                  {navigation.menuItems.content}
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/feeds">{navigation.menuItems.feeds}</Link>
+                <Link
+                  href="/feeds"
+                  onClick={() => {
+                    trackEventSafe("header_menu_clicked", {
+                      target: "feeds",
+                      path: pathname ?? "",
+                    })
+                  }}
+                >
+                  {navigation.menuItems.feeds}
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/subscribe">{navigation.menuItems.subscribe}</Link>
+                <Link
+                  href="/subscribe"
+                  onClick={() => {
+                    trackEventSafe("header_menu_clicked", {
+                      target: "subscribe",
+                      path: pathname ?? "",
+                    })
+                  }}
+                >
+                  {navigation.menuItems.subscribe}
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/about">{navigation.menuItems.about}</Link>
+                <Link
+                  href="/about"
+                  onClick={() => {
+                    trackEventSafe("header_menu_clicked", {
+                      target: "about",
+                      path: pathname ?? "",
+                    })
+                  }}
+                >
+                  {navigation.menuItems.about}
+                </Link>
               </DropdownMenuItem>
               
                               {/* Theme and Style Settings - Only show on mobile */}
@@ -386,7 +447,13 @@ export const Header = () => {
                         </div>
                         <Switch
                           checked={resolvedTheme === "light"}
-                          onCheckedChange={(checked) => setTheme(checked ? "light" : "dark")}
+                          onCheckedChange={(checked) => {
+                            trackEventSafe("header_theme_mode_toggled", {
+                              mode: checked ? "light" : "dark",
+                              path: pathname ?? "",
+                            })
+                            setTheme(checked ? "light" : "dark")
+                          }}
                           aria-label="Toggle dark mode"
                         />
                       </div>
@@ -445,7 +512,13 @@ export const Header = () => {
                           {availableFonts.map((font) => (
                             <DropdownMenuItem
                               key={font.value}
-                              onClick={() => setFontOverride(font.value)}
+                              onClick={() => {
+                                trackEventSafe("header_font_selected", {
+                                  selected_font: font.value,
+                                  path: pathname ?? "",
+                                })
+                                setFontOverride(font.value)
+                              }}
                               className="flex items-center justify-between"
                               style={{ fontFamily: font.fontFamily }}
                             >
@@ -481,7 +554,15 @@ export const Header = () => {
         {/* Right-aligned Actions */}
         <div className="flex flex-1 items-center justify-end space-x-1 sm:space-x-2 md:space-x-4">
           {/* Search icon - only show on mobile */}
-          <Link href="/search" className="sm:hidden">
+          <Link
+            href="/search"
+            className="sm:hidden"
+            onClick={() => {
+              trackEventSafe("header_mobile_search_clicked", {
+                path: pathname ?? "",
+              })
+            }}
+          >
             <Button variant="ghost" size="icon">
               <SearchIcon className="h-4 w-4" />
             </Button>
@@ -520,20 +601,47 @@ export const Header = () => {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex items-center">
+                  <Link
+                    href="/profile"
+                    className="flex items-center"
+                    onClick={() => {
+                      trackEventSafe("header_profile_nav_clicked", {
+                        target: "profile",
+                        path: pathname ?? "",
+                      })
+                    }}
+                  >
                     <ProfileIcon className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/profile?tab=settings" className="flex items-center">
+                  <Link
+                    href="/profile?tab=settings"
+                    className="flex items-center"
+                    onClick={() => {
+                      trackEventSafe("header_profile_nav_clicked", {
+                        target: "settings",
+                        path: pathname ?? "",
+                      })
+                    }}
+                  >
                     <SettingsIcon className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </Link>
                 </DropdownMenuItem>
                 {canCreateContent && (
                   <DropdownMenuItem asChild>
-                    <Link href="/create" className="flex items-center">
+                    <Link
+                      href="/create"
+                      className="flex items-center"
+                      onClick={() => {
+                        trackEventSafe("header_profile_nav_clicked", {
+                          target: "create",
+                          path: pathname ?? "",
+                        })
+                      }}
+                    >
                       <CreateIcon className="mr-2 h-4 w-4" />
                       <span>Create</span>
                     </Link>
@@ -550,7 +658,14 @@ export const Header = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link href="/auth/signin">
+            <Link
+              href="/auth/signin"
+              onClick={() => {
+                trackEventSafe("header_signin_clicked", {
+                  path: pathname ?? "",
+                })
+              }}
+            >
               <Button size="sm" className="text-xs sm:text-sm">{navigation.buttons.login}</Button>
             </Link>
           )}
