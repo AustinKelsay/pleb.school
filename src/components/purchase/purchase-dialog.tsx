@@ -149,6 +149,7 @@ export function PurchaseDialog({
   const [preferAnonymous, setPreferAnonymous] = useState(false)
   const [showQr, setShowQr] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const hasTrackedOpenCycleRef = useRef(false)
 
   // Zap sender
   const { sendZap, zapState, resetZapState, isZapInFlight, retryWeblnPayment } = useZapSender({
@@ -220,7 +221,15 @@ export function PurchaseDialog({
   }, [])
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {
+      hasTrackedOpenCycleRef.current = false
+      return
+    }
+    if (hasTrackedOpenCycleRef.current) {
+      return
+    }
+
+    hasTrackedOpenCycleRef.current = true
     trackEventSafe("purchase_dialog_opened", {
       event_id: eventId,
       course_id: courseId,

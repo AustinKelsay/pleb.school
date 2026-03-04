@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useRef } from "react"
 import { isAnalyticsEnabled, trackEventSafe } from "@/lib/analytics"
 
-export function PageViewTracker() {
+export const PageViewTracker = () => {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const previousPath = useRef<string | null>(null)

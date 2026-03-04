@@ -156,6 +156,17 @@ export function ContentCard({
   const handleCardClick = () => {
     navigateToContent("card")
   }
+
+  const handleTopicTagClick = (topic: string) => {
+    if (!isContent) return
+
+    trackEventSafe("content_card_tag_clicked", {
+      tag: topic,
+      content_type: item.type,
+      content_id: item.id,
+    })
+    onTagClick?.(topic)
+  }
   
   // Homepage variant uses gradients
   if (variant === 'homepage') {
@@ -311,14 +322,7 @@ export function ContentCard({
                     key={index} 
                     variant="outline" 
                     className="text-xs cursor-pointer hover:bg-accent transition-colors"
-                    onClick={() => {
-                      trackEventSafe("content_card_tag_clicked", {
-                        tag: topic,
-                        content_type: item.type,
-                        content_id: item.id,
-                      })
-                      onTagClick?.(topic)
-                    }}
+                    onClick={() => handleTopicTagClick(topic)}
                   >
                     {topic}
                   </Badge>
@@ -330,14 +334,7 @@ export function ContentCard({
                   key={index} 
                   variant="outline"
                   className="text-xs cursor-pointer hover:bg-accent transition-colors"
-                  onClick={() => {
-                    trackEventSafe("content_card_tag_clicked", {
-                      tag: topic,
-                      content_type: item.type,
-                      content_id: item.id,
-                    })
-                    onTagClick?.(topic)
-                  }}
+                  onClick={() => handleTopicTagClick(topic)}
                 >
                 {topic}
               </Badge>

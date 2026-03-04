@@ -3,6 +3,21 @@ export type VideoProvider = "youtube" | "vimeo" | "direct" | "unknown"
 export const ALLOWED_SKIP_SECONDS = [10, 15] as const
 export type SkipSeconds = (typeof ALLOWED_SKIP_SECONDS)[number]
 
+function isYouTubeShortHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase()
+  return normalized === "youtu.be" || normalized === "www.youtu.be"
+}
+
+function isYouTubeHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase()
+  return (
+    normalized === "youtube.com" ||
+    normalized.endsWith(".youtube.com") ||
+    normalized === "youtube-nocookie.com" ||
+    normalized.endsWith(".youtube-nocookie.com")
+  )
+}
+
 /**
  * Normalize configured skip seconds to the supported values.
  */
@@ -28,23 +43,13 @@ export function clampSeekTarget(targetSeconds: number, durationSeconds?: number 
 export function extractYouTubeId(url: string): string | null {
   if (!url) return null
 
-  const directPatterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-    /youtube\.com\/v\/([^&\n?#]+)/,
-    /youtube\.com\/shorts\/([^&\n?#]+)/,
-  ]
-  for (const pattern of directPatterns) {
-    const match = url.match(pattern)
-    if (match?.[1]) return match[1]
-  }
-
   try {
     const parsed = new URL(url)
-    if (parsed.hostname.includes("youtu.be")) {
+    if (isYouTubeShortHostname(parsed.hostname)) {
       const id = parsed.pathname.split("/").filter(Boolean)[0]
       return id || null
     }
-    if (parsed.hostname.includes("youtube.com")) {
+    if (isYouTubeHostname(parsed.hostname)) {
       const queryId = parsed.searchParams.get("v")
       if (queryId) return queryId
       const pathParts = parsed.pathname.split("/").filter(Boolean)
@@ -54,7 +59,19 @@ export function extractYouTubeId(url: string): string | null {
       }
     }
   } catch {
-    return null
+    // Ignore parse errors and continue with pattern fallback below.
+  }
+
+  const directPatterns = [
+    /(?:^|\/\/)(?:www\.)?youtu\.be\/([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:www\.)?youtube(?:-nocookie)?\.com\/watch\?v=([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:www\.)?youtube(?:-nocookie)?\.com\/v\/([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:www\.)?youtube(?:-nocookie)?\.com\/shorts\/([^&\n?#/]+)/i,
+  ]
+  for (const pattern of directPatterns) {
+    const match = url.match(pattern)
+    if (match?.[1]) return match[1]
   }
 
   return null
@@ -67,8 +84,8 @@ export function extractVimeoId(url: string): string | null {
   if (!url) return null
 
   const patterns = [
-    /vimeo\.com\/(\d+)/,
-    /player\.vimeo\.com\/video\/(\d+)/,
+    /(?:^|\/\/)(?:www\.)?vimeo\.com\/(\d+)/i,
+    /(?:^|\/\/)player\.vimeo\.com\/video\/(\d+)/i,
   ]
   for (const pattern of patterns) {
     const match = url.match(pattern)
@@ -77,7 +94,8 @@ export function extractVimeoId(url: string): string | null {
 
   try {
     const parsed = new URL(url)
-    if (parsed.hostname.includes("vimeo.com")) {
+    const normalizedHostname = parsed.hostname.toLowerCase()
+    if (normalizedHostname === "vimeo.com" || normalizedHostname.endsWith(".vimeo.com")) {
       const id = parsed.pathname.split("/").filter(Boolean).find(part => /^\d+$/.test(part))
       return id || null
     }
@@ -125,7 +143,9 @@ export function isEmbeddedVideo(content: string | undefined): boolean {
 export function extractVideoSource(content: string | undefined): string | null {
   if (!content) return null
 
-  const sourceMatch = content.match(/src="([^"]+\.(mp4|webm|mov|avi|m3u8))"/i)
+  const sourceMatch = content.match(
+    /src\s*=\s*(?:'|")([^"']+\.(?:mp4|webm|ogg|mov|avi|mkv|m3u8)(?:[?#][^"']*)?)(?:'|")/i
+  )
   if (sourceMatch?.[1]) return sourceMatch[1]
 
   const youtubeMatch = content.match(/src="[^"]*youtube\.com\/embed\/([^"?]+)/i)

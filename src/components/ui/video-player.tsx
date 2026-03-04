@@ -6,10 +6,10 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ExternalLink, Play, RotateCcw, RotateCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ExternalLink, Play, RotateCcw, RotateCw } from 'lucide-react'
 import { sanitizeRichContent } from '@/lib/rich-content-sanitize.client'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { getPlaybackConfig } from '@/lib/content-config'
@@ -303,6 +303,7 @@ function EmbeddedVideoRenderer({ content }: { content: string }) {
     <div className="aspect-video bg-black rounded-lg overflow-hidden">
       <div
         className="w-full h-full"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: content is sanitized by sanitizeRichContent before rendering.
         dangerouslySetInnerHTML={{ __html: sanitizedContent }}
       />
     </div>
@@ -360,7 +361,7 @@ function VideoThumbnail({
 /**
  * Main video player component
  */
-export function VideoPlayer({
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   content,
   url,
   title,
@@ -368,7 +369,7 @@ export function VideoPlayer({
   thumbnailUrl,
   className = '',
   skipSeconds,
-}: VideoPlayerProps) {
+}) => {
   const [showThumbnail, setShowThumbnail] = useState(Boolean(thumbnailUrl))
   const [isSeekReady, setIsSeekReady] = useState(false)
   const [providerSeekFailureReason, setProviderSeekFailureReason] = useState<string | null>(null)
@@ -515,7 +516,12 @@ export function VideoPlayer({
     const setup = async () => {
       try {
         await loadVimeoPlayerApi()
-        if (cancelled || !vimeoIframeRef.current || !window.Vimeo?.Player) {
+        if (cancelled) {
+          return
+        }
+        if (!vimeoIframeRef.current || !window.Vimeo?.Player) {
+          setIsSeekReady(false)
+          setProviderSeekFailureReason('Seek controls unavailable: Vimeo player API is not available.')
           return
         }
 
@@ -585,13 +591,20 @@ export function VideoPlayer({
         return
       }
 
-      const [currentTime, durationRaw] = await Promise.all([
-        player.getCurrentTime(),
-        player.getDuration(),
-      ])
-      const duration = Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : undefined
-      const targetTime = clampSeekTarget(currentTime + deltaSeconds, duration)
-      await player.setCurrentTime(targetTime)
+      try {
+        const [currentTime, durationRaw] = await Promise.all([
+          player.getCurrentTime(),
+          player.getDuration(),
+        ])
+        const duration = Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : undefined
+        const targetTime = clampSeekTarget(currentTime + deltaSeconds, duration)
+        await player.setCurrentTime(targetTime)
+      } catch (error) {
+        setIsSeekReady(false)
+        setProviderSeekFailureReason('Seek controls unavailable: Vimeo seek request failed.')
+        console.error('Vimeo seek failed', error)
+        return
+      }
     }
   }, [hasValidUrl, provider, showThumbnail])
 
@@ -778,6 +791,7 @@ export function InlineVideoEmbed({ content, className = '' }: { content: string;
     <div className={`aspect-video rounded-lg overflow-hidden ${className}`}>
       <div
         className="w-full h-full"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: content is sanitized by sanitizeRichContent before rendering.
         dangerouslySetInnerHTML={{ __html: sanitizedContent }}
       />
     </div>
