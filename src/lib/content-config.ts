@@ -64,14 +64,27 @@ export interface GlobalConfig {
   sortOptions: Record<SortOption, string>
 }
 
+export interface PlaybackConfig {
+  defaultSkipSeconds: 10 | 15
+}
+
 export interface ContentConfig {
   homepage: HomepageConfig
   contentPage: ContentPageConfig
   global: GlobalConfig
+  playback?: PlaybackConfig
 }
 
 export function getContentConfig(): ContentConfig {
   return contentConfig as ContentConfig
+}
+
+export function getPlaybackConfig(): PlaybackConfig {
+  const config = getContentConfig()
+  const rawSkip = config.playback?.defaultSkipSeconds
+  return {
+    defaultSkipSeconds: rawSkip === 15 ? 15 : 10
+  }
 }
 
 export function getHomepageSectionConfig(section: ContentType): ContentSection | null {
