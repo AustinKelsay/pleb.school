@@ -1,45 +1,44 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
-import React from 'react'
-import { notFound } from 'next/navigation'
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { MainLayout } from '@/components/layout/main-layout'
-import { Section } from '@/components/layout/section'
-import { parseEvent } from '@/data/types'
-import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
-import { resolveUniversalId, type UniversalIdResult } from '@/lib/universal-router'
-import { OptimizedImage } from '@/components/ui/optimized-image'
-import { encodePublicKey, type AddressData, type EventData } from 'snstr'
-import { ZapThreads } from '@/components/ui/zap-threads'
-import { InteractionMetrics } from '@/components/ui/interaction-metrics'
-import { useInteractions } from '@/hooks/useInteractions'
-import { preserveLineBreaks } from '@/lib/text-utils'
-import { 
-  FileText, 
+import { notFound } from 'next/navigation'
+import {
+  BookOpen,
   ExternalLink,
   Eye,
-  BookOpen,
-  Video,
-  Tag,
+  FileText,
   Loader2,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Tag,
+  Video
 } from 'lucide-react'
-import type { NostrEvent } from 'snstr'
-import { getRelays } from '@/lib/nostr-relays'
+import { useSession } from 'next-auth/react'
+import { encodePublicKey, type AddressData, type EventData, type NostrEvent } from 'snstr'
+
+import { MainLayout } from '@/components/layout/main-layout'
+import { Section } from '@/components/layout/section'
+import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { InteractionMetrics } from '@/components/ui/interaction-metrics'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ViewsText } from '@/components/ui/views-text'
+import { ZapThreads } from '@/components/ui/zap-threads'
 import { ResourceContentView } from '@/app/content/components/resource-content-view'
+import { parseEvent } from '@/data/types'
+import { useInteractions } from '@/hooks/useInteractions'
+import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
+import { trackEventSafe } from '@/lib/analytics'
 import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
-import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
-import { useSession } from 'next-auth/react'
-import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
+import { getRelays } from '@/lib/nostr-relays'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
-import { trackEventSafe } from '@/lib/analytics'
+import { preserveLineBreaks } from '@/lib/text-utils'
+import { resolveUniversalId, type UniversalIdResult } from '@/lib/universal-router'
 
 interface ResourcePageProps {
   params: Promise<{
@@ -141,6 +140,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(true)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [isFullWidth, setIsFullWidth] = useState(false)
+  const trackedResourceDetailViewRef = useRef<Set<string>>(new Set())
 
   const handlePurchaseDialogChange = (open: boolean) => {
     if (open) {
@@ -356,6 +356,11 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
 
   useEffect(() => {
     if (!event) return
+    const viewKey = event.id
+    if (trackedResourceDetailViewRef.current.has(viewKey)) {
+      return
+    }
+    trackedResourceDetailViewRef.current.add(viewKey)
     trackEventSafe("resource_detail_viewed", {
       resource_id: resourceId,
       event_id: event.id,

@@ -107,6 +107,16 @@ export function ZapThreads({
   const finalAuthor = author || eventDetails?.pubkey
   const anchorType = eventDetails ? "event_details" : "anchor"
   const eventKind = eventDetails?.kind
+  const authorType = finalAuthor
+    ? (eventDetails ? "event_author" : "explicit_author")
+    : "none"
+  const titleLengthBucket = (() => {
+    const length = title.trim().length
+    if (length === 0) return "0"
+    if (length <= 20) return "1-20"
+    if (length <= 100) return "21-100"
+    return "100+"
+  })()
 
   useEffect(() => {
     // Dynamically import zapthreads to avoid SSR issues
@@ -130,10 +140,10 @@ export function ZapThreads({
       anchor_type: anchorType,
       event_kind: eventKind,
       has_author: Boolean(finalAuthor),
-      author: finalAuthor,
-      title,
+      author_type: authorType,
+      title_length_bucket: titleLengthBucket,
     })
-  }, [finalAnchor, finalAuthor, title, anchorType, eventKind])
+  }, [finalAnchor, finalAuthor, anchorType, eventKind, authorType, titleLengthBucket])
 
   // Validate that either anchor or eventDetails is provided
   if (!finalAnchor) {

@@ -47,6 +47,7 @@ Homepage sections (courses, videos, documents), filters (price/category/sort), p
 - `contentPage.includeLessonResources.{videos,documents}` lets you keep lesson-linked resources discoverable on `/content` while leaving homepage carousels untouched.
 - `contentPage.imageFetch.{relaySet,maxConcurrentFetches}` sets which relay set to use for note preview images on `/content`.
 - `search.{minKeywordLength,timeout,limit,relaySet}` configures Nostr search behavior.
+- `playback.defaultSkipSeconds` controls shared `VideoPlayer` rewind/fast-forward jump size (`10` or `15` seconds).
 - **Search filters by admin pubkeys**: Content is discovered by querying Nostr for events authored by pubkeys listed in `admin.json`.
 
 ### `copy.json` — Site Copy & Text

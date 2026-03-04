@@ -25,7 +25,7 @@ const ALLOWED_URI_REGEXP = /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+
 const ALLOWED_TAGS_SET = new Set<string>(ALLOWED_TAGS)
 const ALLOWED_ATTR_SET = new Set<string>(ALLOWED_ATTR)
 const BLOCKED_URI_SCHEMES = /^(?:javascript|vbscript|data):/i
-const URI_OBFUSCATION_CHARS = /[\u0000-\u001F\u007F\s]+/g
+const URI_OBFUSCATION_CHARS = /[\x00-\x1F\x7F\s]+/g
 
 const NAMED_HTML_ENTITIES: Record<string, string> = {
   amp: "&",

@@ -554,19 +554,18 @@ export const Header = () => {
         {/* Right-aligned Actions */}
         <div className="flex flex-1 items-center justify-end space-x-1 sm:space-x-2 md:space-x-4">
           {/* Search icon - only show on mobile */}
-          <Link
-            href="/search"
-            className="sm:hidden"
-            onClick={() => {
-              trackEventSafe("header_mobile_search_clicked", {
-                path: pathname ?? "",
-              })
-            }}
-          >
-            <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="sm:hidden" asChild>
+            <Link
+              href="/search"
+              onClick={() => {
+                trackEventSafe("header_mobile_search_clicked", {
+                  path: pathname ?? "",
+                })
+              }}
+            >
               <SearchIcon className="h-4 w-4" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           
           {/* Theme controls - only show on desktop */}
           {shouldShowThemeSelector() && <div className="hidden sm:block"><ThemeSelector /></div>}

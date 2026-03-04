@@ -1,44 +1,44 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { notFound, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { useSession } from '@/hooks/useSession'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { MainLayout } from '@/components/layout/main-layout'
-import { Section } from '@/components/layout/section'
-import { OptimizedImage } from '@/components/ui/optimized-image'
-import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
-import { useCourseQuery } from '@/hooks/useCoursesQuery'
-import { useLessonsQuery, type LessonWithResource } from '@/hooks/useLessonsQuery'
-import { parseCourseEvent } from '@/data/types'
-import { encodePublicKey } from 'snstr'
-import { useCopy, getCopy } from '@/lib/copy'
-import { ZapThreads } from '@/components/ui/zap-threads'
-import { InteractionMetrics } from '@/components/ui/interaction-metrics'
-import { useInteractions } from '@/hooks/useInteractions'
-import { preserveLineBreaks } from '@/lib/text-utils'
-import { resolveUniversalId } from '@/lib/universal-router'
+import { notFound, useParams } from 'next/navigation'
 import {
   BookOpen,
+  ExternalLink,
   Play,
-  Tag,
-  ExternalLink
+  Tag
 } from 'lucide-react'
+import { encodePublicKey } from 'snstr'
+
+import { MainLayout } from '@/components/layout/main-layout'
+import { Section } from '@/components/layout/section'
+import { PurchaseActions } from '@/components/purchase/purchase-actions'
+import { AdditionalLinksList } from '@/components/ui/additional-links-card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { InteractionMetrics } from '@/components/ui/interaction-metrics'
+import { OptimizedImage } from '@/components/ui/optimized-image'
+import { ZapThreads } from '@/components/ui/zap-threads'
+import { parseCourseEvent } from '@/data/types'
+import { useCourseQuery } from '@/hooks/useCoursesQuery'
+import { useInteractions } from '@/hooks/useInteractions'
+import { useLessonsQuery, type LessonWithResource } from '@/hooks/useLessonsQuery'
+import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
+import { useSession } from '@/hooks/useSession'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import { trackEventSafe } from '@/lib/analytics'
+import { useCopy, getCopy } from '@/lib/copy'
 import { getCourseIcon } from '@/lib/copy-icons'
-
-const EducationIcon = getCourseIcon('education')
-
 import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
-import { PurchaseActions } from '@/components/purchase/purchase-actions'
-import { normalizeAdditionalLinks } from '@/lib/additional-links'
-import { AdditionalLinksList } from '@/components/ui/additional-links-card'
-import type { AdditionalLink } from '@/types/additional-links'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
-import { trackEventSafe } from '@/lib/analytics'
+import { preserveLineBreaks } from '@/lib/text-utils'
+import { resolveUniversalId } from '@/lib/universal-router'
+import type { AdditionalLink } from '@/types/additional-links'
+
+const EducationIcon = getCourseIcon('education')
 
 interface CoursePageProps {
   params: {

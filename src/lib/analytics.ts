@@ -105,7 +105,9 @@ export function trackEventSafe(
     return
   }
 
-  void trackEvent(eventName, properties)
+  void trackEvent(eventName, properties).catch(() => {
+    // Suppress analytics transport errors to avoid unhandled promise rejections.
+  })
 }
 
 export type { AnalyticsEventProperties }

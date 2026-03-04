@@ -29,6 +29,7 @@ function SearchContent() {
 
   const [searchQuery, setSearchQuery] = useState(searchParams?.get('q') || '')
   const [searchType, setSearchType] = useState<'all' | 'courses' | 'resources'>('all')
+  const trimmedSearchQuery = searchQuery.trim()
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
   
@@ -123,7 +124,7 @@ function SearchContent() {
             size="sm"
             onClick={() => {
               trackEventSafe("search_home_clicked", {
-                query_length: searchQuery.length,
+                query_length: trimmedSearchQuery.length,
               })
               router.push('/')
             }}
@@ -180,7 +181,7 @@ function SearchContent() {
                   trackEventSafe("search_type_changed", {
                     from_type: searchType,
                     to_type: nextType,
-                    query_length: searchQuery.length,
+                    query_length: trimmedSearchQuery.length,
                   })
                   setSearchType(nextType)
                 }}
