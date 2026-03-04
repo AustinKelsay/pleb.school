@@ -8,6 +8,7 @@ import {
   extractYouTubeId,
   getVideoProvider,
   isEditableTarget,
+  isEmbeddedVideo,
   normalizeSkipSeconds,
 } from "@/lib/video-playback"
 
@@ -23,6 +24,7 @@ describe("video-playback helpers", () => {
     expect(getVideoProvider("https://youtu.be/abc123")).toBe("youtube")
     expect(getVideoProvider("https://vimeo.com/1234567")).toBe("vimeo")
     expect(getVideoProvider("https://cdn.example.com/video.mp4")).toBe("direct")
+    expect(getVideoProvider("https://example.com/player?next=clip.mp4")).toBe("unknown")
     expect(getVideoProvider("https://example.com/embed/player")).toBe("unknown")
   })
 
@@ -51,6 +53,18 @@ describe("video-playback helpers", () => {
 
     const queryStringHtml = "<video><source src='https://cdn.example.com/test.mkv?token=abc#frag'></video>"
     expect(extractVideoSource(queryStringHtml)).toBe("https://cdn.example.com/test.mkv?token=abc#frag")
+
+    const youtubeNoCookieHtml = "<iframe src='https://www.youtube-nocookie.com/embed/abc123?si=xyz'></iframe>"
+    expect(extractVideoSource(youtubeNoCookieHtml)).toBe("https://www.youtube.com/watch?v=abc123")
+
+    const vimeoSingleQuoteHtml = "<iframe src='https://player.vimeo.com/video/123456789?autoplay=1'></iframe>"
+    expect(extractVideoSource(vimeoSingleQuoteHtml)).toBe("https://vimeo.com/123456789")
+  })
+
+  it("detects embedded video tags case-insensitively", () => {
+    expect(isEmbeddedVideo("<VIDEO src='https://cdn.example.com/test.mp4'></VIDEO>")).toBe(true)
+    expect(isEmbeddedVideo("<IFRAME src='https://player.vimeo.com/video/1'></IFRAME>")).toBe(true)
+    expect(isEmbeddedVideo("<div>No embed</div>")).toBe(false)
   })
 })
 

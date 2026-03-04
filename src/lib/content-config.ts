@@ -1,6 +1,7 @@
 import contentConfig from "../../config/content.json"
 import type { RelaySet } from "@/lib/nostr-relays"
 import { getIcon, type LucideIcon } from "@/lib/icons-config"
+import { normalizeSkipSeconds } from "@/lib/video-playback"
 
 export type PriceFilter = "all" | "free" | "paid"
 export type SortOption = "newest" | "oldest" | "price-low" | "price-high" | "popular"
@@ -81,9 +82,8 @@ export function getContentConfig(): ContentConfig {
 
 export function getPlaybackConfig(): PlaybackConfig {
   const config = getContentConfig()
-  const rawSkip = config.playback?.defaultSkipSeconds
   return {
-    defaultSkipSeconds: rawSkip === 15 ? 15 : 10
+    defaultSkipSeconds: normalizeSkipSeconds(config.playback?.defaultSkipSeconds)
   }
 }
 

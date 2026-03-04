@@ -10,7 +10,7 @@ vi.mock("@/components/ui/optimized-image", () => ({
 
 import { VideoPlayer } from "@/components/ui/video-player"
 
-function mountVideoPlayer() {
+function mountVideoPlayer(skipSeconds: 10 | 15 = 10) {
   const container = document.createElement("div")
   document.body.appendChild(container)
   const root = createRoot(container)
@@ -20,6 +20,7 @@ function mountVideoPlayer() {
       createElement(VideoPlayer, {
         url: "https://cdn.example.com/lesson.mp4",
         title: "Test Video",
+        skipSeconds,
       })
     )
   })
@@ -54,7 +55,8 @@ describe("VideoPlayer seek controls", () => {
   })
 
   it("rewinds and fast-forwards direct videos with clamping", () => {
-    const { container, unmount } = mountVideoPlayer()
+    const skipSeconds = 10
+    const { container, unmount } = mountVideoPlayer(skipSeconds)
     const video = container.querySelector("video")
     expect(video).toBeInstanceOf(HTMLVideoElement)
     if (!video) {
@@ -65,8 +67,8 @@ describe("VideoPlayer seek controls", () => {
     markVideoReady(video, 120)
     video.currentTime = 5
 
-    const rewindButton = container.querySelector('button[aria-label=\"Rewind 10 seconds\"]')
-    const fastForwardButton = container.querySelector('button[aria-label=\"Fast-forward 10 seconds\"]')
+    const rewindButton = container.querySelector(`button[aria-label="Rewind ${skipSeconds} seconds"]`)
+    const fastForwardButton = container.querySelector(`button[aria-label="Fast-forward ${skipSeconds} seconds"]`)
     expect(rewindButton).toBeInstanceOf(HTMLButtonElement)
     expect(fastForwardButton).toBeInstanceOf(HTMLButtonElement)
     if (!rewindButton || !fastForwardButton) {
@@ -89,7 +91,8 @@ describe("VideoPlayer seek controls", () => {
   })
 
   it("handles keyboard shortcuts and ignores editable targets", () => {
-    const { container, unmount } = mountVideoPlayer()
+    const skipSeconds = 10
+    const { container, unmount } = mountVideoPlayer(skipSeconds)
     const video = container.querySelector("video")
     const playerRoot = container.querySelector('div[aria-label=\"Video player\"]')
     expect(video).toBeInstanceOf(HTMLVideoElement)
@@ -105,7 +108,7 @@ describe("VideoPlayer seek controls", () => {
     act(() => {
       playerRoot.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true }))
     })
-    expect(video.currentTime).toBe(40)
+    expect(video.currentTime).toBe(50 - skipSeconds)
 
     act(() => {
       playerRoot.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }))
@@ -145,7 +148,7 @@ describe("VideoPlayer seek controls", () => {
   })
 
   it("does not consume seek shortcuts when seeking is not ready", () => {
-    const { container, unmount } = mountVideoPlayer()
+    const { container, unmount } = mountVideoPlayer(10)
     const playerRoot = container.querySelector('div[aria-label=\"Video player\"]')
     const video = container.querySelector("video")
     expect(playerRoot).toBeInstanceOf(HTMLDivElement)

@@ -356,7 +356,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
 
   useEffect(() => {
     if (!event) return
-    const viewKey = `${resourceId}:${event.id}:${event.kind}`
+    const viewKey = event.id
     if (trackedResourceDetailViewRef.current.has(viewKey)) {
       return
     }

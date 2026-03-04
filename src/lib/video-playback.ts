@@ -121,9 +121,17 @@ export function getVideoProvider(url: string): VideoProvider {
   }
 
   const directExtensions = [".mp4", ".webm", ".ogg", ".mov", ".avi", ".mkv", ".m3u8"]
-  const lower = url.toLowerCase()
-  if (directExtensions.some(ext => lower.includes(ext))) {
-    return "direct"
+  try {
+    const parsed = new URL(url)
+    const pathname = parsed.pathname.toLowerCase()
+    if (directExtensions.some(ext => pathname.endsWith(ext))) {
+      return "direct"
+    }
+  } catch {
+    const pathname = url.split(/[?#]/, 1)[0].toLowerCase()
+    if (directExtensions.some(ext => pathname.endsWith(ext))) {
+      return "direct"
+    }
   }
 
   return "unknown"
@@ -134,7 +142,7 @@ export function getVideoProvider(url: string): VideoProvider {
  */
 export function isEmbeddedVideo(content: string | undefined): boolean {
   if (!content) return false
-  return content.includes("<video") || content.includes("<iframe")
+  return /<\s*(video|iframe)\b/i.test(content)
 }
 
 /**
@@ -148,11 +156,15 @@ export function extractVideoSource(content: string | undefined): string | null {
   )
   if (sourceMatch?.[1]) return sourceMatch[1]
 
-  const youtubeMatch = content.match(/src="[^"]*youtube\.com\/embed\/([^"?]+)/i)
-  if (youtubeMatch?.[1]) return `https://www.youtube.com/watch?v=${youtubeMatch[1]}`
+  const youtubeMatch = content.match(
+    /src\s*=\s*(["'])(?:https?:)?\/\/(?:[\w-]+\.)?(?:youtube(?:-nocookie)?\.com\/(?:embed\/|watch\?v=|v\/|shorts\/)|youtu\.be\/)([^"'&#?/]+)(?:[^"']*)\1/i
+  )
+  if (youtubeMatch?.[2]) return `https://www.youtube.com/watch?v=${youtubeMatch[2]}`
 
-  const vimeoMatch = content.match(/src="[^"]*player\.vimeo\.com\/video\/(\d+)/i)
-  if (vimeoMatch?.[1]) return `https://vimeo.com/${vimeoMatch[1]}`
+  const vimeoMatch = content.match(
+    /src\s*=\s*(["'])(?:https?:)?\/\/(?:player\.)?vimeo\.com\/(?:video\/)?(\d+)(?:[^"']*)\1/i
+  )
+  if (vimeoMatch?.[2]) return `https://vimeo.com/${vimeoMatch[2]}`
 
   return null
 }
