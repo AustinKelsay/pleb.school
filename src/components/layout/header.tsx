@@ -557,6 +557,7 @@ export const Header = () => {
           <Button variant="ghost" size="icon" className="sm:hidden" asChild>
             <Link
               href="/search"
+              aria-label={navigation.searchPlaceholder}
               onClick={() => {
                 trackEventSafe("header_mobile_search_clicked", {
                   path: pathname ?? "",

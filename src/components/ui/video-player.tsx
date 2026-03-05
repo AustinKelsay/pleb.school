@@ -65,6 +65,47 @@ declare global {
 let youtubeApiPromise: Promise<void> | null = null
 let vimeoApiPromise: Promise<void> | null = null
 
+function sanitizeMediaUrl(value: string | null | undefined): string {
+  const raw = (value ?? "").trim()
+  if (!raw) {
+    return ""
+  }
+
+  const collapsedForSchemeCheck = raw.replace(/[\u0000-\u001F\u007F\s]+/g, "")
+  const schemeMatch = collapsedForSchemeCheck.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/)
+
+  if (schemeMatch) {
+    const scheme = schemeMatch[1]?.toLowerCase()
+    if (scheme !== "http" && scheme !== "https" && scheme !== "blob") {
+      return ""
+    }
+
+    try {
+      const parsed = new URL(raw)
+      if (parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "blob:") {
+        return raw
+      }
+      return ""
+    } catch {
+      return ""
+    }
+  }
+
+  if (raw.startsWith("//")) {
+    return ""
+  }
+
+  if (raw.startsWith("/") || raw.startsWith("./") || raw.startsWith("../")) {
+    return raw
+  }
+
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:[/?#]|$)/i.test(raw)) {
+    return `https://${raw}`
+  }
+
+  return ""
+}
+
 function loadYouTubeIframeApi(): Promise<void> {
   if (typeof window === 'undefined') {
     return Promise.resolve()
@@ -387,11 +428,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setShowThumbnail(false)
   }, [])
 
-  // Use url prop if provided, otherwise fall back to content or videoUrl
-  const effectiveUrl = useMemo(
+  // Use url prop if provided, otherwise fall back to content or videoUrl.
+  const rawEffectiveUrl = useMemo(
     () => url || videoUrl || extractVideoSource(content) || '',
     [content, url, videoUrl]
   )
+  const effectiveUrl = useMemo(() => sanitizeMediaUrl(rawEffectiveUrl), [rawEffectiveUrl])
   const provider = useMemo(() => getVideoProvider(effectiveUrl), [effectiveUrl])
   const youtubeId = useMemo(() => extractYouTubeId(effectiveUrl), [effectiveUrl])
   const vimeoId = useMemo(() => extractVimeoId(effectiveUrl), [effectiveUrl])

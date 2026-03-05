@@ -16,7 +16,7 @@ const ALLOWED_ATTR = [
   "href", "rel",
   "src", "alt", "title", "width", "height",
   "controls",
-  "frameborder", "allowfullscreen", "allow", "loading",
+  "sandbox", "loading",
   "colspan", "rowspan",
 ] as const
 
@@ -26,6 +26,10 @@ const ALLOWED_TAGS_SET = new Set<string>(ALLOWED_TAGS)
 const ALLOWED_ATTR_SET = new Set<string>(ALLOWED_ATTR)
 const BLOCKED_URI_SCHEMES = /^(?:javascript|vbscript|data):/i
 const URI_OBFUSCATION_CHARS = /[\x00-\x1F\x7F\s]+/g
+const IFRAME_SANDBOX_VALUE = "allow-scripts allow-same-origin allow-presentation"
+const IFRAME_DISALLOWED_ATTRS = new Set(["allow", "allowfullscreen", "frameborder", "srcdoc"])
+
+let domPurifyHooksInitialized = false
 
 const NAMED_HTML_ENTITIES: Record<string, string> = {
   amp: "&",
@@ -39,6 +43,85 @@ const NAMED_HTML_ENTITIES: Record<string, string> = {
 }
 
 let domPurifyInstance: ReturnType<typeof createDOMPurify> | null = null
+
+function isAllowedIframeHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase()
+  return (
+    normalized === "youtube.com" ||
+    normalized.endsWith(".youtube.com") ||
+    normalized === "youtube-nocookie.com" ||
+    normalized.endsWith(".youtube-nocookie.com") ||
+    normalized === "youtu.be" ||
+    normalized.endsWith(".youtu.be") ||
+    normalized === "vimeo.com" ||
+    normalized.endsWith(".vimeo.com")
+  )
+}
+
+function isAllowedIframeSrc(value: string): boolean {
+  const normalized = normalizeUriForValidation(value)
+  if (!normalized) {
+    return false
+  }
+
+  // Reject protocol-relative URLs (e.g. //evil.example.com/embed) so host allowlists still apply.
+  if (normalized.startsWith("//")) {
+    return false
+  }
+
+  if (normalized.startsWith("/") || normalized.startsWith("./") || normalized.startsWith("../")) {
+    return true
+  }
+
+  try {
+    const parsed = new URL(normalized)
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return false
+    }
+
+    if (typeof window !== "undefined") {
+      const currentHost = window.location.hostname.toLowerCase()
+      if (parsed.hostname.toLowerCase() === currentHost) {
+        return true
+      }
+    }
+
+    return isAllowedIframeHost(parsed.hostname)
+  } catch {
+    return false
+  }
+}
+
+function configureDomPurify(instance: ReturnType<typeof createDOMPurify>) {
+  if (domPurifyHooksInitialized) {
+    return
+  }
+
+  instance.addHook("afterSanitizeAttributes", (node) => {
+    if (!(node instanceof Element) || node.tagName.toLowerCase() !== "iframe") {
+      return
+    }
+
+    IFRAME_DISALLOWED_ATTRS.forEach((attr) => {
+      node.removeAttribute(attr)
+    })
+
+    const src = node.getAttribute("src")
+    const sanitizedSrc = src ? getSanitizedUri(src) : null
+    if (!sanitizedSrc || !isAllowedIframeSrc(sanitizedSrc)) {
+      node.removeAttribute("src")
+    } else {
+      node.setAttribute("src", sanitizedSrc)
+    }
+
+    node.setAttribute("sandbox", IFRAME_SANDBOX_VALUE)
+    if (!node.getAttribute("loading")) {
+      node.setAttribute("loading", "lazy")
+    }
+  })
+
+  domPurifyHooksInitialized = true
+}
 
 function decodeHtmlEntities(value: string): string {
   return value.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]+);?/gi, (entity, bodyRaw) => {
@@ -100,6 +183,7 @@ function getDomPurifyInstance() {
   if (!domPurifyInstance) {
     domPurifyInstance = createDOMPurify(window)
   }
+  configureDomPurify(domPurifyInstance)
 
   return domPurifyInstance
 }
@@ -138,10 +222,19 @@ function sanitizeOnServer(content: string): string {
     const keptAttrs: string[] = []
     const attrs = String(attrsRaw)
     const attrPattern = /([^\s"'<>\/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
+    const isIframe = tagName === "iframe"
+    let hasIframeLoading = false
 
     for (const attrMatch of attrs.matchAll(attrPattern)) {
       const attrName = String(attrMatch[1] ?? "").toLowerCase()
+      if (isIframe && IFRAME_DISALLOWED_ATTRS.has(attrName)) {
+        continue
+      }
       if (!attrName || attrName.startsWith("on") || !ALLOWED_ATTR_SET.has(attrName)) {
+        continue
+      }
+
+      if (isIframe && attrName === "sandbox") {
         continue
       }
 
@@ -152,6 +245,12 @@ function sanitizeOnServer(content: string): string {
       if ((attrName === "href" || attrName === "src") && !sanitizedUri) {
         continue
       }
+      if (isIframe && attrName === "src" && sanitizedUri && !isAllowedIframeSrc(sanitizedUri)) {
+        continue
+      }
+      if (isIframe && attrName === "loading") {
+        hasIframeLoading = true
+      }
 
       if (rawValue === undefined) {
         keptAttrs.push(` ${attrName}`)
@@ -159,6 +258,13 @@ function sanitizeOnServer(content: string): string {
         const normalizedValue = sanitizedUri ?? rawValue
         const escapedValue = normalizedValue.replace(/"/g, "&quot;")
         keptAttrs.push(` ${attrName}="${escapedValue}"`)
+      }
+    }
+
+    if (isIframe) {
+      keptAttrs.push(` sandbox="${IFRAME_SANDBOX_VALUE}"`)
+      if (!hasIframeLoading) {
+        keptAttrs.push(` loading="lazy"`)
       }
     }
 

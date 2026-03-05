@@ -106,7 +106,18 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
               const isPremium = lesson.isPremium || false
 
               return (
-                <div key={lesson.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer">
+                <Link
+                  key={lesson.id}
+                  href={`/courses/${courseId}/lessons/${lesson.id}/details`}
+                  className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onClick={() => {
+                    trackEventSafe("course_lesson_started", {
+                      course_id: courseId,
+                      lesson_id: lesson.id,
+                      lesson_index: index + 1,
+                    })
+                  }}
+                >
                   <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
                     <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary/20 text-xs sm:text-sm font-medium flex-shrink-0">
                       {index + 1}
@@ -122,22 +133,11 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
                       </div>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto sm:flex-shrink-0" asChild>
-                    <Link
-                      href={`/courses/${courseId}/lessons/${lesson.id}/details`}
-                      onClick={() => {
-                        trackEventSafe("course_lesson_started", {
-                          course_id: courseId,
-                          lesson_id: lesson.id,
-                          lesson_index: index + 1,
-                        })
-                      }}
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      <span className="sm:inline">{getCopy('course.buttons.start')}</span>
-                    </Link>
-                  </Button>
-                </div>
+                  <div className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium sm:flex-shrink-0 group-hover:border-primary/50 group-hover:text-primary transition-colors">
+                    <Play className="h-4 w-4" />
+                    <span className="sm:inline">{getCopy('course.buttons.start')}</span>
+                  </div>
+                </Link>
               )
             })}
           </div>
@@ -400,8 +400,6 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const commentsCount = interactions.comments
   const likesCount = interactions.likes
   const notePubkey = courseData?.note?.pubkey
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  const courseIdIsUuid = uuidRegex.test(courseId)
   const viewerZapTotal = viewerZapTotalSats ?? 0
   // Access requires server-confirmed purchase - don't grant access based on client-side zap totals alone
   // The auto-claim flow in PurchaseCard will set serverPurchased=true after successful API claim
@@ -480,7 +478,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           <PurchaseActions
             title={title}
             priceSats={priceSats}
-            courseId={courseIdIsUuid ? courseId : undefined}
+            courseId={resolvedCourseId}
             eventId={noteId}
             eventKind={courseData?.note?.kind}
             eventIdentifier={parsedCourseNote?.d}
@@ -672,7 +670,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
             <div className="mt-8" data-comments-section>
               <ZapThreads
                 eventDetails={{
-                  identifier: courseId,
+                  identifier: parsedCourseNote?.d ?? resolvedCourseId,
                   pubkey: courseData.note.pubkey,
                   kind: courseData.note.kind,
                   relays: getRelays('default')

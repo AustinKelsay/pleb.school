@@ -169,4 +169,26 @@ describe("VideoPlayer seek controls", () => {
     expect(video.currentTime).toBe(30)
     unmount()
   })
+
+  it("does not render unsafe javascript URLs as playable sources", () => {
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => {
+      root.render(
+        createElement(VideoPlayer, {
+          url: "javascript:alert(1)",
+          title: "Unsafe URL Test",
+        })
+      )
+    })
+
+    expect(container.textContent).toContain("No Video Available")
+    expect(container.querySelector("video")).toBeNull()
+    expect(container.querySelector('a[href^="javascript:"]')).toBeNull()
+
+    act(() => root.unmount())
+    container.remove()
+  })
 })

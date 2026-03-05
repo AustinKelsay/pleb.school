@@ -57,17 +57,21 @@ export function extractYouTubeId(url: string): string | null {
       if (embedIndex >= 0 && pathParts[embedIndex + 1]) {
         return pathParts[embedIndex + 1]
       }
+      const shortsIndex = pathParts.findIndex(part => part === "shorts")
+      if (shortsIndex >= 0 && pathParts[shortsIndex + 1]) {
+        return pathParts[shortsIndex + 1]
+      }
     }
   } catch {
     // Ignore parse errors and continue with pattern fallback below.
   }
 
   const directPatterns = [
-    /(?:^|\/\/)(?:www\.)?youtu\.be\/([^&\n?#/]+)/i,
-    /(?:^|\/\/)(?:www\.)?youtube(?:-nocookie)?\.com\/watch\?v=([^&\n?#/]+)/i,
-    /(?:^|\/\/)(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([^&\n?#/]+)/i,
-    /(?:^|\/\/)(?:www\.)?youtube(?:-nocookie)?\.com\/v\/([^&\n?#/]+)/i,
-    /(?:^|\/\/)(?:www\.)?youtube(?:-nocookie)?\.com\/shorts\/([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:[\w-]+\.)?youtu\.be\/([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:[\w-]+\.)?youtube(?:-nocookie)?\.com\/watch\?v=([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:[\w-]+\.)?youtube(?:-nocookie)?\.com\/embed\/([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:[\w-]+\.)?youtube(?:-nocookie)?\.com\/v\/([^&\n?#/]+)/i,
+    /(?:^|\/\/)(?:[\w-]+\.)?youtube(?:-nocookie)?\.com\/shorts\/([^&\n?#/]+)/i,
   ]
   for (const pattern of directPatterns) {
     const match = url.match(pattern)

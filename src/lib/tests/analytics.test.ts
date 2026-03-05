@@ -44,6 +44,24 @@ describe("analytics runtime", () => {
     expect(analyticsModule.track).toHaveBeenNthCalledWith(2, "second_event", undefined)
   })
 
+  it("reuses a shared initialization when multiple events track concurrently", async () => {
+    process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "true"
+    process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER = "vercel"
+    ;(globalThis as { window?: Window }).window = {} as Window
+
+    const { trackEvent } = await import("../analytics")
+    const analyticsModule = await import("@vercel/analytics")
+
+    await Promise.all([
+      trackEvent("concurrent_one"),
+      trackEvent("concurrent_two"),
+      trackEvent("concurrent_three"),
+    ])
+
+    expect(analyticsModule.inject).toHaveBeenCalledTimes(1)
+    expect(analyticsModule.track).toHaveBeenCalledTimes(3)
+  })
+
   it("does nothing when analytics is disabled", async () => {
     process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "false"
     ;(globalThis as { window?: Window }).window = {} as Window

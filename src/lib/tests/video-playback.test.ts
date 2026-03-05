@@ -31,6 +31,7 @@ describe("video-playback helpers", () => {
   it("extracts youtube and vimeo IDs", () => {
     expect(extractYouTubeId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ")
     expect(extractYouTubeId("https://youtu.be/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ")
+    expect(extractYouTubeId("https://m.youtube.com/shorts/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ")
     expect(extractYouTubeId("https://youtube-nocookie.com/embed/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ")
     expect(extractYouTubeId("https://notyoutube.com/watch?v=dQw4w9WgXcQ")).toBeNull()
     expect(extractVimeoId("https://player.vimeo.com/video/987654321")).toBe("987654321")

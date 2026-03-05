@@ -143,6 +143,35 @@ describe("extractVideoBodyMarkdown", () => {
     expect(result).toContain("Description")
   })
 
+  it("removes standalone youtube iframe embeds", () => {
+    const input = '# Title\n<iframe src="https://www.youtube.com/embed/abc123"></iframe>\n\nNotes'
+    const result = extractVideoBodyMarkdown(input)
+    expect(result).not.toContain("youtube.com/embed")
+    expect(result).toBe("Notes")
+  })
+
+  it("removes html5 video blocks", () => {
+    const input = '# Title\n<video controls><source src="https://cdn.example.com/clip.mp4"></video>\n\nSummary'
+    const result = extractVideoBodyMarkdown(input)
+    expect(result).not.toContain("<video")
+    expect(result).not.toContain("<source")
+    expect(result).toBe("Summary")
+  })
+
+  it("removes standalone video links while preserving non-video text", () => {
+    const input = "# Title\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\nThis lesson covers interviews."
+    const result = extractVideoBodyMarkdown(input)
+    expect(result).not.toContain("youtube.com/watch")
+    expect(result).toBe("This lesson covers interviews.")
+  })
+
+  it("keeps non-video iframes", () => {
+    const input = '# Title\n<iframe src="https://example.com/embed/widget"></iframe>\n\nNotes'
+    const result = extractVideoBodyMarkdown(input)
+    expect(result).toContain("example.com/embed/widget")
+    expect(result).toContain("Notes")
+  })
+
   it("handles content with only title", () => {
     const input = "# Just a Title"
     const result = extractVideoBodyMarkdown(input)

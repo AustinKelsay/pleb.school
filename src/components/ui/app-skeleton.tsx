@@ -41,16 +41,6 @@ export const LandingPageSkeleton = () => {
 
           <div className="relative order-first lg:order-last">
             <Skeleton className="aspect-video w-full rounded-xl" />
-            <div className="absolute -top-3 -right-3">
-              <Card className="p-3 w-32 shadow-sm">
-                <Skeleton className="h-4 w-20" />
-              </Card>
-            </div>
-            <div className="absolute -bottom-3 -left-3">
-              <Card className="p-3 w-36 shadow-sm">
-                <Skeleton className="h-4 w-24" />
-              </Card>
-            </div>
           </div>
         </div>
 

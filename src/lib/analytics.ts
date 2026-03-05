@@ -35,6 +35,7 @@ type InjectFn = (props?: { framework?: string }) => void
 let cachedTrack: TrackFn | null = null
 let cachedInject: InjectFn | null = null
 let runtimeInitialized = false
+let initPromise: Promise<void> | null = null
 
 function getTrackedEventProperties(properties?: AnalyticsEventProperties) {
   if (!properties) {
@@ -74,19 +75,40 @@ export async function trackEvent(
     return
   }
 
-  if (!cachedTrack) {
+  if (!runtimeInitialized || !cachedTrack) {
+    if (!initPromise) {
+      initPromise = (async () => {
+        try {
+          if (!cachedTrack || !cachedInject) {
+            const analyticsModule = await import("@vercel/analytics")
+            cachedTrack = analyticsModule.track
+            cachedInject = analyticsModule.inject
+          }
+
+          if (!runtimeInitialized && cachedInject) {
+            cachedInject({ framework: "react" })
+            runtimeInitialized = typeof (window as Window & { va?: unknown }).va === "function"
+          }
+        } catch {
+          cachedTrack = null
+          cachedInject = null
+          runtimeInitialized = false
+          throw new Error("analytics initialization failed")
+        } finally {
+          initPromise = null
+        }
+      })()
+    }
+
     try {
-      const analyticsModule = await import("@vercel/analytics")
-      cachedTrack = analyticsModule.track
-      cachedInject = analyticsModule.inject
+      await initPromise
     } catch {
       return
     }
-  }
 
-  if (!runtimeInitialized && cachedInject) {
-    cachedInject({ framework: "react" })
-    runtimeInitialized = typeof (window as Window & { va?: unknown }).va === "function"
+    if (!runtimeInitialized) {
+      runtimeInitialized = typeof (window as Window & { va?: unknown }).va === "function"
+    }
   }
 
   if (!cachedTrack || !runtimeInitialized) {
