@@ -260,7 +260,7 @@ export function ZapDialog({
         variant: "destructive"
       })
     }
-  }, [retryWeblnPayment, toast, zapCopy, zapTarget?.pubkey])
+  }, [retryWeblnPayment, toast, zapCopy, zapTarget])
 
   // Status indicator
   const statusConfig: Record<string, { text: string; loading: boolean; error?: boolean }> = {
