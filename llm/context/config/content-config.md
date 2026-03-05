@@ -22,6 +22,7 @@ src/lib/content-config.ts
   "homepage": { "sections": {}, "sectionOrder": [] },
   "contentPage": { "filters": {}, "includeLessonResources": {}, "imageFetch": {} },
   "search": {},
+  "playback": { "defaultSkipSeconds": 10 },
   "global": { "categories": [], "priceFilterOptions": {}, "sortOptions": {} },
   "_comments": {}
 }
@@ -187,6 +188,18 @@ Controls whether resources linked to lessons are visible on `/content`. Default 
 - Only searches content authored by pubkeys in `admin.json` (admins + moderators)
 - Uses database-first approach: fetches IDs from database, then queries Nostr
 - Client-side keyword matching with relevance scoring
+
+## Playback Configuration
+
+```json
+{
+  "defaultSkipSeconds": 10
+}
+```
+
+| Field | Type | Values | Description |
+|-------|------|--------|-------------|
+| `defaultSkipSeconds` | number | `10`, `15` | Default seek jump for rewind/fast-forward controls in `VideoPlayer` |
 
 ## Global Configuration
 

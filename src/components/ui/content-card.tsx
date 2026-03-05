@@ -25,6 +25,7 @@ import { useInteractions } from "@/hooks/useInteractions"
 import { encodePublicKey, decodeAddress } from "snstr"
 import { useSession } from "@/hooks/useSession"
 import { getPurchaseIcon } from "@/lib/payments-config"
+import { trackEventSafe } from "@/lib/analytics"
 
 // Icon lookup at module level (not during render) to avoid React rules violation
 const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
@@ -72,6 +73,16 @@ function formatNpubWithEllipsis(pubkey: string): string {
     // Fallback to hex format if encoding fails
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
+}
+
+function normalizeTopic(topic: string): string {
+  const normalized = topic
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "")
+
+  return normalized || "unknown"
 }
 
 export function ContentCard({ 
@@ -136,8 +147,14 @@ export function ContentCard({
     fetchInstructorProfile()
   }, [instructorPubkey, fetchProfile, normalizeKind0])
 
-  const navigateToContent = () => {
+  const navigateToContent = (source: string) => {
     if (!isContent) return
+    trackEventSafe("content_card_opened", {
+      source,
+      content_type: item.type,
+      content_id: item.id,
+      is_premium: item.isPremium,
+    })
 
     if (item.type === 'course') {
       router.push(`/courses/${item.id}`)
@@ -147,7 +164,18 @@ export function ContentCard({
   }
 
   const handleCardClick = () => {
-    navigateToContent()
+    navigateToContent("card")
+  }
+
+  const handleTopicTagClick = (topic: string) => {
+    if (!isContent) return
+
+    trackEventSafe("content_card_tag_clicked", {
+      tag_id: normalizeTopic(topic),
+      content_type: item.type,
+      content_id: item.id,
+    })
+    onTagClick?.(topic)
   }
   
   // Homepage variant uses gradients
@@ -304,7 +332,7 @@ export function ContentCard({
                     key={index} 
                     variant="outline" 
                     className="text-xs cursor-pointer hover:bg-accent transition-colors"
-                    onClick={() => onTagClick?.(topic)}
+                    onClick={() => handleTopicTagClick(topic)}
                   >
                     {topic}
                   </Badge>
@@ -316,7 +344,7 @@ export function ContentCard({
                   key={index} 
                   variant="outline"
                   className="text-xs cursor-pointer hover:bg-accent transition-colors"
-                  onClick={() => onTagClick?.(topic)}
+                  onClick={() => handleTopicTagClick(topic)}
                 >
                 {topic}
               </Badge>
@@ -399,7 +427,7 @@ export function ContentCard({
               className="w-full"
               size="sm"
               variant="outline"
-              onClick={navigateToContent}
+              onClick={() => navigateToContent("primary_cta")}
             >
               <Eye className="h-4 w-4 mr-2" />
               {item.type === 'course' ? 'Start Learning' : 'View Content'}
@@ -414,11 +442,15 @@ export function ContentCard({
                 if (!isContent) return
 
                 if (!isAuthenticated) {
+                  trackEventSafe("content_card_auth_redirect_clicked", {
+                    content_type: item.type,
+                    content_id: item.id,
+                  })
                   router.push('/auth/signin')
                   return
                 }
 
-                navigateToContent()
+                navigateToContent("auth_cta")
               }}
             >
               <User className="h-4 w-4 mr-2" />

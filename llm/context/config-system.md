@@ -9,7 +9,7 @@ Configuration is split into focused JSON files, each with a dedicated TypeScript
 | File | Purpose | Accessor |
 |------|---------|----------|
 | `auth.json` | Auth providers, session, UI settings, copy | Direct import + `src/lib/auth-icons.ts` |
-| `content.json` | Homepage sections, filters, search, icons | `src/lib/content-config.ts` |
+| `content.json` | Homepage sections, filters, search, playback, icons | `src/lib/content-config.ts` |
 | `copy.json` | All user-facing text, navigation icons | `src/lib/copy.ts` + `src/lib/copy-icons.ts` |
 | `theme.json` | Theme/font visibility, defaults | `src/lib/theme-ui-config.ts` |
 | `payments.json` | Zap presets, purchase UX, icons | `src/lib/payments-config.ts` |
@@ -67,6 +67,7 @@ Controls homepage content sections and content library behavior.
 - `contentPage.includeLessonResources` - Show lesson resources on /content
 - `contentPage.imageFetch` - Relay set and concurrency for image fetching
 - `search.*` - Nostr search configuration (timeout, limit, minKeywordLength)
+- `playback.defaultSkipSeconds` - Shared video seek interval (`10` or `15`)
 - `global.categories` - Master category list
 - `icons.*` - Content type and category icons
 

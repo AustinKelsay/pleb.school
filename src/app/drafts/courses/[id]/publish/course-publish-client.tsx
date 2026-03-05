@@ -28,6 +28,7 @@ import {
   Pencil
 } from 'lucide-react'
 import { getCourseIcon } from '@/lib/copy-icons'
+import { DraftPageSkeleton } from '@/components/ui/app-skeleton-client'
 
 const EducationIcon = getCourseIcon('education')
 
@@ -522,23 +523,7 @@ export function CoursePublishPageClient({ courseId }: CoursePublishPageClientPro
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse space-y-8">
-            <div className="space-y-4">
-              <div className="h-4 bg-muted rounded w-1/4"></div>
-              <div className="h-8 bg-muted rounded w-3/4"></div>
-              <div className="h-4 bg-muted rounded w-1/2"></div>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="h-48 bg-muted rounded"></div>
-                <div className="h-96 bg-muted rounded"></div>
-              </div>
-              <div className="space-y-6">
-                <div className="h-64 bg-muted rounded"></div>
-                <div className="h-48 bg-muted rounded"></div>
-              </div>
-            </div>
-          </div>
+          <DraftPageSkeleton />
         </Section>
       </MainLayout>
     )
@@ -560,12 +545,7 @@ export function CoursePublishPageClient({ courseId }: CoursePublishPageClientPro
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse space-y-8">
-            <div className="space-y-4">
-              <div className="h-4 bg-muted rounded w-1/4"></div>
-              <div className="h-8 bg-muted rounded w-3/4"></div>
-            </div>
-          </div>
+          <DraftPageSkeleton />
         </Section>
       </MainLayout>
     )

@@ -1,43 +1,45 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
-import { notFound, useParams } from 'next/navigation'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useSession } from '@/hooks/useSession'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { MainLayout } from '@/components/layout/main-layout'
-import { Section } from '@/components/layout/section'
-import { OptimizedImage } from '@/components/ui/optimized-image'
-import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
-import { useCourseQuery } from '@/hooks/useCoursesQuery'
-import { useLessonsQuery, type LessonWithResource } from '@/hooks/useLessonsQuery'
-import { parseCourseEvent } from '@/data/types'
-import { encodePublicKey } from 'snstr'
-import { useCopy, getCopy } from '@/lib/copy'
-import { ZapThreads } from '@/components/ui/zap-threads'
-import { InteractionMetrics } from '@/components/ui/interaction-metrics'
-import { useInteractions } from '@/hooks/useInteractions'
-import { preserveLineBreaks } from '@/lib/text-utils'
-import { resolveUniversalId } from '@/lib/universal-router'
+import { notFound, useParams } from 'next/navigation'
 import {
   BookOpen,
+  ExternalLink,
   Play,
-  Tag,
-  ExternalLink
+  Tag
 } from 'lucide-react'
+import { encodePublicKey } from 'snstr'
+
+import { MainLayout } from '@/components/layout/main-layout'
+import { CourseDetailPageSkeleton } from '@/components/ui/app-skeleton'
+import { Section } from '@/components/layout/section'
+import { PurchaseActions } from '@/components/purchase/purchase-actions'
+import { AdditionalLinksList } from '@/components/ui/additional-links-card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { InteractionMetrics } from '@/components/ui/interaction-metrics'
+import { OptimizedImage } from '@/components/ui/optimized-image'
+import { ZapThreads } from '@/components/ui/zap-threads'
+import { parseCourseEvent } from '@/data/types'
+import { useCourseQuery } from '@/hooks/useCoursesQuery'
+import { useInteractions } from '@/hooks/useInteractions'
+import { useLessonsQuery, type LessonWithResource } from '@/hooks/useLessonsQuery'
+import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
+import { useSession } from '@/hooks/useSession'
+import { normalizeAdditionalLinks } from '@/lib/additional-links'
+import { trackEventSafe } from '@/lib/analytics'
+import { useCopy, getCopy } from '@/lib/copy'
 import { getCourseIcon } from '@/lib/copy-icons'
-
-const EducationIcon = getCourseIcon('education')
-
 import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
-import { PurchaseActions } from '@/components/purchase/purchase-actions'
-import { normalizeAdditionalLinks } from '@/lib/additional-links'
-import { AdditionalLinksList } from '@/components/ui/additional-links-card'
-import type { AdditionalLink } from '@/types/additional-links'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
+import { preserveLineBreaks } from '@/lib/text-utils'
+import { resolveUniversalId } from '@/lib/universal-router'
+import type { AdditionalLink } from '@/types/additional-links'
+
+const EducationIcon = getCourseIcon('education')
 
 interface CoursePageProps {
   params: {
@@ -59,7 +61,15 @@ function formatNpubWithEllipsis(pubkey: string): string {
  * Course lessons component - now using lessons from props
  */
 
-function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; courseId: string }) {
+function CourseLessons({
+  lessons,
+  courseId,
+  analyticsCourseId
+}: {
+  lessons: LessonWithResource[]
+  courseId: string
+  analyticsCourseId: string
+}) {
   const { course } = useCopy()
 
   if (!lessons || lessons.length === 0) {
@@ -105,7 +115,18 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
               const isPremium = lesson.isPremium || false
 
               return (
-                <div key={lesson.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer">
+                <Link
+                  key={lesson.id}
+                  href={`/courses/${courseId}/lessons/${lesson.id}/details`}
+                  className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onClick={() => {
+                    trackEventSafe("course_lesson_started", {
+                      course_id: analyticsCourseId,
+                      lesson_id: lesson.id,
+                      lesson_index: index + 1,
+                    })
+                  }}
+                >
                   <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
                     <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary/20 text-xs sm:text-sm font-medium flex-shrink-0">
                       {index + 1}
@@ -121,13 +142,11 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
                       </div>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto sm:flex-shrink-0" asChild>
-                    <Link href={`/courses/${courseId}/lessons/${lesson.id}/details`}>
-                      <Play className="h-4 w-4 mr-2" />
-                      <span className="sm:inline">{getCopy('course.buttons.start')}</span>
-                    </Link>
-                  </Button>
-                </div>
+                  <div className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium sm:flex-shrink-0 group-hover:border-primary/50 group-hover:text-primary transition-colors">
+                    <Play className="h-4 w-4" />
+                    <span className="sm:inline">{getCopy('course.buttons.start')}</span>
+                  </div>
+                </Link>
               )
             })}
           </div>
@@ -143,6 +162,7 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
 function CoursePageContent({ courseId }: { courseId: string }) {
   const { fetchProfile, normalizeKind0 } = useNostr()
   const [instructorProfile, setInstructorProfile] = useState<NormalizedProfile | null>(null)
+  const trackedCourseViewKeysRef = useRef<Set<string>>(new Set())
   const [purchaseStatusOverride, setPurchaseStatusOverride] = useState<boolean | null>(null)
   const { data: session } = useSession()
   const sessionUserId = session?.user?.id ?? null
@@ -150,6 +170,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   
   const resolved = React.useMemo(() => resolveUniversalId(courseId), [courseId])
   const resolvedCourseId = resolved?.resolvedId
+  const canonicalCourseId = resolvedCourseId ?? courseId
   const routeRelayHints = useMemo(
     () => extractRelayHintsFromDecodedData(resolved?.decodedData),
     [resolved?.decodedData]
@@ -241,6 +262,21 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     return () => { mounted = false }
   }, [courseData, fetchProfile, normalizeKind0])
 
+  useEffect(() => {
+    if (!courseData || lessonsLoading) return
+    const viewKey = `${canonicalCourseId}:${noteId ?? ''}`
+    if (trackedCourseViewKeysRef.current.has(viewKey)) return
+
+    trackEventSafe("course_detail_viewed", {
+      course_id: canonicalCourseId,
+      note_id: noteId,
+      lesson_count: lessonsData.length,
+      is_premium: (courseData.price ?? 0) > 0,
+      price_sats: courseData.price ?? 0,
+    })
+    trackedCourseViewKeysRef.current.add(viewKey)
+  }, [courseData, canonicalCourseId, noteId, lessonsData.length, lessonsLoading])
+
   // Early return check after all hooks (hooks must be called unconditionally)
   if (!resolvedCourseId) {
     return (
@@ -255,23 +291,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   }
 
   if (loading) {
-    return (
-      <MainLayout>
-        <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-            <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              <div className="space-y-4">
-                <div className="h-4 bg-muted rounded"></div>
-                <div className="h-4 bg-muted rounded w-2/3"></div>
-              </div>
-              <div className="aspect-video bg-muted rounded-lg"></div>
-            </div>
-          </div>
-        </Section>
-      </MainLayout>
-    )
+    return <CourseDetailPageSkeleton />
   }
 
   if (isError) {
@@ -296,7 +316,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     notFound()
   }
 
-  const id = courseId
+  const id = resolvedCourseId
   const lessonCount = lessonsData.length
 
   // Parse data from database and Nostr note
@@ -374,8 +394,6 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const commentsCount = interactions.comments
   const likesCount = interactions.likes
   const notePubkey = courseData?.note?.pubkey
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  const courseIdIsUuid = uuidRegex.test(courseId)
   const viewerZapTotal = viewerZapTotalSats ?? 0
   // Access requires server-confirmed purchase - don't grant access based on client-side zap totals alone
   // The auto-claim flow in PurchaseCard will set serverPurchased=true after successful API claim
@@ -454,7 +472,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           <PurchaseActions
             title={title}
             priceSats={priceSats}
-            courseId={courseIdIsUuid ? courseId : undefined}
+            courseId={resolvedCourseId}
             eventId={noteId}
             eventKind={courseData?.note?.kind}
             eventIdentifier={parsedCourseNote?.d}
@@ -471,6 +489,11 @@ function CoursePageContent({ courseId }: { courseId: string }) {
             recentZaps={recentZaps}
             viewerZapReceipts={viewerZapReceipts}
             onPurchaseComplete={() => {
+              trackEventSafe("course_purchase_unlocked", {
+                course_id: canonicalCourseId,
+                note_id: noteId,
+                price_sats: priceSats,
+              })
               setPurchaseStatusOverride(true)
             }}
           />
@@ -479,7 +502,16 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
             {hasAccess ? (
               <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                <Link href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}>
+                <Link
+                  href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}
+                  onClick={() => {
+                    trackEventSafe("course_start_learning_clicked", {
+                      course_id: canonicalCourseId,
+                      has_lessons: lessonsData.length > 0,
+                      first_lesson_id: lessonsData[0]?.id,
+                    })
+                  }}
+                >
                   <EducationIcon className="h-5 w-5 mr-2" />
                   Start Learning
                 </Link>
@@ -556,7 +588,11 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           {/* Course Content */}
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <CourseLessons lessons={lessonsData} courseId={id} />
+              <CourseLessons
+                lessons={lessonsData}
+                courseId={id}
+                analyticsCourseId={canonicalCourseId}
+              />
             </div>
 
             <div className="space-y-6">
@@ -604,7 +640,17 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                   {nostrUrl && (
                     <div>
                       <Button variant="outline" className="w-full justify-center" asChild>
-                        <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
+                        <a
+                          href={nostrUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            trackEventSafe("course_nostr_link_clicked", {
+                              course_id: canonicalCourseId,
+                              note_id: noteId,
+                            })
+                          }}
+                        >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Open on Nostr
                         </a>
@@ -622,7 +668,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
             <div className="mt-8" data-comments-section>
               <ZapThreads
                 eventDetails={{
-                  identifier: courseId,
+                  identifier: parsedCourseNote?.d ?? resolvedCourseId,
                   pubkey: courseData.note.pubkey,
                   kind: courseData.note.kind,
                   relays: getRelays('default')
@@ -645,15 +691,7 @@ export default function CoursePage() {
   const courseId = params?.id as string
 
   if (!courseId) {
-    return (
-      <MainLayout>
-        <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
-          </div>
-        </Section>
-      </MainLayout>
-    )
+    return <CourseDetailPageSkeleton />
   }
 
   return <CoursePageContent courseId={courseId} />

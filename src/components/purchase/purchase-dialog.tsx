@@ -44,6 +44,7 @@ import {
   shouldFinalizeClaimFromResult,
   shouldStopInvoiceClaimPolling
 } from "@/lib/purchase-claim-flow"
+import { trackEventSafe } from "@/lib/analytics"
 
 const EMPTY_RELAY_HINTS: string[] = []
 
@@ -148,6 +149,7 @@ export function PurchaseDialog({
   const [preferAnonymous, setPreferAnonymous] = useState(false)
   const [showQr, setShowQr] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const hasTrackedOpenCycleRef = useRef(false)
 
   // Zap sender
   const { sendZap, zapState, resetZapState, isZapInFlight, retryWeblnPayment } = useZapSender({
@@ -217,6 +219,24 @@ export function PurchaseDialog({
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!isOpen) {
+      hasTrackedOpenCycleRef.current = false
+      return
+    }
+    if (hasTrackedOpenCycleRef.current) {
+      return
+    }
+
+    hasTrackedOpenCycleRef.current = true
+    trackEventSafe("purchase_dialog_opened", {
+      event_id: eventId,
+      course_id: courseId,
+      resource_id: resourceId,
+      price_sats: priceSats,
+    })
+  }, [isOpen, eventId, courseId, resourceId, priceSats])
 
   // Form state (authoritative balance from server when available)
   const paidSatsServer = purchase?.amountPaid ?? 0
@@ -324,11 +344,22 @@ export function PurchaseDialog({
   // Handlers
   const handlePurchase = useCallback(async () => {
     if (!isAuthed) {
+      trackEventSafe("purchase_submit_blocked", {
+        reason: "not_authenticated",
+        event_id: eventId,
+        price_sats: priceSats,
+      })
       toast({ title: purchaseCopy?.validation?.signInRequired ?? "Sign in required", variant: "destructive" })
       return
     }
     if (!isValid) {
       const minRequired = Math.max(remaining, MIN_ZAP)
+      trackEventSafe("purchase_submit_blocked", {
+        reason: "invalid_amount",
+        event_id: eventId,
+        amount_sats: resolvedAmount,
+        min_required_sats: minRequired,
+      })
       toast({
         title: purchaseCopy?.validation?.invalidAmountTitle ?? "Invalid amount",
         description: formatTemplate(purchaseCopy?.validation?.invalidAmountDescription, { min: minRequired }) ?? `Minimum ${minRequired} sats`,
@@ -338,7 +369,18 @@ export function PurchaseDialog({
     }
 
     try {
+      trackEventSafe("purchase_submit_attempted", {
+        event_id: eventId,
+        amount_sats: resolvedAmount,
+        price_sats: priceSats,
+        prefer_anonymous: preferAnonymous,
+      })
       const result = await sendZap({ amountSats: resolvedAmount, note, preferAnonymous })
+      trackEventSafe("purchase_invoice_state_changed", {
+        event_id: eventId,
+        amount_sats: resolvedAmount,
+        paid: result.paid,
+      })
       toast({
         title: result.paid
           ? purchaseCopy?.send?.paidTitle ?? "Payment sent"
@@ -362,6 +404,11 @@ export function PurchaseDialog({
           const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
           const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
           const unlocked = (claimed.amountPaid ?? 0) >= (required ?? 0)
+          trackEventSafe("purchase_claim_succeeded", {
+            event_id: eventId,
+            amount_paid_sats: claimed.amountPaid ?? 0,
+            unlocked,
+          })
           toast({
             title: unlocked
               ? purchaseCopy?.send?.unlockedTitle ?? "Unlocked!"
@@ -372,6 +419,10 @@ export function PurchaseDialog({
           })
           onPurchaseComplete?.(claimed)
         } else {
+          trackEventSafe("purchase_claim_pending", {
+            event_id: eventId,
+            amount_sats: resolvedAmount,
+          })
           toast({
             title: purchaseCopy?.send?.waitingTitle ?? "Waiting for receipt",
             description: purchaseCopy?.send?.waitingDescription ?? "Will unlock when confirmed"
@@ -379,44 +430,74 @@ export function PurchaseDialog({
         }
       }
     } catch (error) {
+      trackEventSafe("purchase_submit_failed", {
+        event_id: eventId,
+        amount_sats: resolvedAmount,
+      })
       toast({
         title: purchaseCopy?.send?.failedTitle ?? "Failed",
         description: formatTemplate(purchaseCopy?.send?.failedDescription, { error: error instanceof Error ? error.message : "Try again" }) ?? (error instanceof Error ? error.message : "Try again"),
         variant: "destructive"
       })
     }
-  }, [isAuthed, isValid, remaining, sendZap, resolvedAmount, note, preferAnonymous, claimPurchase, claimRelayHints, zapState.zapRequest, priceSats, onPurchaseComplete, toast, purchaseCopy])
+  }, [isAuthed, isValid, remaining, sendZap, resolvedAmount, note, preferAnonymous, claimPurchase, claimRelayHints, zapState.zapRequest, priceSats, onPurchaseComplete, toast, purchaseCopy, eventId])
 
   const handleClaimExisting = useCallback(async () => {
     if (!isAuthed) {
+      trackEventSafe("purchase_claim_blocked", {
+        reason: "not_authenticated",
+        event_id: eventId,
+      })
       toast({ title: purchaseCopy?.send?.claimSignInTitle ?? "Sign in first", variant: "destructive" })
       return
     }
+    trackEventSafe("purchase_claim_attempted", {
+      event_id: eventId,
+      allow_past_zaps: true,
+    })
     // Use allowPastZaps to extend the receipt age limit for unlocking with historical zaps
     const claimed = await claimPurchase({ allowPastZaps: true, relayHints: claimRelayHints })
     if (claimed) {
+      trackEventSafe("purchase_claim_succeeded", {
+        event_id: eventId,
+        amount_paid_sats: claimed.amountPaid ?? 0,
+        unlocked: true,
+      })
       toast({
         title: purchaseCopy?.send?.claimSuccessTitle ?? "Unlocked!",
         description: purchaseCopy?.send?.claimSuccessDescription ?? "Past zaps verified"
       })
       onPurchaseComplete?.(claimed)
     } else {
+      trackEventSafe("purchase_claim_failed", {
+        event_id: eventId,
+      })
       toast({ title: purchaseCopy?.send?.claimNoneTitle ?? "No receipts found", variant: "destructive" })
     }
-  }, [claimPurchase, claimRelayHints, isAuthed, onPurchaseComplete, toast, purchaseCopy])
+  }, [claimPurchase, claimRelayHints, isAuthed, onPurchaseComplete, toast, purchaseCopy, eventId])
 
   const handleCopy = useCallback(async () => {
     if (!zapState.invoice) return
     try {
       await navigator.clipboard.writeText(zapState.invoice)
+      trackEventSafe("purchase_invoice_copied", {
+        event_id: eventId,
+      })
       toast({ title: purchaseCopy?.send?.copyTitle ?? "Copied!" })
     } catch {
+      trackEventSafe("purchase_invoice_copy_failed", {
+        event_id: eventId,
+      })
       toast({ title: purchaseCopy?.send?.copyFailedTitle ?? "Copy failed", variant: "destructive" })
     }
-  }, [zapState.invoice, toast, purchaseCopy])
+  }, [zapState.invoice, toast, purchaseCopy, eventId])
 
   const handleRetry = useCallback(async () => {
     const paid = await retryWeblnPayment()
+    trackEventSafe("purchase_webln_retry_completed", {
+      event_id: eventId,
+      paid,
+    })
     if (paid) {
       toast({ title: purchaseCopy?.send?.unlockedTitle ?? "Paid!" })
       const claimed = await claimPurchase({
@@ -441,7 +522,8 @@ export function PurchaseDialog({
     onPurchaseComplete,
     purchaseCopy,
     toast,
-    claimRelayHints
+    claimRelayHints,
+    eventId
   ])
 
   // Derived states

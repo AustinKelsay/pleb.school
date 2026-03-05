@@ -2,16 +2,18 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { getInteractionIcon } from '@/lib/payments-config'
 import { createEvent, getEventHash, getPublicKey, signEvent, type NostrEvent } from 'snstr'
+
+import { ZapDialog } from '@/components/zap/zap-dialog'
 import { Dialog, DialogTrigger } from '@/components/ui/dialog'
-import { useToast } from '@/hooks/use-toast'
 import { useSnstrContext } from '@/contexts/snstr-context'
 import { DEFAULT_ZAP_INSIGHTS, type ZapInsights, type ZapReceiptSummary } from '@/hooks/useInteractions'
+import { useToast } from '@/hooks/use-toast'
+import { useZapSender } from '@/hooks/useZapSender'
+import { trackEventSafe } from '@/lib/analytics'
 import { isNip07User } from '@/lib/nostr-events'
 import { normalizeHexPrivkey, normalizeHexPubkey } from '@/lib/nostr-keys'
-import { useZapSender } from '@/hooks/useZapSender'
-import { ZapDialog } from '@/components/zap/zap-dialog'
+import { getInteractionIcon } from '@/lib/payments-config'
 import type { LightningRecipient } from '@/types/zap'
 
 // Configurable interaction icons from config/payments.json (resolved at module scope)
@@ -46,6 +48,78 @@ function createUnsignedReaction(pubkey: string, tags: string[][]): Omit<NostrEve
     },
     pubkey
   )
+}
+
+type LikeSubmitFailureReason =
+  | 'key_unavailable'
+  | 'extension_missing'
+  | 'invalid_extension_pubkey'
+  | 'session_pubkey_mismatch'
+  | 'publish_failed'
+  | 'sign_failed'
+  | 'unknown'
+
+function isExplicitKeyUnavailableError(error: Error): boolean {
+  const code = (error as Error & { code?: unknown }).code
+  if (typeof code === "string" && code.toUpperCase() === "KEY_UNAVAILABLE") {
+    return true
+  }
+
+  const maybeCause = (error as Error & { cause?: unknown }).cause
+  if (maybeCause && typeof maybeCause === "object") {
+    const causeCode = (maybeCause as { code?: unknown }).code
+    if (typeof causeCode === "string" && causeCode.toUpperCase() === "KEY_UNAVAILABLE") {
+      return true
+    }
+  }
+
+  const message = error.message.toLowerCase()
+  return (
+    message.includes('unable to load your signing key') ||
+    message.includes('unable to validate ephemeral key')
+  )
+}
+
+function mapLikeSubmitFailureReason(
+  error: unknown,
+  options: {
+    usedServerSigning: boolean
+  }
+): LikeSubmitFailureReason {
+  if (!(error instanceof Error)) {
+    return 'unknown'
+  }
+
+  const message = error.message.toLowerCase()
+  if (message.includes('connect a nostr (nip-07) extension')) {
+    return 'extension_missing'
+  }
+  if (message.includes('invalid public key')) {
+    return 'invalid_extension_pubkey'
+  }
+  if (message.includes('does not match your session identity')) {
+    return 'session_pubkey_mismatch'
+  }
+  if (isExplicitKeyUnavailableError(error)) {
+    return 'key_unavailable'
+  }
+  if (message.includes('publish')) {
+    return 'publish_failed'
+  }
+
+  return options.usedServerSigning ? 'unknown' : 'sign_failed'
+}
+
+function buildLikeSubmitBlockedPayload(
+  eventId: string | undefined,
+  eventKind: number | undefined,
+  reason: string
+) {
+  return {
+    event_id: eventId ?? null,
+    event_kind: eventKind ?? null,
+    reason,
+  }
 }
 
 interface InteractionMetricsProps {
@@ -191,6 +265,10 @@ export function InteractionMetrics({
 
 
   const handleScrollToComments = () => {
+    trackEventSafe("comments_scroll_clicked", {
+      event_id: eventId,
+      event_kind: eventKind,
+    })
     const commentsSection = document.querySelector('[data-comments-section]')
     if (commentsSection) {
       commentsSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -198,11 +276,18 @@ export function InteractionMetrics({
   }
 
   const handleZapDialogOpenChange = (open: boolean) => {
+    if (open) {
+      trackEventSafe("zap_dialog_open_requested", {
+        event_id: eventId,
+        event_kind: eventKind,
+      })
+    }
     setIsZapDialogOpen(open)
   }
 
   const handleSendReaction = async () => {
     if (!eventId) {
+      trackEventSafe("like_submit_blocked", buildLikeSubmitBlockedPayload(eventId, eventKind, "missing_event_id"))
       toast({
         title: 'Reaction not available',
         description: 'This content is missing its Nostr event id, so reactions are disabled.',
@@ -216,6 +301,7 @@ export function InteractionMetrics({
     }
 
     if (hasReacted || optimisticReaction) {
+      trackEventSafe("like_submit_blocked", buildLikeSubmitBlockedPayload(eventId, eventKind, "already_reacted"))
       toast({
         title: 'Already liked',
         description: 'You have already sent a reaction for this content.'
@@ -224,6 +310,7 @@ export function InteractionMetrics({
     }
 
     if (sessionStatus === 'loading') {
+      trackEventSafe("like_submit_blocked", buildLikeSubmitBlockedPayload(eventId, eventKind, "session_loading"))
       toast({
         title: 'Hang tight',
         description: 'We are still loading your session. Try again in a moment.'
@@ -232,6 +319,7 @@ export function InteractionMetrics({
     }
 
     if (sessionStatus !== 'authenticated' || !session?.user) {
+      trackEventSafe("like_submit_blocked", buildLikeSubmitBlockedPayload(eventId, eventKind, "not_authenticated"))
       toast({
         title: 'Sign in required',
         description: 'Sign in with a Nostr-capable account to send reactions.',
@@ -243,6 +331,10 @@ export function InteractionMetrics({
     const tags = buildReactionTags(eventId, eventPubkey, eventKind, eventIdentifier)
 
     try {
+      trackEventSafe("like_submit_attempted", {
+        event_id: eventId,
+        event_kind: eventKind,
+      })
       setIsReacting(true)
 
       let signedReaction: NostrEvent
@@ -288,12 +380,24 @@ export function InteractionMetrics({
       }
 
       await publish(signedReaction)
+      trackEventSafe("like_submit_succeeded", {
+        event_id: eventId,
+        event_kind: eventKind,
+      })
       setOptimisticReaction(true)
       toast({
         title: 'Reaction sent',
         description: 'Your like was published to the relays.'
       })
     } catch (error) {
+      const reason = mapLikeSubmitFailureReason(error, {
+        usedServerSigning: canServerSign
+      })
+      trackEventSafe("like_submit_failed", {
+        event_id: eventId ?? null,
+        event_kind: eventKind ?? null,
+        reason,
+      })
       const description = error instanceof Error ? error.message : 'Unable to publish your reaction.'
       toast({
         title: 'Reaction failed',

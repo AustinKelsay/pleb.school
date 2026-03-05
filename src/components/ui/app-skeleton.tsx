@@ -41,16 +41,6 @@ export const LandingPageSkeleton = () => {
 
           <div className="relative order-first lg:order-last">
             <Skeleton className="aspect-video w-full rounded-xl" />
-            <div className="absolute -top-3 -right-3">
-              <Card className="p-3 w-32 shadow-sm">
-                <Skeleton className="h-4 w-20" />
-              </Card>
-            </div>
-            <div className="absolute -bottom-3 -left-3">
-              <Card className="p-3 w-36 shadow-sm">
-                <Skeleton className="h-4 w-24" />
-              </Card>
-            </div>
           </div>
         </div>
 
@@ -174,48 +164,149 @@ export const CourseDetailPageSkeleton = () => {
     <MainLayout>
       <Section spacing="lg">
         <div className="space-y-8">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          {/* Course Header */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
             <div className="space-y-6">
+              {/* Badges - matches actual: category + Course + Premium */}
               <div className="space-y-2">
-                <Skeleton className="h-6 w-24 rounded-full" />
+                <div className="flex items-center flex-wrap gap-2">
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+                {/* Title */}
                 <Skeleton className="h-10 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-2/3" />
+                {/* Description */}
+                <div className="space-y-1">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-5/6" />
+                  <Skeleton className="h-5 w-2/3" />
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                <Skeleton className="h-6 w-24 rounded-md" />
-                <Skeleton className="h-6 w-20 rounded-md" />
-                <Skeleton className="h-6 w-16 rounded-md" />
+              {/* Interaction metrics + lesson count */}
+              <div className="flex items-center flex-wrap gap-4 sm:gap-6">
+                <div className="flex items-center space-x-1.5">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-4 w-8" />
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-4 w-8" />
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Skeleton className="h-11 w-full sm:w-40 rounded-md" />
-                <Skeleton className="h-11 w-full sm:w-32 rounded-md" />
+              {/* Start Learning CTA */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                <Skeleton className="h-11 w-full sm:w-44 rounded-md" />
+              </div>
+
+              {/* Topics */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4 rounded-sm" />
+                  <Skeleton className="h-5 w-16" />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-6 w-16 rounded-full" />
+                  ))}
+                </div>
               </div>
             </div>
 
-            <Skeleton className="aspect-video w-full rounded-xl" />
+            <Skeleton className="aspect-video w-full rounded-lg" />
           </div>
 
+          {/* Course Content: Lessons + Sidebar */}
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-4">
-              <Skeleton className="h-6 w-40" />
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Card key={i} className="p-4 space-y-2">
-                  <Skeleton className="h-5 w-2/3" />
-                  <Skeleton className="h-4 w-1/2" />
-                </Card>
-              ))}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Skeleton className="h-5 w-5 rounded-sm" />
+                    <Skeleton className="h-5 w-32" />
+                  </div>
+                  <div className="space-y-3 sm:space-y-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
+                        <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                          <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-5 w-14 rounded-full" />
+                          </div>
+                        </div>
+                        <Skeleton className="h-9 w-20 rounded-md" />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="space-y-6">
-              <Card className="p-4 space-y-3">
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <Skeleton className="h-5 w-36" />
+                  {/* Instructor */}
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                  {/* Category */}
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  {/* Lessons */}
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  {/* Price */}
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                  {/* Created */}
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  {/* Updated */}
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  {/* Nostr link button */}
+                  <Skeleton className="h-10 w-full rounded-md" />
+                </CardContent>
               </Card>
+            </div>
+          </div>
+
+          {/* Comments placeholder */}
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-32 rounded-md" />
+            <div className="space-y-3">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-1/3 rounded-md" />
+                    <Skeleton className="h-4 w-5/6 rounded-md" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

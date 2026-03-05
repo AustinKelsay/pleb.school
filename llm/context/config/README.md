@@ -16,7 +16,7 @@ Each document provides:
 | Document | Config File | Purpose |
 |----------|-------------|---------|
 | [auth-config.md](./auth-config.md) | `auth.json` | Authentication providers, session, UI |
-| [content-config.md](./content-config.md) | `content.json` | Homepage sections, filters, search |
+| [content-config.md](./content-config.md) | `content.json` | Homepage sections, filters, search, playback |
 | [copy-config.md](./copy-config.md) | `copy.json` | User-facing text, navigation icons |
 | [payments-config.md](./payments-config.md) | `payments.json` | Zap presets, purchase UX |
 | [nostr-config.md](./nostr-config.md) | `nostr.json` | Relay sets, protocol settings |

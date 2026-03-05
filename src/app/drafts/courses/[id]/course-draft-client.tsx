@@ -35,6 +35,7 @@ import {
   Pencil,
 } from 'lucide-react'
 import { getCourseIcon } from '@/lib/copy-icons'
+import { DraftPageSkeleton } from '@/components/ui/app-skeleton-client'
 
 const EducationIcon = getCourseIcon('education')
 const PriceIcon = getCourseIcon('price')
@@ -347,17 +348,7 @@ export function CourseDraftPageClient({ courseId }: CourseDraftPageClientProps) 
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-            <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              <div className="space-y-4">
-                <div className="h-4 bg-muted rounded"></div>
-                <div className="h-4 bg-muted rounded w-2/3"></div>
-              </div>
-              <div className="aspect-video bg-muted rounded-lg"></div>
-            </div>
-          </div>
+          <DraftPageSkeleton />
         </Section>
       </MainLayout>
     )
@@ -397,10 +388,7 @@ export function CourseDraftPageClient({ courseId }: CourseDraftPageClientProps) 
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-            <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-          </div>
+          <DraftPageSkeleton />
         </Section>
       </MainLayout>
     )

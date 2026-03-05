@@ -1,6 +1,19 @@
 'use client'
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
+import Link from "next/link"
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  User, 
+  BookOpen, 
+  FileText,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
+  ExternalLink,
+} from "lucide-react"
+import { encodePublicKey } from "snstr"
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,23 +26,11 @@ import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { ZapThreads } from '@/components/ui/zap-threads'
 import { ResourceMetadataHero } from '@/app/content/components/resource-content-view'
+import { BreadcrumbSkeleton, LessonDetailsSkeleton } from './lesson-details-skeleton'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, useLessonQuery } from '@/hooks/useLessonsQuery'
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  User, 
-  BookOpen, 
-  FileText,
-  RotateCcw,
-  Maximize2,
-  Minimize2,
-  ExternalLink,
-} from 'lucide-react'
-import Link from 'next/link'
 import { LessonWithResource } from '@/hooks/useLessonsQuery'
 import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
-import { encodePublicKey } from 'snstr'
 import { resolveUniversalId } from '@/lib/universal-router'
 import { getRelays } from '@/lib/nostr-relays'
 import { useCommentThreads } from '@/hooks/useCommentThreads'
@@ -78,31 +79,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
 }
-
-
-/**
- * Loading component for lesson content
- */
-function LessonContentSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4"></div>
-          <div className="h-4 bg-muted rounded w-1/2"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="h-4 bg-muted rounded"></div>
-            <div className="h-4 bg-muted rounded w-4/5"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 
 
 /**
@@ -244,7 +220,7 @@ function LessonContent({
   }
 
   if (loading) {
-    return <LessonContentSkeleton />
+    return <LessonDetailsSkeleton />
   }
 
   if (!lesson) {
@@ -475,25 +451,15 @@ let courseInstructorPubkey = ''
 
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={() => setIsFullWidth(prev => !prev)}>
-          {isFullWidth ? (
-            <>
-              <Minimize2 className="h-4 w-4 mr-2" />
-              Exit Full Width
-            </>
-          ) : (
-            <>
-              <Maximize2 className="h-4 w-4 mr-2" />
-              Full Width
-            </>
-          )}
-        </Button>
-      </div>
-
       {/* Main Content */}
-      <div className={`grid grid-cols-1 lg:grid-cols-4 gap-6 transition-all duration-300 ease-out`}>
-        <div className={`${isFullWidth ? 'lg:col-span-4' : 'lg:col-span-3'} space-y-6 transition-all duration-300 ease-out`}>
+      <div
+        className={`grid grid-cols-1 gap-6 transition-all duration-300 ease-out ${
+          isFullWidth
+            ? 'lg:grid-cols-[minmax(0,1fr)_3.25rem]'
+            : 'lg:grid-cols-[minmax(0,1fr)_22rem]'
+        }`}
+      >
+        <div className="space-y-6 transition-all duration-300 ease-out">
           {content.type === 'video' && content.hasVideo ? (
             <>
               <VideoPlayer
@@ -523,7 +489,35 @@ let courseInstructorPubkey = ''
         </div>
         
         {/* Lesson Sidebar */}
-        <div className={`${isFullWidth ? 'lg:max-h-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden lg:scale-95' : 'space-y-4 lg:opacity-100 lg:scale-100 lg:max-h-[2000px]'} transition-all duration-300 ease-out`}>
+        <aside className="transition-all duration-300 ease-out">
+          {isFullWidth ? (
+            <div className="hidden lg:flex lg:justify-center">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsFullWidth(false)}
+                aria-label="Expand lesson sidebar"
+                title="Expand sidebar"
+                className="h-10 w-10 rounded-full"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="hidden lg:flex lg:justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFullWidth(true)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Minimize2 className="h-4 w-4 mr-2" />
+                Hide Sidebar
+              </Button>
+            </div>
+          )}
+
+          <div className={`space-y-4 ${isFullWidth ? 'block lg:hidden' : 'block'}`}>
           {/* Course Lessons */}
           <Card>
             <CardHeader>
@@ -569,14 +563,17 @@ let courseInstructorPubkey = ''
             </CardContent>
           </Card>
 
-          {!isFullWidth && (
             <AdditionalLinksCard links={content.additionalLinks} layout="stack" icon="file" />
-          )}
-        </div>
+          </div>
+        </aside>
       </div>
 
       {/* Additional Resources */}
-      {isFullWidth && <AdditionalLinksCard links={content.additionalLinks} icon="file" />}
+      {isFullWidth && (
+        <div className="hidden lg:block">
+          <AdditionalLinksCard links={content.additionalLinks} icon="file" />
+        </div>
+      )}
       
       {/* Comments Section */}
       {lesson.resource?.note && (
@@ -614,8 +611,9 @@ export default function LessonDetailsPage({ params }: LessonDetailsPageProps) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
+          <div className="space-y-6">
+            <BreadcrumbSkeleton />
+            <LessonDetailsSkeleton />
           </div>
         </Section>
       </MainLayout>
@@ -640,7 +638,7 @@ export default function LessonDetailsPage({ params }: LessonDetailsPageProps) {
           </div>
 
           {/* Content */}
-          <Suspense fallback={<LessonContentSkeleton />}>
+          <Suspense fallback={<LessonDetailsSkeleton />}>
             <LessonContent courseId={courseId} lessonId={lessonId} />
           </Suspense>
         </div>

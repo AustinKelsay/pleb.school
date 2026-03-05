@@ -16,12 +16,12 @@ export function ContentSkeleton({ variant, count = 3, className = '' }: ContentS
     return (
       <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${className}`}>
         {Array.from({ length: count }, (_, i) => (
-          <div key={i} className="animate-pulse">
-            <div className="bg-gray-200 dark:bg-gray-700 h-48 rounded-lg mb-4" />
+          <div key={i}>
+            <Skeleton className="h-48 rounded-lg mb-4" />
             <div className="space-y-2">
-              <div className="bg-gray-200 dark:bg-gray-700 h-4 rounded w-3/4" />
-              <div className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-1/2" />
-              <div className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-2/3" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-3 w-2/3" />
             </div>
           </div>
         ))}
@@ -33,12 +33,12 @@ export function ContentSkeleton({ variant, count = 3, className = '' }: ContentS
     return (
       <div className={`space-y-4 ${className}`}>
         {Array.from({ length: count }, (_, i) => (
-          <div key={i} className="animate-pulse flex space-x-4 p-4 border rounded-lg">
-            <div className="bg-gray-200 dark:bg-gray-700 h-16 w-16 rounded-lg flex-shrink-0" />
+          <div key={i} className="flex space-x-4 p-4 border rounded-lg">
+            <Skeleton className="h-16 w-16 rounded-lg flex-shrink-0" />
             <div className="flex-1 space-y-2">
-              <div className="bg-gray-200 dark:bg-gray-700 h-4 rounded w-3/4" />
-              <div className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-1/2" />
-              <div className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-2/3" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-3 w-2/3" />
             </div>
           </div>
         ))}
@@ -48,15 +48,15 @@ export function ContentSkeleton({ variant, count = 3, className = '' }: ContentS
 
   if (variant === 'detail') {
     return (
-      <div className={`animate-pulse ${className}`}>
+      <div className={className}>
         {/* Header section */}
         <div className="mb-8">
-          <div className="bg-gray-200 dark:bg-gray-700 h-8 rounded w-2/3 mb-4" />
-          <div className="bg-gray-200 dark:bg-gray-700 h-4 rounded w-1/2 mb-6" />
+          <Skeleton className="h-8 w-2/3 mb-4" />
+          <Skeleton className="h-4 w-1/2 mb-6" />
           <div className="space-y-3">
-            <div className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-full" />
-            <div className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-4/5" />
-            <div className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-3/4" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-4/5" />
+            <Skeleton className="h-3 w-3/4" />
           </div>
         </div>
 
@@ -64,20 +64,20 @@ export function ContentSkeleton({ variant, count = 3, className = '' }: ContentS
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main content */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-gray-200 dark:bg-gray-700 h-64 rounded-lg" />
+            <Skeleton className="h-64 rounded-lg" />
             <div className="space-y-3">
               {Array.from({ length: 4 }, (_, i) => (
-                <div key={i} className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-full" />
+                <Skeleton key={i} className="h-3 w-full" />
               ))}
             </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-4">
-            <div className="bg-gray-200 dark:bg-gray-700 h-32 rounded-lg" />
+            <Skeleton className="h-32 rounded-lg" />
             <div className="space-y-2">
               {Array.from({ length: 3 }, (_, i) => (
-                <div key={i} className="bg-gray-200 dark:bg-gray-700 h-3 rounded w-full" />
+                <Skeleton key={i} className="h-3 w-full" />
               ))}
             </div>
           </div>
@@ -89,11 +89,11 @@ export function ContentSkeleton({ variant, count = 3, className = '' }: ContentS
   if (variant === 'stats') {
     return (
       <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 ${className}`}>
-        {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="animate-pulse p-6 border rounded-lg">
-            <div className="bg-gray-200 dark:bg-gray-700 h-8 w-8 rounded mb-4" />
-            <div className="bg-gray-200 dark:bg-gray-700 h-6 rounded w-16 mb-2" />
-            <div className="bg-gray-200 dark:bg-gray-700 h-4 rounded w-24" />
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className="p-6 border rounded-lg">
+            <Skeleton className="h-8 w-8 rounded mb-4" />
+            <Skeleton className="h-6 w-16 mb-2" />
+            <Skeleton className="h-4 w-24" />
           </div>
         ))}
       </div>
@@ -126,11 +126,11 @@ export function CoursePageSkeleton() {
     <div className="space-y-8">
       {/* Stats skeleton */}
       <StatsSkeleton />
-      
+
       {/* Course cards skeleton */}
       <div>
-        <div className="animate-pulse mb-6">
-          <div className="bg-gray-200 dark:bg-gray-700 h-8 rounded w-48" />
+        <div className="mb-6">
+          <Skeleton className="h-8 w-48" />
         </div>
         <CourseCardSkeleton count={6} />
       </div>
@@ -138,33 +138,51 @@ export function CoursePageSkeleton() {
   )
 }
 
-// Loading skeleton for content page
+// Loading skeleton for content page - multi-section layout matching actual page
 export function ContentPageSkeleton() {
+  const filterSkeletonClasses = [
+    "h-10 w-16 rounded-full",
+    "h-10 w-24 rounded-full",
+    "h-10 w-20 rounded-full",
+    "h-10 w-28 rounded-full",
+    "h-10 w-16 rounded-full",
+    "h-10 w-24 rounded-full",
+    "h-10 w-[72px] rounded-full",
+    "h-10 w-[88px] rounded-full",
+    "h-10 w-[64px] rounded-full",
+    "h-10 w-[80px] rounded-full",
+    "h-10 w-[96px] rounded-full",
+    "h-10 w-[72px] rounded-full",
+  ]
+
   return (
     <div className="space-y-10">
-      <div className="space-y-3">
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-2/3" />
+      {/* Header section */}
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-8 w-28 rounded-md" />
+        </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-8 w-28" />
-      </div>
-
-      <div className="space-y-3">
+      {/* Filter section */}
+      <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4 rounded-full" />
-          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-4 rounded-sm" />
+          <Skeleton className="h-4 w-12" />
         </div>
         <div className="flex flex-wrap gap-2">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <Skeleton key={i} className="h-8 w-20 rounded-full" />
+          {filterSkeletonClasses.map((className, index) => (
+            <Skeleton key={index} className={className} />
           ))}
         </div>
       </div>
 
+      {/* Content grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: 6 }).map((_, i) => (
           <ContentCardSkeleton key={i} />

@@ -1,44 +1,45 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
-import React from 'react'
-import { notFound } from 'next/navigation'
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { MainLayout } from '@/components/layout/main-layout'
-import { Section } from '@/components/layout/section'
-import { parseEvent } from '@/data/types'
-import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
-import { resolveUniversalId, type UniversalIdResult } from '@/lib/universal-router'
-import { OptimizedImage } from '@/components/ui/optimized-image'
-import { encodePublicKey, type AddressData, type EventData } from 'snstr'
-import { ZapThreads } from '@/components/ui/zap-threads'
-import { InteractionMetrics } from '@/components/ui/interaction-metrics'
-import { useInteractions } from '@/hooks/useInteractions'
-import { preserveLineBreaks } from '@/lib/text-utils'
-import { 
-  FileText, 
+import { notFound } from 'next/navigation'
+import {
+  BookOpen,
   ExternalLink,
   Eye,
-  BookOpen,
-  Video,
-  Tag,
+  FileText,
   Loader2,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Tag,
+  Video
 } from 'lucide-react'
-import type { NostrEvent } from 'snstr'
-import { getRelays } from '@/lib/nostr-relays'
+import { useSession } from 'next-auth/react'
+import { encodePublicKey, type AddressData, type EventData, type NostrEvent } from 'snstr'
+
+import { MainLayout } from '@/components/layout/main-layout'
+import { Section } from '@/components/layout/section'
+import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
+import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { InteractionMetrics } from '@/components/ui/interaction-metrics'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ViewsText } from '@/components/ui/views-text'
+import { ZapThreads } from '@/components/ui/zap-threads'
 import { ResourceContentView } from '@/app/content/components/resource-content-view'
+import { ResourcePageSkeleton, ResourceOverviewCardSkeleton } from '@/app/content/components/resource-skeletons'
+import { parseEvent } from '@/data/types'
+import { useInteractions } from '@/hooks/useInteractions'
+import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
+import { trackEventSafe } from '@/lib/analytics'
 import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
-import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
-import { useSession } from 'next-auth/react'
-import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
+import { getRelays } from '@/lib/nostr-relays'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
+import { preserveLineBreaks } from '@/lib/text-utils'
+import { resolveUniversalId, type UniversalIdResult } from '@/lib/universal-router'
 
 interface ResourcePageProps {
   params: Promise<{
@@ -57,31 +58,16 @@ function formatNpubWithEllipsis(pubkey: string): string {
 }
 
 /**
- * Loading component for resource content
+ * Loading component for resource content (reuses the proper skeleton)
  */
 function ResourceContentSkeleton() {
-  return (
-    <div className="space-y-4">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4"></div>
-          <div className="h-4 bg-muted rounded w-1/2"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="h-4 bg-muted rounded"></div>
-            <div className="h-4 bg-muted rounded w-2/3"></div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+  return <ResourceOverviewCardSkeleton />
 }
 
 /**
  * Resource overview component - shows metadata and description, not the actual content
  */
-function ResourceOverview({ resourceId }: { resourceId: string }) {
+function ResourceOverview({ resourceId, contentHref }: { resourceId: string; contentHref: string }) {
   return (
     <div className="space-y-6">
       <Card>
@@ -103,7 +89,14 @@ function ResourceOverview({ resourceId }: { resourceId: string }) {
               Click below to access the full resource content.
             </p>
             <Button size="lg" asChild>
-              <Link href={`/content/${resourceId}/details`}>
+              <Link
+                href={contentHref}
+                onClick={() => {
+                  trackEventSafe("resource_preview_view_content_clicked", {
+                    resource_id: resourceId,
+                  })
+                }}
+              >
                 <Eye className="h-4 w-4 mr-2" />
                 View Content
               </Link>
@@ -133,6 +126,26 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(true)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [isFullWidth, setIsFullWidth] = useState(false)
+  const trackedResourceDetailViewRef = useRef<Set<string>>(new Set())
+
+  const handlePurchaseDialogChange = (open: boolean) => {
+    if (open) {
+      trackEventSafe("resource_purchase_dialog_opened", {
+        resource_id: resourceId,
+        event_id: event?.id,
+      })
+    }
+    setShowPurchaseDialog(open)
+  }
+
+  const handleFullWidthToggle = () => {
+    const nextValue = !isFullWidth
+    trackEventSafe("resource_full_width_toggled", {
+      resource_id: resourceId,
+      enabled: nextValue,
+    })
+    setIsFullWidth(nextValue)
+  }
 
   const eventATag = useMemo(() => {
     if (!event || !event.kind || event.kind < 30000) return undefined
@@ -327,23 +340,25 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     }
   }, [resourceId, sessionStatus, viewerZapTotalSats, viewerZapReceipts?.length])
 
+  useEffect(() => {
+    if (!event) return
+    const viewKey = event.id
+    if (trackedResourceDetailViewRef.current.has(viewKey)) {
+      return
+    }
+    trackedResourceDetailViewRef.current.add(viewKey)
+    trackEventSafe("resource_detail_viewed", {
+      resource_id: resourceId,
+      event_id: event.id,
+      event_kind: event.kind,
+    })
+  }, [resourceId, event])
+
   if (loading) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="space-y-8">
-            <div className="animate-pulse">
-              <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-              <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                <div className="space-y-4">
-                  <div className="h-4 bg-muted rounded"></div>
-                  <div className="h-4 bg-muted rounded w-2/3"></div>
-                </div>
-                <div className="aspect-video bg-muted rounded-lg"></div>
-              </div>
-            </div>
-          </div>
+          <ResourcePageSkeleton />
         </Section>
       </MainLayout>
     )
@@ -457,6 +472,10 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
       normalizedResourceId = dTag
     }
   }
+  const contentRouteId = isCourseContent ? normalizedResourceId : resourceId
+  const contentHref = isCourseContent
+    ? `/courses/${contentRouteId}`
+    : `/content/${resourceId}/details`
 
   return (
     <MainLayout>
@@ -523,14 +542,31 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                     <Button
                       size="lg"
                       className="w-full sm:w-auto"
-                      onClick={() => setShowPurchaseDialog(true)}
+                      onClick={() => {
+                        trackEventSafe("resource_purchase_cta_clicked", {
+                          resource_id: resourceId,
+                          price_sats: priceSats,
+                          event_id: event.id,
+                        })
+                        handlePurchaseDialogChange(true)
+                      }}
                     >
                       Purchase for {priceSats.toLocaleString()} sats
                     </Button>
                   ) : (
                     <>
                       <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
-                        <Link href={`/content/${resourceId}/details`}>
+                        <Link
+                          href={contentHref}
+                          onClick={() => {
+                            trackEventSafe("resource_view_content_clicked", {
+                              resource_id: resourceId,
+                              event_id: event.id,
+                              event_kind: event.kind,
+                              source: "hero_cta",
+                            })
+                          }}
+                        >
                           {getResourceTypeIcon(type)}
                           <span className="ml-2">
                             {type === 'video' ? 'Watch Now' : serverPurchased ? 'View Content' : 'Read Now'}
@@ -557,7 +593,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           {canPurchase && (
             <PurchaseDialog
               isOpen={showPurchaseDialog}
-              onOpenChange={setShowPurchaseDialog}
+              onOpenChange={handlePurchaseDialogChange}
               title={title}
                   priceSats={priceSats}
                   resourceId={resourceId}
@@ -581,6 +617,11 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                     const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
                     const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
                     if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
+                      trackEventSafe("resource_purchase_unlocked", {
+                        resource_id: resourceId,
+                        amount_paid_sats: purchase?.amountPaid ?? 0,
+                        price_sats: priceSats,
+                      })
                       setServerPurchased(true)
                     }
                   }}
@@ -647,7 +688,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           {/* Resource Content - Conditionally render preview or full content */}
           <div className="flex justify-end items-center gap-2">
             {!requiresPreviewGate && courseAccessCta}
-            <Button variant="outline" size="sm" onClick={() => setIsFullWidth(prev => !prev)}>
+            <Button variant="outline" size="sm" onClick={handleFullWidthToggle}>
               {isFullWidth ? (
                 <>
                   <Minimize2 className="h-4 w-4 mr-2" />
@@ -666,7 +707,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
             <div className={`${isFullWidth ? 'lg:col-span-3' : 'lg:col-span-2'} transition-all duration-300 ease-out`}>
               {requiresPreviewGate ? (
                 <Suspense fallback={<ResourceContentSkeleton />}>
-                  <ResourceOverview resourceId={resourceId} />
+                  <ResourceOverview resourceId={resourceId} contentHref={contentHref} />
                 </Suspense>
               ) : (
                 <ResourceContentView 
@@ -712,7 +753,17 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   {nostrUrl && (
                     <div>
                       <Button variant="outline" className="w-full justify-center" asChild>
-                        <a href={nostrUrl} target="_blank" rel="noopener noreferrer">
+                        <a
+                          href={nostrUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            trackEventSafe("resource_nostr_link_clicked", {
+                              resource_id: resourceId,
+                              event_id: event.id,
+                            })
+                          }}
+                        >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Open on Nostr
                         </a>
@@ -764,9 +815,7 @@ export default function ResourcePage({ params }: ResourcePageProps) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
-          </div>
+          <ResourcePageSkeleton />
         </Section>
       </MainLayout>
     )

@@ -42,6 +42,7 @@ const PriceIcon = getCourseIcon('price')
 
 import { additionalLinkLabel, normalizeAdditionalLinks } from '@/lib/additional-links'
 import type { AdditionalLink } from '@/types/additional-links'
+import { trackEventSafe } from '@/lib/analytics'
 
 type ContentType = 'document' | 'video'
 
@@ -122,8 +123,16 @@ export default function CreateDraftForm() {
         if (typeof draft.price === 'number' && draft.price > 0) {
           lastPaidPriceRef.current = draft.price
         }
+        trackEventSafe("draft_load_succeeded", {
+          draft_id: draftId,
+          content_type: draft.type,
+          is_paid: (draft.price ?? 0) > 0,
+        })
       } catch (err) {
         console.error('Error loading draft:', err)
+        trackEventSafe("draft_load_failed", {
+          draft_id: draftId,
+        })
         setMessage({ 
           type: 'error', 
           text: err instanceof Error ? err.message : 'Failed to load draft' 
@@ -198,6 +207,10 @@ export default function CreateDraftForm() {
 
   const addTopic = () => {
     if (currentTopic.trim() && !formData.topics.includes(currentTopic.trim())) {
+      trackEventSafe("draft_topic_added", {
+        topic_length: currentTopic.trim().length,
+        topic_count_after: formData.topics.length + 1,
+      })
       setFormData(prev => ({
         ...prev,
         topics: [...prev.topics, currentTopic.trim()]
@@ -208,6 +221,10 @@ export default function CreateDraftForm() {
   }
 
   const removeTopic = (index: number) => {
+    trackEventSafe("draft_topic_removed", {
+      topic_index: index,
+      topic_count_before: formData.topics.length,
+    })
     setFormData(prev => ({
       ...prev,
       topics: prev.topics.filter((_, i) => i !== index)
@@ -229,11 +246,18 @@ export default function CreateDraftForm() {
         : null
 
     if (!normalizedUrl) {
+      trackEventSafe("draft_link_add_failed", {
+        reason: "invalid_url",
+      })
       setMessage({ type: 'error', text: 'Please enter a valid URL' })
       setTimeout(() => setMessage(null), 3000)
       return
     }
 
+    trackEventSafe("draft_link_added", {
+      has_title: Boolean(title),
+      link_count_after: formData.additionalLinks.length + 1,
+    })
     setFormData(prev => ({
       ...prev,
       additionalLinks: normalizeAdditionalLinks([
@@ -247,6 +271,10 @@ export default function CreateDraftForm() {
   }
 
   const removeLink = (index: number) => {
+    trackEventSafe("draft_link_removed", {
+      link_index: index,
+      link_count_before: formData.additionalLinks.length,
+    })
     setFormData(prev => ({
       ...prev,
       additionalLinks: prev.additionalLinks.filter((_, i) => i !== index)
@@ -254,6 +282,10 @@ export default function CreateDraftForm() {
   }
 
   const handleResourcePaidToggle = (checked: boolean) => {
+    trackEventSafe("draft_pricing_mode_toggled", {
+      is_paid: checked,
+      current_price_sats: formData.price,
+    })
     setIsPaidResource(checked)
     setFormData((prev) => {
       if (!checked && prev.price > 0) {
@@ -270,9 +302,22 @@ export default function CreateDraftForm() {
     e.preventDefault()
     
     if (!validateForm()) {
+      trackEventSafe("draft_submit_blocked", {
+        reason: "validation_failed",
+        content_type: formData.type,
+      })
       return
     }
     
+    trackEventSafe("draft_submit_attempted", {
+      draft_id: draftId,
+      mode: draftId ? 'update' : 'create',
+      content_type: formData.type,
+      is_paid: isPaidResource,
+      price_sats: isPaidResource ? formData.price : 0,
+      topic_count: formData.topics.length,
+      link_count: formData.additionalLinks.length,
+    })
     setIsSubmitting(true)
     setMessage(null)
     
@@ -317,6 +362,11 @@ export default function CreateDraftForm() {
         type: 'success', 
         text: draftId ? 'Draft updated successfully! Redirecting...' : 'Draft created successfully! Redirecting...' 
       })
+      trackEventSafe("draft_submit_succeeded", {
+        draft_id: result?.data?.id,
+        mode: draftId ? 'update' : 'create',
+        content_type: formData.type,
+      })
 
       queryClient.invalidateQueries({ queryKey: ['drafts'] })
       
@@ -324,6 +374,11 @@ export default function CreateDraftForm() {
         router.push(`/drafts/resources/${result.data.id}`)
       }, 1500)
     } catch (error) {
+      trackEventSafe("draft_submit_failed", {
+        draft_id: draftId,
+        mode: draftId ? 'update' : 'create',
+        content_type: formData.type,
+      })
       setMessage({ 
         type: 'error', 
         text: error instanceof Error ? error.message : 'An unexpected error occurred' 
@@ -372,7 +427,13 @@ export default function CreateDraftForm() {
 
           <Select 
             value={formData.type} 
-            onValueChange={(value: ContentType) => setFormData(prev => ({ ...prev, type: value }))}
+            onValueChange={(value: ContentType) => {
+              trackEventSafe("draft_content_type_changed", {
+                from_type: formData.type,
+                to_type: value,
+              })
+              setFormData(prev => ({ ...prev, type: value }))
+            }}
           >
             <SelectTrigger id="type">
               <SelectValue placeholder="Select content type" />
@@ -761,7 +822,13 @@ export default function CreateDraftForm() {
           type="button"
           variant="outline"
           size="lg"
-          onClick={() => router.push('/drafts')}
+          onClick={() => {
+            trackEventSafe("draft_cancel_clicked", {
+              draft_id: draftId,
+              mode: draftId ? 'update' : 'create',
+            })
+            router.push('/drafts')
+          }}
           disabled={isSubmitting}
         >
           Cancel

@@ -180,13 +180,29 @@ export function formatContentForDisplay(content: string): string {
  */
 export function extractVideoBodyMarkdown(content: string): string {
   if (!content) {
-    return ''
+    return ""
   }
 
   let body = content
 
-  body = body.replace(/^#\s+.*$/m, '').trimStart()
-  body = body.replace(/<div class="video-embed"[\s\S]*?<\/div>/i, '').trim()
+  // Remove a leading markdown heading when creators put the title in-body.
+  body = body.replace(/^\s*#\s+.*(?:\r?\n|$)/, "").trimStart()
+
+  // Remove known embed wrappers and direct iframe/video embeds so the styled
+  // player is not duplicated below in markdown.
+  body = body
+    .replace(/<div[^>]*class=["'][^"']*video-embed[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, "")
+    .replace(
+      /<iframe\b[^>]*src=["'](?:https?:)?\/\/[^"']*(?:youtube(?:-nocookie)?\.com|youtu\.be|vimeo\.com)[^"']*["'][^>]*>(?:\s*<\/iframe>)?/gi,
+      ""
+    )
+    .replace(/<video\b[\s\S]*?<\/video>/gi, "")
+    .replace(/<source\b[^>]*>/gi, "")
+    .replace(/^\s*https?:\/\/[^\s]*(?:youtube(?:-nocookie)?\.com|youtu\.be|vimeo\.com|\.mp4|\.webm|\.ogg|\.mov|\.mkv|\.m3u8)[^\s]*\s*$/gim, "")
+
+  body = body
+    .replace(/\n\s*\n\s*\n+/g, "\n\n")
+    .trim()
 
   return body
 }

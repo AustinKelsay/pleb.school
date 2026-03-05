@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { PurchaseDialog } from "@/components/purchase/purchase-dialog"
 import { Zap } from "lucide-react"
 import { getPurchaseIcon } from "@/lib/payments-config"
+import { trackEventSafe } from "@/lib/analytics"
 
 // Icon lookup at module level (not during render) to avoid React rules violation
 const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
@@ -80,7 +81,15 @@ export function PurchaseActions({
           )}
           <Button
             size="lg"
-            onClick={() => setShowPurchaseDialog(true)}
+            onClick={() => {
+              trackEventSafe("purchase_cta_clicked", {
+                price_sats: priceSats,
+                course_id: courseId,
+                resource_id: resourceId,
+                event_id: eventId,
+              })
+              setShowPurchaseDialog(true)
+            }}
             className="w-full sm:w-auto"
           >
             Purchase for {priceSats.toLocaleString()} sats

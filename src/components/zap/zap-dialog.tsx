@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import QRCode from "react-qr-code"
 import { 
   ChevronDown, 
@@ -33,6 +33,7 @@ import type { ZapInsights, ZapReceiptSummary } from "@/hooks/useInteractions"
 import type { ZapState } from "@/hooks/useZapSender"
 import { copyConfig } from "@/lib/copy"
 import { getPaymentsConfig, getPurchaseIcon } from "@/lib/payments-config"
+import { trackEventSafe } from "@/lib/analytics"
 
 // Icon lookup at module level (not during render) to avoid React rules violation
 const ShieldCheckIcon = getPurchaseIcon("shieldCheck")
@@ -115,6 +116,7 @@ export function ZapDialog({
   } = useZapFormState()
   const { toast } = useToast()
   const [showQr, setShowQr] = useState(false)
+  const openedTrackedRef = useRef(false)
   const zapCopy = copyConfig.payments?.zapDialog
   const paymentsConfig = getPaymentsConfig()
 
@@ -145,11 +147,29 @@ export function ZapDialog({
   }, [isOpen, resetForm, resetZapState])
 
   useEffect(() => {
+    if (!isOpen) {
+      openedTrackedRef.current = false
+      return
+    }
+    if (openedTrackedRef.current) return
+
+    trackEventSafe("zap_dialog_opened", {
+      target_pubkey: zapTarget?.pubkey,
+      target_name: targetName,
+    })
+    openedTrackedRef.current = true
+  }, [isOpen, zapTarget?.pubkey, targetName])
+
+  useEffect(() => {
     if (zapState.invoice && paymentsConfig.zap.autoShowQr) setShowQr(true)
   }, [zapState.invoice, paymentsConfig.zap.autoShowQr])
 
   const handleSend = useCallback(async () => {
     if (invalidAmount) {
+      trackEventSafe("zap_submit_blocked", {
+        reason: "invalid_amount",
+        amount_sats: resolvedZapAmount,
+      })
       toast({
         title: zapCopy?.invalidAmountTitle ?? "Invalid amount",
         description: belowMin || aboveMax
@@ -164,7 +184,16 @@ export function ZapDialog({
     }
 
     try {
+      trackEventSafe("zap_submit_attempted", {
+        amount_sats: resolvedZapAmount,
+        target_pubkey: zapTarget?.pubkey,
+      })
       const result = await sendZap({ amountSats: resolvedZapAmount, note: zapNote })
+      trackEventSafe("zap_submit_succeeded", {
+        amount_sats: resolvedZapAmount,
+        paid: result.paid,
+        target_pubkey: zapTarget?.pubkey,
+      })
       toast({
         title: result.paid
           ? zapCopy?.successPaidTitle ?? "Zap sent ⚡"
@@ -174,36 +203,64 @@ export function ZapDialog({
           : zapCopy?.invoiceReadyDescription ?? "Pay with your Lightning wallet"
       })
     } catch (error) {
+      trackEventSafe("zap_submit_failed", {
+        amount_sats: resolvedZapAmount,
+        target_pubkey: zapTarget?.pubkey,
+      })
       toast({
         title: zapCopy?.failedTitle ?? "Zap failed",
         description: formatTemplate(zapCopy?.failedDescription, { error: error instanceof Error ? error.message : "Try again" }) ?? (error instanceof Error ? error.message : "Try again"),
         variant: "destructive"
       })
     }
-  }, [invalidAmount, belowMin, aboveMax, effectiveMinZap, maxZapSats, resolvedZapAmount, sendZap, zapNote, toast, zapCopy])
+  }, [invalidAmount, belowMin, aboveMax, effectiveMinZap, maxZapSats, resolvedZapAmount, sendZap, zapNote, toast, zapCopy, zapTarget])
 
   const handleCopy = useCallback(async () => {
     if (!zapState.invoice) return
     try {
       await navigator.clipboard.writeText(zapState.invoice)
+      trackEventSafe("zap_invoice_copied", {
+        target_pubkey: zapTarget?.pubkey,
+      })
       toast({ title: zapCopy?.copiedTitle ?? "Copied!" })
     } catch {
+      trackEventSafe("zap_invoice_copy_failed", {
+        target_pubkey: zapTarget?.pubkey,
+      })
       toast({ title: zapCopy?.copyFailedTitle ?? "Copy failed", variant: "destructive" })
     }
-  }, [zapState.invoice, toast, zapCopy])
+  }, [zapState.invoice, toast, zapCopy, zapTarget])
 
   const handleRetry = useCallback(async () => {
-    const paid = await retryWeblnPayment()
-    toast({
-      title: paid
-        ? zapCopy?.retryPaidTitle ?? "Zap paid!"
-        : zapCopy?.retryFailedTitle ?? "WebLN failed",
-      description: paid
-        ? zapCopy?.retryPaidDescription ?? "Thanks!"
-        : zapCopy?.retryFailedDescription ?? "Pay manually below",
-      variant: paid ? "default" : "destructive"
-    })
-  }, [retryWeblnPayment, toast, zapCopy])
+    try {
+      const paid = await retryWeblnPayment()
+      trackEventSafe("zap_webln_retry_completed", {
+        paid,
+        target_pubkey: zapTarget?.pubkey,
+      })
+      toast({
+        title: paid
+          ? zapCopy?.retryPaidTitle ?? "Zap paid!"
+          : zapCopy?.retryFailedTitle ?? "WebLN failed",
+        description: paid
+          ? zapCopy?.retryPaidDescription ?? "Thanks!"
+          : zapCopy?.retryFailedDescription ?? "Pay manually below",
+        variant: paid ? "default" : "destructive"
+      })
+    } catch (error) {
+      console.error("WebLN retry failed:", error)
+      trackEventSafe("zap_webln_retry_completed", {
+        paid: false,
+        target_pubkey: zapTarget?.pubkey,
+        error_message: error instanceof Error ? error.message : "unknown_error",
+      })
+      toast({
+        title: zapCopy?.retryFailedTitle ?? "WebLN failed",
+        description: zapCopy?.retryFailedDescription ?? "Pay manually below",
+        variant: "destructive"
+      })
+    }
+  }, [retryWeblnPayment, toast, zapCopy, zapTarget])
 
   // Status indicator
   const statusConfig: Record<string, { text: string; loading: boolean; error?: boolean }> = {
@@ -260,7 +317,12 @@ export function ZapDialog({
               {QUICK_ZAP_AMOUNTS.map((amt) => (
                 <button
                   key={amt}
-                  onClick={() => handleSelectQuickAmount(amt)}
+                  onClick={() => {
+                    trackEventSafe("zap_amount_quick_selected", {
+                      amount_sats: amt,
+                    })
+                    handleSelectQuickAmount(amt)
+                  }}
                   className={cn(
                     "rounded-full px-3 py-1.5 text-sm font-medium transition-all",
                     selectedZapAmount === amt && !hasCustomAmount
@@ -275,7 +337,14 @@ export function ZapDialog({
                 inputMode="numeric"
                 placeholder="Custom"
                 value={customZapAmount}
-                onChange={(e) => handleCustomAmountChange(e.target.value)}
+                onBlur={(e) => {
+                  trackEventSafe("zap_amount_custom_changed", {
+                    input_length: e.target.value.length,
+                  })
+                }}
+                onChange={(e) => {
+                  handleCustomAmountChange(e.target.value)
+                }}
                 className="h-8 w-20 text-sm"
               />
             </div>
@@ -308,7 +377,12 @@ export function ZapDialog({
               <input
                 type="checkbox"
                 checked={preferAnonymousZap}
-                onChange={(e) => onTogglePrivacy?.(e.target.checked)}
+                onChange={(e) => {
+                  trackEventSafe("zap_privacy_toggled", {
+                    enabled: e.target.checked,
+                  })
+                  onTogglePrivacy?.(e.target.checked)
+                }}
                 className="mt-0.5 h-4 w-4 accent-primary"
               />
               <div className="flex items-center gap-1.5">

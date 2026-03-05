@@ -2,19 +2,21 @@
 
 import { useState, useEffect, useMemo, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { Search, Home, Loader2 } from "lucide-react"
 import { Container } from "@/components/layout/container"
 import { Section } from "@/components/layout/section"
 import { SearchContentCard } from "@/components/ui/search-content-card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Home, Loader2 } from "lucide-react"
 import { SearchResultsSkeleton } from "@/components/ui/content-skeleton"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useNostrSearch } from "@/hooks/useNostrSearch"
 import type { ContentItem } from '@/data/types'
 import { cn } from "@/lib/utils"
 import { copyConfig } from "@/lib/copy"
+import { trackEventSafe } from "@/lib/analytics"
 import contentConfig from "../../../config/content.json"
 
 // Get search config with defaults
@@ -28,8 +30,9 @@ function SearchContent() {
 
   const [searchQuery, setSearchQuery] = useState(searchParams?.get('q') || '')
   const [searchType, setSearchType] = useState<'all' | 'courses' | 'resources'>('all')
+  const trimmedSearchQuery = searchQuery.trim()
   
-  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const debouncedTrimmedSearchQuery = useDebounce(trimmedSearchQuery, 300)
   
   // Use Nostr search hook
   const {
@@ -37,8 +40,8 @@ function SearchContent() {
     isLoading,
     error,
     refetch
-  } = useNostrSearch(debouncedSearchQuery, {
-    enabled: debouncedSearchQuery.length >= MIN_KEYWORD_LENGTH,
+  } = useNostrSearch(debouncedTrimmedSearchQuery, {
+    enabled: debouncedTrimmedSearchQuery.length >= MIN_KEYWORD_LENGTH,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 5 * 60 * 1000, // 5 minutes
   })
@@ -88,17 +91,36 @@ function SearchContent() {
   
   // Update URL when search query changes
   useEffect(() => {
-    if (debouncedSearchQuery) {
-      const params = new URLSearchParams(searchParams?.toString() || '')
-      params.set('q', debouncedSearchQuery)
-      router.push(`/search?${params.toString()}`, { scroll: false })
+    const params = new URLSearchParams(searchParams?.toString() || '')
+    if (debouncedTrimmedSearchQuery) {
+      params.set("q", debouncedTrimmedSearchQuery)
+    } else {
+      params.delete("q")
     }
-  }, [debouncedSearchQuery, router, searchParams])
+    const nextSearch = params.toString()
+    const nextUrl = nextSearch ? `/search?${nextSearch}` : "/search"
+    const currentUrl = searchParams?.toString()
+      ? `/search?${searchParams.toString()}`
+      : "/search"
+    if (nextUrl !== currentUrl) {
+      router.replace(nextUrl, { scroll: false })
+    }
+  }, [debouncedTrimmedSearchQuery, router, searchParams])
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (debouncedSearchQuery.length >= MIN_KEYWORD_LENGTH) {
-      refetch()
+    const submittedQuery = searchQuery.trim()
+    setSearchQuery(submittedQuery)
+
+    if (submittedQuery.length >= MIN_KEYWORD_LENGTH) {
+      trackEventSafe("search_submitted", {
+        query_length: submittedQuery.length,
+        search_type: searchType,
+      })
+      // Avoid stale refetches when debounce has not caught up to the submitted input.
+      if (submittedQuery === debouncedTrimmedSearchQuery) {
+        refetch()
+      }
     }
   }
   
@@ -110,7 +132,12 @@ function SearchContent() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push('/')}
+            onClick={() => {
+              trackEventSafe("search_home_clicked", {
+                query_length: trimmedSearchQuery.length,
+              })
+              router.push('/')
+            }}
             className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <Home className="h-4 w-4" />
@@ -130,7 +157,7 @@ function SearchContent() {
             <div className="relative">
               <Search className={cn(
                 "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors",
-                searchQuery.length >= MIN_KEYWORD_LENGTH ? "text-primary" : "text-muted-foreground"
+                trimmedSearchQuery.length >= MIN_KEYWORD_LENGTH ? "text-primary" : "text-muted-foreground"
               )} />
               <Input
                 type="search"
@@ -139,7 +166,7 @@ function SearchContent() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={cn(
                   "pl-10 pr-4 h-12 text-lg transition-all duration-200",
-                  searchQuery.length >= MIN_KEYWORD_LENGTH && "border-primary/50 ring-1 ring-primary/20",
+                  trimmedSearchQuery.length >= MIN_KEYWORD_LENGTH && "border-primary/50 ring-1 ring-primary/20",
                   isLoading && "animate-pulse"
                 )}
                 autoFocus
@@ -155,9 +182,20 @@ function SearchContent() {
           </form>
           
           {/* Search Type Tabs */}
-              {searchQuery.length >= MIN_KEYWORD_LENGTH && (
+              {trimmedSearchQuery.length >= MIN_KEYWORD_LENGTH && (
             <div className="max-w-2xl mx-auto">
-              <Tabs value={searchType} onValueChange={(value) => setSearchType(value as 'all' | 'courses' | 'resources')}>
+              <Tabs
+                value={searchType}
+                onValueChange={(value) => {
+                  const nextType = value as 'all' | 'courses' | 'resources'
+                  trackEventSafe("search_type_changed", {
+                    from_type: searchType,
+                    to_type: nextType,
+                    query_length: trimmedSearchQuery.length,
+                  })
+                  setSearchType(nextType)
+                }}
+              >
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="all" className="cursor-pointer">
                     {(searchCopy?.tabs?.all ?? "All")} {summary && `(${summary.total})`}
@@ -175,7 +213,7 @@ function SearchContent() {
           
           {/* Search Results */}
           <div className="mt-8">
-            {searchQuery.length > 0 && searchQuery.length < MIN_KEYWORD_LENGTH && (
+            {trimmedSearchQuery.length > 0 && trimmedSearchQuery.length < MIN_KEYWORD_LENGTH && (
               <p className="text-center text-muted-foreground">
                 {searchCopy?.emptyPrompt ?? `Please enter at least ${MIN_KEYWORD_LENGTH} characters to search`}
               </p>
@@ -198,7 +236,7 @@ function SearchContent() {
                   <p className="text-muted-foreground">
                     {(searchCopy?.summary?.prefix ?? "Found")} {filteredResults.length} {filteredResults.length === 1 ? (searchCopy?.summary?.resultSingular ?? "result") : (searchCopy?.summary?.resultPlural ?? "results")} {(searchCopy?.summary?.for ?? "for")}{' '}
                     <span className="inline-block bg-primary/10 text-primary px-2 py-1 rounded font-medium">
-                      &quot;{searchQuery}&quot;
+                      &quot;{debouncedTrimmedSearchQuery}&quot;
                     </span>
                   </p>
                 </div>
@@ -208,7 +246,7 @@ function SearchContent() {
                     <SearchContentCard
                       key={item.id}
                       item={item}
-                      searchKeyword={searchQuery}
+                      searchKeyword={debouncedTrimmedSearchQuery}
                       onTagClick={(tag) => {
                         // Handle tag click for filtering if needed.
                         // Intentionally left as no-op until tag-based filtering is implemented.
@@ -220,10 +258,10 @@ function SearchContent() {
               </>
             )}
             
-            {!isLoading && searchQuery.length >= MIN_KEYWORD_LENGTH && filteredResults.length === 0 && !error && (
+            {!isLoading && debouncedTrimmedSearchQuery.length >= MIN_KEYWORD_LENGTH && filteredResults.length === 0 && !error && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  No results found for &quot;{searchQuery}&quot; on Nostr relays
+                  No results found for &quot;{debouncedTrimmedSearchQuery}&quot; on Nostr relays
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
                   Try searching with different keywords or check relay connectivity
@@ -243,13 +281,13 @@ export default function SearchPage() {
       <Container className="py-8">
         <Section>
           <div className="space-y-6">
-            <div className="h-9 w-16" /> {/* Back button placeholder */}
+            <Skeleton className="h-9 w-16" />
             <div className="text-center space-y-2">
-              <div className="h-9 w-48 mx-auto rounded bg-muted animate-pulse" />
-              <div className="h-4 w-64 mx-auto rounded bg-muted animate-pulse" />
+              <Skeleton className="h-9 w-48 mx-auto" />
+              <Skeleton className="h-4 w-64 mx-auto" />
             </div>
             <div className="max-w-2xl mx-auto">
-              <div className="h-12 w-full rounded bg-muted animate-pulse" />
+              <Skeleton className="h-12 w-full rounded-lg" />
             </div>
             <div className="mt-8">
               <SearchResultsSkeleton count={4} />

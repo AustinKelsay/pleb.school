@@ -26,6 +26,7 @@ import {
   Zap
 } from 'lucide-react'
 import type { AdditionalLink } from '@/types/additional-links'
+import { DraftPageSkeleton } from '@/components/ui/app-skeleton-client'
 
 interface ResourcePublishPageClientProps {
   resourceId: string
@@ -370,17 +371,7 @@ export function ResourcePublishPageClient({ resourceId }: ResourcePublishPageCli
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-            <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              <div className="space-y-4">
-                <div className="h-4 bg-muted rounded"></div>
-                <div className="h-4 bg-muted rounded w-2/3"></div>
-              </div>
-              <div className="aspect-video bg-muted rounded-lg"></div>
-            </div>
-          </div>
+          <DraftPageSkeleton />
         </Section>
       </MainLayout>
     )

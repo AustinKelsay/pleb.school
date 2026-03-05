@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MessageCircle } from 'lucide-react'
 import { encodeAddress } from 'snstr'
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getRelays } from '@/lib/nostr-relays'
+import { trackEventSafe } from '@/lib/analytics'
 
 interface ZapThreadsProps {
   /**
@@ -101,6 +103,21 @@ export function ZapThreads({
   showCard = true
 }: ZapThreadsProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const lastTrackedAnchorRef = useRef<string | null>(null)
+  const finalAnchor = eventDetails ? createNaddrAnchor(eventDetails) : anchor
+  const finalAuthor = author || eventDetails?.pubkey
+  const anchorType = eventDetails ? "event_details" : "anchor"
+  const eventKind = eventDetails?.kind
+  const authorType = finalAuthor
+    ? (eventDetails ? "event_author" : "explicit_author")
+    : "none"
+  const titleLengthBucket = (() => {
+    const length = title.trim().length
+    if (length === 0) return "0"
+    if (length <= 20) return "1-20"
+    if (length <= 100) return "21-100"
+    return "100+"
+  })()
 
   useEffect(() => {
     // Dynamically import zapthreads to avoid SSR issues
@@ -115,15 +132,25 @@ export function ZapThreads({
     loadZapThreads()
   }, [])
 
+  useEffect(() => {
+    if (!finalAnchor) return
+    if (lastTrackedAnchorRef.current === finalAnchor) return
+
+    lastTrackedAnchorRef.current = finalAnchor
+    trackEventSafe("comments_thread_viewed", {
+      anchor_type: anchorType,
+      event_kind: eventKind,
+      has_author: Boolean(finalAuthor),
+      author_type: authorType,
+      title_length_bucket: titleLengthBucket,
+    })
+  }, [finalAnchor, finalAuthor, anchorType, eventKind, authorType, titleLengthBucket])
+
   // Validate that either anchor or eventDetails is provided
-  if (!anchor && !eventDetails) {
+  if (!finalAnchor) {
     console.error('ZapThreads: Either anchor or eventDetails must be provided')
     return null
   }
-
-  // Generate proper naddr anchor if eventDetails provided
-  const finalAnchor = eventDetails ? createNaddrAnchor(eventDetails) : anchor!
-  const finalAuthor = author || eventDetails?.pubkey
 
   // Custom CSS variables that match the current theme with responsive font size
   const zapThreadsStyle: React.CSSProperties = {
