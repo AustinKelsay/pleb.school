@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { Search, Home, Loader2 } from "lucide-react"
 import { Container } from "@/components/layout/container"
 import { Section } from "@/components/layout/section"
 import { SearchContentCard } from "@/components/ui/search-content-card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Home, Loader2 } from "lucide-react"
 import { SearchResultsSkeleton } from "@/components/ui/content-skeleton"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -91,10 +91,19 @@ function SearchContent() {
   
   // Update URL when search query changes
   useEffect(() => {
+    const params = new URLSearchParams(searchParams?.toString() || '')
     if (debouncedTrimmedSearchQuery) {
-      const params = new URLSearchParams(searchParams?.toString() || '')
-      params.set('q', debouncedTrimmedSearchQuery)
-      router.push(`/search?${params.toString()}`, { scroll: false })
+      params.set("q", debouncedTrimmedSearchQuery)
+    } else {
+      params.delete("q")
+    }
+    const nextSearch = params.toString()
+    const nextUrl = nextSearch ? `/search?${nextSearch}` : "/search"
+    const currentUrl = searchParams?.toString()
+      ? `/search?${searchParams.toString()}`
+      : "/search"
+    if (nextUrl !== currentUrl) {
+      router.replace(nextUrl, { scroll: false })
     }
   }, [debouncedTrimmedSearchQuery, router, searchParams])
   
@@ -227,7 +236,7 @@ function SearchContent() {
                   <p className="text-muted-foreground">
                     {(searchCopy?.summary?.prefix ?? "Found")} {filteredResults.length} {filteredResults.length === 1 ? (searchCopy?.summary?.resultSingular ?? "result") : (searchCopy?.summary?.resultPlural ?? "results")} {(searchCopy?.summary?.for ?? "for")}{' '}
                     <span className="inline-block bg-primary/10 text-primary px-2 py-1 rounded font-medium">
-                      &quot;{searchQuery}&quot;
+                      &quot;{debouncedTrimmedSearchQuery}&quot;
                     </span>
                   </p>
                 </div>
@@ -237,7 +246,7 @@ function SearchContent() {
                     <SearchContentCard
                       key={item.id}
                       item={item}
-                      searchKeyword={searchQuery}
+                      searchKeyword={debouncedTrimmedSearchQuery}
                       onTagClick={(tag) => {
                         // Handle tag click for filtering if needed.
                         // Intentionally left as no-op until tag-based filtering is implemented.

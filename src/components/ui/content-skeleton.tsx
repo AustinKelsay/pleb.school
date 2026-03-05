@@ -140,6 +140,21 @@ export function CoursePageSkeleton() {
 
 // Loading skeleton for content page - multi-section layout matching actual page
 export function ContentPageSkeleton() {
+  const filterSkeletonClasses = [
+    "h-10 w-16 rounded-full",
+    "h-10 w-24 rounded-full",
+    "h-10 w-20 rounded-full",
+    "h-10 w-28 rounded-full",
+    "h-10 w-16 rounded-full",
+    "h-10 w-24 rounded-full",
+    "h-10 w-[72px] rounded-full",
+    "h-10 w-[88px] rounded-full",
+    "h-10 w-[64px] rounded-full",
+    "h-10 w-[80px] rounded-full",
+    "h-10 w-[96px] rounded-full",
+    "h-10 w-[72px] rounded-full",
+  ]
+
   return (
     <div className="space-y-10">
       {/* Header section */}
@@ -161,22 +176,9 @@ export function ContentPageSkeleton() {
           <Skeleton className="h-4 w-12" />
         </div>
         <div className="flex flex-wrap gap-2">
-          {/* All filter */}
-          <Skeleton className="h-10 w-16 rounded-full" />
-          {/* Type filters */}
-          <Skeleton className="h-10 w-24 rounded-full" />
-          <Skeleton className="h-10 w-20 rounded-full" />
-          <Skeleton className="h-10 w-28 rounded-full" />
-          {/* Premium/Free */}
-          <Skeleton className="h-10 w-16 rounded-full" />
-          <Skeleton className="h-10 w-24 rounded-full" />
-          {/* Content tags with varying widths */}
-          <Skeleton className="h-10 w-[72px] rounded-full" />
-          <Skeleton className="h-10 w-[88px] rounded-full" />
-          <Skeleton className="h-10 w-[64px] rounded-full" />
-          <Skeleton className="h-10 w-[80px] rounded-full" />
-          <Skeleton className="h-10 w-[96px] rounded-full" />
-          <Skeleton className="h-10 w-[72px] rounded-full" />
+          {filterSkeletonClasses.map((className, index) => (
+            <Skeleton key={index} className={className} />
+          ))}
         </div>
       </div>
 

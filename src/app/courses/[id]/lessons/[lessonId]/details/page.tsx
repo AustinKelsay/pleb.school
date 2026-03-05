@@ -1,6 +1,19 @@
 'use client'
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  User, 
+  BookOpen, 
+  FileText,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
+  ExternalLink,
+} from 'lucide-react'
+import { encodePublicKey } from 'snstr'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,21 +29,8 @@ import { ResourceMetadataHero } from '@/app/content/components/resource-content-
 import { BreadcrumbSkeleton, LessonDetailsSkeleton } from './lesson-details-skeleton'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, useLessonQuery } from '@/hooks/useLessonsQuery'
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  User, 
-  BookOpen, 
-  FileText,
-  RotateCcw,
-  Maximize2,
-  Minimize2,
-  ExternalLink,
-} from 'lucide-react'
-import Link from 'next/link'
 import { LessonWithResource } from '@/hooks/useLessonsQuery'
 import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
-import { encodePublicKey } from 'snstr'
 import { resolveUniversalId } from '@/lib/universal-router'
 import { getRelays } from '@/lib/nostr-relays'
 import { useCommentThreads } from '@/hooks/useCommentThreads'
