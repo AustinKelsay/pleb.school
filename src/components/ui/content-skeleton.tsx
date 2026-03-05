@@ -89,7 +89,7 @@ export function ContentSkeleton({ variant, count = 3, className = '' }: ContentS
   if (variant === 'stats') {
     return (
       <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 ${className}`}>
-        {Array.from({ length: 4 }, (_, i) => (
+        {Array.from({ length: count }, (_, i) => (
           <div key={i} className="p-6 border rounded-lg">
             <Skeleton className="h-8 w-8 rounded mb-4" />
             <Skeleton className="h-6 w-16 mb-2" />

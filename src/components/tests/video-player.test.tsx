@@ -159,7 +159,7 @@ describe("VideoPlayer seek controls", () => {
     }
 
     video.currentTime = 30
-    const keyEvent = new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true })
+    const keyEvent = new KeyboardEvent("keydown", { key: "l", bubbles: true, cancelable: true })
 
     act(() => {
       playerRoot.dispatchEvent(keyEvent)

@@ -12,6 +12,12 @@ vi.mock("@vercel/analytics", () => ({
 
 const ORIGINAL_ENV = { ...process.env }
 
+function setupVercelAnalyticsEnv() {
+  process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "true"
+  process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER = "vercel"
+  ;(globalThis as { window?: Window }).window = {} as Window
+}
+
 describe("analytics runtime", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -27,9 +33,7 @@ describe("analytics runtime", () => {
   })
 
   it("injects analytics once before tracking events", async () => {
-    process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "true"
-    process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER = "vercel"
-    ;(globalThis as { window?: Window }).window = {} as Window
+    setupVercelAnalyticsEnv()
 
     const { trackEvent } = await import("../analytics")
     const analyticsModule = await import("@vercel/analytics")
@@ -45,9 +49,7 @@ describe("analytics runtime", () => {
   })
 
   it("reuses a shared initialization when multiple events track concurrently", async () => {
-    process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "true"
-    process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER = "vercel"
-    ;(globalThis as { window?: Window }).window = {} as Window
+    setupVercelAnalyticsEnv()
 
     const { trackEvent } = await import("../analytics")
     const analyticsModule = await import("@vercel/analytics")
@@ -65,9 +67,7 @@ describe("analytics runtime", () => {
   it("does not re-inject while runtime readiness is still pending", async () => {
     vi.useFakeTimers()
     try {
-      process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "true"
-      process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER = "vercel"
-      ;(globalThis as { window?: Window }).window = {} as Window
+      setupVercelAnalyticsEnv()
 
       const { trackEvent } = await import("../analytics")
       const analyticsModule = await import("@vercel/analytics")

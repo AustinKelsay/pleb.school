@@ -1,7 +1,7 @@
-import { MainLayout } from '@/components/layout'
-import { Container } from '@/components/layout/container'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ProfileOverviewSkeleton } from './components/profile-skeletons'
+import { MainLayout } from "@/components/layout"
+import { Container } from "@/components/layout/container"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ProfileOverviewSkeleton } from "./components/profile-skeletons"
 
 export default function ProfileLoading() {
   return (

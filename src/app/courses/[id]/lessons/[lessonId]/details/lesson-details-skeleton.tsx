@@ -1,7 +1,19 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export function LessonDetailsSkeleton() {
+export const BreadcrumbSkeleton = () => {
+  return (
+    <div className="flex items-center space-x-2 text-sm">
+      <Skeleton className="h-4 w-16" />
+      <span className="text-muted-foreground">&bull;</span>
+      <Skeleton className="h-4 w-14" />
+      <span className="text-muted-foreground">&bull;</span>
+      <Skeleton className="h-4 w-24" />
+    </div>
+  )
+}
+
+export const LessonDetailsSkeleton = () => {
   return (
     <div className="space-y-6">
       {/* Hero / nav skeleton */}

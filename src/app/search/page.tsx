@@ -32,7 +32,7 @@ function SearchContent() {
   const [searchType, setSearchType] = useState<'all' | 'courses' | 'resources'>('all')
   const trimmedSearchQuery = searchQuery.trim()
   
-  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const debouncedTrimmedSearchQuery = useDebounce(trimmedSearchQuery, 300)
   
   // Use Nostr search hook
   const {
@@ -40,8 +40,8 @@ function SearchContent() {
     isLoading,
     error,
     refetch
-  } = useNostrSearch(debouncedSearchQuery, {
-    enabled: debouncedSearchQuery.length >= MIN_KEYWORD_LENGTH,
+  } = useNostrSearch(debouncedTrimmedSearchQuery, {
+    enabled: debouncedTrimmedSearchQuery.length >= MIN_KEYWORD_LENGTH,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 5 * 60 * 1000, // 5 minutes
   })
@@ -91,12 +91,12 @@ function SearchContent() {
   
   // Update URL when search query changes
   useEffect(() => {
-    if (debouncedSearchQuery) {
+    if (debouncedTrimmedSearchQuery) {
       const params = new URLSearchParams(searchParams?.toString() || '')
-      params.set('q', debouncedSearchQuery)
+      params.set('q', debouncedTrimmedSearchQuery)
       router.push(`/search?${params.toString()}`, { scroll: false })
     }
-  }, [debouncedSearchQuery, router, searchParams])
+  }, [debouncedTrimmedSearchQuery, router, searchParams])
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -109,7 +109,7 @@ function SearchContent() {
         search_type: searchType,
       })
       // Avoid stale refetches when debounce has not caught up to the submitted input.
-      if (submittedQuery === debouncedSearchQuery) {
+      if (submittedQuery === debouncedTrimmedSearchQuery) {
         refetch()
       }
     }
@@ -148,7 +148,7 @@ function SearchContent() {
             <div className="relative">
               <Search className={cn(
                 "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors",
-                searchQuery.length >= MIN_KEYWORD_LENGTH ? "text-primary" : "text-muted-foreground"
+                trimmedSearchQuery.length >= MIN_KEYWORD_LENGTH ? "text-primary" : "text-muted-foreground"
               )} />
               <Input
                 type="search"
@@ -157,7 +157,7 @@ function SearchContent() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={cn(
                   "pl-10 pr-4 h-12 text-lg transition-all duration-200",
-                  searchQuery.length >= MIN_KEYWORD_LENGTH && "border-primary/50 ring-1 ring-primary/20",
+                  trimmedSearchQuery.length >= MIN_KEYWORD_LENGTH && "border-primary/50 ring-1 ring-primary/20",
                   isLoading && "animate-pulse"
                 )}
                 autoFocus
@@ -173,7 +173,7 @@ function SearchContent() {
           </form>
           
           {/* Search Type Tabs */}
-              {searchQuery.length >= MIN_KEYWORD_LENGTH && (
+              {trimmedSearchQuery.length >= MIN_KEYWORD_LENGTH && (
             <div className="max-w-2xl mx-auto">
               <Tabs
                 value={searchType}
@@ -204,7 +204,7 @@ function SearchContent() {
           
           {/* Search Results */}
           <div className="mt-8">
-            {searchQuery.length > 0 && searchQuery.length < MIN_KEYWORD_LENGTH && (
+            {trimmedSearchQuery.length > 0 && trimmedSearchQuery.length < MIN_KEYWORD_LENGTH && (
               <p className="text-center text-muted-foreground">
                 {searchCopy?.emptyPrompt ?? `Please enter at least ${MIN_KEYWORD_LENGTH} characters to search`}
               </p>
@@ -249,10 +249,10 @@ function SearchContent() {
               </>
             )}
             
-            {!isLoading && searchQuery.length >= MIN_KEYWORD_LENGTH && filteredResults.length === 0 && !error && (
+            {!isLoading && trimmedSearchQuery.length >= MIN_KEYWORD_LENGTH && filteredResults.length === 0 && !error && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  No results found for &quot;{searchQuery}&quot; on Nostr relays
+                  No results found for &quot;{trimmedSearchQuery}&quot; on Nostr relays
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
                   Try searching with different keywords or check relay connectivity

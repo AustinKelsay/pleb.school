@@ -52,7 +52,7 @@ export function ResourceSidebarSkeleton() {
         </div>
         {/* Created */}
         <div className="space-y-2">
-          <Skeleton className="h-4 w-18 rounded-md" />
+          <Skeleton className="h-4 w-20 rounded-md" />
           <Skeleton className="h-4 w-32 rounded-md" />
         </div>
         {/* Nostr link button */}

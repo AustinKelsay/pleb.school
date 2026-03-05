@@ -13,8 +13,7 @@ import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { ZapThreads } from '@/components/ui/zap-threads'
 import { ResourceMetadataHero } from '@/app/content/components/resource-content-view'
-import { Skeleton } from '@/components/ui/skeleton'
-import { LessonDetailsSkeleton } from './lesson-details-skeleton'
+import { BreadcrumbSkeleton, LessonDetailsSkeleton } from './lesson-details-skeleton'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, useLessonQuery } from '@/hooks/useLessonsQuery'
 import { 
@@ -613,13 +612,7 @@ export default function LessonDetailsPage({ params }: LessonDetailsPageProps) {
       <MainLayout>
         <Section spacing="lg">
           <div className="space-y-6">
-            <div className="flex items-center space-x-2 text-sm">
-              <Skeleton className="h-4 w-16" />
-              <span className="text-muted-foreground">•</span>
-              <Skeleton className="h-4 w-14" />
-              <span className="text-muted-foreground">•</span>
-              <Skeleton className="h-4 w-24" />
-            </div>
+            <BreadcrumbSkeleton />
             <LessonDetailsSkeleton />
           </div>
         </Section>
