@@ -3,14 +3,12 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from "next/link"
 import { 
-  ArrowLeft, 
-  ArrowRight, 
-  User, 
-  BookOpen, 
+  ArrowLeft,
+  ArrowRight,
+  User,
+  BookOpen,
   FileText,
   RotateCcw,
-  Maximize2,
-  Minimize2,
   ExternalLink,
 } from "lucide-react"
 import { encodePublicKey } from "snstr"
@@ -36,6 +34,7 @@ import { getRelays } from '@/lib/nostr-relays'
 import { useCommentThreads } from '@/hooks/useCommentThreads'
 import type { AdditionalLink } from '@/types/additional-links'
 import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
+import { SidebarToggle } from '@/components/ui/sidebar-toggle'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
 
 function resolveLessonVideoUrl(
@@ -490,32 +489,9 @@ let courseInstructorPubkey = ''
         
         {/* Lesson Sidebar */}
         <aside className="transition-all duration-300 ease-out">
-          {isFullWidth ? (
-            <div className="hidden lg:flex lg:justify-center">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsFullWidth(false)}
-                aria-label="Expand lesson sidebar"
-                title="Expand sidebar"
-                className="h-10 w-10 rounded-full"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="hidden lg:flex lg:justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsFullWidth(true)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Minimize2 className="h-4 w-4 mr-2" />
-                Hide Sidebar
-              </Button>
-            </div>
-          )}
+          <div className={`hidden lg:flex ${isFullWidth ? 'lg:justify-center' : 'lg:justify-end'} lg:mb-3`}>
+            <SidebarToggle isCollapsed={isFullWidth} onToggle={() => setIsFullWidth(v => !v)} />
+          </div>
 
           <div className={`space-y-4 ${isFullWidth ? 'block lg:hidden' : 'block'}`}>
           {/* Course Lessons */}

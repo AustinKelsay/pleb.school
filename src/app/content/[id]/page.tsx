@@ -9,8 +9,6 @@ import {
   Eye,
   FileText,
   Loader2,
-  Maximize2,
-  Minimize2,
   Tag,
   Video
 } from 'lucide-react'
@@ -22,6 +20,7 @@ import { Section } from '@/components/layout/section'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 import { Badge } from '@/components/ui/badge'
+import { SidebarToggle } from '@/components/ui/sidebar-toggle'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { InteractionMetrics } from '@/components/ui/interaction-metrics'
@@ -138,7 +137,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     setShowPurchaseDialog(open)
   }
 
-  const handleFullWidthToggle = () => {
+  const handleSidebarToggle = () => {
     const nextValue = !isFullWidth
     trackEventSafe("resource_full_width_toggled", {
       resource_id: resourceId,
@@ -686,25 +685,12 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           </div>
 
           {/* Resource Content - Conditionally render preview or full content */}
-          <div className="flex justify-end items-center gap-2">
-            {!requiresPreviewGate && courseAccessCta}
-            <Button variant="outline" size="sm" onClick={handleFullWidthToggle}>
-              {isFullWidth ? (
-                <>
-                  <Minimize2 className="h-4 w-4 mr-2" />
-                  Exit Full Width
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="h-4 w-4 mr-2" />
-                  Full Width
-                </>
-              )}
-            </Button>
-          </div>
+          {!requiresPreviewGate && courseAccessCta && (
+            <div className="flex justify-end">{courseAccessCta}</div>
+          )}
 
-          <div className={`grid grid-cols-1 gap-8 transition-all duration-300 ease-out ${isFullWidth ? 'lg:grid-cols-1' : 'lg:grid-cols-3'}`}>
-            <div className={`${isFullWidth ? 'lg:col-span-3' : 'lg:col-span-2'} transition-all duration-300 ease-out`}>
+          <div className={`grid grid-cols-1 gap-6 transition-all duration-300 ease-out ${isFullWidth ? 'lg:grid-cols-[minmax(0,1fr)_3.25rem]' : 'lg:grid-cols-[minmax(0,1fr)_22rem]'}`}>
+            <div className="transition-all duration-300 ease-out">
               {requiresPreviewGate ? (
                 <Suspense fallback={<ResourceContentSkeleton />}>
                   <ResourceOverview resourceId={resourceId} contentHref={contentHref} />
@@ -720,66 +706,66 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
               )}
             </div>
 
-            <div className={`${isFullWidth ? 'lg:max-h-0 lg:opacity-0 lg:pointer-events-none lg:overflow-hidden lg:scale-95' : 'space-y-6 lg:opacity-100 lg:scale-100 lg:max-h-[2000px]'} transition-all duration-300 ease-out`}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>About this {type}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold mb-2">Author</h4>
-                    <p className="text-sm text-muted-foreground">{author}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Type</h4>
-                    <p className="text-sm text-muted-foreground capitalize">{type}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Category</h4>
-                    <p className="text-sm text-muted-foreground capitalize">{topics[0] || 'general'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Views</h4>
-                    <p className="text-sm text-muted-foreground">
-                      <ViewsText ns="content" id={resourceId} label={false} />
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Created</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(event.created_at)}
-                    </p>
-                  </div>
-                  {nostrUrl && (
+            <aside className="transition-all duration-300 ease-out">
+              <div className={`hidden lg:flex ${isFullWidth ? 'lg:justify-center' : 'lg:justify-end'} lg:mb-3`}>
+                <SidebarToggle isCollapsed={isFullWidth} onToggle={handleSidebarToggle} />
+              </div>
+              <div className={`space-y-6 ${isFullWidth ? 'block lg:hidden' : 'block'}`}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>About this {type}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <div>
-                      <Button variant="outline" className="w-full justify-center" asChild>
-                        <a
-                          href={nostrUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => {
-                            trackEventSafe("resource_nostr_link_clicked", {
-                              resource_id: resourceId,
-                              event_id: event.id,
-                            })
-                          }}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Open on Nostr
-                        </a>
-                      </Button>
+                      <h4 className="font-semibold mb-2">Author</h4>
+                      <p className="text-sm text-muted-foreground">{author}</p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-              {!isFullWidth && (
+                    <div>
+                      <h4 className="font-semibold mb-2">Type</h4>
+                      <p className="text-sm text-muted-foreground capitalize">{type}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2">Category</h4>
+                      <p className="text-sm text-muted-foreground capitalize">{topics[0] || 'general'}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2">Views</h4>
+                      <p className="text-sm text-muted-foreground">
+                        <ViewsText ns="content" id={resourceId} label={false} />
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2">Created</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(event.created_at)}
+                      </p>
+                    </div>
+                    {nostrUrl && (
+                      <div>
+                        <Button variant="outline" className="w-full justify-center" asChild>
+                          <a
+                            href={nostrUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => {
+                              trackEventSafe("resource_nostr_link_clicked", {
+                                resource_id: resourceId,
+                                event_id: event.id,
+                              })
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Open on Nostr
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
                 <AdditionalLinksCard links={additionalLinks} layout="stack" />
-              )}
-            </div>
+              </div>
+            </aside>
           </div>
-          
-          {/* Additional Resources - single display in full-width mode */}
-          {isFullWidth && <AdditionalLinksCard links={additionalLinks} />}
           
           {/* Comments Section - Only show for preview-gated content since ResourceContentView includes its own comments */}
           {requiresPreviewGate && (
