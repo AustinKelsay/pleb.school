@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ConfiguredThemeProvider } from "@/components/configured-theme-provider";
 import { RouteScopedSnstrProvider } from "@/components/providers/route-scoped-snstr-provider";
@@ -7,9 +8,9 @@ import { ThemeColorProvider } from "@/contexts/theme-context";
 import { QueryProvider } from "@/contexts/query-provider";
 import { SessionProvider } from "@/contexts/session-provider";
 import { ToastProvider } from "@/hooks/use-toast";
+import { isAnalyticsEnabled } from "@/lib/analytics";
 import { copyConfig } from "@/lib/copy";
 import { availableFonts, completeThemes, defaultThemeName } from "@/lib/theme-config";
-import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import {
   getDefaultDarkMode,
   getDefaultFont,
@@ -52,6 +53,8 @@ html.dark{${serializeCssVars({ ...configuredTheme.darkColors, ...sharedThemeVars
 html body{font-family:${initialFontFamily};font-weight:${initialFontWeight};}
 `;
 
+const analyticsEnabled = isAnalyticsEnabled();
+
 export const metadata: Metadata = {
   title: "pleb.school – Nostr-native course & content platform",
   description:
@@ -91,9 +94,11 @@ export default function RootLayout({
               <SessionProvider>
                 <ToastProvider>
                   <RouteScopedSnstrProvider>
-                    <Suspense fallback={null}>
-                      <PageViewTracker />
-                    </Suspense>
+                    {analyticsEnabled ? (
+                      <Suspense fallback={null}>
+                        <VercelAnalytics />
+                      </Suspense>
+                    ) : null}
                     {children}
                   </RouteScopedSnstrProvider>
                 </ToastProvider>

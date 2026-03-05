@@ -393,6 +393,7 @@ export default function RootLayout({ children }) {
 
 Notes:
 - `RouteScopedSnstrProvider` prevents relay pool initialization on non-Nostr routes (for example `/auth/*`, `/about`, `/feeds`, `/subscribe`, `/verify-email`).
+- `src/app/layout.tsx` conditionally mounts Vercel's `<Analytics />` component when `NEXT_PUBLIC_ANALYTICS_ENABLED=true`, which enables automatic App Router pageview tracking while leaving custom events on `src/lib/analytics.ts`.
 
 ## State Management
 

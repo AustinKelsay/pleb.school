@@ -42,7 +42,10 @@ describe("analytics runtime", () => {
     await trackEvent("second_event")
 
     expect(analyticsModule.inject).toHaveBeenCalledTimes(1)
-    expect(analyticsModule.inject).toHaveBeenCalledWith({ framework: "react" })
+    expect(analyticsModule.inject).toHaveBeenCalledWith({
+      basePath: undefined,
+      framework: "next",
+    })
     expect(analyticsModule.track).toHaveBeenCalledTimes(2)
     expect(analyticsModule.track).toHaveBeenNthCalledWith(1, "first_event", { count: 1 })
     expect(analyticsModule.track).toHaveBeenNthCalledWith(2, "second_event", undefined)
@@ -75,18 +78,16 @@ describe("analytics runtime", () => {
       const trackMock = vi.mocked(analyticsModule.track)
 
       injectMock.mockImplementation(() => {
-        setTimeout(() => {
-          const scopedWindow = (globalThis as { window?: Window & { va?: () => void } }).window
-          if (scopedWindow) {
-            scopedWindow.va = vi.fn()
-          }
-        }, 100)
+        const scopedWindow = (globalThis as { window?: Window & { va?: () => void } }).window
+        if (scopedWindow) {
+          scopedWindow.va = vi.fn()
+        }
       })
 
       const first = trackEvent("pending_one")
       await vi.advanceTimersByTimeAsync(10)
       const second = trackEvent("pending_two")
-      await vi.advanceTimersByTimeAsync(250)
+      await vi.advanceTimersByTimeAsync(1)
       await Promise.all([first, second])
 
       expect(injectMock).toHaveBeenCalledTimes(1)
@@ -94,6 +95,21 @@ describe("analytics runtime", () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it("reuses an existing mounted analytics runtime without re-injecting", async () => {
+    setupVercelAnalyticsEnv()
+    ;(globalThis as { window?: Window & { va?: () => void } }).window = {
+      va: vi.fn(),
+    } as unknown as Window & { va?: () => void }
+
+    const { trackEvent } = await import("../analytics")
+    const analyticsModule = await import("@vercel/analytics")
+
+    await trackEvent("existing_runtime")
+
+    expect(analyticsModule.inject).not.toHaveBeenCalled()
+    expect(analyticsModule.track).toHaveBeenCalledWith("existing_runtime", undefined)
   })
 
   it("does nothing when analytics is disabled", async () => {

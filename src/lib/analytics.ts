@@ -30,16 +30,11 @@ type AnalyticsEventValue = string | number | boolean | null | undefined
 type AnalyticsEventProperties = Record<string, AnalyticsEventValue>
 
 type TrackFn = (name: string, properties?: AnalyticsEventProperties) => void
-type InjectFn = (props?: { framework?: string }) => void
+type InjectFn = (props?: { basePath?: string; framework?: string }) => void
 
 let cachedTrack: TrackFn | null = null
 let cachedInject: InjectFn | null = null
-let runtimeInitialized = false
-let runtimeInjected = false
 let initPromise: Promise<void> | null = null
-
-const ANALYTICS_READY_POLL_INTERVAL_MS = 25
-const ANALYTICS_READY_POLL_ATTEMPTS = 40
 
 function getTrackedEventProperties(properties?: AnalyticsEventProperties) {
   if (!properties) {
@@ -52,25 +47,8 @@ function getTrackedEventProperties(properties?: AnalyticsEventProperties) {
   ) as AnalyticsEventProperties
 }
 
-function isAnalyticsRuntimeReady(): boolean {
+function hasAnalyticsRuntime(): boolean {
   return typeof (window as Window & { va?: unknown }).va === "function"
-}
-
-async function waitForAnalyticsRuntimeReady(): Promise<boolean> {
-  if (isAnalyticsRuntimeReady()) {
-    return true
-  }
-
-  for (let attempt = 0; attempt < ANALYTICS_READY_POLL_ATTEMPTS; attempt += 1) {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, ANALYTICS_READY_POLL_INTERVAL_MS)
-    })
-    if (isAnalyticsRuntimeReady()) {
-      return true
-    }
-  }
-
-  return false
 }
 
 export function isAnalyticsEnabled(
@@ -88,6 +66,43 @@ export function isAnalyticsEnabled(
   return false
 }
 
+async function ensureAnalyticsRuntime(): Promise<boolean> {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  if (cachedTrack && hasAnalyticsRuntime()) {
+    return true
+  }
+
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
+        if (!cachedTrack || !cachedInject) {
+          const analyticsModule = await import("@vercel/analytics")
+          cachedTrack = analyticsModule.track
+          cachedInject = analyticsModule.inject
+        }
+
+        if (!hasAnalyticsRuntime() && cachedInject) {
+          cachedInject({
+            basePath: process.env.NEXT_PUBLIC_VERCEL_OBSERVABILITY_BASEPATH,
+            framework: "next",
+          })
+        }
+      } catch {
+        cachedTrack = null
+        cachedInject = null
+      } finally {
+        initPromise = null
+      }
+    })()
+  }
+
+  await initPromise
+  return Boolean(cachedTrack) && hasAnalyticsRuntime()
+}
+
 export async function trackEvent(
   eventName: string,
   properties?: AnalyticsEventProperties
@@ -100,52 +115,7 @@ export async function trackEvent(
     return
   }
 
-  if (!runtimeInitialized || !cachedTrack) {
-    if (!initPromise) {
-      initPromise = (async () => {
-        try {
-          if (!cachedTrack || !cachedInject) {
-            const analyticsModule = await import("@vercel/analytics")
-            cachedTrack = analyticsModule.track
-            cachedInject = analyticsModule.inject
-          }
-
-          if (!runtimeInitialized && cachedInject && !runtimeInjected) {
-            cachedInject({ framework: "react" })
-            runtimeInjected = true
-          }
-
-          if (!runtimeInitialized) {
-            runtimeInitialized = await waitForAnalyticsRuntimeReady()
-            if (!runtimeInitialized) {
-              // Allow a fresh inject() attempt on a later event when readiness times out.
-              runtimeInjected = false
-            }
-          }
-        } catch {
-          cachedTrack = null
-          cachedInject = null
-          runtimeInitialized = false
-          runtimeInjected = false
-          throw new Error("analytics initialization failed")
-        } finally {
-          initPromise = null
-        }
-      })()
-    }
-
-    try {
-      await initPromise
-    } catch {
-      return
-    }
-
-    if (!runtimeInitialized) {
-      runtimeInitialized = isAnalyticsRuntimeReady()
-    }
-  }
-
-  if (!cachedTrack || !runtimeInitialized) {
+  if (!(await ensureAnalyticsRuntime()) || !cachedTrack) {
     return
   }
 
