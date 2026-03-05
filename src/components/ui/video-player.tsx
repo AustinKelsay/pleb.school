@@ -71,7 +71,7 @@ function sanitizeMediaUrl(value: string | null | undefined): string {
     return ""
   }
 
-  const collapsedForSchemeCheck = raw.replace(/[\u0000-\u001F\u007F\s]+/g, "")
+  const collapsedForSchemeCheck = raw.replace(/[\x00-\x1F\x7F\s]+/g, "")
   const schemeMatch = collapsedForSchemeCheck.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/)
 
   if (schemeMatch) {
@@ -363,8 +363,22 @@ function VideoThumbnail({
   title?: string;
   onPlay: () => void
 }) {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onPlay()
+    }
+  }
+
   return (
-    <div className="relative aspect-video bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 rounded-lg overflow-hidden cursor-pointer group">
+    <div
+      className="relative aspect-video bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 rounded-lg overflow-hidden cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      role="button"
+      tabIndex={0}
+      aria-label={title ? `Play video: ${title}` : 'Play video'}
+      onClick={onPlay}
+      onKeyDown={handleKeyDown}
+    >
       {thumbnailUrl ? (
         <OptimizedImage
           src={thumbnailUrl}
@@ -387,13 +401,12 @@ function VideoThumbnail({
 
       {/* Play button overlay */}
       <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          size="lg"
-          className="rounded-full bg-primary/90 hover:bg-primary text-primary-foreground"
-          onClick={onPlay}
+        <div
+          aria-hidden="true"
+          className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-md transition-colors group-hover:bg-primary"
         >
           <Play className="h-6 w-6" />
-        </Button>
+        </div>
       </div>
     </div>
   )

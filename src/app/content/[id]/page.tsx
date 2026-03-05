@@ -29,6 +29,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ViewsText } from '@/components/ui/views-text'
 import { ZapThreads } from '@/components/ui/zap-threads'
 import { ResourceContentView } from '@/app/content/components/resource-content-view'
+import { ResourcePageSkeleton, ResourceOverviewCardSkeleton } from '@/app/content/components/resource-skeletons'
 import { parseEvent } from '@/data/types'
 import { useInteractions } from '@/hooks/useInteractions'
 import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
@@ -57,25 +58,10 @@ function formatNpubWithEllipsis(pubkey: string): string {
 }
 
 /**
- * Loading component for resource content
+ * Loading component for resource content (reuses the proper skeleton)
  */
 function ResourceContentSkeleton() {
-  return (
-    <div className="space-y-4">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4"></div>
-          <div className="h-4 bg-muted rounded w-1/2"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="h-4 bg-muted rounded"></div>
-            <div className="h-4 bg-muted rounded w-2/3"></div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+  return <ResourceOverviewCardSkeleton />
 }
 
 /**
@@ -372,19 +358,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="space-y-8">
-            <div className="animate-pulse">
-              <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-              <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                <div className="space-y-4">
-                  <div className="h-4 bg-muted rounded"></div>
-                  <div className="h-4 bg-muted rounded w-2/3"></div>
-                </div>
-                <div className="aspect-video bg-muted rounded-lg"></div>
-              </div>
-            </div>
-          </div>
+          <ResourcePageSkeleton />
         </Section>
       </MainLayout>
     )
@@ -837,9 +811,7 @@ export default function ResourcePage({ params }: ResourcePageProps) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
-          </div>
+          <ResourcePageSkeleton />
         </Section>
       </MainLayout>
     )

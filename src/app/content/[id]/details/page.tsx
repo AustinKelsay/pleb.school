@@ -63,9 +63,7 @@ export default function ResourceDetailsPage({ params }: ResourceDetailsPageProps
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
-          </div>
+          <ResourceContentViewSkeleton />
         </Section>
       </MainLayout>
     )

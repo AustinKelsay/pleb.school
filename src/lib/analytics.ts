@@ -35,7 +35,11 @@ type InjectFn = (props?: { framework?: string }) => void
 let cachedTrack: TrackFn | null = null
 let cachedInject: InjectFn | null = null
 let runtimeInitialized = false
+let runtimeInjected = false
 let initPromise: Promise<void> | null = null
+
+const ANALYTICS_READY_POLL_INTERVAL_MS = 25
+const ANALYTICS_READY_POLL_ATTEMPTS = 40
 
 function getTrackedEventProperties(properties?: AnalyticsEventProperties) {
   if (!properties) {
@@ -46,6 +50,27 @@ function getTrackedEventProperties(properties?: AnalyticsEventProperties) {
     Object.entries(properties)
       .filter(([, value]) => value !== undefined)
   ) as AnalyticsEventProperties
+}
+
+function isAnalyticsRuntimeReady(): boolean {
+  return typeof (window as Window & { va?: unknown }).va === "function"
+}
+
+async function waitForAnalyticsRuntimeReady(): Promise<boolean> {
+  if (isAnalyticsRuntimeReady()) {
+    return true
+  }
+
+  for (let attempt = 0; attempt < ANALYTICS_READY_POLL_ATTEMPTS; attempt += 1) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, ANALYTICS_READY_POLL_INTERVAL_MS)
+    })
+    if (isAnalyticsRuntimeReady()) {
+      return true
+    }
+  }
+
+  return false
 }
 
 export function isAnalyticsEnabled(
@@ -85,16 +110,22 @@ export async function trackEvent(
             cachedInject = analyticsModule.inject
           }
 
-          if (!runtimeInitialized && cachedInject) {
+          if (!runtimeInitialized && cachedInject && !runtimeInjected) {
+            runtimeInjected = true
             cachedInject({ framework: "react" })
-            runtimeInitialized = typeof (window as Window & { va?: unknown }).va === "function"
+          }
+
+          if (!runtimeInitialized) {
+            runtimeInitialized = await waitForAnalyticsRuntimeReady()
           }
         } catch {
           cachedTrack = null
           cachedInject = null
           runtimeInitialized = false
+          runtimeInjected = false
           throw new Error("analytics initialization failed")
         } finally {
+          runtimeInjected = false
           initPromise = null
         }
       })()
@@ -107,7 +138,7 @@ export async function trackEvent(
     }
 
     if (!runtimeInitialized) {
-      runtimeInitialized = typeof (window as Window & { va?: unknown }).va === "function"
+      runtimeInitialized = isAnalyticsRuntimeReady()
     }
   }
 

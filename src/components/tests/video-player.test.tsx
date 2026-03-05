@@ -191,4 +191,91 @@ describe("VideoPlayer seek controls", () => {
     act(() => root.unmount())
     container.remove()
   })
+
+  it("starts playback when the thumbnail container is activated by keyboard", () => {
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => {
+      root.render(
+        createElement(VideoPlayer, {
+          url: "https://cdn.example.com/lesson.mp4",
+          title: "Thumbnail Test",
+          thumbnailUrl: "https://cdn.example.com/thumb.png",
+        })
+      )
+    })
+
+    const thumbnail = container.querySelector('div[role="button"][aria-label="Play video: Thumbnail Test"]')
+    expect(thumbnail).toBeInstanceOf(HTMLDivElement)
+    if (!thumbnail) {
+      act(() => root.unmount())
+      container.remove()
+      throw new Error("Expected thumbnail container to render")
+    }
+
+    act(() => {
+      thumbnail.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+    })
+    expect(container.querySelector("video")).toBeInstanceOf(HTMLVideoElement)
+
+    act(() => {
+      root.render(
+        createElement(VideoPlayer, {
+          url: "https://cdn.example.com/lesson.mp4",
+          title: "Thumbnail Test",
+          thumbnailUrl: "https://cdn.example.com/thumb-space.png",
+        })
+      )
+    })
+
+    const thumbnailForSpace = container.querySelector('div[role="button"][aria-label="Play video: Thumbnail Test"]')
+    expect(thumbnailForSpace).toBeInstanceOf(HTMLDivElement)
+    if (!thumbnailForSpace) {
+      act(() => root.unmount())
+      container.remove()
+      throw new Error("Expected thumbnail container to render for Space activation")
+    }
+
+    act(() => {
+      thumbnailForSpace.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }))
+    })
+    expect(container.querySelector("video")).toBeInstanceOf(HTMLVideoElement)
+
+    act(() => root.unmount())
+    container.remove()
+  })
+
+  it("starts playback when the thumbnail container is clicked", () => {
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => {
+      root.render(
+        createElement(VideoPlayer, {
+          url: "https://cdn.example.com/lesson.mp4",
+          title: "Thumbnail Test",
+          thumbnailUrl: "https://cdn.example.com/thumb.png",
+        })
+      )
+    })
+
+    const thumbnail = container.querySelector('div[role="button"][aria-label="Play video: Thumbnail Test"]')
+    expect(thumbnail).toBeInstanceOf(HTMLDivElement)
+    if (!thumbnail) {
+      act(() => root.unmount())
+      container.remove()
+      throw new Error("Expected thumbnail container to render")
+    }
+
+    act(() => {
+      thumbnail.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    })
+    expect(container.querySelector("video")).toBeInstanceOf(HTMLVideoElement)
+
+    act(() => root.unmount())
+    container.remove()
+  })
 })

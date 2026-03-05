@@ -26,6 +26,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { getCourseIcon } from '@/lib/copy-icons'
+import { DraftsListSkeleton } from '@/components/ui/app-skeleton-client'
 
 const PriceIcon = getCourseIcon('price')
 
@@ -303,25 +304,7 @@ export default function DraftsClient() {
   }
 
   if (isLoading) {
-    return (
-      <div className="space-y-8">
-        {/* Loading skeleton */}
-        <div className="animate-pulse">
-          <div className="h-8 bg-muted rounded w-1/3 mb-2"></div>
-          <div className="h-4 bg-muted rounded w-2/3 mb-8"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="h-24 bg-muted rounded"></div>
-            <div className="h-24 bg-muted rounded"></div>
-            <div className="h-24 bg-muted rounded"></div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="h-64 bg-muted rounded"></div>
-            <div className="h-64 bg-muted rounded"></div>
-            <div className="h-64 bg-muted rounded"></div>
-          </div>
-        </div>
-      </div>
-    )
+    return <DraftsListSkeleton />
   }
 
   if (isError) {

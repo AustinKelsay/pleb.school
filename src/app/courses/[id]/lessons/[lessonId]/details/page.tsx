@@ -13,6 +13,8 @@ import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { ZapThreads } from '@/components/ui/zap-threads'
 import { ResourceMetadataHero } from '@/app/content/components/resource-content-view'
+import { Skeleton } from '@/components/ui/skeleton'
+import { LessonDetailsSkeleton } from './lesson-details-skeleton'
 import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery, useLessonQuery } from '@/hooks/useLessonsQuery'
 import { 
@@ -78,31 +80,6 @@ function formatNpubWithEllipsis(pubkey: string): string {
     return `${pubkey.slice(0, 6)}...${pubkey.slice(-6)}`;
   }
 }
-
-
-/**
- * Loading component for lesson content
- */
-function LessonContentSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Card className="animate-pulse">
-        <CardHeader>
-          <div className="h-6 bg-muted rounded w-3/4"></div>
-          <div className="h-4 bg-muted rounded w-1/2"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="h-4 bg-muted rounded"></div>
-            <div className="h-4 bg-muted rounded w-4/5"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 
 
 /**
@@ -244,7 +221,7 @@ function LessonContent({
   }
 
   if (loading) {
-    return <LessonContentSkeleton />
+    return <LessonDetailsSkeleton />
   }
 
   if (!lesson) {
@@ -635,8 +612,15 @@ export default function LessonDetailsPage({ params }: LessonDetailsPageProps) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
+          <div className="space-y-6">
+            <div className="flex items-center space-x-2 text-sm">
+              <Skeleton className="h-4 w-16" />
+              <span className="text-muted-foreground">•</span>
+              <Skeleton className="h-4 w-14" />
+              <span className="text-muted-foreground">•</span>
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <LessonDetailsSkeleton />
           </div>
         </Section>
       </MainLayout>
@@ -661,7 +645,7 @@ export default function LessonDetailsPage({ params }: LessonDetailsPageProps) {
           </div>
 
           {/* Content */}
-          <Suspense fallback={<LessonContentSkeleton />}>
+          <Suspense fallback={<LessonDetailsSkeleton />}>
             <LessonContent courseId={courseId} lessonId={lessonId} />
           </Suspense>
         </div>
