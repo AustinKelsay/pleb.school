@@ -707,13 +707,16 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
             </div>
 
             <aside className="transition-all duration-300 ease-out">
-              <div className={`hidden lg:flex ${isFullWidth ? 'lg:justify-center' : 'lg:justify-end'} lg:mb-3`}>
-                <SidebarToggle isCollapsed={isFullWidth} onToggle={handleSidebarToggle} />
+              <div className={`hidden ${isFullWidth ? 'lg:flex lg:justify-center lg:pt-3' : ''}`}>
+                <SidebarToggle isCollapsed onToggle={handleSidebarToggle} />
               </div>
               <div className={`space-y-6 ${isFullWidth ? 'block lg:hidden' : 'block'}`}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>About this {type}</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>About this {type}</CardTitle>
+                      <SidebarToggle isCollapsed={false} onToggle={handleSidebarToggle} className="hidden lg:inline-flex" />
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>

@@ -21,7 +21,7 @@ export const SidebarToggle = ({ isCollapsed, onToggle, className }: SidebarToggl
           variant="ghost"
           onClick={onToggle}
           aria-label={label}
-          className={`h-8 w-8 p-0 ${className ?? ''}`}
+          className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${className ?? ''}`}
         >
           <Icon className="h-4 w-4" />
         </Button>

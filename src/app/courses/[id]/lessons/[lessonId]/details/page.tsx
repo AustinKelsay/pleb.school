@@ -489,15 +489,18 @@ let courseInstructorPubkey = ''
         
         {/* Lesson Sidebar */}
         <aside className="transition-all duration-300 ease-out">
-          <div className={`hidden lg:flex ${isFullWidth ? 'lg:justify-center' : 'lg:justify-end'} lg:mb-3`}>
-            <SidebarToggle isCollapsed={isFullWidth} onToggle={() => setIsFullWidth(v => !v)} />
+          <div className={`hidden ${isFullWidth ? 'lg:flex lg:justify-center lg:pt-3' : ''}`}>
+            <SidebarToggle isCollapsed onToggle={() => setIsFullWidth(false)} />
           </div>
 
           <div className={`space-y-4 ${isFullWidth ? 'block lg:hidden' : 'block'}`}>
           {/* Course Lessons */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Course Lessons</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Course Lessons</CardTitle>
+                <SidebarToggle isCollapsed={false} onToggle={() => setIsFullWidth(true)} className="hidden lg:inline-flex" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
