@@ -316,7 +316,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     notFound()
   }
 
-  const id = courseId
+  const id = resolvedCourseId
   const lessonCount = lessonsData.length
 
   // Parse data from database and Nostr note

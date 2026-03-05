@@ -186,7 +186,7 @@ export function extractVideoBodyMarkdown(content: string): string {
   let body = content
 
   // Remove a leading markdown heading when creators put the title in-body.
-  body = body.replace(/^#\s+.*$/m, "").trimStart()
+  body = body.replace(/^\s*#\s+.*(?:\r?\n|$)/, "").trimStart()
 
   // Remove known embed wrappers and direct iframe/video embeds so the styled
   // player is not duplicated below in markdown.

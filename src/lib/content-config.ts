@@ -1,7 +1,7 @@
 import contentConfig from "../../config/content.json"
 import type { RelaySet } from "@/lib/nostr-relays"
 import { getIcon, type LucideIcon } from "@/lib/icons-config"
-import { normalizeSkipSeconds } from "@/lib/video-playback"
+import { normalizeSkipSeconds, type SkipSeconds } from "@/lib/video-playback"
 
 export type PriceFilter = "all" | "free" | "paid"
 export type SortOption = "newest" | "oldest" | "price-low" | "price-high" | "popular"
@@ -66,7 +66,7 @@ export interface GlobalConfig {
 }
 
 export interface PlaybackConfig {
-  defaultSkipSeconds: 10 | 15
+  defaultSkipSeconds: SkipSeconds
 }
 
 export interface ContentConfig {

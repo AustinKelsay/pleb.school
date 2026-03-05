@@ -32,5 +32,15 @@ describe("getPlaybackConfig", () => {
     config.playback = { defaultSkipSeconds: 10 }
     expect(getPlaybackConfig()).toEqual({ defaultSkipSeconds: 10 })
   })
-})
 
+  it("normalizes boundary and out-of-range values", () => {
+    config.playback = { defaultSkipSeconds: 0 }
+    expect(getPlaybackConfig()).toEqual({ defaultSkipSeconds: 10 })
+
+    config.playback = { defaultSkipSeconds: -5 }
+    expect(getPlaybackConfig()).toEqual({ defaultSkipSeconds: 10 })
+
+    config.playback = { defaultSkipSeconds: 1_000_000 }
+    expect(getPlaybackConfig()).toEqual({ defaultSkipSeconds: 10 })
+  })
+})

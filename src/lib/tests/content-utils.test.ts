@@ -150,6 +150,20 @@ describe("extractVideoBodyMarkdown", () => {
     expect(result).toBe("Notes")
   })
 
+  it("removes standalone vimeo iframe embeds", () => {
+    const input = '# Title\n<iframe src="https://player.vimeo.com/video/12345"></iframe>\n\nKey takeaway'
+    const result = extractVideoBodyMarkdown(input)
+    expect(result).not.toContain("player.vimeo.com/video")
+    expect(result).toBe("Key takeaway")
+  })
+
+  it("removes standalone youtube-nocookie embeds and links", () => {
+    const input = '# Title\n<iframe src="https://www.youtube-nocookie.com/embed/abc123"></iframe>\n\nhttps://www.youtube-nocookie.com/embed/abc123\n\nNotes'
+    const result = extractVideoBodyMarkdown(input)
+    expect(result).not.toContain("youtube-nocookie.com/embed")
+    expect(result).toBe("Notes")
+  })
+
   it("removes html5 video blocks", () => {
     const input = '# Title\n<video controls><source src="https://cdn.example.com/clip.mp4"></video>\n\nSummary'
     const result = extractVideoBodyMarkdown(input)

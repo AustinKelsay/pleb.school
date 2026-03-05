@@ -6,16 +6,22 @@ const ORIGINAL_WINDOW = window
 
 async function sanitizeInBothBranches(input: string) {
   vi.resetModules()
-  const sanitizeModule = await import("../rich-content-sanitize.client")
+  Object.defineProperty(globalThis, "window", {
+    value: ORIGINAL_WINDOW,
+    configurable: true,
+    writable: true,
+  })
+  const clientModule = await import("../rich-content-sanitize.client")
+  const clientOutput = clientModule.sanitizeRichContent(input)
 
-  const clientOutput = sanitizeModule.sanitizeRichContent(input)
-
+  vi.resetModules()
   Object.defineProperty(globalThis, "window", {
     value: undefined,
     configurable: true,
     writable: true,
   })
-  const serverOutput = sanitizeModule.sanitizeRichContent(input)
+  const serverModule = await import("../rich-content-sanitize.client")
+  const serverOutput = serverModule.sanitizeRichContent(input)
 
   Object.defineProperty(globalThis, "window", {
     value: ORIGINAL_WINDOW,

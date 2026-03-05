@@ -1,20 +1,6 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { MainLayout } from "@/components/layout/main-layout"
-import { Section } from "@/components/layout/section"
-import { ContentCard } from "@/components/ui/content-card"
-import { ContentPageSkeleton } from "@/components/ui/content-skeleton"
-
-import { useCoursesQuery } from '@/hooks/useCoursesQuery'
-import { useVideosQuery } from '@/hooks/useVideosQuery'
-import { useDocumentsQuery } from '@/hooks/useDocumentsQuery'
-import type { ContentItem } from '@/data/types'
-import {
-  contentTypeFilters
-} from "@/data/config"
 import {
   Crown,
   Filter,
@@ -22,18 +8,30 @@ import {
   FileText,
   Gift
 } from "lucide-react"
+import { Prefix, type NostrEvent, type RelayPool } from "snstr"
+import { MainLayout } from "@/components/layout/main-layout"
+import { Section } from "@/components/layout/section"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ContentCard } from "@/components/ui/content-card"
+import { ContentPageSkeleton } from "@/components/ui/content-skeleton"
+import { contentTypeFilters } from "@/data/config"
+import type { ContentItem } from "@/data/types"
+import { useContentConfig } from "@/hooks/useContentConfig"
+import { useCoursesQuery } from "@/hooks/useCoursesQuery"
+import { useDocumentsQuery } from "@/hooks/useDocumentsQuery"
+import { useVideosQuery } from "@/hooks/useVideosQuery"
+import { tagsToAdditionalLinks } from "@/lib/additional-links"
+import { trackEventSafe } from "@/lib/analytics"
 import { useCopy, getCopy } from "@/lib/copy"
+import { getEventATag } from "@/lib/nostr-a-tag"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { getNoteImage } from "@/lib/note-image"
-import { Prefix, type NostrEvent, type RelayPool } from "snstr"
 import { isNip19String, tryDecodeNip19Entity } from "@/lib/nip19-utils"
 import { getRelays, type RelaySet } from "@/lib/nostr-relays"
-import { useContentConfig } from "@/hooks/useContentConfig"
-import { tagsToAdditionalLinks } from "@/lib/additional-links"
-import { getEventATag } from "@/lib/nostr-a-tag"
-import { trackEventSafe } from "@/lib/analytics"
 
 const HEX_EVENT_ID_REGEX = /^[0-9a-f]{64}$/i
+const CONTENT_TYPE_FILTER_SET = new Set(contentTypeFilters.map(({ type }) => type.toLowerCase()))
 
 async function fetchEventForIdentifier(
   identifier: string,
@@ -350,6 +348,21 @@ export default function ContentPage() {
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag)
   }, [contentItems])
+  const availableTagsSet = useMemo(
+    () => new Set(availableTags.map((tag) => tag.toLowerCase())),
+    [availableTags]
+  )
+
+  const normalizeFilterCategory = (
+    filter: string
+  ): "all" | "content_type" | "price_tier" | "user_tag" | "unknown" => {
+    const normalizedFilter = filter.toLowerCase().trim()
+    if (normalizedFilter === "all") return "all"
+    if (CONTENT_TYPE_FILTER_SET.has(normalizedFilter)) return "content_type"
+    if (normalizedFilter === "free" || normalizedFilter === "premium") return "price_tier"
+    if (availableTagsSet.has(normalizedFilter)) return "user_tag"
+    return "unknown"
+  }
 
   // Filter content based on selected filters
   const filteredContent = useMemo(() => {
@@ -404,7 +417,7 @@ export default function ContentPage() {
     }
 
     trackEventSafe("content_filter_toggled", {
-      filter,
+      filter: normalizeFilterCategory(filter),
       was_selected: filterWasSelected,
       selected_count: filter === 'all' ? 1 : newFilters.size,
     })

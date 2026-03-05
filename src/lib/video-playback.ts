@@ -61,6 +61,10 @@ export function extractYouTubeId(url: string): string | null {
       if (shortsIndex >= 0 && pathParts[shortsIndex + 1]) {
         return pathParts[shortsIndex + 1]
       }
+      const vIndex = pathParts.findIndex(part => part === "v")
+      if (vIndex >= 0 && pathParts[vIndex + 1]) {
+        return pathParts[vIndex + 1]
+      }
     }
   } catch {
     // Ignore parse errors and continue with pattern fallback below.

@@ -258,10 +258,10 @@ function SearchContent() {
               </>
             )}
             
-            {!isLoading && trimmedSearchQuery.length >= MIN_KEYWORD_LENGTH && filteredResults.length === 0 && !error && (
+            {!isLoading && debouncedTrimmedSearchQuery.length >= MIN_KEYWORD_LENGTH && filteredResults.length === 0 && !error && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  No results found for &quot;{trimmedSearchQuery}&quot; on Nostr relays
+                  No results found for &quot;{debouncedTrimmedSearchQuery}&quot; on Nostr relays
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
                   Try searching with different keywords or check relay connectivity
