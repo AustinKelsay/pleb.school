@@ -25,7 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
-import { DraftContentSkeleton } from '@/components/ui/app-skeleton-client'
+import { DraftContentSkeleton, DraftPageSkeleton } from '@/components/ui/app-skeleton-client'
 import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 import type { AdditionalLink } from '@/types/additional-links'
@@ -324,9 +324,7 @@ export default function ResourceDraftPreviewPage({ params }: ResourceDraftPrevie
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
-          </div>
+          <DraftPageSkeleton />
         </Section>
       </MainLayout>
     )

@@ -15,6 +15,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { preserveLineBreaks } from '@/lib/text-utils'
+import { DraftPageSkeleton } from '@/components/ui/app-skeleton-client'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { encodePublicKey } from 'snstr'
 import {
@@ -277,19 +278,7 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="space-y-8">
-            <div className="animate-pulse">
-              <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-              <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                <div className="space-y-4">
-                  <div className="h-4 bg-muted rounded"></div>
-                  <div className="h-4 bg-muted rounded w-2/3"></div>
-                </div>
-                <div className="aspect-video bg-muted rounded-lg"></div>
-              </div>
-            </div>
-          </div>
+          <DraftPageSkeleton />
         </Section>
       </MainLayout>
     )
@@ -571,9 +560,7 @@ export default function ResourceDraftPage({ params }: ResourceDraftPageProps) {
     return (
       <MainLayout>
         <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
-          </div>
+          <DraftPageSkeleton />
         </Section>
       </MainLayout>
     )

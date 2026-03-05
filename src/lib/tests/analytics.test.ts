@@ -62,6 +62,40 @@ describe("analytics runtime", () => {
     expect(analyticsModule.track).toHaveBeenCalledTimes(3)
   })
 
+  it("does not re-inject while runtime readiness is still pending", async () => {
+    vi.useFakeTimers()
+    try {
+      process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "true"
+      process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER = "vercel"
+      ;(globalThis as { window?: Window }).window = {} as Window
+
+      const { trackEvent } = await import("../analytics")
+      const analyticsModule = await import("@vercel/analytics")
+      const injectMock = vi.mocked(analyticsModule.inject)
+      const trackMock = vi.mocked(analyticsModule.track)
+
+      injectMock.mockImplementation(() => {
+        setTimeout(() => {
+          const scopedWindow = (globalThis as { window?: Window & { va?: () => void } }).window
+          if (scopedWindow) {
+            scopedWindow.va = vi.fn()
+          }
+        }, 100)
+      })
+
+      const first = trackEvent("pending_one")
+      await vi.advanceTimersByTimeAsync(10)
+      const second = trackEvent("pending_two")
+      await vi.advanceTimersByTimeAsync(250)
+      await Promise.all([first, second])
+
+      expect(injectMock).toHaveBeenCalledTimes(1)
+      expect(trackMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("does nothing when analytics is disabled", async () => {
     process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "false"
     ;(globalThis as { window?: Window }).window = {} as Window

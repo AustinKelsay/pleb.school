@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Home, Loader2 } from "lucide-react"
 import { SearchResultsSkeleton } from "@/components/ui/content-skeleton"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useNostrSearch } from "@/hooks/useNostrSearch"
 import type { ContentItem } from '@/data/types'
@@ -273,11 +274,11 @@ export default function SearchPage() {
           <div className="space-y-6">
             <div className="h-9 w-16" /> {/* Back button placeholder */}
             <div className="text-center space-y-2">
-              <div className="h-9 w-48 mx-auto rounded bg-muted animate-pulse" />
-              <div className="h-4 w-64 mx-auto rounded bg-muted animate-pulse" />
+              <Skeleton className="h-9 w-48 mx-auto" />
+              <Skeleton className="h-4 w-64 mx-auto" />
             </div>
             <div className="max-w-2xl mx-auto">
-              <div className="h-12 w-full rounded bg-muted animate-pulse" />
+              <Skeleton className="h-12 w-full rounded-lg" />
             </div>
             <div className="mt-8">
               <SearchResultsSkeleton count={4} />

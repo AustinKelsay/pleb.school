@@ -4,6 +4,64 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+/**
+ * General-purpose draft page skeleton for loading states.
+ * Use when a draft page (resource or course) is loading.
+ */
+export const DraftPageSkeleton = () => {
+  return (
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <Skeleton className="h-4 w-1/4" />
+        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div className="space-y-4">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-4/5" />
+        </div>
+        <Skeleton className="aspect-video w-full rounded-lg" />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Drafts list skeleton for the main drafts page.
+ */
+export const DraftsListSkeleton = () => {
+  return (
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-lg" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i} className="overflow-hidden">
+            <Skeleton className="h-40 w-full" />
+            <CardContent className="space-y-3 pt-4">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <div className="flex gap-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-5 w-14 rounded-full" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export const DraftContentSkeleton = () => {
   return (
     <div className="space-y-6">

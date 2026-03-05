@@ -12,6 +12,7 @@ import {
 import { encodePublicKey } from 'snstr'
 
 import { MainLayout } from '@/components/layout/main-layout'
+import { CourseDetailPageSkeleton } from '@/components/ui/app-skeleton'
 import { Section } from '@/components/layout/section'
 import { PurchaseActions } from '@/components/purchase/purchase-actions'
 import { AdditionalLinksList } from '@/components/ui/additional-links-card'
@@ -161,6 +162,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   
   const resolved = React.useMemo(() => resolveUniversalId(courseId), [courseId])
   const resolvedCourseId = resolved?.resolvedId
+  const canonicalCourseId = resolvedCourseId ?? courseId
   const routeRelayHints = useMemo(
     () => extractRelayHintsFromDecodedData(resolved?.decodedData),
     [resolved?.decodedData]
@@ -254,18 +256,18 @@ function CoursePageContent({ courseId }: { courseId: string }) {
 
   useEffect(() => {
     if (!courseData || lessonsLoading) return
-    const viewKey = `${courseId}:${noteId ?? ''}`
+    const viewKey = `${canonicalCourseId}:${noteId ?? ''}`
     if (trackedCourseViewKeysRef.current.has(viewKey)) return
 
     trackEventSafe("course_detail_viewed", {
-      course_id: courseId,
+      course_id: canonicalCourseId,
       note_id: noteId,
       lesson_count: lessonsData.length,
       is_premium: (courseData.price ?? 0) > 0,
       price_sats: courseData.price ?? 0,
     })
     trackedCourseViewKeysRef.current.add(viewKey)
-  }, [courseData, courseId, noteId, lessonsData.length, lessonsLoading])
+  }, [courseData, canonicalCourseId, noteId, lessonsData.length, lessonsLoading])
 
   // Early return check after all hooks (hooks must be called unconditionally)
   if (!resolvedCourseId) {
@@ -281,23 +283,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   }
 
   if (loading) {
-    return (
-      <MainLayout>
-        <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
-            <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              <div className="space-y-4">
-                <div className="h-4 bg-muted rounded"></div>
-                <div className="h-4 bg-muted rounded w-2/3"></div>
-              </div>
-              <div className="aspect-video bg-muted rounded-lg"></div>
-            </div>
-          </div>
-        </Section>
-      </MainLayout>
-    )
+    return <CourseDetailPageSkeleton />
   }
 
   if (isError) {
@@ -693,15 +679,7 @@ export default function CoursePage() {
   const courseId = params?.id as string
 
   if (!courseId) {
-    return (
-      <MainLayout>
-        <Section spacing="lg">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
-          </div>
-        </Section>
-      </MainLayout>
-    )
+    return <CourseDetailPageSkeleton />
   }
 
   return <CoursePageContent courseId={courseId} />
