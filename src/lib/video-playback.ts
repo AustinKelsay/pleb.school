@@ -182,7 +182,9 @@ export function extractVideoSource(content: string | undefined): string | null {
  * Ignore keyboard shortcuts when typing in editable elements.
  */
 export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
+  const HTMLElementCtor = globalThis.HTMLElement
+  if (typeof HTMLElementCtor === "undefined") return false
+  if (!(target instanceof HTMLElementCtor)) return false
   if (target.isContentEditable) return true
 
   const tagName = target.tagName.toLowerCase()
