@@ -75,6 +75,16 @@ function formatNpubWithEllipsis(pubkey: string): string {
   }
 }
 
+function normalizeTopic(topic: string): string {
+  const normalized = topic
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "")
+
+  return normalized || "unknown"
+}
+
 export function ContentCard({ 
   item, 
   variant = 'content', 
@@ -161,7 +171,7 @@ export function ContentCard({
     if (!isContent) return
 
     trackEventSafe("content_card_tag_clicked", {
-      tag: topic,
+      tag_id: normalizeTopic(topic),
       content_type: item.type,
       content_id: item.id,
     })

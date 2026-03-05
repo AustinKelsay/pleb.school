@@ -364,6 +364,8 @@ export default function ContentPage() {
     return "unknown"
   }
 
+  const normalizeFilterKey = (filter: string): string => filter.toLowerCase().trim()
+
   // Filter content based on selected filters
   const filteredContent = useMemo(() => {
     if (selectedFilters.has('all') || selectedFilters.size === 0) {
@@ -396,17 +398,18 @@ export default function ContentPage() {
   }
 
   const toggleFilter = (filter: string) => {
+    const normalizedFilter = normalizeFilterKey(filter)
     const newFilters = new Set(selectedFilters)
-    const filterWasSelected = selectedFilters.has(filter)
+    const filterWasSelected = selectedFilters.has(normalizedFilter)
     
-    if (filter === 'all') {
+    if (normalizedFilter === 'all') {
       setSelectedFilters(new Set(['all']))
     } else {
       newFilters.delete('all')
-      if (newFilters.has(filter)) {
-        newFilters.delete(filter)
+      if (newFilters.has(normalizedFilter)) {
+        newFilters.delete(normalizedFilter)
       } else {
-        newFilters.add(filter)
+        newFilters.add(normalizedFilter)
       }
       
       if (newFilters.size === 0) {
@@ -417,9 +420,9 @@ export default function ContentPage() {
     }
 
     trackEventSafe("content_filter_toggled", {
-      filter: normalizeFilterCategory(filter),
+      filter: normalizeFilterCategory(normalizedFilter),
       was_selected: filterWasSelected,
-      selected_count: filter === 'all' ? 1 : newFilters.size,
+      selected_count: normalizedFilter === 'all' ? 1 : newFilters.size,
     })
   }
 

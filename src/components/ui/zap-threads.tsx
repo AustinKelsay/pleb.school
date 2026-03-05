@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MessageCircle } from 'lucide-react'
 import { encodeAddress } from 'snstr'
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getRelays } from '@/lib/nostr-relays'
 import { trackEventSafe } from '@/lib/analytics'
 

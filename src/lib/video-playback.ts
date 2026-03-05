@@ -29,7 +29,8 @@ export function normalizeSkipSeconds(value: number | null | undefined): SkipSeco
  * Clamp a seek target to [0, duration] when duration is known.
  */
 export function clampSeekTarget(targetSeconds: number, durationSeconds?: number | null): number {
-  const minClamped = Math.max(0, targetSeconds)
+  const safeTarget = Number.isFinite(targetSeconds) ? targetSeconds : 0
+  const minClamped = Math.max(0, safeTarget)
   if (!Number.isFinite(durationSeconds) || (durationSeconds ?? 0) <= 0) {
     return minClamped
   }

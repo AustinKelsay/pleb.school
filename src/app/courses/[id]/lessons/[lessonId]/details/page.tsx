@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
+import Link from "next/link"
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -12,8 +12,8 @@ import {
   Maximize2,
   Minimize2,
   ExternalLink,
-} from 'lucide-react'
-import { encodePublicKey } from 'snstr'
+} from "lucide-react"
+import { encodePublicKey } from "snstr"
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

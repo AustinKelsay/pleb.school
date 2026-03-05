@@ -67,7 +67,7 @@ function ResourceContentSkeleton() {
 /**
  * Resource overview component - shows metadata and description, not the actual content
  */
-function ResourceOverview({ resourceId }: { resourceId: string }) {
+function ResourceOverview({ resourceId, contentHref }: { resourceId: string; contentHref: string }) {
   return (
     <div className="space-y-6">
       <Card>
@@ -90,7 +90,7 @@ function ResourceOverview({ resourceId }: { resourceId: string }) {
             </p>
             <Button size="lg" asChild>
               <Link
-                href={`/content/${resourceId}/details`}
+                href={contentHref}
                 onClick={() => {
                   trackEventSafe("resource_preview_view_content_clicked", {
                     resource_id: resourceId,
@@ -472,6 +472,10 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
       normalizedResourceId = dTag
     }
   }
+  const contentRouteId = isCourseContent ? normalizedResourceId : resourceId
+  const contentHref = isCourseContent
+    ? `/courses/${contentRouteId}`
+    : `/content/${resourceId}/details`
 
   return (
     <MainLayout>
@@ -553,7 +557,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                     <>
                       <Button size="lg" className="bg-primary hover:bg-primary/90 w-full sm:w-auto" asChild>
                         <Link
-                          href={`/content/${resourceId}/details`}
+                          href={contentHref}
                           onClick={() => {
                             trackEventSafe("resource_view_content_clicked", {
                               resource_id: resourceId,
@@ -703,7 +707,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
             <div className={`${isFullWidth ? 'lg:col-span-3' : 'lg:col-span-2'} transition-all duration-300 ease-out`}>
               {requiresPreviewGate ? (
                 <Suspense fallback={<ResourceContentSkeleton />}>
-                  <ResourceOverview resourceId={resourceId} />
+                  <ResourceOverview resourceId={resourceId} contentHref={contentHref} />
                 </Suspense>
               ) : (
                 <ResourceContentView 

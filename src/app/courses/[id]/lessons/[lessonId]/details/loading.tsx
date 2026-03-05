@@ -1,6 +1,6 @@
-import { MainLayout } from '@/components/layout/main-layout'
-import { Section } from '@/components/layout/section'
-import { BreadcrumbSkeleton, LessonDetailsSkeleton } from './lesson-details-skeleton'
+import { MainLayout } from "@/components/layout/main-layout"
+import { Section } from "@/components/layout/section"
+import { BreadcrumbSkeleton, LessonDetailsSkeleton } from "./lesson-details-skeleton"
 
 export default function LessonDetailsLoading() {
   return (

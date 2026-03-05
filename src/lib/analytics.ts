@@ -111,12 +111,16 @@ export async function trackEvent(
           }
 
           if (!runtimeInitialized && cachedInject && !runtimeInjected) {
-            runtimeInjected = true
             cachedInject({ framework: "react" })
+            runtimeInjected = true
           }
 
           if (!runtimeInitialized) {
             runtimeInitialized = await waitForAnalyticsRuntimeReady()
+            if (!runtimeInitialized) {
+              // Allow a fresh inject() attempt on a later event when readiness times out.
+              runtimeInjected = false
+            }
           }
         } catch {
           cachedTrack = null
@@ -125,7 +129,6 @@ export async function trackEvent(
           runtimeInjected = false
           throw new Error("analytics initialization failed")
         } finally {
-          runtimeInjected = false
           initPromise = null
         }
       })()

@@ -232,20 +232,34 @@ export function ZapDialog({
   }, [zapState.invoice, toast, zapCopy, zapTarget])
 
   const handleRetry = useCallback(async () => {
-    const paid = await retryWeblnPayment()
-    trackEventSafe("zap_webln_retry_completed", {
-      paid,
-      target_pubkey: zapTarget?.pubkey,
-    })
-    toast({
-      title: paid
-        ? zapCopy?.retryPaidTitle ?? "Zap paid!"
-        : zapCopy?.retryFailedTitle ?? "WebLN failed",
-      description: paid
-        ? zapCopy?.retryPaidDescription ?? "Thanks!"
-        : zapCopy?.retryFailedDescription ?? "Pay manually below",
-      variant: paid ? "default" : "destructive"
-    })
+    try {
+      const paid = await retryWeblnPayment()
+      trackEventSafe("zap_webln_retry_completed", {
+        paid,
+        target_pubkey: zapTarget?.pubkey,
+      })
+      toast({
+        title: paid
+          ? zapCopy?.retryPaidTitle ?? "Zap paid!"
+          : zapCopy?.retryFailedTitle ?? "WebLN failed",
+        description: paid
+          ? zapCopy?.retryPaidDescription ?? "Thanks!"
+          : zapCopy?.retryFailedDescription ?? "Pay manually below",
+        variant: paid ? "default" : "destructive"
+      })
+    } catch (error) {
+      console.error("WebLN retry failed:", error)
+      trackEventSafe("zap_webln_retry_completed", {
+        paid: false,
+        target_pubkey: zapTarget?.pubkey,
+        error_message: error instanceof Error ? error.message : "unknown_error",
+      })
+      toast({
+        title: zapCopy?.retryFailedTitle ?? "WebLN failed",
+        description: zapCopy?.retryFailedDescription ?? "Pay manually below",
+        variant: "destructive"
+      })
+    }
   }, [retryWeblnPayment, toast, zapCopy, zapTarget?.pubkey])
 
   // Status indicator
