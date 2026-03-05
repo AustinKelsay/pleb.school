@@ -61,7 +61,15 @@ function formatNpubWithEllipsis(pubkey: string): string {
  * Course lessons component - now using lessons from props
  */
 
-function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; courseId: string }) {
+function CourseLessons({
+  lessons,
+  courseId,
+  analyticsCourseId
+}: {
+  lessons: LessonWithResource[]
+  courseId: string
+  analyticsCourseId: string
+}) {
   const { course } = useCopy()
 
   if (!lessons || lessons.length === 0) {
@@ -113,7 +121,7 @@ function CourseLessons({ lessons, courseId }: { lessons: LessonWithResource[]; c
                   className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   onClick={() => {
                     trackEventSafe("course_lesson_started", {
-                      course_id: courseId,
+                      course_id: analyticsCourseId,
                       lesson_id: lesson.id,
                       lesson_index: index + 1,
                     })
@@ -482,7 +490,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
             viewerZapReceipts={viewerZapReceipts}
             onPurchaseComplete={() => {
               trackEventSafe("course_purchase_unlocked", {
-                course_id: courseId,
+                course_id: canonicalCourseId,
                 note_id: noteId,
                 price_sats: priceSats,
               })
@@ -498,7 +506,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                   href={lessonsData.length > 0 ? `/courses/${id}/lessons/${lessonsData[0].id}/details` : `/courses/${id}`}
                   onClick={() => {
                     trackEventSafe("course_start_learning_clicked", {
-                      course_id: courseId,
+                      course_id: canonicalCourseId,
                       has_lessons: lessonsData.length > 0,
                       first_lesson_id: lessonsData[0]?.id,
                     })
@@ -580,7 +588,11 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           {/* Course Content */}
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <CourseLessons lessons={lessonsData} courseId={id} />
+              <CourseLessons
+                lessons={lessonsData}
+                courseId={id}
+                analyticsCourseId={canonicalCourseId}
+              />
             </div>
 
             <div className="space-y-6">
@@ -634,7 +646,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                           rel="noopener noreferrer"
                           onClick={() => {
                             trackEventSafe("course_nostr_link_clicked", {
-                              course_id: courseId,
+                              course_id: canonicalCourseId,
                               note_id: noteId,
                             })
                           }}

@@ -220,6 +220,29 @@ describe("VideoPlayer seek controls", () => {
     })
     expect(container.querySelector("video")).toBeInstanceOf(HTMLVideoElement)
 
+    act(() => {
+      root.render(
+        createElement(VideoPlayer, {
+          url: "https://cdn.example.com/lesson.mp4",
+          title: "Thumbnail Test",
+          thumbnailUrl: "https://cdn.example.com/thumb-space.png",
+        })
+      )
+    })
+
+    const thumbnailForSpace = container.querySelector('div[role="button"][aria-label="Play video: Thumbnail Test"]')
+    expect(thumbnailForSpace).toBeInstanceOf(HTMLDivElement)
+    if (!thumbnailForSpace) {
+      act(() => root.unmount())
+      container.remove()
+      throw new Error("Expected thumbnail container to render for Space activation")
+    }
+
+    act(() => {
+      thumbnailForSpace.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }))
+    })
+    expect(container.querySelector("video")).toBeInstanceOf(HTMLVideoElement)
+
     act(() => root.unmount())
     container.remove()
   })

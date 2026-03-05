@@ -272,7 +272,7 @@ export default function SearchPage() {
       <Container className="py-8">
         <Section>
           <div className="space-y-6">
-            <div className="h-9 w-16" /> {/* Back button placeholder */}
+            <Skeleton className="h-9 w-16" />
             <div className="text-center space-y-2">
               <Skeleton className="h-9 w-48 mx-auto" />
               <Skeleton className="h-4 w-64 mx-auto" />
