@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { SidebarToggle } from '@/components/ui/sidebar-toggle'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ExpandableText } from '@/components/ui/expandable-text'
 import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ViewsText } from '@/components/ui/views-text'
@@ -37,7 +38,6 @@ import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { getRelays } from '@/lib/nostr-relays'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
-import { preserveLineBreaks } from '@/lib/text-utils'
 import { resolveUniversalId, type UniversalIdResult } from '@/lib/universal-router'
 
 interface ResourcePageProps {
@@ -493,9 +493,10 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   </Badge>
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">{title}</h1>
-                <p className="text-lg text-muted-foreground" style={preserveLineBreaks(description).style}>
-                  {preserveLineBreaks(description).content}
-                </p>
+                <ExpandableText
+                  text={description}
+                  textClassName="text-lg text-muted-foreground"
+                />
               </div>
 
               <div className="flex items-center flex-wrap gap-4 sm:gap-6">

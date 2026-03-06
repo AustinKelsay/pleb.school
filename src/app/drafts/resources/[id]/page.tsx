@@ -9,12 +9,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DraftBadge, DraftPreviewBadge } from '@/components/ui/draft-badge'
 import { DraftBanner, DraftActions } from '@/components/ui/draft-banner'
+import { ExpandableText } from '@/components/ui/expandable-text'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Section } from '@/components/layout/section'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
-import { preserveLineBreaks } from '@/lib/text-utils'
 import { DraftPageSkeleton } from '@/components/ui/app-skeleton-client'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { encodePublicKey } from 'snstr'
@@ -361,9 +361,10 @@ function ResourceDraftPageContent({ resourceId }: { resourceId: string }) {
                   <DraftBadge variant="outline" />
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">{title}</h1>
-                <p className="text-lg text-muted-foreground" style={preserveLineBreaks(description).style}>
-                  {preserveLineBreaks(description).content}
-                </p>
+                <ExpandableText
+                  text={description}
+                  textClassName="text-lg text-muted-foreground"
+                />
               </div>
 
               <div className="flex items-center flex-wrap gap-4 sm:gap-6">

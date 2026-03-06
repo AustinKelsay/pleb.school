@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ExpandableText } from '@/components/ui/expandable-text'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { VideoPlayer } from '@/components/ui/video-player'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -20,7 +21,6 @@ import { getRelays } from '@/lib/nostr-relays'
 import { ViewsText } from '@/components/ui/views-text'
 import { ResourceContentViewSkeleton } from '@/app/content/components/resource-skeletons'
 import { resolveUniversalId } from '@/lib/universal-router'
-import { preserveLineBreaks } from '@/lib/text-utils'
 import type { NostrEvent } from 'snstr'
 import { PurchaseDialog } from '@/components/purchase/purchase-dialog'
 import { useSession } from 'next-auth/react'
@@ -329,7 +329,6 @@ export function ResourceMetadataHero({
   bottomRightCta
 }: ResourceMetadataHeroProps) {
   const rawSummary = parsedEvent.summary?.trim() || ''
-  const formattedSummary = preserveLineBreaks(rawSummary)
   const category = parsedEvent.topics?.[0] || 'general'
   const type = parsedEvent.type || 'document'
   const heroImage = parsedEvent.image && parsedEvent.image !== '/placeholder.svg' ? parsedEvent.image : null
@@ -392,12 +391,11 @@ export function ResourceMetadataHero({
             {parsedEvent.title || 'Unknown Resource'}
           </h1>
           {rawSummary && (
-            <p
-              className="text-base text-muted-foreground/90 max-w-3xl"
-              style={formattedSummary.style}
-            >
-              {formattedSummary.content}
-            </p>
+            <ExpandableText
+              text={rawSummary}
+              className="max-w-3xl"
+              textClassName="text-base text-muted-foreground/90"
+            />
           )}
         </div>
 
