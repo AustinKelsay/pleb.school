@@ -13,7 +13,7 @@
       "backend": "Server",
       "mobile": "Smartphone",
       "security": "Shield",
-      "web3": "Globe"
+      "ai": "Bot"
     }
   },
   "_comments": {
@@ -165,7 +165,7 @@
       "backend",
       "mobile",
       "security",
-      "web3"
+      "ai"
     ],
     "priceFilterOptions": {
       "all": "All Content",

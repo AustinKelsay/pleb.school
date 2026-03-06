@@ -40,7 +40,7 @@ export const popularTags = [
   "backend",
   "mobile",
   "cryptography",
-  "web3",
+  "ai",
   "nodejs",
   "typescript"
 ]

@@ -151,7 +151,7 @@ Contains icons for content types and categories.
       "backend": "Server",
       "mobile": "Smartphone",
       "security": "Shield",
-      "web3": "Globe"
+      "ai": "Bot"
     }
   }
 }
@@ -250,7 +250,7 @@ Each category also has `getAll<Category>Icons()` returning `Record<string, Lucid
 | Function | Keys | Default Fallback |
 |----------|------|------------------|
 | `getContentTypeIcon(type)` | course, video, document | FileText |
-| `getCategoryIcon(category)` | bitcoin, lightning, nostr, frontend, backend, mobile, security, web3 | Tag |
+| `getCategoryIcon(category)` | bitcoin, lightning, nostr, frontend, backend, mobile, security, ai | Tag |
 
 ### From payments-config.ts
 
@@ -470,7 +470,7 @@ Object.entries(allIcons).map(([key, Icon]) => (
 | backend | Server | Backend category |
 | mobile | Smartphone | Mobile category |
 | security | Shield | Security category |
-| web3 | Globe | Web3 category |
+| ai | Bot | AI category |
 
 ### Provider Icons (auth.json)
 | Key | Icon | Usage |

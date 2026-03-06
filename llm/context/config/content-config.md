@@ -53,7 +53,7 @@ Icons for content category badges.
 | `backend` | `"Server"` | Backend development |
 | `mobile` | `"Smartphone"` | Mobile development |
 | `security` | `"Shield"` | Security topics |
-| `web3` | `"Globe"` | Web3/decentralized |
+| `ai` | `"Bot"` | AI topics |
 
 ## Homepage Configuration
 
@@ -208,7 +208,7 @@ Controls whether resources linked to lessons are visible on `/content`. Default 
 Master list of available categories:
 
 ```json
-["bitcoin", "lightning", "nostr", "frontend", "backend", "mobile", "security", "web3"]
+["bitcoin", "lightning", "nostr", "frontend", "backend", "mobile", "security", "ai"]
 ```
 
 Content items should use categories from this list.
