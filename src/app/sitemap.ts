@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next"
 import { CourseAdapter, ResourceAdapter } from "@/lib/db-adapter"
+import { isFeedsEnabled } from "@/lib/feeds-config"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,12 +26,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/feeds`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.8,
-    },
-    {
       url: `${baseUrl}/search`,
       lastModified: new Date(),
       changeFrequency: "weekly",
@@ -43,6 +38,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.5,
     },
   ]
+
+  if (isFeedsEnabled()) {
+    staticPages.push({
+      url: `${baseUrl}/feeds`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    })
+  }
 
   // Dynamic course pages
   let coursePages: MetadataRoute.Sitemap = []

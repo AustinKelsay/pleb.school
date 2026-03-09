@@ -36,6 +36,18 @@ src/lib/nostr-relays.ts
 
 ## Relays Configuration
 
+## Current Gap
+
+The current runtime relay model is aimed at public content, profile, and zap relay usage. It does not yet model relay-backed communities or authenticated community relay sessions.
+
+That matters for the planned Flotilla-compatible work:
+
+- `src/lib/nostr-relays.ts` only exposes `'default' | 'content' | 'profile' | 'zapThreads'`
+- there is no app-level concept of a named community `Space`
+- there is no dedicated config for NIP-42 relay auth or NIP-86 management endpoints
+
+For the community implementation, prefer adding explicit community relay config rather than folding private/community relay URLs into `relays.default`.
+
 ### Relay Sets
 
 | Set | Purpose | Fallback |
@@ -234,6 +246,11 @@ function fetchEvents(relaySet: RelaySet = 'default') {
 ```
 
 Valid values: `'default' | 'content' | 'profile' | 'zapThreads'`
+
+Planned extension:
+
+- keep these public relay sets for content/profile/zaps
+- add a separate community configuration surface for relay-backed spaces and management endpoints
 
 ### Normalize Relay URL
 

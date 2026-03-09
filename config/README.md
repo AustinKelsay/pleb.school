@@ -59,6 +59,7 @@ All user-facing strings for navigation, homepage, about page, content pages, err
 - `homepage.hero.title.useAnimated` toggles the rotating hero keywords.
 - `homepage.hero.buttons.watchDemoHref` controls the secondary hero CTA destination (internal path or external URL).
 - `homepage.visual.videoUrl` and optional `homepage.visual.videoPoster` let you configure hero video media without code changes.
+- `feeds.enabled` controls whether the Feeds feature is available at all. When `false`, the header link is hidden, `/feeds` is unavailable, `/community` no longer redirects there, and the sitemap omits the page.
 - `search.*` drives search page title/description, input placeholder, tab labels, summary, and empty/error messages.
 - `about.*` powers the About page hero, feature sections, and CTA.
 - `payments.purchaseDialog` and `payments.zapDialog` hold toasts/status text for Lightning payments.
@@ -78,6 +79,16 @@ Relay sets and event type mapping. Relay access flows through `getRelays(set)`; 
 - Relay sets: `default`, `content` (optional), `profile` (optional), `zapThreads`, `custom`.
 - Runtime: `src/lib/nostr-relays.ts` provides `getRelays(set)` and `DEFAULT_RELAYS`.
 - ZapThreads widget prefers the `zapThreads` set when present; otherwise it falls back to `default`.
+
+### `communities.json` — Community Relay Foundation
+
+Relay-backed community configuration for the Flotilla-compatible community layer.
+
+- Runtime: `src/lib/community/config.ts` provides config parsing and accessors.
+- Setup gate: `space.enabled=false` keeps the feeds/community UI in a guided setup state until a real relay is ready.
+- v1 scope: one configured `space`, one primary `relayUrl`, optional `managementUrl`.
+- Rooms live under `space.rooms` and may provide their own `groupId` or inherit the space `groupId`.
+- Auth/private/protected behavior is explicit per space or room rather than inferred from `nostr.json`.
 
 ### `admin.json` — Admin & Moderator
 
@@ -144,12 +155,14 @@ import authConfig from '../config/auth.json'
 import themeConfig from '../config/theme.json'
 import contentConfig from '../config/content.json'
 import copyConfig from '../config/copy.json'
+import communitiesConfig from '../config/communities.json'
 import { getRelays, DEFAULT_RELAYS } from '@/lib/nostr-relays'
 
 // Examples
 const emailEnabled = authConfig.providers.email.enabled
 const showThemeSelector = themeConfig.ui.showThemeSelector
 const relays = getRelays('default')
+const communityRelay = communitiesConfig.space.relayUrl
 ```
 
 ## Environment Notes

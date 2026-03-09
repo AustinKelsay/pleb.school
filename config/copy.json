@@ -94,7 +94,7 @@
     "navigation.searchPlaceholder": "Placeholder text shown in the search input field",
     "navigation.menuItems": "Text labels for main navigation menu items (links in the header)",
     "navigation.menuItems.content": "Top-level link to the content library",
-    "navigation.menuItems.feeds": "Link to activity/feeds section",
+    "navigation.menuItems.feeds": "Link to the feeds page (community chat + future activity feeds)",
     "navigation.menuItems.subscribe": "Link to subscription/monetization page",
     "navigation.menuItems.about": "Link to about page",
     "navigation.buttons": "Text for navigation action buttons (login, signup, etc.)",
@@ -139,7 +139,7 @@
     "homepage.cta": "Call-to-action section at bottom of homepage with title, description, and buttons",
     "homepage.sections": "Title and description text for content sections (courses, videos, documents)",
     "subscribe": "Subscribe page hero and highlights describing Lightning-powered subscriptions for creators and how learners unlock paid content and perks",
-    "feeds": "Feeds page hero and highlights describing Nostr-native community forums plus aggregated feeds from external communities (Discord, Stacker News, other Nostr chats)",
+    "feeds": "Feeds page with community chat tab and activity placeholder. feeds.enabled controls whether the feeds feature is available at all, and feeds.community contains copy for the community chat UI.",
     "about": "About page hero, sections, and call-to-action text describing how this platform works and how to fork it",
     "about.hero": "Hero section for the about page including badge, title, and description",
     "about.sections": "Key pillars that explain who the platform is for and how it works",
@@ -229,7 +229,7 @@
     "searchPlaceholder": "Search content",
     "menuItems": {
       "content": "Content",
-      "feeds": "Feeds", 
+      "feeds": "Feeds",
       "subscribe": "Subscribe",
       "about": "About"
     },
@@ -385,13 +385,21 @@
     }
   },
   "feeds": {
+    "enabled": true,
     "meta": {
       "title": "Feeds",
-      "description": "Soon you’ll be able to host a Nostr-native community forum on your pleb.school instance and aggregate read-only feeds from your other spaces like Discord and Stacker News."
+      "description": "Community chat and activity feeds powered by Nostr relays."
     },
     "hero": {
-      "title": "Coming soon: Nostr-native community feeds",
-      "description": "Run a Nostr-powered forum directly on your pleb.school deployment while conversations still live on Nostr. Mirror threads from your relays and pull in read-only activity from Discord servers, Stacker News Territories, and other Nostr communities."
+      "title": "Feeds",
+      "description": "Community chat and activity from across the platform."
+    },
+    "community": {
+      "emptyMessages": "No messages yet. Start the conversation!",
+      "composePlaceholder": "Share a message...",
+      "composePlaceholderDisabled": "Join the community to send messages.",
+      "errorTitle": "Could not connect",
+      "errorDescription": "Unable to reach the community. Please try again later."
     },
     "highlights": {
       "sources": {

@@ -15,6 +15,23 @@ Nostr event structures, building, and parsing for pleb.school content. The platf
 | NIP-98 | 27235 | HTTP authentication |
 | NIP-99 | 30402 | Classified listings (paid resources) |
 
+## Planned Community NIPs
+
+These are not yet modeled at the app level, but they are now part of the planned upstream community foundation after the `snstr` `0.3.3` baseline update:
+
+| NIP | Purpose |
+|-----|---------|
+| NIP-29 | Relay-backed group metadata, members, admins, roles, join/leave state |
+| NIP-42 | Relay `AUTH` challenge handling |
+| NIP-56 | Reports and moderation hooks |
+| NIP-70 | Protected tags for protected metadata/content flows |
+| NIP-86 | Relay management client operations |
+
+Current status:
+
+- `pleb.school` uses Nostr heavily for identity and content today
+- Flotilla-style room/community state is still planned, not implemented
+
 ## Event Structures
 
 ### Base Event (NIP-01)

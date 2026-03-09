@@ -44,6 +44,25 @@ All users get Nostr capabilities regardless of login method.
 
 NIP-07 login uses [NIP-98](https://nips.nostr.com/98) to cryptographically verify pubkey ownership, preventing impersonation attacks.
 
+### Boundary With Community Relay Auth
+
+`pleb.school` now uses two different Nostr auth surfaces for different jobs:
+
+- `NIP-98`
+  - used for application login and authenticated HTTP requests
+  - verified in `src/lib/auth.ts`
+  - answers: "does this pubkey control this sign-in request?"
+- `NIP-42`
+  - used by the community relay layer for relay-session authentication
+  - handled in `src/lib/community/relay-service.ts`
+  - answers: "may this signer access or act on this relay session?"
+
+These should stay separate in the architecture:
+
+- NextAuth session establishment remains an application concern
+- community relay `AUTH` challenge handling remains a relay/session concern
+- do not overload the NextAuth login path with long-lived relay membership or room-access state
+
 ### Client Flow (`src/app/auth/signin/page.tsx`)
 
 ```typescript

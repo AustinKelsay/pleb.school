@@ -54,7 +54,7 @@
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
-    "snstr": "^0.2.0",
+    "snstr": "^0.3.3",
     "tailwind-merge": "^3.3.1",
     "zapthreads": "^0.5.2",
     "zod": "^4.0.5"
