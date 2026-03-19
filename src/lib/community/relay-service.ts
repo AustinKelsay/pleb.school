@@ -13,7 +13,7 @@ import {
 } from "snstr"
 import logger from "@/lib/logger"
 import {
-  getCommunityRoom,
+  getCommunityRoomForSpace,
   getCommunitySpace,
   resolveCommunityRoomGroupId,
 } from "./config"
@@ -207,7 +207,12 @@ export class CommunityRelayService {
   async fetchRoomMessages(roomId: string, kinds: number[]): Promise<NostrEvent[]> {
     const room = this.requireRoom(roomId)
     const groupId = resolveCommunityRoomGroupId(room, this.space)
-    return this.fetchEvents(buildGroupContentFilters(groupId, kinds))
+    const filters = buildGroupContentFilters(groupId, kinds).map((filter) => ({
+      ...filter,
+      "#room": [room.id],
+    }))
+
+    return this.fetchEvents(filters)
   }
 
   async fetchGroupStateEvents(groupId: string, memberPubkey?: string): Promise<NostrEvent[]> {
@@ -274,7 +279,7 @@ export class CommunityRelayService {
   }
 
   private requireRoom(roomId: string): CommunityRoomConfig {
-    const room = getCommunityRoom(roomId)
+    const room = getCommunityRoomForSpace(roomId, this.space)
     if (!room) {
       throw new CommunityError(
         "relay_error",

@@ -31,6 +31,7 @@ type ApiEnvelope<T> = {
 
 type CommunitySpaceResponse = ApiEnvelope<CommunitySpaceData>
 type CommunityRoomResponse = ApiEnvelope<CommunityRoomData>
+type SessionData = ReturnType<typeof useSession>["data"]
 
 export const communityQueryKeys = {
   all: ["community"] as const,
@@ -101,17 +102,20 @@ async function postJson<T>(url: string, payload: unknown): Promise<T> {
   return parseApiResponse<T>(response)
 }
 
-function buildViewerContextFromSession(session: ReturnType<typeof useSession>["data"]): CommunityViewerContext {
+function buildViewerContextFromSession(
+  session: SessionData,
+  pubkey: string | undefined = session?.user?.pubkey
+): CommunityViewerContext {
   return {
     userId: session?.user?.id,
-    pubkey: session?.user?.pubkey,
+    pubkey,
     provider: session?.provider,
     isAuthenticated: Boolean(session?.user?.id),
     canServerSign: Boolean(session?.user?.hasEphemeralKeys),
   }
 }
 
-function shouldUseDirectRelayReads(session: ReturnType<typeof useSession>["data"]) {
+function shouldUseDirectRelayReads(session: SessionData) {
   const space = getCommunitySpace()
   const setupState = getCommunitySetupState(space)
   return Boolean(
@@ -122,12 +126,28 @@ function shouldUseDirectRelayReads(session: ReturnType<typeof useSession>["data"
   )
 }
 
-async function fetchCommunitySpaceDirect(
-  session: ReturnType<typeof useSession>["data"]
-): Promise<CommunitySpaceData> {
+function assertDirectSignerMatchesSession(session: SessionData, signerPubkey: string) {
+  const sessionPubkey = session?.user?.pubkey?.toLowerCase()
+  if (!sessionPubkey) {
+    throw new Error("Authenticated Nostr session is missing a pubkey.")
+  }
+
+  if (sessionPubkey !== signerPubkey.toLowerCase()) {
+    throw new Error("Connected Nostr signer does not match the signed-in account.")
+  }
+}
+
+async function resolveValidatedDirectSigner(session: SessionData) {
   const signer = await resolveCommunitySigner({
     allowNip07: true,
   })
+
+  assertDirectSignerMatchesSession(session, signer.pubkey)
+  return signer
+}
+
+async function fetchCommunitySpaceDirect(session: SessionData): Promise<CommunitySpaceData> {
+  const signer = await resolveValidatedDirectSigner(session)
   const relayService = new CommunityRelayService({
     signer: signer.signer,
   })
@@ -136,7 +156,7 @@ async function fetchCommunitySpaceDirect(
     await relayService.connect()
     return await loadCommunitySpaceData({
       relayService,
-      viewer: buildViewerContextFromSession(session),
+      viewer: buildViewerContextFromSession(session, signer.pubkey),
     })
   } finally {
     relayService.disconnect()
@@ -145,11 +165,9 @@ async function fetchCommunitySpaceDirect(
 
 async function fetchCommunityRoomDirect(
   roomId: string,
-  session: ReturnType<typeof useSession>["data"]
+  session: SessionData
 ): Promise<CommunityRoomData> {
-  const signer = await resolveCommunitySigner({
-    allowNip07: true,
-  })
+  const signer = await resolveValidatedDirectSigner(session)
   const relayService = new CommunityRelayService({
     signer: signer.signer,
   })
@@ -158,7 +176,7 @@ async function fetchCommunityRoomDirect(
     await relayService.connect()
     return await loadCommunityRoomData({
       relayService,
-      viewer: buildViewerContextFromSession(session),
+      viewer: buildViewerContextFromSession(session, signer.pubkey),
       roomId,
       limit: 50,
     })
@@ -167,10 +185,8 @@ async function fetchCommunityRoomDirect(
   }
 }
 
-async function publishDirectJoinLeave(action: "join" | "leave") {
-  const signer = await resolveCommunitySigner({
-    allowNip07: true,
-  })
+async function publishDirectJoinLeave(action: "join" | "leave", session: SessionData) {
+  const signer = await resolveValidatedDirectSigner(session)
   const space = getCommunitySpace()
   const relayService = new CommunityRelayService({
     signer: signer.signer,
@@ -192,10 +208,8 @@ async function publishDirectJoinLeave(action: "join" | "leave") {
   }
 }
 
-async function publishDirectMessage(roomId: string, content: string) {
-  const signer = await resolveCommunitySigner({
-    allowNip07: true,
-  })
+async function publishDirectMessage(roomId: string, content: string, session: SessionData) {
+  const signer = await resolveValidatedDirectSigner(session)
   const space = getCommunitySpace()
   const room = getCommunityRoom(roomId)
 
@@ -267,7 +281,7 @@ export function useCommunityMembershipMutation() {
       }
 
       if (session?.provider === "nostr") {
-        return publishDirectJoinLeave(action)
+        return publishDirectJoinLeave(action, session)
       }
 
       throw new Error("No supported signing path is available for this account.")
@@ -290,7 +304,7 @@ export function useCommunityMessageMutation() {
       }
 
       if (session?.provider === "nostr") {
-        return publishDirectMessage(payload.roomId, payload.content)
+        return publishDirectMessage(payload.roomId, payload.content, session)
       }
 
       throw new Error("No supported signing path is available for this account.")

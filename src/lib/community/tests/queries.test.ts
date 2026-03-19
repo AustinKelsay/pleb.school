@@ -165,4 +165,50 @@ describe("community queries", () => {
     expect(result.messages[0]?.id).toBe("msg-3")
     expect(result.messages[1]?.id).toBe("msg-2")
   })
+
+  it("resolves rooms from the supplied space override", async () => {
+    const relayService = {
+      fetchGroupStateEvents: vi.fn().mockResolvedValue([{ kind: 39000 }]),
+      fetchRoomMessages: vi.fn().mockResolvedValue([]),
+    } as any
+
+    const result = await loadCommunityRoomData({
+      relayService,
+      viewer: {
+        userId: "user-1",
+        pubkey: "viewer-pubkey",
+        provider: "github",
+        isAuthenticated: true,
+        canServerSign: true,
+      },
+      roomId: "custom-room",
+      limit: 10,
+      space: {
+        id: "custom-space",
+        name: "Custom Space",
+        isEnabled: true,
+        relayUrl: "wss://relay.example.com",
+        managementUrl: "https://relay.example.com",
+        groupId: "custom-space-group",
+        requiresAuth: true,
+        isPrivate: false,
+        isProtected: false,
+        rooms: [
+          {
+            id: "custom-room",
+            name: "Custom Room",
+            groupId: "custom-room-group",
+            isDefault: true,
+            requiresMembership: true,
+            isPrivate: false,
+            isProtected: false,
+          },
+        ],
+      },
+    })
+
+    expect(result.room.id).toBe("custom-room")
+    expect(result.room.groupId).toBe("custom-room-group")
+    expect(relayService.fetchGroupStateEvents).toHaveBeenCalledWith("custom-room-group", "viewer-pubkey")
+  })
 })

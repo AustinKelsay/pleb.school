@@ -97,6 +97,18 @@ export function isCommunityScopedEvent(event: NostrEvent, groupId: string): bool
 }
 
 export async function verifyCommunityEventSignature(event: NostrEvent): Promise<boolean> {
+  const computedId = await getEventHash({
+    pubkey: event.pubkey,
+    created_at: event.created_at,
+    kind: event.kind,
+    tags: event.tags,
+    content: event.content,
+  })
+
+  if (computedId !== event.id) {
+    return false
+  }
+
   return verifySignature(event.id, event.sig, event.pubkey)
 }
 

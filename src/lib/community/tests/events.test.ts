@@ -47,4 +47,22 @@ describe("community events", () => {
     expect(isValid).toBe(true)
     expect(parseCommunityMessage(event).roomId).toBe("general")
   })
+
+  it("rejects events whose content no longer matches the signed event id", async () => {
+    const template = createCommunityMessageTemplate({
+      groupId: "pleb-school-general",
+      roomId: "general",
+      content: "hello world",
+    })
+
+    const event = await createSignedCommunityEvent(
+      template,
+      "1111111111111111111111111111111111111111111111111111111111111111"
+    )
+
+    expect(await verifyCommunityEventSignature({
+      ...event,
+      content: "tampered message",
+    })).toBe(false)
+  })
 })

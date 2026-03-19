@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getCommunityRoom, getCommunitySpace } from "@/lib/community/config"
+import { getCommunityRoomForSpace, getCommunitySpace } from "@/lib/community/config"
 import { loadCommunityRoomData } from "@/lib/community/queries"
 import { CommunityRelayService } from "@/lib/community/relay-service"
 import {
@@ -14,13 +14,14 @@ export async function GET(
   context: { params: Promise<{ roomId: string }> }
 ) {
   const { roomId } = await context.params
-  const roomConfig = getCommunityRoom(roomId)
   const spaceConfig = getCommunitySpace()
+  const roomConfig = getCommunityRoomForSpace(roomId, spaceConfig)
 
   if (!roomConfig) {
     return NextResponse.json(
       {
         success: false,
+        code: "room_not_found",
         error: `Unknown community room "${roomId}".`,
       },
       { status: 404 }

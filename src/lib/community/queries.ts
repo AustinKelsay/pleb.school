@@ -7,7 +7,7 @@ import {
   REMOVE_USER_KIND,
 } from "snstr"
 import {
-  getCommunityRoom,
+  getCommunityRoomForSpace,
   getCommunitySpace,
   mapRoomConfigToRoom,
   mapSpaceConfigToSpace,
@@ -112,7 +112,7 @@ export async function loadCommunityRoomData(params: {
   space?: CommunitySpaceConfig
 }): Promise<CommunityRoomData> {
   const space = params.space ?? getCommunitySpace()
-  const roomConfig = getCommunityRoom(params.roomId)
+  const roomConfig = getCommunityRoomForSpace(params.roomId, space)
 
   if (!roomConfig) {
     throw new Error(`Unknown community room "${params.roomId}".`)

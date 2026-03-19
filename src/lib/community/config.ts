@@ -150,7 +150,14 @@ export function getCommunitySpace(): CommunitySpaceConfig {
 }
 
 export function getCommunityRoom(roomId: string): CommunityRoomConfig | undefined {
-  return communitiesConfig.space.rooms.find((room) => room.id === roomId)
+  return getCommunityRoomForSpace(roomId, communitiesConfig.space)
+}
+
+export function getCommunityRoomForSpace(
+  roomId: string,
+  space: CommunitySpaceConfig = getCommunitySpace()
+): CommunityRoomConfig | undefined {
+  return space.rooms.find((room) => room.id === roomId)
 }
 
 export function getDefaultCommunityRoom(): CommunityRoomConfig {

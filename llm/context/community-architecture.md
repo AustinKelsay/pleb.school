@@ -1,6 +1,6 @@
 # Community Architecture
 
-Last Updated: 2026-03-08
+Last Updated: 2026-03-19
 Status: Initial scaffold
 
 ## Purpose
@@ -16,6 +16,7 @@ This document tracks the upstream community-chat foundation for Flotilla-compati
   - `src/lib/community/config.ts`
   - `src/lib/community/signer.ts`
   - `src/lib/community/reducers.ts`
+  - `src/lib/community/events.ts`
   - `src/lib/community/relay-service.ts`
   - `src/lib/community/queries.ts`
   - `src/lib/community/server.ts`

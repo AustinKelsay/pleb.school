@@ -9,6 +9,23 @@ import {
 import { CommunityError } from "@/lib/community/types"
 import logger from "@/lib/logger"
 
+function getCommunityErrorStatus(error: CommunityError): number {
+  switch (error.code) {
+    case "auth_failed":
+    case "auth_unavailable":
+    case "membership_required":
+    case "permission_denied":
+    case "protected_content_required":
+      return 403
+    case "relay_unreachable":
+    case "relay_timeout":
+    case "relay_error":
+      return 503
+    default:
+      return 503
+  }
+}
+
 export async function GET() {
   let relayService: CommunityRelayService | null = null
 
@@ -40,7 +57,7 @@ export async function GET() {
         error: error instanceof Error ? error.message : "Failed to load community space state",
         code: error instanceof CommunityError ? error.code : "relay_error",
       },
-      { status: error instanceof CommunityError ? 503 : 500 }
+      { status: error instanceof CommunityError ? getCommunityErrorStatus(error) : 500 }
     )
   } finally {
     relayService?.disconnect()

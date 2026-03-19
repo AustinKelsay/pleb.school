@@ -1,7 +1,7 @@
-import { ZodError, z } from "zod"
 import { NextRequest, NextResponse } from "next/server"
+import { ZodError, z } from "zod"
 import {
-  getCommunityRoom,
+  getCommunityRoomForSpace,
   getCommunitySpace,
   resolveCommunityRoomGroupId,
 } from "@/lib/community/config"
@@ -35,15 +35,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const payload = CreateMessageSchema.parse(await request.json())
-    const room = getCommunityRoom(payload.roomId)
     const space = getCommunitySpace()
+    const room = getCommunityRoomForSpace(payload.roomId, space)
 
     if (!room) {
       return NextResponse.json(
         {
           success: false,
           error: `Unknown community room "${payload.roomId}".`,
-          code: "relay_error",
+          code: "room_not_found",
         },
         { status: 404 }
       )

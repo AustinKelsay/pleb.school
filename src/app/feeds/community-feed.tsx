@@ -326,6 +326,15 @@ export function CommunityFeed() {
         />
       )
     }
+
+    return (
+      <CommunityNotReadyState
+        isAdmin={canSeeAdminSetup}
+        setupState={setupState}
+        mode="unavailable"
+        errorMessage={toErrorMessage(communityQuery.error)}
+      />
+    )
   }
 
   return (
