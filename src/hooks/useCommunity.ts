@@ -2,9 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  getCommunityRoom,
-  getCommunitySetupState,
-  getCommunitySpace,
+  getCommunityClientConfig,
+  getCommunityClientSetupState,
+  getCommunityRoomForSpace,
   resolveCommunityRoomGroupId,
 } from "@/lib/community/config"
 import {
@@ -116,8 +116,8 @@ function buildViewerContextFromSession(
 }
 
 function shouldUseDirectRelayReads(session: SessionData) {
-  const space = getCommunitySpace()
-  const setupState = getCommunitySetupState(space)
+  const space = getCommunityClientConfig()
+  const setupState = getCommunityClientSetupState(space)
   return Boolean(
     setupState.isConfigured &&
     space.requiresAuth &&
@@ -148,8 +148,10 @@ async function resolveValidatedDirectSigner(session: SessionData) {
 
 async function fetchCommunitySpaceDirect(session: SessionData): Promise<CommunitySpaceData> {
   const signer = await resolveValidatedDirectSigner(session)
+  const space = getCommunityClientConfig()
   const relayService = new CommunityRelayService({
     signer: signer.signer,
+    space,
   })
 
   try {
@@ -168,8 +170,10 @@ async function fetchCommunityRoomDirect(
   session: SessionData
 ): Promise<CommunityRoomData> {
   const signer = await resolveValidatedDirectSigner(session)
+  const space = getCommunityClientConfig()
   const relayService = new CommunityRelayService({
     signer: signer.signer,
+    space,
   })
 
   try {
@@ -187,9 +191,10 @@ async function fetchCommunityRoomDirect(
 
 async function publishDirectJoinLeave(action: "join" | "leave", session: SessionData) {
   const signer = await resolveValidatedDirectSigner(session)
-  const space = getCommunitySpace()
+  const space = getCommunityClientConfig()
   const relayService = new CommunityRelayService({
     signer: signer.signer,
+    space,
   })
 
   try {
@@ -210,8 +215,8 @@ async function publishDirectJoinLeave(action: "join" | "leave", session: Session
 
 async function publishDirectMessage(roomId: string, content: string, session: SessionData) {
   const signer = await resolveValidatedDirectSigner(session)
-  const space = getCommunitySpace()
-  const room = getCommunityRoom(roomId)
+  const space = getCommunityClientConfig()
+  const room = getCommunityRoomForSpace(roomId, space)
 
   if (!room) {
     throw new Error(`Unknown community room "${roomId}".`)
@@ -219,6 +224,7 @@ async function publishDirectMessage(roomId: string, content: string, session: Se
 
   const relayService = new CommunityRelayService({
     signer: signer.signer,
+    space,
   })
 
   try {
@@ -238,7 +244,7 @@ async function publishDirectMessage(roomId: string, content: string, session: Se
 
 export function useCommunitySpaceQuery() {
   const { data: session, status } = useSession()
-  const setupState = getCommunitySetupState()
+  const setupState = getCommunityClientSetupState()
   const useDirectReads = shouldUseDirectRelayReads(session)
 
   return useQuery({
@@ -255,7 +261,7 @@ export function useCommunitySpaceQuery() {
 
 export function useCommunityRoomQuery(roomId?: string) {
   const { data: session, status } = useSession()
-  const setupState = getCommunitySetupState()
+  const setupState = getCommunityClientSetupState()
   const useDirectReads = shouldUseDirectRelayReads(session)
 
   return useQuery({

@@ -141,7 +141,7 @@ describe("community write routes", () => {
     const body = await response.json()
 
     expect(response.status).toBe(404)
-    expect(body.code).toBe("relay_error")
+    expect(body.code).toBe("room_not_found")
     expect(mockCreateServerCommunityRelayServiceForUser).not.toHaveBeenCalled()
   })
 })

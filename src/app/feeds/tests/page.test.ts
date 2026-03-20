@@ -11,8 +11,17 @@ vi.mock("next/navigation", () => ({
   notFound: (...args: unknown[]) => mockNotFound(...args),
 }))
 
+vi.mock("@/components/layout", () => ({
+  MainLayout: ({ children }: { children: unknown }) => children,
+}))
+
+vi.mock("../feeds-client", () => ({
+  FeedsClient: () => "feeds-client",
+}))
+
 describe("/feeds page gating", () => {
   beforeEach(() => {
+    vi.resetModules()
     vi.clearAllMocks()
   })
 
@@ -26,5 +35,15 @@ describe("/feeds page gating", () => {
     expect(() => FeedsPage()).toThrow("notFound")
 
     expect(mockNotFound).toHaveBeenCalledOnce()
+  })
+
+  it("renders the feeds page when feeds are enabled", async () => {
+    mockIsFeedsEnabled.mockReturnValue(true)
+
+    const { default: FeedsPage } = await import("../page")
+    const page = FeedsPage()
+
+    expect(page).toBeTruthy()
+    expect(mockNotFound).not.toHaveBeenCalled()
   })
 })

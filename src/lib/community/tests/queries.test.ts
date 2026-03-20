@@ -18,7 +18,7 @@ vi.mock("@/lib/community/events", () => ({
   sortEventsNewestFirst: (...args: unknown[]) => mockSortEventsNewestFirst(...args),
 }))
 
-import { loadCommunityRoomData } from "@/lib/community/queries"
+import { loadCommunityRoomData, loadCommunitySpaceData } from "@/lib/community/queries"
 
 describe("community queries", () => {
   beforeEach(() => {
@@ -209,6 +209,61 @@ describe("community queries", () => {
 
     expect(result.room.id).toBe("custom-room")
     expect(result.room.groupId).toBe("custom-room-group")
+    expect(result.membership).toEqual({
+      status: "granted",
+      isMember: true,
+      inheritedFromSpace: true,
+    })
+    expect(mockCreateRoomMembership).not.toHaveBeenCalled()
     expect(relayService.fetchGroupStateEvents).toHaveBeenCalledWith("custom-room-group", "viewer-pubkey")
+  })
+
+  it("inherits room membership from the space in space summaries when a room has no room-specific membership signals", async () => {
+    const relayService = {
+      fetchGroupStateEvents: vi
+        .fn()
+        .mockResolvedValueOnce([{ kind: 39000 }])
+        .mockResolvedValueOnce([{ kind: 39000 }]),
+    } as any
+
+    const result = await loadCommunitySpaceData({
+      relayService,
+      viewer: {
+        userId: "user-1",
+        pubkey: "viewer-pubkey",
+        provider: "github",
+        isAuthenticated: true,
+        canServerSign: true,
+      },
+      space: {
+        id: "custom-space",
+        name: "Custom Space",
+        isEnabled: true,
+        relayUrl: "wss://relay.example.com",
+        managementUrl: "https://relay.example.com",
+        groupId: "custom-space-group",
+        requiresAuth: true,
+        isPrivate: false,
+        isProtected: false,
+        rooms: [
+          {
+            id: "custom-room",
+            name: "Custom Room",
+            groupId: "custom-room-group",
+            isDefault: true,
+            requiresMembership: true,
+            isPrivate: false,
+            isProtected: false,
+          },
+        ],
+      },
+    })
+
+    expect(result.rooms[0]?.membership).toEqual({
+      status: "granted",
+      isMember: true,
+      inheritedFromSpace: true,
+    })
+    expect(mockCreateRoomMembership).toHaveBeenCalledOnce()
   })
 })

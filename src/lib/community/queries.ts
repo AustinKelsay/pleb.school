@@ -62,6 +62,7 @@ export async function loadCommunitySpaceData(params: {
         ? spaceEvents
         : await params.relayService.fetchGroupStateEvents(groupId, params.viewer.pubkey)
       const roomState = reduceCommunityGroupState(roomEvents, groupId, params.viewer.pubkey)
+      const hasRoomSpecificMembership = hasRoomSpecificMembershipSignals(roomEvents)
       const roomMembership = params.viewer.pubkey
         ? createRoomMembership({
             spaceId: space.id,
@@ -72,6 +73,18 @@ export async function loadCommunitySpaceData(params: {
             inheritedFromSpace: groupId === space.groupId,
           })
         : null
+      const effectiveRoomMembership =
+        roomMembership &&
+        groupId !== space.groupId &&
+        spaceMembership &&
+        !roomMembership.isMember &&
+        !hasRoomSpecificMembership
+          ? {
+              status: spaceMembership.status,
+              isMember: spaceMembership.isMember,
+              inheritedFromSpace: true,
+            }
+          : roomMembership
 
       return {
         ...mapRoomConfigToRoom(roomConfig, space),
@@ -80,11 +93,11 @@ export async function loadCommunitySpaceData(params: {
           roomState.admins.length,
           roomState.metadata
         ),
-        membership: roomMembership
+        membership: effectiveRoomMembership
           ? {
-              status: roomMembership.status,
-              isMember: roomMembership.isMember,
-              inheritedFromSpace: roomMembership.inheritedFromSpace,
+              status: effectiveRoomMembership.status,
+              isMember: effectiveRoomMembership.isMember,
+              inheritedFromSpace: effectiveRoomMembership.inheritedFromSpace,
             }
           : null,
       }

@@ -50,6 +50,7 @@ export class CommunityRelayService {
   private readonly autoAuthenticate: boolean
   private readonly logger: CommunityRelayLogger
   private readonly client: Nostr
+  private pendingAuthPromise: Promise<unknown> | null = null
 
   constructor(options: CommunityRelayServiceOptions = {}) {
     this.space = options.space ?? getCommunitySpace()
@@ -72,8 +73,13 @@ export class CommunityRelayService {
   async connect(): Promise<void> {
     try {
       await this.client.connectToRelays()
+      if (this.pendingAuthPromise) {
+        await this.pendingAuthPromise
+      }
     } catch (error) {
       throw this.wrapRelayError("connect", error)
+    } finally {
+      this.pendingAuthPromise = null
     }
   }
 
@@ -264,7 +270,7 @@ export class CommunityRelayService {
         return
       }
 
-      void this.authenticate(relayUrl, challenge).catch((error) => {
+      this.pendingAuthPromise = this.authenticate(relayUrl, challenge).catch((error) => {
         const wrapped = error instanceof CommunityError
           ? error
           : this.wrapRelayError("authenticate", error, { relayUrl })
@@ -274,6 +280,7 @@ export class CommunityRelayService {
           message: wrapped.message,
           context: wrapped.context,
         })
+        throw wrapped
       })
     })
   }

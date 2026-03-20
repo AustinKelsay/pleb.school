@@ -180,6 +180,12 @@ export interface ParsedResourceEvent {
   category?: string
 }
 
+export interface ParsedCommunityEventTags {
+  roomId?: string
+  groupId: string
+  isProtected: boolean
+}
+
 // ============================================================================
 // UTILITY TYPES AND FUNCTIONS
 // ============================================================================
@@ -375,6 +381,20 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
   eventData.additionalLinks = tagsToAdditionalLinks(event.tags, 'r')
 
   return eventData
+}
+
+export function parseCommunityEventTags(event: Pick<NostrEvent, "tags">): ParsedCommunityEventTags {
+  const groupId = event.tags.find((tag) => tag[0] === "h")?.[1]
+
+  if (!groupId) {
+    throw new Error("Community message is missing group scope tag.")
+  }
+
+  return {
+    roomId: event.tags.find((tag) => tag[0] === "room")?.[1],
+    groupId,
+    isProtected: event.tags.some((tag) => tag[0] === "-"),
+  }
 }
 
 function extractVideoUrlFromContent(content: string): string | undefined {

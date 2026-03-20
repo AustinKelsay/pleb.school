@@ -17,7 +17,7 @@ Nostr event structures, building, and parsing for pleb.school content. The platf
 
 ## Planned Community NIPs
 
-These are not yet modeled at the app level, but they are now part of the planned upstream community foundation after the `snstr` `0.3.3` baseline update:
+These NIPs now have a partial implementation footprint in `pleb.school`: the app ships community configuration, viewer/context models, reducers, and route wiring for basic relay-backed space metadata, membership reads, join/leave requests, and room message publishing. The remaining work is centered on fuller Flotilla-style operational state, richer moderation flows, and relay-management tooling.
 
 | NIP | Purpose |
 |-----|---------|
@@ -29,8 +29,9 @@ These are not yet modeled at the app level, but they are now part of the planned
 
 Current status:
 
-- `pleb.school` uses Nostr heavily for identity and content today
-- Flotilla-style room/community state is still planned, not implemented
+- `pleb.school` uses Nostr for identity, content, and now basic relay-backed community state
+- NIP-29-style group metadata, membership reads, join/leave publishing, and room message publishing are implemented at the app level
+- Flotilla-style relay operations, advanced moderation/report flows, and NIP-86 management tooling are still deferred
 
 ## Event Structures
 

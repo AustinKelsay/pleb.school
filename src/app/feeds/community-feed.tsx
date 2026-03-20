@@ -17,8 +17,8 @@ import {
 import { useIsAdmin } from "@/hooks/useAdmin"
 import { useSession } from "@/hooks/useSession"
 import { useToast } from "@/hooks/use-toast"
+import { getCommunityClientSetupState } from "@/lib/community/config"
 import { copyConfig } from "@/lib/copy"
-import { getCommunitySetupState } from "@/lib/community/config"
 import { cn } from "@/lib/utils"
 import type { CommunitySetupState } from "@/lib/community/types"
 
@@ -95,10 +95,6 @@ function SetupChecklist({
         <div className="rounded-xl border bg-card/70 p-3">
           <div className="font-medium text-foreground">Current relay</div>
           <div className="mt-1 break-all font-mono">{setupState.relayUrl}</div>
-        </div>
-        <div className="rounded-xl border bg-card/70 p-3">
-          <div className="font-medium text-foreground">Management URL</div>
-          <div className="mt-1 break-all font-mono">{setupState.managementUrl ?? "Not set"}</div>
         </div>
         <div className="rounded-xl border bg-card/70 p-3">
           <div className="font-medium text-foreground">Primary group</div>
@@ -219,11 +215,11 @@ function CommunityNotReadyState({
   )
 }
 
-export function CommunityFeed() {
+export const CommunityFeed = () => {
   const { data: session } = useSession()
   const { isAdmin, isModerator } = useIsAdmin()
   const { toast } = useToast()
-  const setupState = getCommunitySetupState()
+  const setupState = getCommunityClientSetupState()
   const communityQuery = useCommunitySpaceQuery()
   const membershipMutation = useCommunityMembershipMutation()
   const messageMutation = useCommunityMessageMutation()
@@ -322,7 +318,7 @@ export function CommunityFeed() {
           isAdmin={canSeeAdminSetup}
           setupState={setupState}
           mode="unavailable"
-          errorMessage={toErrorMessage(communityQuery.error)}
+          errorMessage={canSeeAdminSetup ? toErrorMessage(communityQuery.error) : communityCopy.errorDescription}
         />
       )
     }
@@ -332,7 +328,7 @@ export function CommunityFeed() {
         isAdmin={canSeeAdminSetup}
         setupState={setupState}
         mode="unavailable"
-        errorMessage={toErrorMessage(communityQuery.error)}
+        errorMessage={canSeeAdminSetup ? toErrorMessage(communityQuery.error) : communityCopy.errorDescription}
       />
     )
   }
@@ -405,7 +401,7 @@ export function CommunityFeed() {
 
       {/* Room sidebar + message panel */}
       {(!communityQuery.isLoading || communityQuery.data) && (
-      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* Room sidebar — vertical on desktop, horizontal scroll on mobile */}
         <div>
           <div className="mb-3 text-sm font-medium text-muted-foreground">Rooms</div>
@@ -490,7 +486,9 @@ export function CommunityFeed() {
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>{communityCopy.errorTitle}</AlertTitle>
-                <AlertDescription>{toErrorMessage(roomQuery.error)}</AlertDescription>
+                <AlertDescription>
+                  {canSeeAdminSetup ? toErrorMessage(roomQuery.error) : communityCopy.errorDescription}
+                </AlertDescription>
               </Alert>
             </div>
           )}
@@ -545,7 +543,7 @@ export function CommunityFeed() {
             </div>
           </div>
         </Card>
-      </div>
+        </div>
       )}
     </div>
   )

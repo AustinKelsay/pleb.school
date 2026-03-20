@@ -32,11 +32,17 @@ export async function GET() {
   try {
     const spaceConfig = getCommunitySpace()
     const viewer = await getCommunityViewerContext()
-    relayService = viewer.userId && viewer.canServerSign
-      ? (await createServerCommunityRelayServiceForUser(viewer.userId)).service
-      : new CommunityRelayService({
-          autoAuthenticate: false,
-        })
+    if (viewer.userId && viewer.canServerSign) {
+      const { service, pubkey } = await createServerCommunityRelayServiceForUser(viewer.userId)
+      relayService = service
+      if (pubkey) {
+        viewer.pubkey = pubkey
+      }
+    } else {
+      relayService = new CommunityRelayService({
+        autoAuthenticate: false,
+      })
+    }
 
     await relayService.connect()
     const data = await loadCommunitySpaceData({

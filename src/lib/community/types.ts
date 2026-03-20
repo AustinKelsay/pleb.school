@@ -52,6 +52,8 @@ export interface CommunitySpaceConfig {
   rooms: CommunityRoomConfig[]
 }
 
+export type CommunityClientSpaceConfig = Omit<CommunitySpaceConfig, "managementUrl">
+
 export interface CommunitiesConfig {
   space: CommunitySpaceConfig
 }
@@ -61,7 +63,6 @@ export interface Space {
   name: string
   isEnabled: boolean
   relayUrl: string
-  managementUrl?: string
   groupId: string
   requiresAuth: boolean
   isPrivate: boolean
@@ -202,8 +203,11 @@ export interface CommunitySetupState {
   isConfigured: boolean
   reasons: CommunitySetupReason[]
   relayUrl: string
-  managementUrl?: string
   groupId: string
   roomCount: number
   checklist: string[]
+}
+
+export interface CommunityAdminSetupState extends CommunitySetupState {
+  managementUrl?: string
 }

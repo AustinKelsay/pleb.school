@@ -9,6 +9,25 @@ import {
 import { CommunityError } from "@/lib/community/types"
 import logger from "@/lib/logger"
 
+function getCommunityRoomErrorStatus(error: CommunityError): number {
+  switch (error.code) {
+    case "auth_required":
+    case "auth_failed":
+    case "auth_unavailable":
+      return 401
+    case "membership_required":
+    case "permission_denied":
+    case "protected_content_required":
+      return 403
+    case "relay_unreachable":
+    case "relay_timeout":
+    case "relay_error":
+      return 503
+    default:
+      return 400
+  }
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ roomId: string }> }
@@ -32,11 +51,17 @@ export async function GET(
 
   try {
     const viewer = await getCommunityViewerContext()
-    relayService = viewer.userId && viewer.canServerSign
-      ? (await createServerCommunityRelayServiceForUser(viewer.userId)).service
-      : new CommunityRelayService({
-          autoAuthenticate: false,
-        })
+    if (viewer.userId && viewer.canServerSign) {
+      const { service, pubkey } = await createServerCommunityRelayServiceForUser(viewer.userId)
+      relayService = service
+      if (pubkey) {
+        viewer.pubkey = pubkey
+      }
+    } else {
+      relayService = new CommunityRelayService({
+        autoAuthenticate: false,
+      })
+    }
 
     await relayService.connect()
 
@@ -65,7 +90,7 @@ export async function GET(
         error: error instanceof Error ? error.message : "Failed to load community room state",
         code: error instanceof CommunityError ? error.code : "relay_error",
       },
-      { status: error instanceof CommunityError ? 503 : 500 }
+      { status: error instanceof CommunityError ? getCommunityRoomErrorStatus(error) : 500 }
     )
   } finally {
     relayService?.disconnect()

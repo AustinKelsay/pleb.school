@@ -2,6 +2,8 @@ import { z } from "zod"
 import communitiesConfigRaw from "../../../config/communities.json"
 import { normalizeRelayUrl } from "@/lib/nostr-relays"
 import type {
+  CommunityAdminSetupState,
+  CommunityClientSpaceConfig,
   CommunitiesConfig,
   CommunityRoomConfig,
   CommunitySetupState,
@@ -120,6 +122,20 @@ function mapSpaceConfig(input: z.infer<typeof SpaceInputSchema>): CommunitySpace
   }
 }
 
+function mapSpaceConfigToClientConfig(space: CommunitySpaceConfig): CommunityClientSpaceConfig {
+  return {
+    id: space.id,
+    name: space.name,
+    isEnabled: space.isEnabled,
+    relayUrl: space.relayUrl,
+    groupId: space.groupId,
+    requiresAuth: space.requiresAuth,
+    isPrivate: space.isPrivate,
+    isProtected: space.isProtected,
+    rooms: space.rooms.map((room) => ({ ...room })),
+  }
+}
+
 function isPlaceholderCommunityUrl(value?: string): boolean {
   if (!value) {
     return false
@@ -147,6 +163,10 @@ export function getCommunitiesConfig(): CommunitiesConfig {
 
 export function getCommunitySpace(): CommunitySpaceConfig {
   return communitiesConfig.space
+}
+
+export function getCommunityClientConfig(): CommunityClientSpaceConfig {
+  return mapSpaceConfigToClientConfig(getCommunitySpace())
 }
 
 export function getCommunityRoom(roomId: string): CommunityRoomConfig | undefined {
@@ -177,8 +197,8 @@ export function resolveCommunityRoomGroupId(
 
 export function getCommunitySetupState(
   space: CommunitySpaceConfig = getCommunitySpace()
-): CommunitySetupState {
-  const reasons: CommunitySetupState["reasons"] = []
+): CommunityAdminSetupState {
+  const reasons: CommunityAdminSetupState["reasons"] = []
 
   if (!space.isEnabled) {
     reasons.push("disabled")
@@ -209,13 +229,40 @@ export function getCommunitySetupState(
   }
 }
 
+export function getCommunityClientSetupState(
+  space: CommunityClientSpaceConfig = getCommunityClientConfig()
+): CommunitySetupState {
+  const reasons: CommunitySetupState["reasons"] = []
+
+  if (!space.isEnabled) {
+    reasons.push("disabled")
+  }
+
+  if (isPlaceholderCommunityUrl(space.relayUrl)) {
+    reasons.push("placeholder_relay")
+  }
+
+  return {
+    isConfigured: reasons.length === 0,
+    reasons,
+    relayUrl: space.relayUrl,
+    groupId: space.groupId,
+    roomCount: space.rooms.length,
+    checklist: [
+      "Set `space.enabled` to `true` once your community relay is ready.",
+      "Point `space.relayUrl` at your Zooid relay WebSocket endpoint (`wss://...`).",
+      "Set `space.groupId` to the primary NIP-29 group id for the space and configure `space.rooms[].groupId` values where needed.",
+      "Restart or redeploy the app after updating `config/communities.json`.",
+    ],
+  }
+}
+
 export function mapSpaceConfigToSpace(space: CommunitySpaceConfig = getCommunitySpace()): Space {
   return {
     id: space.id,
     name: space.name,
     isEnabled: space.isEnabled,
     relayUrl: space.relayUrl,
-    managementUrl: space.managementUrl,
     groupId: space.groupId,
     requiresAuth: space.requiresAuth,
     isPrivate: space.isPrivate,

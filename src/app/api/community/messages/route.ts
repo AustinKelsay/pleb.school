@@ -49,6 +49,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!space.isEnabled) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Community space is disabled.",
+          code: "space_disabled",
+        },
+        { status: 409 }
+      )
+    }
+
     const { service } = await createServerCommunityRelayServiceForUser(viewer.userId)
     relayService = service
     await relayService.connect()
@@ -84,9 +95,12 @@ export async function POST(request: NextRequest) {
 
     logger.error("Failed to publish community message", error)
 
-    const status = error instanceof CommunityError && error.code === "auth_unavailable" ? 400 : 500
+    const fallbackMessage = "Failed to publish community message"
+    const status = error instanceof CommunityError ? 400 : 500
     const code = error instanceof CommunityError ? error.code : "relay_error"
-    const message = error instanceof Error ? error.message : "Failed to publish community message"
+    const message = error instanceof CommunityError
+      ? (error.message || fallbackMessage)
+      : (error instanceof Error ? error.message : fallbackMessage)
 
     return NextResponse.json(
       {

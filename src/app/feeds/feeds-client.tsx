@@ -9,7 +9,7 @@ import { CommunityFeed } from "./community-feed"
 
 const feedsCopy = copyConfig.feeds
 
-export function FeedsClient() {
+export const FeedsClient = () => {
   const highlights = feedsCopy?.highlights
   const cta = feedsCopy?.cta
 

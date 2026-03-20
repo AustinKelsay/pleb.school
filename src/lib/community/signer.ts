@@ -28,7 +28,24 @@ async function finalizeSigner(
   signer: Signer,
   mode: CommunitySignerResolution["mode"]
 ): Promise<CommunitySignerResolution> {
-  const pubkey = await signer.getPublicKey()
+  let pubkey: string
+  try {
+    pubkey = await signer.getPublicKey()
+  } catch (error) {
+    const message = error instanceof Error && error.message
+      ? `Failed to resolve community signer public key: ${error.message}`
+      : "Failed to resolve community signer public key."
+
+    throw new CommunityError(
+      "auth_failed",
+      message,
+      {
+        operation: "resolve_signer",
+      },
+      error
+    )
+  }
+
   const capabilities = getSignerCapabilities(signer)
 
   return {

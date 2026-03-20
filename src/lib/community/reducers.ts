@@ -13,7 +13,7 @@ import type {
   RoomMembership,
 } from "./types"
 
-function pickLatestEvent(events: NostrEvent[], kind: number, groupId: string): NostrEvent | undefined {
+export function pickLatestEvent(events: NostrEvent[], kind: number, groupId: string): NostrEvent | undefined {
   return events
     .filter((event) =>
       event.kind === kind &&

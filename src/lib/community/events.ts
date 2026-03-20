@@ -2,13 +2,13 @@ import {
   createEvent,
   getEventHash,
   getPublicKey,
-  hasProtectedTag,
   signEvent,
   verifySignature,
   withProtectedTag,
   type EventTemplate,
   type NostrEvent,
 } from "snstr"
+import { parseCommunityEventTags } from "@/data/types"
 import type {
   CommunityRoomConfig,
   CommunityRoomMessage,
@@ -76,19 +76,16 @@ export function createCommunityMessageTemplate(params: {
 }
 
 export function parseCommunityMessage(event: NostrEvent): CommunityRoomMessage {
-  const groupId = event.tags.find((tag) => tag[0] === "h")?.[1]
-  if (!groupId) {
-    throw new Error("Community message is missing group scope tag.")
-  }
+  const parsedTags = parseCommunityEventTags(event)
 
   return {
     id: event.id,
     pubkey: event.pubkey,
     content: event.content,
     createdAt: event.created_at,
-    roomId: event.tags.find((tag) => tag[0] === "room")?.[1],
-    groupId,
-    isProtected: hasProtectedTag(event),
+    roomId: parsedTags.roomId,
+    groupId: parsedTags.groupId,
+    isProtected: parsedTags.isProtected,
   }
 }
 
