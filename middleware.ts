@@ -9,12 +9,8 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import nostrConfig from './config/nostr.json'
 import { isRemoteFontLoadingEnabled } from './src/lib/font-loading-policy'
-
-interface NostrConfig {
-  relays?: Record<string, string[]>
-}
+import { RELAY_ALLOWLIST } from './src/lib/nostr-relays'
 
 const DEFAULT_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
 const DEFAULT_ALLOWED_METHODS = 'GET, POST, PUT, DELETE, OPTIONS'
@@ -100,25 +96,16 @@ export function middleware(request: NextRequest) {
     ? "'self' 'unsafe-inline' https://fonts.googleapis.com"
     : "'self' 'unsafe-inline'"
 
-  // Build connect-src from configured relays plus required analytics endpoints
-  const relaySets = (nostrConfig as NostrConfig)?.relays ?? {}
+  // Build connect-src from the shared relay allowlist plus any env extensions.
+  const envRelays = process.env.ALLOWED_RELAYS
+    ? process.env.ALLOWED_RELAYS.split(',').map((relay) => relay.trim()).filter(Boolean)
+    : []
   const relayList = new Set<string>(
     [
-      ...(relaySets.default ?? []),
-      ...(relaySets.content ?? []),
-      ...(relaySets.profile ?? []),
-      ...(relaySets.zapThreads ?? []),
-      ...(relaySets.custom ?? []),
-      ...(process.env.ALLOWED_RELAYS ? process.env.ALLOWED_RELAYS.split(',').map(r => r.trim()) : []),
+      ...RELAY_ALLOWLIST,
+      ...envRelays,
     ].filter(Boolean)
   )
-
-  // Fallback to current known-good relays if config/environment is empty
-  if (relayList.size === 0) {
-    ;['wss://relay.primal.net', 'wss://nos.lol', 'wss://relay.damus.io'].forEach((r) => {
-      relayList.add(r)
-    })
-  }
 
   const connectSrc = [
     "'self'",

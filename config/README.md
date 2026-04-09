@@ -73,11 +73,12 @@ Zap presets, minimums, privacy toggle behavior, note byte limits, zap QR auto-sh
 
 ### `nostr.json` — Nostr Relays & NIPs
 
-Relay sets and event type mapping. Relay access flows through `getRelays(set)`; `default` is used as the fallback when a set is empty or missing.
+Relay sets and event type mapping. `relays.default` is the canonical shared four-relay set. Relay access flows through `getRelays(set)`; omitted or empty relay-specific sets fall back to `default`.
 
-- Relay sets: `default`, `content` (optional), `profile` (optional), `zapThreads`, `custom`.
-- Runtime: `src/lib/nostr-relays.ts` provides `getRelays(set)` and `DEFAULT_RELAYS`.
-- ZapThreads widget prefers the `zapThreads` set when present; otherwise it falls back to `default`.
+- Relay sets: `default`, `content` (optional), `profile` (optional), `zapThreads` (optional), `custom`.
+- Runtime + seed publishing: `src/lib/nostr-relays.ts` provides `getRelays(set)`, `DEFAULT_RELAYS`, and `RELAY_ALLOWLIST`, and `prisma/seed/config.ts` derives its publish relays from that shared module.
+- CSP: `middleware.ts` builds `connect-src` from `RELAY_ALLOWLIST` plus optional `ALLOWED_RELAYS`.
+- ZapThreads and other default relay consumers use the canonical four unless an explicit relay-specific set is configured.
 
 ### `admin.json` — Admin & Moderator
 
@@ -135,6 +136,7 @@ const ZapIcon = getInteractionIcon('zap')
 - Auth: config is authoritative for which providers/UI are visible.
 - Theme: localStorage > defaults.* > system (see theme.json comments).
 - Nostr: explicit `relays[]` in API calls override; otherwise `relaySet` -> config; otherwise falls back to `default`.
+- CSP: `ALLOWED_RELAYS` extends middleware `connect-src`; it does not replace configured relay sets.
 
 ## Usage in Code
 

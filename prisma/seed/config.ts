@@ -6,17 +6,13 @@
  * regenerating new identities if needed in the future.
  */
 
+import { DEFAULT_RELAYS } from '../../src/lib/nostr-relays'
+
 export const SEED_VERSION = 'v1'
 export const SEED_PREFIX = `pleb.school-demo-seed-${SEED_VERSION}`
 
-// Relays for publishing seed content
-// Using the same relays configured in config/nostr.json
-export const PUBLISH_RELAYS = [
-  'wss://nos.lol',
-  'wss://relay.damus.io',
-  'wss://relay.primal.net',
-  'wss://nostr.land',
-]
+// Relays for publishing seed content, derived from the shared relay config.
+export const PUBLISH_RELAYS = [...DEFAULT_RELAYS]
 
 // Timeout for relay operations (ms)
 export const RELAY_TIMEOUT = 10000

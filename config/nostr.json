@@ -6,10 +6,6 @@
       "wss://relay.primal.net",
       "wss://nostr.land"
     ],
-    "zapThreads": [
-      "wss://nos.lol",
-      "wss://relay.damus.io"
-    ],
     "custom": []
   },
   "eventTypes": {
@@ -74,13 +70,13 @@
   },
   "_comments": {
     "_overview": "Nostr protocol configuration - controls relay usage, event types, and publishing defaults",
-    "_runtime_usage": "Used primarily by src/contexts/snstr-context.tsx to seed RelayPool (DEFAULT_RELAYS = relays.default). Empty arrays for 'content'/'profile'/'zapThreads' will fall back to 'default' via getRelays() — this is safe but may be confusing, so either omit the key or populate it. Current fetch/publish services have their own internal relay defaults; align them in future to use this config.",
-    "relays": "Relay configuration for different use cases",
-    "relays.default": "Default relays used for general event publishing and fetching. These should be reliable, well-connected relays.",
-    "relays.content": "(Optional) Relays specifically for content events (courses, resources). If omitted, we fall back to 'default'.",
-    "relays.profile": "(Optional) Relays optimized for user profile data (kind 0). If omitted, falls back to 'default'.",
-    "relays.zapThreads": "(Optional) Relays used by the zapthreads widget for Lightning comments and zaps. If omitted, falls back to 'default'.",
-    "relays.custom": "User-defined additional relays. Not loaded automatically; wire in UI or provider if needed.",
+    "_runtime_usage": "This file is the canonical runtime relay source. src/lib/nostr-relays.ts centralizes DEFAULT_RELAYS, getRelays(), and RELAY_ALLOWLIST for client, server, seed publishing, and middleware CSP usage. Omitted or empty 'content'/'profile'/'zapThreads' sets fall back to 'default'.",
+    "relays": "Relay configuration for runtime relay sets. 'default' is the canonical shared relay set.",
+    "relays.default": "Canonical relays used for general publishing, fetching, seed publishing, and any omitted relay-specific sets.",
+    "relays.content": "(Optional) Relays specifically for content events (courses, resources). If omitted or empty, inherits 'default'.",
+    "relays.profile": "(Optional) Relays optimized for user profile data (kind 0). If omitted or empty, inherits 'default'.",
+    "relays.zapThreads": "(Optional) Relays used by the zapthreads widget for Lightning comments and zaps. If omitted or empty, inherits 'default'.",
+    "relays.custom": "User-defined relays added to the shared relay allowlist/CSP. Not loaded automatically unless a caller opts in.",
     "eventTypes": "Nostr event type definitions and their NIPs",
     "eventTypes.courseList": "NIP-51 list events for course curation (kind 30004)",
     "eventTypes.freeContent": "NIP-23 long-form content for free educational resources",

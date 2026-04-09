@@ -172,7 +172,7 @@ const pool = new RelayPool([
 ]);
 
 // Add additional relays dynamically
-pool.addRelay('wss://relay.snort.social');
+pool.addRelay('wss://nostr.land');
 
 // Publish to multiple relays
 const event = createEvent({
