@@ -3,11 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { RelayPool, Filter, NostrEvent } from 'snstr';
 import nostrConfig from '../../config/nostr.json';
-import { DEFAULT_RELAYS } from '@/lib/nostr-relays';
-
-type NostrRelayConfig = {
-  relays: Record<string, string[]>;
-};
+import { DEFAULT_RELAYS, getRelays } from '@/lib/nostr-relays';
 
 export { DEFAULT_RELAYS };
 
@@ -39,8 +35,8 @@ interface SnstrProviderProps {
 
 // Provider component
 export const SnstrProvider = ({ children, relays, relaySet = 'default' }: SnstrProviderProps) => {
-  // Use provided relays, or fall back to config-based relay set
-  const activeRelays = relays || (nostrConfig as NostrRelayConfig).relays[relaySet] || DEFAULT_RELAYS;
+  // Use provided relays, or fall back to the shared relay-set accessor.
+  const activeRelays = relays ?? getRelays(relaySet);
   // Use ref to ensure single instance across re-renders
   const poolRef = useRef<RelayPool | null>(null);
 

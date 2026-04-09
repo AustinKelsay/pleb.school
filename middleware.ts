@@ -9,16 +9,14 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import nostrConfig from './config/nostr.json'
 import { isRemoteFontLoadingEnabled } from './src/lib/font-loading-policy'
-
-interface NostrConfig {
-  relays?: Record<string, string[]>
-}
+import { RELAY_ALLOWLIST } from './src/lib/nostr-relays'
 
 const DEFAULT_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
 const DEFAULT_ALLOWED_METHODS = 'GET, POST, PUT, DELETE, OPTIONS'
 const DEFAULT_ALLOWED_HEADERS = 'Content-Type, Authorization'
+const UNSAFE_CSP_SOURCE_CHARS = /[\s;'"`]/u
+const ALLOWED_RELAY_PROTOCOLS = new Set(['http:', 'https:', 'ws:', 'wss:'])
 
 function parseAllowedOrigins(): string[] {
   return process.env.ALLOWED_ORIGINS
@@ -39,6 +37,49 @@ function appendVary(response: NextResponse, value: string): void {
   }
 
   response.headers.set('Vary', `${currentVary}, ${value}`)
+}
+
+function normalizeAllowedRelayOrigin(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed || UNSAFE_CSP_SOURCE_CHARS.test(trimmed)) {
+    return null
+  }
+
+  const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)
+  const candidate = hasScheme ? trimmed : `wss://${trimmed.replace(/^\/\//, '')}`
+
+  let url: URL
+  try {
+    url = new URL(candidate)
+  } catch {
+    return null
+  }
+
+  if (!ALLOWED_RELAY_PROTOCOLS.has(url.protocol)) {
+    return null
+  }
+
+  if (!url.hostname || url.username || url.password) {
+    return null
+  }
+
+  if ((url.pathname && url.pathname !== '/') || url.search || url.hash) {
+    return null
+  }
+
+  const origin = url.origin
+  return origin && origin !== 'null' && !UNSAFE_CSP_SOURCE_CHARS.test(origin) ? origin : null
+}
+
+function parseAllowedRelays(envValue?: string): string[] {
+  if (!envValue) {
+    return []
+  }
+
+  return envValue
+    .split(',')
+    .map((relay) => normalizeAllowedRelayOrigin(relay))
+    .filter((relay): relay is string => Boolean(relay))
 }
 
 function applyCorsHeaders(request: NextRequest, response: NextResponse): void {
@@ -100,25 +141,14 @@ export function middleware(request: NextRequest) {
     ? "'self' 'unsafe-inline' https://fonts.googleapis.com"
     : "'self' 'unsafe-inline'"
 
-  // Build connect-src from configured relays plus required analytics endpoints
-  const relaySets = (nostrConfig as NostrConfig)?.relays ?? {}
+  // Build connect-src from the shared relay allowlist plus any env extensions.
+  const envRelays = parseAllowedRelays(process.env.ALLOWED_RELAYS)
   const relayList = new Set<string>(
     [
-      ...(relaySets.default ?? []),
-      ...(relaySets.content ?? []),
-      ...(relaySets.profile ?? []),
-      ...(relaySets.zapThreads ?? []),
-      ...(relaySets.custom ?? []),
-      ...(process.env.ALLOWED_RELAYS ? process.env.ALLOWED_RELAYS.split(',').map(r => r.trim()) : []),
+      ...RELAY_ALLOWLIST,
+      ...envRelays,
     ].filter(Boolean)
   )
-
-  // Fallback to current known-good relays if config/environment is empty
-  if (relayList.size === 0) {
-    ;['wss://relay.primal.net', 'wss://nos.lol', 'wss://relay.damus.io'].forEach((r) => {
-      relayList.add(r)
-    })
-  }
 
   const connectSrc = [
     "'self'",
