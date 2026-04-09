@@ -91,6 +91,7 @@ export function useCopy() {
     pricing: copyConfig.pricing,
     loading: copyConfig.loading,
     errors: copyConfig.errors,
+    feeds: copyConfig.feeds,
     emptyStates: copyConfig.emptyStates,
     notFound: copyConfig.notFound
   }

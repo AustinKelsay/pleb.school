@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { HeroAnimated } from "@/components/ui/hero-animated"
 import { MainLayout, Section } from "@/components/layout"
+import { getServerSession } from "next-auth"
 import {
   BookOpen,
   Video,
@@ -21,7 +22,8 @@ import { CoursesSection } from "@/components/homepage/courses-section"
 import { VideosSection } from "@/components/homepage/videos-section"
 import { DocumentsSection } from "@/components/homepage/documents-section"
 import { HomepageWithPrefetch } from "@/components/homepage/homepage-with-prefetch"
-import { useCopy } from "@/lib/copy"
+import { authOptions } from "@/lib/auth"
+import { copyConfig } from "@/lib/copy"
 import { getEnabledHomepageSections } from "@/lib/content-config"
 
 interface HeroStat {
@@ -98,8 +100,10 @@ function normalizeHomepageCtaHref(href: string | undefined, fallback = "/content
  * Homepage component showcasing content and features
  * Uses dynamic data fetching and caching for performance
  */
-export default function Home() {
-  const { homepage } = useCopy()
+export default async function Home() {
+  const session = await getServerSession(authOptions)
+  const { homepage } = copyConfig
+  const isAuthenticated = Boolean(session?.user?.id)
   const heroStatsConfig = normalizeHomepageStats(homepage.stats as unknown)
 
   const heroStats: HeroStat[] = heroStatsConfig.map((stat) => ({
@@ -257,12 +261,14 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 lg:gap-4 justify-center">
-              <Link href="/auth/signin">
-                <Button size="lg" className="w-full sm:w-auto sm:min-w-[140px]">
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {homepage.cta.buttons.getStarted}
-                </Button>
-              </Link>
+              {!isAuthenticated && (
+                <Link href="/auth/signin">
+                  <Button size="lg" className="w-full sm:w-auto sm:min-w-[140px]">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {homepage.cta.buttons.getStarted}
+                  </Button>
+                </Link>
+              )}
               {isExternalViewCoursesHref ? (
                 <Button asChild variant="outline" size="lg" className="w-full sm:w-auto sm:min-w-[140px]">
                   <a href={viewCoursesHref} target="_blank" rel="noopener noreferrer">

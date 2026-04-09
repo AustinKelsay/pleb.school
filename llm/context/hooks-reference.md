@@ -95,6 +95,29 @@ const overlay = useViewerPurchasesOverlay({
 })
 ```
 
+### useCommunity
+
+Community relay hooks for the first-pass Flotilla-compatible room experience.
+
+```typescript
+import {
+  useCommunitySpaceQuery,
+  useCommunityRoomQuery,
+  useCommunityMembershipMutation,
+  useCommunityMessageMutation,
+} from "@/hooks/useCommunity"
+
+const communityQuery = useCommunitySpaceQuery()
+const roomQuery = useCommunityRoomQuery("general")
+const membershipMutation = useCommunityMembershipMutation()
+const messageMutation = useCommunityMessageMutation()
+```
+
+Notes:
+- Server-managed accounts use the `/api/community/*` routes for writes and authenticated reads
+- NIP-07 users publish directly to the relay from the browser
+- When `config/communities.json` marks the space as `requiresAuth`, NIP-07 users also read directly from the relay so they can satisfy NIP-42 challenges client-side
+
 ### useLessonsQuery
 
 Fetches lessons for a specific course.

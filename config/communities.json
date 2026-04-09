@@ -1,0 +1,49 @@
+{
+  "space": {
+    "id": "pleb-school",
+    "name": "Pleb School Community",
+    "enabled": false,
+    "relayUrl": "wss://community.pleb.school",
+    "managementUrl": "https://community.pleb.school",
+    "groupId": "pleb-school",
+    "requiresAuth": true,
+    "private": false,
+    "protected": false,
+    "rooms": [
+      {
+        "id": "general",
+        "name": "General",
+        "groupId": "pleb-school-general",
+        "description": "Default community room for broad discussion.",
+        "default": true,
+        "requiresMembership": true,
+        "private": false,
+        "protected": false
+      },
+      {
+        "id": "introductions",
+        "name": "Introductions",
+        "groupId": "pleb-school-introductions",
+        "description": "A low-friction room for new members to say hello.",
+        "requiresMembership": true,
+        "private": false,
+        "protected": false
+      }
+    ]
+  },
+  "_comments": {
+    "_overview": "Relay-backed community configuration for the Flotilla-compatible foundation.",
+    "space.id": "Stable app-level identifier for the configured space.",
+    "space.name": "User-facing display name.",
+    "space.enabled": "Turns the community space on once a real relay and group configuration are in place.",
+    "space.relayUrl": "Primary relay URL for this community space. v1 supports a single primary relay per space.",
+    "space.managementUrl": "Optional HTTP endpoint for relay management operations (NIP-86).",
+    "space.groupId": "Primary NIP-29 group identifier for the space membership boundary.",
+    "space.requiresAuth": "Whether relay access should expect authentication challenges.",
+    "space.private": "Whether the space is private by default.",
+    "space.protected": "Whether the space should use protected/private metadata flows when supported.",
+    "space.rooms": "Configured rooms within the space. Rooms may define their own groupId or inherit the space groupId if omitted.",
+    "space.rooms[].default": "Exactly one room should be marked as the default room.",
+    "space.rooms[].requiresMembership": "Whether a granted space or room membership is required to participate."
+  }
+}

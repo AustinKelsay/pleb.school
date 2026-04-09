@@ -37,7 +37,7 @@ config/copy.json
   "search": {},
   "verifyEmail": {},
   "subscribe": {},
-  "feeds": {},
+  "feeds": { "enabled": true },
   "about": {},
   "contentLibrary": {},
   "course": {},
@@ -203,6 +203,24 @@ Header navigation text.
   }
 }
 ```
+
+- `menuItems.content|feeds|subscribe|about` - Labels for the top-level header menu entries. Community chat is accessed via the Feeds page.
+
+### feeds
+
+Feeds copy plus feature availability.
+
+```json
+{
+  "enabled": true,
+  "meta": {
+    "title": "Feeds",
+    "description": "Community chat and activity feeds powered by Nostr relays."
+  }
+}
+```
+
+- `enabled` - Turns the Feeds feature on or off for the whole instance. When `false`, the header link is hidden, `/feeds` is unavailable, `/community` no longer redirects to it, and sitemap generation omits `/feeds`.
 
 ### homepage
 

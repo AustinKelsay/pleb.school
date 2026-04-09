@@ -23,6 +23,9 @@ Index of test files and their coverage. Tests use Vitest with mocking.
 | [account-sync.test.ts](./account-sync-tests.md) | `src/app/api/tests/` | 2 | Account sync API |
 | [profile-sync.test.ts](./profile-sync-tests.md) | `src/app/api/tests/` | 1 | Profile sync API |
 | [flush.test.ts](./flush-tests.md) | `src/app/api/views/tests/` | 10 | View counter flush |
+| [community tests](./community-tests.md) | `src/lib/community/tests/`, `src/app/api/community/tests/` | 12 | Community relay config, auth, queries, write-route validation |
+| [feeds-config.test.ts](../../../src/lib/tests/feeds-config.test.ts) | `src/lib/tests/` | 3 | Feeds feature flag parsing |
+| [feeds/community page tests](../../../src/app/feeds/tests/page.test.ts), [community/page.test.ts](../../../src/app/community/tests/page.test.ts), [sitemap.test.ts](../../../src/app/tests/sitemap.test.ts) | `src/app/**/tests/` | 5 | Feeds route gating and sitemap exclusion |
 
 ## Coverage by Domain
 
@@ -49,6 +52,9 @@ Index of test files and their coverage. Tests use Vitest with mocking.
 - **Prisma v7 Transactions**: isolation levels, rollbacks, purchase-like flow (12 tests)
 - **Prisma v7 JSON Types**: AdditionalLinks JSON compatibility (16 tests)
 - **Prisma v7 Type Exports**: client/runtime export validation (15 tests)
+
+### Protocol Interop
+- **Community Relay Foundation**: config parsing, NIP-42 auth event generation, room-membership inheritance, write-route auth/validation
 
 ## Running Tests
 

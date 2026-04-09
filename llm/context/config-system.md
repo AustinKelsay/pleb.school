@@ -14,6 +14,7 @@ Configuration is split into focused JSON files, each with a dedicated TypeScript
 | `theme.json` | Theme/font visibility, defaults | `src/lib/theme-ui-config.ts` |
 | `payments.json` | Zap presets, purchase UX, icons | `src/lib/payments-config.ts` |
 | `nostr.json` | Relay sets, event types, features | `src/lib/nostr-relays.ts` |
+| `communities.json` | Community space, rooms, relay auth/management endpoints | `src/lib/community/config.ts` |
 | `admin.json` | Admin/moderator pubkeys, permissions | `src/lib/admin-utils.ts` |
 
 ## File Structure Pattern
@@ -95,7 +96,7 @@ All user-facing text centralized for customization and localization.
 - `homepage.*` - Hero, stats, visual elements, CTA
 - `search.*` - Search page text
 - `about.*` - About page content
-- `subscribe.*`, `feeds.*` - Coming soon pages
+- `subscribe.*`, `feeds.*` - Coming soon pages and feeds availability
 - `contentLibrary.*` - Content page text
 - `course.*`, `resource.*` - Content detail pages
 - `payments.*` - Purchase/zap dialog text
@@ -105,12 +106,16 @@ All user-facing text centralized for customization and localization.
 ```typescript
 import { getCopy, useCopy, copyConfig } from '@/lib/copy'
 import { getNavigationIcon, getHomepageIcon } from '@/lib/copy-icons'
+import { isFeedsEnabled } from '@/lib/feeds-config'
 
 // Get text with placeholders
 const resultText = getCopy('contentLibrary.resultsCounter', { count: 5, total: 100 })
 
 // Get icon
 const BrandIcon = getNavigationIcon('brand')
+
+// Feature gate
+const feedsEnabled = isFeedsEnabled()
 ```
 
 ### theme.json
@@ -218,6 +223,32 @@ Detection order for `getAdminInfo`, `isAdmin`, and `hasPermission`:
 2. **Config second**: Check pubkey against `admins.pubkeys` and `moderators.pubkeys`
 
 Uses OR logic—user is admin/moderator if found in **either** source. The `AdminInfo.source` field indicates which method matched: `'database' | 'config' | 'none'`.
+
+### communities.json
+
+Controls the relay-backed community foundation used for Flotilla-compatible interop.
+
+**Key Sections:**
+- `space.id|name` - Stable app identifier and display name
+- `space.relayUrl` - Primary community relay URL
+- `space.managementUrl` - Optional NIP-86 HTTP endpoint
+- `space.groupId` - Space-wide NIP-29 group boundary
+- `space.requiresAuth` - Whether relay auth should be expected
+- `space.private|protected` - Default privacy/protected behavior
+- `space.rooms[]` - Configured rooms, default room, and room-level group IDs
+
+**Accessor:**
+```typescript
+import {
+  getCommunitySpace,
+  getDefaultCommunityRoom,
+  resolveCommunityRoomGroupId,
+} from "@/lib/community/config"
+
+const space = getCommunitySpace()
+const room = getDefaultCommunityRoom()
+const groupId = resolveCommunityRoomGroupId(room, space)
+```
 
 **Source capabilities:**
 - **Database**: Only indicates admin status (`Role.admin` boolean). No moderator distinction.

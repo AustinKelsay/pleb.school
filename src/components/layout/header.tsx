@@ -30,6 +30,7 @@ import { useIsAdmin } from "@/hooks/useAdmin"
 import { isAnonymousAvatar, isAnonymousUsername } from "@/lib/anonymous-identity"
 import { useCopy } from "@/lib/copy"
 import { getNavigationIcon } from "@/lib/copy-icons"
+import { isFeedsEnabled } from "@/lib/feeds-config"
 import { trackEventSafe } from "@/lib/analytics"
 import { availableFonts, ThemeName } from "@/lib/theme-config"
 import { PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from "@/lib/profile-events"
@@ -64,6 +65,7 @@ export const Header = () => {
   const { data: session } = useSession()
   const sessionUser = session?.user
   const { isAdmin, isModerator } = useIsAdmin()
+  const feedsEnabled = isFeedsEnabled()
   const isMountedRef = useRef(true)
 
   const readFromStorage = (key: string, fallback?: string) => {
@@ -394,19 +396,21 @@ export const Header = () => {
                   {navigation.menuItems.content}
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link
-                  href="/feeds"
-                  onClick={() => {
-                    trackEventSafe("header_menu_clicked", {
-                      target: "feeds",
-                      path: pathname ?? "",
-                    })
-                  }}
-                >
-                  {navigation.menuItems.feeds}
-                </Link>
-              </DropdownMenuItem>
+              {feedsEnabled ? (
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/feeds"
+                    onClick={() => {
+                      trackEventSafe("header_menu_clicked", {
+                        target: "feeds",
+                        path: pathname ?? "",
+                      })
+                    }}
+                  >
+                    {navigation.menuItems.feeds}
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem asChild>
                 <Link
                   href="/subscribe"
