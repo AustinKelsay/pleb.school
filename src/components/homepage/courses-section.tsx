@@ -128,11 +128,6 @@ function CourseCard({ course }: { course: CourseWithNote }) {
   const display = parsedCourse
     ? createCourseDisplay(course, parsedCourse)
     : null
-  const fallbackTitle = course.note?.tags.find(tag => tag[0] === "name")?.[1] || `Course ${course.id}`
-  const fallbackDescription = course.note?.tags.find(tag => tag[0] === "about")?.[1] || ''
-  const fallbackImage = course.note?.tags.find(tag => tag[0] === "image")?.[1] || ''
-  const fallbackTopics = course.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || []
-  const fallbackAdditionalLinks = tagsToAdditionalLinks(course.note?.tags, 'l')
   const instructorName = resolvePreferredDisplayName({
     preferredNames: [display?.instructor],
     user: course.user,
@@ -142,15 +137,15 @@ function CourseCard({ course }: { course: CourseWithNote }) {
   const contentItem = {
     id: course.id,
     type: 'course' as const,
-    title: display?.title || fallbackTitle,
-    description: display?.description || fallbackDescription,
+    title: display?.title || `Course ${course.id}`,
+    description: display?.description || '',
     category: course.price > 0 ? 'Premium' : 'Free',
-    image: display?.image || fallbackImage,
+    image: display?.image || '',
     href: `/courses/${course.id}`,
     tags: display?.tags || course.note?.tags || [],
     author: instructorName,
     instructor: instructorName,
-    instructorPubkey: display?.instructorPubkey || course.note?.pubkey || '',
+    instructorPubkey: display?.instructorPubkey || course.note?.pubkey || course.user?.pubkey || course.userId || '',
     published: true,
     createdAt: course.createdAt,
     updatedAt: course.updatedAt,
@@ -160,8 +155,8 @@ function CourseCard({ course }: { course: CourseWithNote }) {
     rating: 4.5,
     studentsCount: 0,
     featured: false,
-    topics: display?.topics?.length ? display.topics : fallbackTopics,
-    additionalLinks: display?.additionalLinks?.length ? display.additionalLinks : fallbackAdditionalLinks,
+    topics: display?.topics || [],
+    additionalLinks: display?.additionalLinks ?? tagsToAdditionalLinks(course.note?.tags, 'r'),
     noteId: course.note?.id || course.noteId,
     noteATag: getEventATag(course.note),
     purchases: course.purchases,

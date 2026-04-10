@@ -214,7 +214,7 @@ function LessonContent({
 
   let courseTitle = 'Course'
   let courseCategory = 'general'
-  let courseInstructorPubkey = courseData?.user?.pubkey || courseData?.userId || ''
+  let courseInstructorPubkey = courseData?.user?.pubkey || courseData?.note?.pubkey || courseData?.userId || ''
   let courseInstructorName = resolvePreferredDisplayName({
     user: courseData?.user,
     pubkey: courseInstructorPubkey,
