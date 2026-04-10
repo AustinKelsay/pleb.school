@@ -36,7 +36,10 @@ interface SnstrProviderProps {
 // Provider component
 export const SnstrProvider = ({ children, relays, relaySet = 'default' }: SnstrProviderProps) => {
   // Use provided relays, or fall back to the shared relay-set accessor.
-  const activeRelays = relays ?? getRelays(relaySet);
+  const activeRelays = useMemo(
+    () => relays ?? getRelays(relaySet),
+    [relays, relaySet]
+  );
   // Use ref to ensure single instance across re-renders
   const poolRef = useRef<RelayPool | null>(null);
 

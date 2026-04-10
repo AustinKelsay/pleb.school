@@ -32,6 +32,7 @@ import { normalizeAdditionalLinks } from '@/lib/additional-links'
 import { trackEventSafe } from '@/lib/analytics'
 import { useCopy, getCopy } from '@/lib/copy'
 import { getCourseIcon } from '@/lib/copy-icons'
+import { extractNoteId } from '@/lib/nostr-events'
 import { getRelays } from '@/lib/nostr-relays'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
 import { profileSummaryFromUser, resolvePreferredDisplayName } from '@/lib/profile-display'
@@ -351,6 +352,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     user: courseData.user,
     pubkey: courseInstructorPubkey,
   })
+  const courseThreadIdentifier = courseData.note ? extractNoteId(courseData.note) : undefined
   const nostrIdentifier = formatNoteIdentifier(courseData.note, courseId)
   const nostrUrl = nostrIdentifier ? `https://njump.me/${nostrIdentifier}` : null
   
@@ -630,11 +632,11 @@ function CoursePageContent({ courseId }: { courseId: string }) {
           </div>
           
           {/* Comments Section */}
-          {courseData.note && (
+          {courseData.note && courseThreadIdentifier && (
             <div className="mt-8" data-comments-section>
               <DeferredZapThreads
                 eventDetails={{
-                  identifier: parsedCourseNote?.d ?? resolvedCourseId,
+                  identifier: courseThreadIdentifier,
                   pubkey: courseData.note.pubkey,
                   kind: courseData.note.kind,
                   relays: getRelays('default')

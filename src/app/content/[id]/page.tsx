@@ -277,20 +277,37 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     let isCancelled = false
 
     const fetchResourceMeta = async () => {
+      const resetResourceMeta = () => {
+        if (isCancelled) return
+        setResourceUser(null)
+        setServerPrice(null)
+        setServerPurchased(false)
+        setUnlockedViaCourse(false)
+        setUnlockingCourseId(null)
+      }
+
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       if (!uuidRegex.test(resourceId)) {
+        resetResourceMeta()
         setIsPurchaseStatusLoading(false)
         return
       }
 
-      if (sessionStatus === 'loading') return
+      if (sessionStatus === 'loading') {
+        resetResourceMeta()
+        return
+      }
 
+      resetResourceMeta()
       setIsPurchaseStatusLoading(true)
       try {
         const res = await fetch(`/api/resources/${resourceId}`, {
           credentials: 'include',
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          resetResourceMeta()
+          return
+        }
         const body = await res.json()
         const data = body?.data
         if (!isCancelled) {
@@ -315,6 +332,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
           setUnlockingCourseId(data?.unlockingCourseId || null)
         }
       } catch (err) {
+        resetResourceMeta()
         console.error('Failed to fetch resource meta', err)
       } finally {
         if (!isCancelled) {

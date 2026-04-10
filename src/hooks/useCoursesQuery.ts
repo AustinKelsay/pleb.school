@@ -22,10 +22,6 @@ export interface LessonWithResource extends Lesson {
   resource?: ResourceWithNote
 }
 
-export interface CourseWithLessons extends CourseWithNote {
-  lessons: LessonWithResource[]
-}
-
 export interface ResourceWithNote extends Resource {
   note?: NostrEvent
   noteError?: string
@@ -53,7 +49,7 @@ export interface CoursesQueryResult {
 }
 
 export interface CourseQueryResult {
-  course: CourseWithLessons | null
+  course: CourseWithNote | null
   isLoading: boolean
   isError: boolean
   error: Error | null
@@ -344,9 +340,9 @@ export async function fetchCoursesWithNotes(
 }
 
 /**
- * Fetch a single course with its lessons and Nostr note
+ * Fetch a single course's metadata and Nostr note.
  */
-export async function fetchCourseWithLessons(courseId: string, relayPool: RelayPool, relays: string[]): Promise<CourseWithLessons | null> {
+export async function fetchCourseMetadata(courseId: string, relayPool: RelayPool, relays: string[]): Promise<CourseWithNote | null> {
   // Fetch course metadata only; lesson structure is loaded separately via useLessonsQuery.
   const response = await fetch(`/api/courses/${courseId}?includeLessons=false`)
   if (!response.ok) {
@@ -381,12 +377,11 @@ export async function fetchCourseWithLessons(courseId: string, relayPool: RelayP
     ...courseWithNote,
     note: courseNote,
     noteError: courseNote ? undefined : noteError,
-    lessons: [],
   }
 }
 
 /**
- * Hook for fetching a single course with its lessons and Nostr note
+ * Hook for fetching a single course's metadata and Nostr note.
  */
 export function useCourseQuery(courseId: string, options: UseCourseQueryOptions = {}): CourseQueryResult {
   const { relayPool, relays } = useSnstrContext()
@@ -405,7 +400,7 @@ export function useCourseQuery(courseId: string, options: UseCourseQueryOptions 
 
   const query = useQuery({
     queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
-    queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
+    queryFn: () => fetchCourseMetadata(courseId, relayPool, relays),
     enabled: enabled && !!courseId,
     staleTime,
     gcTime,

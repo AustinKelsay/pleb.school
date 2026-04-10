@@ -1,5 +1,6 @@
 "use client";
 
+import { createResourceDisplay, parseEvent } from "@/data/types";
 import { useVideosQuery, VideoResourceWithNote } from "@/hooks/useVideosQuery";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { ContentCard } from "@/components/ui/content-card";
@@ -123,10 +124,14 @@ export function VideosSection() {
  * Transforms Video resource data into a format compatible with ContentCard
  */
 function VideoCard({ video }: { video: VideoResourceWithNote }) {
+  const parsedVideo = video.note ? parseEvent(video.note) : null
+  const display = parsedVideo
+    ? createResourceDisplay(video, parsedVideo)
+    : null
   const authorName = resolvePreferredDisplayName({
-    preferredNames: [video.note?.tags.find((tag) => tag[0] === "author")?.[1]],
+    preferredNames: [display?.instructor],
     user: video.user,
-    pubkey: video.note?.pubkey || video.user?.pubkey || video.userId,
+    pubkey: display?.instructorPubkey || parsedVideo?.pubkey || video.user?.pubkey || video.userId,
   })
   
   // Transform VideoResourceWithNote into ContentCard-compatible format

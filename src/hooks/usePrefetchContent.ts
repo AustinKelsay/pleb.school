@@ -96,11 +96,11 @@ export function usePrefetchCourse(courseId: string | undefined) {
     if (!courseId) return
 
     const prefetch = async () => {
-      const { fetchCourseWithLessons, coursesQueryKeys } = await import('./useCoursesQuery')
+      const { fetchCourseMetadata, coursesQueryKeys } = await import('./useCoursesQuery')
       
       await queryClient.prefetchQuery({
         queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
-        queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
+        queryFn: () => fetchCourseMetadata(courseId, relayPool, relays),
         staleTime: 10 * 60 * 1000, // 10 minutes
       })
     }

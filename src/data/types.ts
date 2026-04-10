@@ -505,11 +505,11 @@ export interface ContentItem {
 export function createCourseDisplay(course: Course, parsedEvent: ParsedCourseEvent): CourseDisplay {
   return {
     ...course,
-    title: parsedEvent.title || parsedEvent.name || "Unknown Course",
-    description: parsedEvent.description || 'No description available',
-    category: parsedEvent.topics[0] || 'general',
-    instructor: 'Unknown', // Would come from user table in real implementation
-    instructorPubkey: parsedEvent.pubkey,
+    title: parsedEvent.title || parsedEvent.name || `Course ${course.id}`,
+    description: parsedEvent.description || '',
+    category: parsedEvent.category || parsedEvent.topics[0] || 'general',
+    instructor: parsedEvent.instructor || '',
+    instructorPubkey: parsedEvent.instructorPubkey || parsedEvent.pubkey,
     rating: 0, // Deprecated - use engagement metrics instead
     enrollmentCount: 0, // Would come from enrollments table
     isPremium: course.price > 0,
@@ -519,19 +519,19 @@ export function createCourseDisplay(course: Course, parsedEvent: ParsedCourseEve
     published: true,
     topics: parsedEvent.topics,
     lessonReferences: [], // Would extract from 'a' tags
-    additionalLinks: []
+    additionalLinks: parsedEvent.additionalLinks
   }
 }
 
 export function createResourceDisplay(resource: Resource, parsedEvent: ParsedResourceEvent): ResourceDisplay {
   return {
     ...resource,
-    title: parsedEvent.title || 'Unknown Resource',
-    description: parsedEvent.summary || 'No description available',
-    category: parsedEvent.topics[0] || 'general',
+    title: parsedEvent.title || (parsedEvent.type === 'video' ? `Video ${resource.id}` : `Document ${resource.id}`),
+    description: parsedEvent.summary || '',
+    category: parsedEvent.category || parsedEvent.topics[0] || 'general',
     type: parsedEvent.type === 'video' ? 'video' : 'document',
-    instructor: parsedEvent.author || 'Unknown',
-    instructorPubkey: parsedEvent.pubkey,
+    instructor: parsedEvent.author || '',
+    instructorPubkey: parsedEvent.authorPubkey || parsedEvent.pubkey,
     rating: 0, // Deprecated - use engagement metrics instead
     viewCount: 0, // Would come from views table
     isPremium: resource.price > 0,

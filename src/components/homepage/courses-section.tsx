@@ -1,5 +1,6 @@
 "use client";
 
+import { createCourseDisplay, parseCourseEvent } from "@/data/types";
 import { useCoursesQuery, CourseWithNote } from "@/hooks/useCoursesQuery";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { ContentCard } from "@/components/ui/content-card";
@@ -123,10 +124,14 @@ export function CoursesSection() {
  * Transforms Course data into a format compatible with ContentCard
  */
 function CourseCard({ course }: { course: CourseWithNote }) {
+  const parsedCourse = course.note ? parseCourseEvent(course.note) : null
+  const display = parsedCourse
+    ? createCourseDisplay(course, parsedCourse)
+    : null
   const instructorName = resolvePreferredDisplayName({
-    preferredNames: [course.note?.tags.find((tag) => tag[0] === "instructor")?.[1]],
+    preferredNames: [display?.instructor],
     user: course.user,
-    pubkey: course.note?.pubkey || course.user?.pubkey || course.userId,
+    pubkey: display?.instructorPubkey || course.note?.pubkey || course.user?.pubkey || course.userId,
   })
 
   const contentItem = {

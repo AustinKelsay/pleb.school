@@ -15,12 +15,17 @@ import { Button } from "@/components/ui/button"
 import { ContentCard } from "@/components/ui/content-card"
 import { ContentPageSkeleton } from "@/components/ui/content-skeleton"
 import { contentTypeFilters } from "@/data/config"
-import type { ContentItem } from "@/data/types"
+import {
+  createCourseDisplay,
+  createResourceDisplay,
+  parseCourseEvent,
+  parseEvent,
+  type ContentItem,
+} from "@/data/types"
 import { useContentConfig } from "@/hooks/useContentConfig"
 import { useCoursesQuery } from "@/hooks/useCoursesQuery"
 import { useDocumentsQuery } from "@/hooks/useDocumentsQuery"
 import { useVideosQuery } from "@/hooks/useVideosQuery"
-import { tagsToAdditionalLinks } from "@/lib/additional-links"
 import { trackEventSafe } from "@/lib/analytics"
 import { useCopy, getCopy } from "@/lib/copy"
 import { getEventATag } from "@/lib/nostr-a-tag"
@@ -51,32 +56,43 @@ export default function ContentPage() {
 
     if (courses) {
       courses.forEach(course => {
+        const parsedCourse = course.note ? parseCourseEvent(course.note) : null
+        const display = parsedCourse
+          ? createCourseDisplay(course, parsedCourse)
+          : {
+              title: `Course ${course.id}`,
+              description: '',
+              image: '',
+              instructor: '',
+              instructorPubkey: course.user?.pubkey || course.userId,
+              topics: [] as string[],
+              tags: [] as string[][],
+              additionalLinks: [],
+            }
         const courseAuthor = resolvePreferredDisplayName({
-          preferredNames: [
-            course.note?.tags.find(tag => tag[0] === "instructor")?.[1],
-          ],
+          preferredNames: [display.instructor],
           user: course.user,
-          pubkey: course.note?.pubkey || course.user?.pubkey || course.userId,
+          pubkey: display.instructorPubkey || course.note?.pubkey || course.user?.pubkey || course.userId,
         })
 
         const courseItem = {
           id: course.id,
           type: 'course' as const,
-          title: course.note?.tags.find(tag => tag[0] === "name")?.[1] || `Course ${course.id}`,
-          description: course.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
+          title: display.title,
+          description: display.description,
           category: course.price > 0 ? pricing.premium : pricing.free,
-          image: getNoteImage(course.note),
-          tags: course.note?.tags.filter(tag => tag[0] === "t") || [],
+          image: display.image || getNoteImage(course.note),
+          tags: display.tags,
           instructor: courseAuthor,
-          instructorPubkey: course.note?.pubkey || '',
+          instructorPubkey: display.instructorPubkey || '',
           createdAt: course.createdAt,
           updatedAt: course.updatedAt,
           price: course.price,
           isPremium: course.price > 0,
           rating: 4.5,
           published: true,
-          topics: course.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-          additionalLinks: tagsToAdditionalLinks(course.note?.tags, 'r'),
+          topics: display.topics,
+          additionalLinks: display.additionalLinks ?? [],
           noteId: course.note?.id || course.noteId,
           noteATag: getEventATag(course.note),
           purchases: course.purchases,
@@ -87,36 +103,42 @@ export default function ContentPage() {
 
     if (videos) {
       videos.forEach(video => {
+        const parsedVideo = video.note ? parseEvent(video.note) : null
+        const display = parsedVideo
+          ? createResourceDisplay(video, parsedVideo)
+          : {
+              title: `Video ${video.id}`,
+              description: '',
+              image: '',
+              instructor: '',
+              instructorPubkey: video.user?.pubkey || video.userId,
+              topics: [] as string[],
+              additionalLinks: [],
+            }
         const videoAuthor = resolvePreferredDisplayName({
-          preferredNames: [
-            video.note?.tags.find(tag => tag[0] === "author")?.[1],
-          ],
+          preferredNames: [display.instructor],
           user: video.user,
-          pubkey: video.note?.pubkey || video.user?.pubkey || video.userId,
+          pubkey: display.instructorPubkey || video.note?.pubkey || video.user?.pubkey || video.userId,
         })
 
         const videoItem = {
           id: video.id,
           type: 'video' as const,
-          title: video.note?.tags.find(tag => tag[0] === "title")?.[1] ||
-                 video.note?.tags.find(tag => tag[0] === "name")?.[1] ||
-                 `Video ${video.id}`,
-          description: video.note?.tags.find(tag => tag[0] === "summary")?.[1] ||
-                      video.note?.tags.find(tag => tag[0] === "description")?.[1] ||
-                      video.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
+          title: display.title,
+          description: display.description,
           category: video.price > 0 ? pricing.premium : pricing.free,
-          image: getNoteImage(video.note, video.videoId ? `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg` : undefined),
-          tags: video.note?.tags.filter(tag => tag[0] === "t") || [],
+          image: getNoteImage(video.note, video.videoId ? `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg` : display.image),
+          tags: parsedVideo?.tags || [],
           instructor: videoAuthor,
-          instructorPubkey: video.note?.pubkey || '',
+          instructorPubkey: display.instructorPubkey || '',
           createdAt: video.createdAt,
           updatedAt: video.updatedAt,
           price: video.price,
           isPremium: video.price > 0,
           rating: 4.5,
           published: true,
-          topics: video.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-          additionalLinks: tagsToAdditionalLinks(video.note?.tags, 'r'),
+          topics: display.topics,
+          additionalLinks: display.additionalLinks ?? [],
           noteId: video.note?.id || video.noteId,
           noteATag: getEventATag(video.note),
           purchases: video.purchases,
@@ -127,36 +149,42 @@ export default function ContentPage() {
 
     if (documents) {
       documents.forEach(document => {
+        const parsedDocument = document.note ? parseEvent(document.note) : null
+        const display = parsedDocument
+          ? createResourceDisplay(document, parsedDocument)
+          : {
+              title: `Document ${document.id}`,
+              description: '',
+              image: '',
+              instructor: '',
+              instructorPubkey: document.user?.pubkey || document.userId,
+              topics: [] as string[],
+              additionalLinks: [],
+            }
         const documentAuthor = resolvePreferredDisplayName({
-          preferredNames: [
-            document.note?.tags.find(tag => tag[0] === "author")?.[1],
-          ],
+          preferredNames: [display.instructor],
           user: document.user,
-          pubkey: document.note?.pubkey || document.user?.pubkey || document.userId,
+          pubkey: display.instructorPubkey || document.note?.pubkey || document.user?.pubkey || document.userId,
         })
 
         const documentItem = {
           id: document.id,
           type: 'document' as const,
-          title: document.note?.tags.find(tag => tag[0] === "title")?.[1] ||
-                 document.note?.tags.find(tag => tag[0] === "name")?.[1] ||
-                 `Document ${document.id}`,
-          description: document.note?.tags.find(tag => tag[0] === "summary")?.[1] ||
-                      document.note?.tags.find(tag => tag[0] === "description")?.[1] ||
-                      document.note?.tags.find(tag => tag[0] === "about")?.[1] || '',
+          title: display.title,
+          description: display.description,
           category: document.price > 0 ? pricing.premium : pricing.free,
-          image: getNoteImage(document.note),
-          tags: document.note?.tags.filter(tag => tag[0] === "t") || [],
+          image: display.image || getNoteImage(document.note),
+          tags: parsedDocument?.tags || [],
           instructor: documentAuthor,
-          instructorPubkey: document.note?.pubkey || '',
+          instructorPubkey: display.instructorPubkey || '',
           createdAt: document.createdAt,
           updatedAt: document.updatedAt,
           price: document.price,
           isPremium: document.price > 0,
           rating: 4.5,
           published: true,
-          topics: document.note?.tags.filter(tag => tag[0] === "t").map(tag => tag[1]) || [],
-          additionalLinks: tagsToAdditionalLinks(document.note?.tags, 'r'),
+          topics: display.topics,
+          additionalLinks: display.additionalLinks ?? [],
           noteId: document.note?.id || document.noteId,
           noteATag: getEventATag(document.note),
           purchases: document.purchases,

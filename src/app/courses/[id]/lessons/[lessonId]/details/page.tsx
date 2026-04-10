@@ -25,6 +25,7 @@ import { useCourseQuery } from '@/hooks/useCoursesQuery'
 import { useLessonsQuery } from '@/hooks/useLessonsQuery'
 import { LessonWithResource } from '@/hooks/useLessonsQuery'
 import { resolveUniversalId } from '@/lib/universal-router'
+import { extractNoteId } from '@/lib/nostr-events'
 import { getRelays } from '@/lib/nostr-relays'
 import { useCommentThreads } from '@/hooks/useCommentThreads'
 import type { AdditionalLink } from '@/types/additional-links'
@@ -290,6 +291,7 @@ function LessonContent({
   const prevLesson = safeLessonIndex > 0 ? lessonDisplays[safeLessonIndex - 1] : null
   const nextLesson = safeLessonIndex < lessonDisplays.length - 1 ? lessonDisplays[safeLessonIndex + 1] : null
   const nostrUrl = resourceNote?.id ? `https://njump.me/${resourceNote.id}` : null
+  const lessonThreadIdentifier = resourceNote ? extractNoteId(resourceNote) : undefined
 
   const heroNavCtas = (
     <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -497,11 +499,11 @@ function LessonContent({
       )}
       
       {/* Comments Section */}
-      {lesson.resource?.note && (
+      {lesson.resource?.note && lessonThreadIdentifier && (
         <div data-comments-section>
           <DeferredZapThreads
             eventDetails={{
-              identifier: lesson.resource.id,
+              identifier: lessonThreadIdentifier,
               pubkey: lesson.resource.note.pubkey,
               kind: lesson.resource.note.kind,
               relays: getRelays('default')

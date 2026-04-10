@@ -50,8 +50,6 @@ export function resolvePreferredDisplayName(options: {
       ...preferredNames,
       user?.displayName ?? undefined,
       user?.username ?? undefined,
-      user?.pubkey ?? undefined,
-      pubkey ?? undefined,
       fallback ?? undefined,
     ])?.trim() ||
     formatPubkeyWithEllipsis(user?.pubkey ?? pubkey) ||

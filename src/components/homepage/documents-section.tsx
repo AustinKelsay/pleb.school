@@ -1,5 +1,6 @@
 "use client";
 
+import { createResourceDisplay, parseEvent } from "@/data/types";
 import { useDocumentsQuery, DocumentResourceWithNote } from "@/hooks/useDocumentsQuery";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { ContentCard } from "@/components/ui/content-card";
@@ -123,10 +124,14 @@ export function DocumentsSection() {
  * Transforms Document resource data into a format compatible with ContentCard
  */
 function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
+  const parsedDocument = document.note ? parseEvent(document.note) : null
+  const display = parsedDocument
+    ? createResourceDisplay(document, parsedDocument)
+    : null
   const authorName = resolvePreferredDisplayName({
-    preferredNames: [document.note?.tags.find((tag) => tag[0] === "author")?.[1]],
+    preferredNames: [display?.instructor],
     user: document.user,
-    pubkey: document.note?.pubkey || document.user?.pubkey || document.userId,
+    pubkey: display?.instructorPubkey || parsedDocument?.pubkey || document.user?.pubkey || document.userId,
   })
   
   // Transform DocumentResourceWithNote into ContentCard-compatible format

@@ -36,10 +36,10 @@ export function usePrefetch() {
     if (!courseId) return;
 
     // Import the fetch function dynamically to avoid circular dependencies
-    import('./useCoursesQuery').then(({ fetchCourseWithLessons }) => {
+    import('./useCoursesQuery').then(({ fetchCourseMetadata }) => {
       queryClient.prefetchQuery({
         queryKey: coursesQueryKeys.detailForViewer(courseId, viewerKey),
-        queryFn: () => fetchCourseWithLessons(courseId, relayPool, relays),
+        queryFn: () => fetchCourseMetadata(courseId, relayPool, relays),
         staleTime: 5 * 60 * 1000, // Consider fresh for 5 minutes
       });
     });

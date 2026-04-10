@@ -166,7 +166,7 @@ export function useViews(options: UseViewsOptions = {}) {
           throw new Error(`POST /api/views failed: ${res.status}`)
         }
         const json = (await res.json()) as { count?: number }
-        if (!cancelled && typeof json.count === "number") {
+        if (typeof json.count === "number") {
           viewsBus.emit(resolvedKey, json.count)
         } else {
           await refetchCount()

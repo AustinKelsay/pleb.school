@@ -9,7 +9,7 @@ const LazyPurchaseDialog = dynamic(
   { ssr: false }
 )
 
-export function DeferredPurchaseDialog(props: PurchaseDialogProps) {
+export const DeferredPurchaseDialog = (props: PurchaseDialogProps) => {
   if (!props.isOpen) {
     return null
   }

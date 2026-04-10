@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { NextRequest } from "next/server"
 import { config as middlewareConfig, middleware } from "../../../middleware"
 
@@ -35,11 +35,26 @@ const originalRemoteFontsFlag = process.env.NEXT_PUBLIC_ENABLE_REMOTE_FONTS
 const mutableEnv = process.env as Record<string, string | undefined>
 const AUTH_EXCLUSION_MATCHER = "/((?!api/auth|_next/static|_next/image|favicon.ico|public/).*)"
 
-beforeAll(() => {
+beforeEach(() => {
+  if (originalAllowedOrigins === undefined) {
+    delete process.env.ALLOWED_ORIGINS
+  } else {
+    process.env.ALLOWED_ORIGINS = originalAllowedOrigins
+  }
+  if (originalAllowedRelays === undefined) {
+    delete process.env.ALLOWED_RELAYS
+  } else {
+    process.env.ALLOWED_RELAYS = originalAllowedRelays
+  }
+  if (originalRemoteFontsFlag === undefined) {
+    delete process.env.NEXT_PUBLIC_ENABLE_REMOTE_FONTS
+  } else {
+    process.env.NEXT_PUBLIC_ENABLE_REMOTE_FONTS = originalRemoteFontsFlag
+  }
   mutableEnv.NODE_ENV = "test"
 })
 
-afterAll(() => {
+afterEach(() => {
   if (originalAllowedOrigins === undefined) {
     delete process.env.ALLOWED_ORIGINS
   } else {

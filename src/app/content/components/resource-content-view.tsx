@@ -534,14 +534,31 @@ export function ResourceContentView({
     const controller = new AbortController()
 
     const fetchResourceMeta = async () => {
+      const resetResourceMeta = () => {
+        if (controller.signal.aborted) return
+        setResourceUser(null)
+        setServerPrice(null)
+        setServerPurchased(false)
+        setUnlockedViaCourse(false)
+        setUnlockingCourseId(null)
+      }
+
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      if (!uuidRegex.test(resourceId)) return
+      if (!uuidRegex.test(resourceId)) {
+        resetResourceMeta()
+        return
+      }
+
+      resetResourceMeta()
       try {
         const res = await fetch(`/api/resources/${resourceId}`, {
           signal: controller.signal,
           credentials: 'include',
         })
-        if (!res.ok || controller.signal.aborted) return
+        if (!res.ok || controller.signal.aborted) {
+          resetResourceMeta()
+          return
+        }
 
         const body = await res.json()
         if (controller.signal.aborted) return
@@ -581,6 +598,7 @@ export function ResourceContentView({
         if ((err as any)?.name === 'AbortError' || controller.signal.aborted) {
           return
         }
+        resetResourceMeta()
         console.error('Failed to fetch resource meta', err)
       }
     }
