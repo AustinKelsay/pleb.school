@@ -356,21 +356,23 @@ export async function fetchCourseMetadata(courseId: string, relayPool: RelayPool
   }
 
   const courseWithNote = data
-  let courseNote: NostrEvent | undefined
+  let courseNote: NostrEvent | undefined = courseWithNote.note
   let noteError: string | undefined
 
-  try {
-    logger.debug("Fetching course note from Nostr", { courseId })
-    const notes = await relayPool.querySync(
-      relays,
-      { "#d": [courseId], kinds: [30004, 30023, 30402] },
-      { timeout: 5000 }
-    )
+  if (!courseNote) {
+    try {
+      logger.debug("Fetching course note from Nostr", { courseId })
+      const notes = await relayPool.querySync(
+        relays,
+        { "#d": [courseId], kinds: [30004, 30023, 30402] },
+        { timeout: 5000 }
+      )
 
-    courseNote = notes.find((note) => note.tags.some((tag) => tag[0] === "d" && tag[1] === courseId))
-  } catch (error) {
-    console.error("Failed to fetch course note from real Nostr:", error)
-    noteError = error instanceof Error ? error.message : "Failed to fetch note"
+      courseNote = notes.find((note) => note.tags.some((tag) => tag[0] === "d" && tag[1] === courseId))
+    } catch (error) {
+      console.error("Failed to fetch course note from real Nostr:", error)
+      noteError = error instanceof Error ? error.message : "Failed to fetch note"
+    }
   }
 
   return {

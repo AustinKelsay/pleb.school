@@ -342,6 +342,11 @@ function LessonContent({
           serverPrice={lesson.resource.price ?? null}
           serverPurchased={resourcePurchased}
           interactionData={interactionData}
+          authorPubkey={
+            parsedResource.authorPubkey ||
+            lesson.resource.user?.pubkey ||
+            resourceNote.pubkey
+          }
           authorName={resolvePreferredDisplayName({
             preferredNames: [parsedResource.author],
             user: lesson.resource.user,

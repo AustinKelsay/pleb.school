@@ -72,6 +72,7 @@ interface ContentMetadataProps {
   serverPurchased: boolean
   interactionData: CommentThreadsQueryResult
   authorName: string
+  authorPubkey: string
   authorProfile: NormalizedProfile | null
   relayHints?: string[]
   onUnlock?: () => void
@@ -86,6 +87,7 @@ function ContentMetadata({
   serverPurchased,
   interactionData,
   authorName,
+  authorPubkey,
   authorProfile,
   relayHints = [],
   onUnlock,
@@ -182,7 +184,7 @@ function ContentMetadata({
         hasZappedWithLightning={hasZappedWithLightning}
         viewerZapTotalSats={viewerZapTotalSats}
         zapTarget={{
-          pubkey: event.pubkey,
+          pubkey: authorPubkey,
           lightningAddress: authorProfile?.lud16 || undefined,
           name: authorName || parsedEvent.author || undefined,
           relayHints
@@ -218,9 +220,9 @@ function ContentMetadata({
                 eventId={event.id}
                 eventKind={event.kind}
                 eventIdentifier={parsedEvent.d}
-                eventPubkey={event.pubkey}
+                eventPubkey={authorPubkey}
                 zapTarget={{
-                  pubkey: event.pubkey,
+                  pubkey: authorPubkey,
                   lightningAddress: authorProfile?.lud16 || undefined,
                   name: authorName || parsedEvent.author || undefined,
                   relayHints
@@ -261,6 +263,7 @@ interface ResourceMetadataHeroProps {
   unlockingCourseId?: string | null
   interactionData: CommentThreadsQueryResult
   authorName: string
+  authorPubkey: string
   authorProfile: NormalizedProfile | null
   relayHints?: string[]
   onUnlock?: () => void
@@ -282,6 +285,7 @@ export function ResourceMetadataHero({
   unlockingCourseId = null,
   interactionData,
   authorName,
+  authorPubkey,
   authorProfile,
   relayHints = [],
   onUnlock,
@@ -371,6 +375,7 @@ export function ResourceMetadataHero({
             serverPurchased={serverPurchased}
             interactionData={interactionData}
             authorName={authorName}
+            authorPubkey={authorPubkey}
             authorProfile={authorProfile}
             relayHints={relayHints}
             onUnlock={onUnlock}
@@ -428,12 +433,18 @@ export function ResourceContentView({
     () => extractRelayHintsFromDecodedData(resolvedIdentifier?.decodedData),
     [resolvedIdentifier?.decodedData]
   )
+  const parsedEventData = useMemo(() => (event ? parseEvent(event) : null), [event])
+  const resolvedAuthorPubkey =
+    parsedEventData?.authorPubkey ||
+    resourceUser?.pubkey ||
+    event?.pubkey ||
+    null
   const seededAuthorProfile = useMemo(
     () => initialProfileSummary ?? profileSummaryFromUser(resourceUser),
     [initialProfileSummary, resourceUser]
   )
-  const { profile: authorProfile } = useProfileSummary(event?.pubkey, seededAuthorProfile, {
-    enabled: Boolean(event?.pubkey),
+  const { profile: authorProfile } = useProfileSummary(resolvedAuthorPubkey, seededAuthorProfile, {
+    enabled: Boolean(resolvedAuthorPubkey),
   })
   const interactionData = useCommentThreads(event?.id, {
     enabled: Boolean(event?.id),
@@ -651,7 +662,14 @@ export function ResourceContentView({
     )
   }
 
-  const parsedEvent = parseEvent(event)
+  const parsedEvent = parsedEventData
+  if (!parsedEvent) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">Content not available</p>
+      </div>
+    )
+  }
   const title = parsedEvent.title || 'Untitled resource'
   const type = parsedEvent.type || 'document'
   const additionalLinks = parsedEvent.additionalLinks || []
@@ -659,7 +677,7 @@ export function ResourceContentView({
     profile: authorProfile,
     preferredNames: [parsedEvent.author],
     user: resourceUser,
-    pubkey: event.pubkey,
+    pubkey: resolvedAuthorPubkey,
   })
   // Check parsedEvent.isPremium (boolean) and also check raw event tags for string 'true'
   const isPremiumFromParsed = parsedEvent.isPremium === true
@@ -709,6 +727,7 @@ export function ResourceContentView({
           unlockingCourseId={unlockingCourseId}
           interactionData={interactionData}
           authorName={authorName}
+          authorPubkey={resolvedAuthorPubkey || event.pubkey}
           authorProfile={authorProfile}
           relayHints={routeRelayHints}
           onUnlock={handleUnlock}
@@ -748,9 +767,9 @@ export function ResourceContentView({
               eventId={event.id}
               eventKind={event.kind}
               eventIdentifier={parsedEvent.d}
-              eventPubkey={event.pubkey}
+              eventPubkey={resolvedAuthorPubkey || event.pubkey}
               zapTarget={{
-                pubkey: event.pubkey,
+                pubkey: resolvedAuthorPubkey || event.pubkey,
                 lightningAddress: authorProfile?.lud16 || undefined,
                 name: authorName || parsedEvent.author || undefined,
                 relayHints: routeRelayHints
@@ -803,7 +822,7 @@ export function ResourceContentView({
       <div data-comments-section>
         <DeferredZapThreads
           eventDetails={{
-            identifier: resolvedIdentifier?.resolvedId ?? resourceId,
+            identifier: parsedEvent.d || resolvedIdentifier?.resolvedId || resourceId,
             pubkey: event.pubkey,
             kind: event.kind,
             relays: getRelays('default')

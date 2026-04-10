@@ -189,8 +189,8 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const courseInstructorPubkey =
     parsedCourseNote?.instructorPubkey ||
     courseData?.user?.pubkey ||
-    courseData?.userId ||
     courseData?.note?.pubkey ||
+    courseData?.userId ||
     null
   const { profile: instructorProfile } = useProfileSummary(
     courseInstructorPubkey,
