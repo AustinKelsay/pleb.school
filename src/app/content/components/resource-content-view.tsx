@@ -254,15 +254,22 @@ export function ResourceContentView({
     }
 
     const fetchResourceMeta = async () => {
-      const nextMeta = await fetchResourceContentInitialMeta(
-        resourceId,
-        session?.user?.id ?? null
-      )
-      if (cancelled) {
-        return
-      }
+      try {
+        const nextMeta = await fetchResourceContentInitialMeta(
+          resourceId,
+          session?.user?.id ?? null
+        )
+        if (cancelled) {
+          return
+        }
 
-      setResourceMeta(nextMeta ?? EMPTY_RESOURCE_META)
+        setResourceMeta(nextMeta ?? EMPTY_RESOURCE_META)
+      } catch (error) {
+        console.error('Failed to fetch resource access metadata:', error)
+        if (!cancelled) {
+          setResourceMeta(EMPTY_RESOURCE_META)
+        }
+      }
     }
 
     void fetchResourceMeta()

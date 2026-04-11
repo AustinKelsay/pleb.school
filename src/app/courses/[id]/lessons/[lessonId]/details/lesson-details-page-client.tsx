@@ -2,11 +2,10 @@
 
 import React, { useMemo, useState } from 'react'
 import Link from "next/link"
-import { 
+import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
-  RotateCcw,
   ExternalLink,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,51 +65,6 @@ interface LessonDetailsPageClientProps {
   lessonId: string
 }
 
-/**
- * Lesson navigation component
- */
-function LessonNavigation({ 
-  courseId, 
-  currentLessonIndex, 
-  lessons 
-}: { 
-  courseId: string
-  currentLessonIndex: number
-  lessons: LessonWithResource[]
-}) {
-  const prevLesson = currentLessonIndex > 0 ? lessons[currentLessonIndex - 1] : null
-  const nextLesson = currentLessonIndex < lessons.length - 1 ? lessons[currentLessonIndex + 1] : null
-
-  return (
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
-      {prevLesson && (
-        <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
-          <Link href={`/courses/${courseId}/lessons/${prevLesson.id}/details`}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Previous
-          </Link>
-        </Button>
-      )}
-      
-      <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
-        <Link href={`/courses/${courseId}`}>
-          <RotateCcw className="h-4 w-4 mr-1" />
-          Back to Course
-        </Link>
-      </Button>
-      
-      {nextLesson && (
-        <Button size="sm" className="w-full sm:w-auto" asChild>
-          <Link href={`/courses/${courseId}/lessons/${nextLesson.id}/details`}>
-            Next
-            <ArrowRight className="h-4 w-4 ml-1" />
-          </Link>
-        </Button>
-      )}
-    </div>
-  )
-}
-
 function LessonContent({ 
   courseId, 
   lessonId 
@@ -142,8 +96,8 @@ function LessonContent({
 
   const loading = courseLoading || lessonsDataLoading
 
-  const resourceRequiresPurchase = Boolean((lesson?.resource as any)?.requiresPurchase)
-  const resourceUnlockedViaCourse = Boolean((lesson?.resource as any)?.unlockedViaCourse)
+  const resourceRequiresPurchase = Boolean(lesson?.resource?.requiresPurchase)
+  const resourceUnlockedViaCourse = Boolean(lesson?.resource?.unlockedViaCourse)
   const resourcePurchased = !resourceRequiresPurchase || resourceUnlockedViaCourse
   const viewResourceId = lesson?.resource?.id ?? resolvedLessonId
   const { count: viewCount } = useViews({
@@ -265,7 +219,7 @@ function LessonContent({
     }
   }
 
-  const mockResourceContent = {
+  const lessonContent = {
     content: lesson.resource.note?.content || 'No content available',
     isMarkdown: true,
     type: resourceType as 'video' | 'document',
@@ -275,19 +229,14 @@ function LessonContent({
     additionalLinks: resourceAdditionalLinks
   }
 
-  const content = mockResourceContent
-  
-  if (!content) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">Content not available</p>
-      </div>
-    )
-  }
-
-  const formattedContent = formatContentForDisplay(content.content)
-  const playbackUrl = resolveLessonVideoUrl(content.videoUrl, content.content, content.type)
-  const videoBodyMarkdown = content.type === 'video' ? extractVideoBodyMarkdown(content.content) : ''
+  const formattedContent = formatContentForDisplay(lessonContent.content)
+  const playbackUrl = resolveLessonVideoUrl(
+    lessonContent.videoUrl,
+    lessonContent.content,
+    lessonContent.type
+  )
+  const videoBodyMarkdown =
+    lessonContent.type === 'video' ? extractVideoBodyMarkdown(lessonContent.content) : ''
   const hasEncryptedBody = isLikelyEncryptedContent(formattedContent)
   const hasEncryptedVideoBody = isLikelyEncryptedContent(videoBodyMarkdown)
   
@@ -417,11 +366,11 @@ function LessonContent({
         }`}
       >
         <div className="space-y-6 transition-all duration-300 ease-out">
-          {content.type === 'video' && content.hasVideo ? (
+          {lessonContent.type === 'video' && lessonContent.hasVideo ? (
             <>
               <VideoPlayer
-                content={content.content}
-                title={content.title}
+                content={lessonContent.content}
+                title={lessonContent.title}
                 url={playbackUrl}
                 videoUrl={playbackUrl}
                 thumbnailUrl={resourceImage}
@@ -501,7 +450,7 @@ function LessonContent({
             </CardContent>
           </Card>
 
-            <AdditionalLinksCard links={content.additionalLinks} layout="stack" icon="file" />
+            <AdditionalLinksCard links={lessonContent.additionalLinks} layout="stack" icon="file" />
           </div>
         </aside>
       </div>
@@ -509,7 +458,7 @@ function LessonContent({
       {/* Additional Resources */}
       {isFullWidth && (
         <div className="hidden lg:block">
-          <AdditionalLinksCard links={content.additionalLinks} icon="file" />
+          <AdditionalLinksCard links={lessonContent.additionalLinks} icon="file" />
         </div>
       )}
       

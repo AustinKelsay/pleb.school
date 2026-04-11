@@ -410,9 +410,10 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   const likesCount = interactions.likes
   const notePubkey = courseData?.note?.pubkey
   const viewerZapTotal = viewerZapTotalSats ?? 0
+  const isOwner = Boolean(sessionUserId && courseData.userId && sessionUserId === courseData.userId)
   // Access requires server-confirmed purchase - don't grant access based on client-side zap totals alone
   // The auto-claim flow in PurchaseCard will set serverPurchased=true after successful API claim
-  const hasAccess = !isPremium || serverPurchased
+  const hasAccess = !isPremium || serverPurchased || isOwner
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -500,7 +501,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
               relayHints: routeRelayHints
             }}
             viewerZapTotalSats={viewerZapTotal}
-            alreadyPurchased={serverPurchased}
+            alreadyPurchased={hasAccess}
             zapInsights={zapInsights}
             recentZaps={recentZaps}
             viewerZapReceipts={viewerZapReceipts}

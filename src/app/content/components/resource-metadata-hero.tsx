@@ -210,7 +210,7 @@ function ContentMetadata({
                   const snapshot = purchase?.priceAtPurchase
                   const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
                   const required = Math.min(snapshotValid ? snapshot : priceSats, priceSats)
-                  if ((purchase?.amountPaid ?? 0) >= (required ?? 0)) {
+                  if ((purchase?.amountPaid ?? 0) >= required) {
                     onUnlock?.()
                   }
                 }}

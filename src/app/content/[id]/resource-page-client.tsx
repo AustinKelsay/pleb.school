@@ -315,16 +315,23 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
 
     const fetchResourceMeta = async () => {
       setIsPurchaseStatusLoading(true)
-      const nextMeta = await fetchResourceContentInitialMeta(
-        resourceId,
-        session?.user?.id ?? null
-      )
-      if (isCancelled) {
-        return
-      }
+      try {
+        const nextMeta = await fetchResourceContentInitialMeta(
+          resourceId,
+          session?.user?.id ?? null
+        )
+        if (isCancelled) {
+          return
+        }
 
-      setResourceMeta(nextMeta)
-      setIsPurchaseStatusLoading(false)
+        setResourceMeta(nextMeta)
+      } catch (error) {
+        console.error('Failed to fetch resource access metadata:', error)
+      } finally {
+        if (!isCancelled) {
+          setIsPurchaseStatusLoading(false)
+        }
+      }
     }
 
     void fetchResourceMeta()

@@ -69,10 +69,12 @@ export default function ContentPage() {
               tags: [] as string[][],
               additionalLinks: [],
             }
+        const courseInstructorPubkey =
+          display.instructorPubkey || course.note?.pubkey || course.user?.pubkey || ''
         const courseAuthor = resolvePreferredDisplayName({
           preferredNames: [display.instructor],
           user: course.user,
-          pubkey: display.instructorPubkey || course.note?.pubkey || course.user?.pubkey,
+          pubkey: courseInstructorPubkey,
         })
 
         const courseItem = {
@@ -84,7 +86,7 @@ export default function ContentPage() {
           image: display.image || getNoteImage(course.note),
           tags: display.tags,
           instructor: courseAuthor,
-          instructorPubkey: display.instructorPubkey || '',
+          instructorPubkey: courseInstructorPubkey,
           createdAt: course.createdAt,
           updatedAt: course.updatedAt,
           price: course.price,
@@ -115,10 +117,12 @@ export default function ContentPage() {
               topics: [] as string[],
               additionalLinks: [],
             }
+        const videoInstructorPubkey =
+          display.instructorPubkey || video.note?.pubkey || video.user?.pubkey || ''
         const videoAuthor = resolvePreferredDisplayName({
           preferredNames: [display.instructor],
           user: video.user,
-          pubkey: display.instructorPubkey || video.note?.pubkey || video.user?.pubkey,
+          pubkey: videoInstructorPubkey,
         })
 
         const videoItem = {
@@ -130,7 +134,7 @@ export default function ContentPage() {
           image: getNoteImage(video.note, video.videoId ? `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg` : display.image),
           tags: parsedVideo?.tags || [],
           instructor: videoAuthor,
-          instructorPubkey: display.instructorPubkey || '',
+          instructorPubkey: videoInstructorPubkey,
           createdAt: video.createdAt,
           updatedAt: video.updatedAt,
           price: video.price,
@@ -161,10 +165,12 @@ export default function ContentPage() {
               topics: [] as string[],
               additionalLinks: [],
             }
+        const documentInstructorPubkey =
+          display.instructorPubkey || document.note?.pubkey || document.user?.pubkey || ''
         const documentAuthor = resolvePreferredDisplayName({
           preferredNames: [display.instructor],
           user: document.user,
-          pubkey: display.instructorPubkey || document.note?.pubkey || document.user?.pubkey,
+          pubkey: documentInstructorPubkey,
         })
 
         const documentItem = {
@@ -176,7 +182,7 @@ export default function ContentPage() {
           image: display.image || getNoteImage(document.note),
           tags: parsedDocument?.tags || [],
           instructor: documentAuthor,
-          instructorPubkey: display.instructorPubkey || '',
+          instructorPubkey: documentInstructorPubkey,
           createdAt: document.createdAt,
           updatedAt: document.updatedAt,
           price: document.price,
