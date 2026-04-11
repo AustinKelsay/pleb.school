@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
 import {
   BookOpen,
   ExternalLink,
@@ -54,11 +53,13 @@ interface CoursePageProps {
 function CourseLessons({
   lessons,
   courseId,
-  analyticsCourseId
+  analyticsCourseId,
+  hasAccess,
 }: {
   lessons: LessonWithResource[]
   courseId: string
   analyticsCourseId: string
+  hasAccess: boolean
 }) {
   const { course } = useCopy()
 
@@ -103,20 +104,13 @@ function CourseLessons({
               const lessonTitle = lesson.title || getCopy('lessons.lessonNumber', { index: lesson.index + 1 })
               const lessonDescription = lesson.description || getCopy('lessons.noDescription')
               const isPremium = lesson.isPremium || false
-
-              return (
-                <Link
-                  key={lesson.id}
-                  href={`/courses/${courseId}/lessons/${lesson.id}/details`}
-                  className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  onClick={() => {
-                    trackEventSafe("course_lesson_started", {
-                      course_id: analyticsCourseId,
-                      lesson_id: lesson.id,
-                      lesson_index: index + 1,
-                    })
-                  }}
-                >
+              const lessonCardClassName = `group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                hasAccess
+                  ? 'hover:bg-accent/50 cursor-pointer'
+                  : 'cursor-not-allowed opacity-60'
+              }`
+              const lessonCardContent = (
+                <>
                   <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
                     <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-primary/20 text-xs sm:text-sm font-medium flex-shrink-0">
                       {index + 1}
@@ -132,10 +126,47 @@ function CourseLessons({
                       </div>
                     </div>
                   </div>
-                  <div className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium sm:flex-shrink-0 group-hover:border-primary/50 group-hover:text-primary transition-colors">
+                  <div
+                    className={`inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium sm:flex-shrink-0 transition-colors ${
+                      hasAccess
+                        ? 'group-hover:border-primary/50 group-hover:text-primary'
+                        : 'pointer-events-none text-muted-foreground'
+                    }`}
+                  >
                     <Play className="h-4 w-4" />
-                    <span className="sm:inline">{getCopy('course.buttons.start')}</span>
+                    <span className="sm:inline">
+                      {hasAccess ? getCopy('course.buttons.start') : 'Locked'}
+                    </span>
                   </div>
+                </>
+              )
+
+              if (!hasAccess) {
+                return (
+                  <div
+                    key={lesson.id}
+                    className={lessonCardClassName}
+                    aria-disabled="true"
+                  >
+                    {lessonCardContent}
+                  </div>
+                )
+              }
+
+              return (
+                <Link
+                  key={lesson.id}
+                  href={`/courses/${courseId}/lessons/${lesson.id}/details`}
+                  className={lessonCardClassName}
+                  onClick={() => {
+                    trackEventSafe("course_lesson_started", {
+                      course_id: analyticsCourseId,
+                      lesson_id: lesson.id,
+                      lesson_index: index + 1,
+                    })
+                  }}
+                >
+                  {lessonCardContent}
                 </Link>
               )
             })}
@@ -288,7 +319,18 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   }
 
   if (!courseData) {
-    notFound()
+    return (
+      <MainLayout>
+        <Section spacing="lg">
+          <div className="text-center py-8">
+            <h1 className="text-2xl font-bold mb-4">Course not found</h1>
+            <p className="text-muted-foreground">
+              This course could not be loaded.
+            </p>
+          </div>
+        </Section>
+      </MainLayout>
+    )
   }
 
   const id = resolvedCourseId
@@ -566,6 +608,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                 lessons={lessonsData}
                 courseId={id}
                 analyticsCourseId={canonicalCourseId}
+                hasAccess={hasAccess}
               />
             </div>
 
@@ -645,7 +688,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                   identifier: courseThreadIdentifier,
                   pubkey: courseData.note.pubkey,
                   kind: courseData.note.kind,
-                  relays: getRelays('default')
+                  relays: routeRelayHints.length > 0 ? routeRelayHints : getRelays('default')
                 }}
                 title="Comments"
               />

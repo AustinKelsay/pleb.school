@@ -521,7 +521,7 @@ function LessonContent({
               identifier: lessonThreadIdentifier,
               pubkey: lesson.resource.note.pubkey,
               kind: lesson.resource.note.kind,
-              relays: getRelays('default')
+              relays: routeRelayHints.length > 0 ? routeRelayHints : getRelays('default')
             }}
             title="Comments"
           />

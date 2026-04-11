@@ -64,7 +64,7 @@ export default function ContentPage() {
               description: '',
               image: '',
               instructor: '',
-              instructorPubkey: course.user?.pubkey || course.userId,
+              instructorPubkey: course.user?.pubkey || '',
               topics: [] as string[],
               tags: [] as string[][],
               additionalLinks: [],
@@ -72,7 +72,7 @@ export default function ContentPage() {
         const courseAuthor = resolvePreferredDisplayName({
           preferredNames: [display.instructor],
           user: course.user,
-          pubkey: display.instructorPubkey || course.note?.pubkey || course.user?.pubkey || course.userId,
+          pubkey: display.instructorPubkey || course.note?.pubkey || course.user?.pubkey,
         })
 
         const courseItem = {
@@ -111,14 +111,14 @@ export default function ContentPage() {
               description: '',
               image: '',
               instructor: '',
-              instructorPubkey: video.user?.pubkey || video.userId,
+              instructorPubkey: video.user?.pubkey || '',
               topics: [] as string[],
               additionalLinks: [],
             }
         const videoAuthor = resolvePreferredDisplayName({
           preferredNames: [display.instructor],
           user: video.user,
-          pubkey: display.instructorPubkey || video.note?.pubkey || video.user?.pubkey || video.userId,
+          pubkey: display.instructorPubkey || video.note?.pubkey || video.user?.pubkey,
         })
 
         const videoItem = {
@@ -157,14 +157,14 @@ export default function ContentPage() {
               description: '',
               image: '',
               instructor: '',
-              instructorPubkey: document.user?.pubkey || document.userId,
+              instructorPubkey: document.user?.pubkey || '',
               topics: [] as string[],
               additionalLinks: [],
             }
         const documentAuthor = resolvePreferredDisplayName({
           preferredNames: [display.instructor],
           user: document.user,
-          pubkey: display.instructorPubkey || document.note?.pubkey || document.user?.pubkey || document.userId,
+          pubkey: display.instructorPubkey || document.note?.pubkey || document.user?.pubkey,
         })
 
         const documentItem = {

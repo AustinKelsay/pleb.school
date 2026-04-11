@@ -14,8 +14,8 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
   const isUuidId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
   if (isUuidId) {
-    const resource = await ResourceAdapter.findById(id)
-    if (!resource) {
+    const resourceExists = await ResourceAdapter.exists(id)
+    if (!resourceExists) {
       notFound()
     }
   }

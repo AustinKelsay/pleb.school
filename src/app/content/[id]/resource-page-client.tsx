@@ -378,7 +378,8 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const unlockedViaCourse = resourceMeta?.unlockedViaCourse ?? false
   const unlockingCourseId = resourceMeta?.unlockingCourseId ?? null
   const serverPurchased = purchaseStatusOverride ?? (resourceMeta?.serverPurchased ?? false)
-  const hasServerAccess = serverPurchased || serverIsOwner
+  const hasCourseAccess = unlockedViaCourse || Boolean(unlockingCourseId)
+  const hasServerAccess = serverPurchased || serverIsOwner || hasCourseAccess
   const author = resolvePreferredDisplayName({
     profile: authorProfile,
     preferredNames: [parsedEvent.author],
@@ -416,8 +417,8 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
       : parsedPrice ?? 0
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const resourceIdIsUuid = uuidRegex.test(resourceId)
-  const canPurchase = resourceIdIsUuid && isPaidResource && priceSats > 0 && !serverIsOwner
-  const courseAccessCta = unlockedViaCourse && unlockingCourseId ? (
+  const canPurchase = resourceIdIsUuid && isPaidResource && priceSats > 0 && !hasServerAccess
+  const courseAccessCta = hasCourseAccess && unlockingCourseId ? (
     <div className="flex flex-wrap gap-2 items-center">
       <Badge variant="outline" className="border-success/60 text-success bg-success/10">
         Access via course
@@ -619,7 +620,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                     relayHints: routeRelayHints
                   }}
                   viewerZapTotalSats={viewerZapTotalSats}
-                  alreadyPurchased={serverPurchased}
+                  alreadyPurchased={hasServerAccess}
                   zapInsights={zapInsights}
                   recentZaps={recentZaps}
                   viewerZapReceipts={viewerZapReceipts}
@@ -807,7 +808,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   identifier: normalizedResourceId,
                   pubkey: event.pubkey,
                   kind: event.kind,
-                  relays: getRelays('default')
+                  relays: routeRelayHints.length > 0 ? routeRelayHints : getRelays('default')
                 }}
                 title="Comments"
               />

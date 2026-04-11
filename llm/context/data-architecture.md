@@ -44,6 +44,9 @@ const { data, pagination } = await CourseAdapter.findAllPaginated({
 // Find by ID
 const course = await CourseAdapter.findById(id, userId)
 
+// Lightweight existence check by ID
+const courseExists = await CourseAdapter.exists(id)
+
 // Find with Nostr event
 const courseWithNote = await CourseAdapter.findByIdWithNote(id)
 
@@ -77,6 +80,13 @@ if (lessonCount > 0) {
 const deleted = await CourseAdapter.delete(courseId)
 ```
 
+Method contract:
+- `exists(id: string): Promise<boolean>`
+- Purpose: perform a lightweight existence check by primary key using `prisma.course.findUnique({ where: { id }, select: { id: true } })`.
+- Return value: `true` when a matching course row exists, otherwise `false`.
+- Intended use: route preflight checks, metadata guards, and other server paths that only need presence, not the hydrated course payload.
+- Edge-case behavior: returns `false` when the row is missing; callers should fetch with `findById()` separately when they need the full model.
+
 ### ResourceAdapter
 
 ```typescript
@@ -98,6 +108,7 @@ const { data, pagination } = await ResourceAdapter.findAllPaginated({
 
 // Find by various identifiers
 const resource = await ResourceAdapter.findById(id, userId)
+const resourceExists = await ResourceAdapter.exists(id)
 const resource = await ResourceAdapter.findByNoteId(noteId)
 const resource = await ResourceAdapter.findByVideoId(videoId)
 
@@ -115,6 +126,13 @@ const paidResources = await ResourceAdapter.findPaid()
 // Check if resource is used as lesson
 const isLesson = await ResourceAdapter.isLesson(resourceId)
 ```
+
+Method contract:
+- `exists(id: string): Promise<boolean>`
+- Purpose: perform a lightweight existence check by primary key using `prisma.resource.findUnique({ where: { id }, select: { id: true } })`.
+- Return value: `true` when a matching resource row exists, otherwise `false`.
+- Intended use: route preflight checks, metadata guards, and other server paths that only need presence, not the hydrated resource payload.
+- Edge-case behavior: returns `false` when the row is missing; callers should fetch with `findById()` or `findByIdWithNote()` separately when they need the full model.
 
 ### LessonAdapter
 

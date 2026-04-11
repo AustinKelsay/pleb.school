@@ -131,7 +131,7 @@ function CourseCard({ course }: { course: CourseWithNote }) {
   const instructorName = resolvePreferredDisplayName({
     preferredNames: [display?.instructor],
     user: course.user,
-    pubkey: display?.instructorPubkey || course.note?.pubkey || course.user?.pubkey || course.userId,
+    pubkey: display?.instructorPubkey || course.note?.pubkey || course.user?.pubkey,
   })
 
   const contentItem = {
@@ -145,7 +145,7 @@ function CourseCard({ course }: { course: CourseWithNote }) {
     tags: display?.tags || course.note?.tags || [],
     author: instructorName,
     instructor: instructorName,
-    instructorPubkey: display?.instructorPubkey || course.note?.pubkey || course.user?.pubkey || course.userId || '',
+    instructorPubkey: display?.instructorPubkey || course.note?.pubkey || course.user?.pubkey || '',
     published: true,
     createdAt: course.createdAt,
     updatedAt: course.updatedAt,

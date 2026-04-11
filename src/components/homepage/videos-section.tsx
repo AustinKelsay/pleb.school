@@ -131,7 +131,7 @@ function VideoCard({ video }: { video: VideoResourceWithNote }) {
   const authorName = resolvePreferredDisplayName({
     preferredNames: [display?.instructor],
     user: video.user,
-    pubkey: display?.instructorPubkey || parsedVideo?.pubkey || video.user?.pubkey || video.userId,
+    pubkey: display?.instructorPubkey || parsedVideo?.pubkey || video.user?.pubkey,
   })
   
   // Transform VideoResourceWithNote into ContentCard-compatible format

@@ -354,13 +354,16 @@ export function ResourceContentView({
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const resourceIdIsUuid = uuidRegex.test(resourceId)
   const lockable = isPremium && resourceIdIsUuid && priceSats > 0
-  const hasServerAccess = Boolean(resourceMeta?.serverPurchased || resourceMeta?.serverIsOwner)
+  const hasCourseAccess = Boolean(resourceMeta?.unlockedViaCourse || resourceMeta?.unlockingCourseId)
+  const hasServerAccess = Boolean(
+    resourceMeta?.serverPurchased || resourceMeta?.serverIsOwner || hasCourseAccess
+  )
   const isAccessMetaLoading = lockable && resourceMeta === undefined
-  const canPurchase = lockable && !Boolean(resourceMeta?.serverIsOwner)
+  const canPurchase = lockable && !hasServerAccess
   const videoUrl = resolveVideoPlaybackUrl(parsedEvent.videoUrl, event.content, type)
   const videoBodyMarkdown = type === 'video' ? extractVideoBodyMarkdown(event.content) : ''
   const locked = lockable && resourceMeta !== undefined && !hasServerAccess
-  const courseCta = resourceMeta?.unlockedViaCourse && resourceMeta?.unlockingCourseId ? (
+  const courseCta = hasCourseAccess && resourceMeta?.unlockingCourseId ? (
     <div className="flex flex-wrap gap-2 justify-end">
       <Button variant="outline" size="sm" asChild>
         <Link href={`/courses/${resourceMeta.unlockingCourseId}`}>
@@ -491,7 +494,7 @@ export function ResourceContentView({
             identifier: parsedEvent.d || resolvedIdentifier?.resolvedId || resourceId,
             pubkey: event.pubkey,
             kind: event.kind,
-            relays: getRelays('default')
+            relays: routeRelayHints.length > 0 ? routeRelayHints : getRelays('default')
           }}
           title="Comments & Discussion"
         />
