@@ -128,10 +128,12 @@ function VideoCard({ video }: { video: VideoResourceWithNote }) {
   const display = parsedVideo
     ? createResourceDisplay(video, parsedVideo)
     : null
+  const resolvedPubkey =
+    display?.instructorPubkey || parsedVideo?.pubkey || video.user?.pubkey || video.note?.pubkey || ''
   const authorName = resolvePreferredDisplayName({
     preferredNames: [display?.instructor],
     user: video.user,
-    pubkey: display?.instructorPubkey || parsedVideo?.pubkey || video.user?.pubkey || video.userId,
+    pubkey: resolvedPubkey,
   })
   
   // Transform VideoResourceWithNote into ContentCard-compatible format
@@ -150,7 +152,7 @@ function VideoCard({ video }: { video: VideoResourceWithNote }) {
     tags: video.note?.tags || [],
     author: authorName,
     instructor: authorName,
-    instructorPubkey: video.note?.pubkey || '',
+    instructorPubkey: resolvedPubkey,
     published: true,
     createdAt: video.createdAt,
     updatedAt: video.updatedAt,

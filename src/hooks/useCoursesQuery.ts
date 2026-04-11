@@ -25,6 +25,8 @@ export interface LessonWithResource extends Lesson {
 export interface ResourceWithNote extends Resource {
   note?: NostrEvent
   noteError?: string
+  requiresPurchase?: boolean
+  unlockedViaCourse?: boolean
 }
 
 export interface LessonWithDetails extends Lesson {

@@ -11,6 +11,7 @@ export interface UseViewsOptions {
   key?: string
   track?: boolean
   dedupe?: Dedupe
+  enabled?: boolean
 }
 
 // Simple shared bus so multiple hook instances stay in sync for the same key
@@ -58,6 +59,7 @@ export function useViews(options: UseViewsOptions = {}) {
     key,
     track = true,
     dedupe = "session",
+    enabled = true,
   } = options
 
   const resolvedKey = useMemo(() => {
@@ -134,6 +136,10 @@ export function useViews(options: UseViewsOptions = {}) {
 
   // Subscribe to shared bus and only fetch immediately for read-only consumers.
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     const unsubscribe = viewsBus.subscribe(resolvedKey, (n) => setCount(n))
     const existing = viewsBus.counts.get(resolvedKey)
     if (typeof existing === "number") setCount(existing)
@@ -141,15 +147,13 @@ export function useViews(options: UseViewsOptions = {}) {
       void refetchCount()
     }
     return unsubscribe
-  }, [refetchCount, resolvedKey, track])
+  }, [enabled, refetchCount, resolvedKey, track])
 
   // Increment once based on dedupe policy. POST first, then fall back to GET only when needed.
   useEffect(() => {
-    if (!track) {
+    if (!enabled || !track) {
       return
     }
-
-    let cancelled = false
     const maybeIncrement = async () => {
       if (!shouldTrackOnce()) {
         await refetchCount()
@@ -177,10 +181,7 @@ export function useViews(options: UseViewsOptions = {}) {
       }
     }
     void maybeIncrement()
-    return () => {
-      cancelled = true
-    }
-  }, [refetchCount, resolvedKey, shouldTrackOnce, track])
+  }, [enabled, refetchCount, resolvedKey, shouldTrackOnce, track])
 
   return { key: resolvedKey, count }
 }

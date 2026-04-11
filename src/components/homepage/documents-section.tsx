@@ -131,7 +131,7 @@ function DocumentCard({ document }: { document: DocumentResourceWithNote }) {
   const authorName = resolvePreferredDisplayName({
     preferredNames: [display?.instructor],
     user: document.user,
-    pubkey: display?.instructorPubkey || parsedDocument?.pubkey || document.user?.pubkey || document.userId,
+    pubkey: display?.instructorPubkey || parsedDocument?.pubkey || document.user?.pubkey,
   })
   
   // Transform DocumentResourceWithNote into ContentCard-compatible format
