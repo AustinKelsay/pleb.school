@@ -1,4 +1,7 @@
-import ResourceDetailsPageClient from './resource-details-page-client'
+import { notFound } from 'next/navigation'
+import { ResourceAdapter } from '@/lib/db-adapter'
+
+import ResourceDetailsContent from './resource-details-page-client'
 
 interface ResourceDetailsPageProps {
   params: Promise<{
@@ -8,6 +11,14 @@ interface ResourceDetailsPageProps {
 
 export default async function ResourceDetailsPage({ params }: ResourceDetailsPageProps) {
   const { id } = await params
+  const isUuidId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
-  return <ResourceDetailsPageClient resourceId={id} />
+  if (isUuidId) {
+    const resource = await ResourceAdapter.findById(id)
+    if (!resource) {
+      notFound()
+    }
+  }
+
+  return <ResourceDetailsContent resourceId={id} />
 }

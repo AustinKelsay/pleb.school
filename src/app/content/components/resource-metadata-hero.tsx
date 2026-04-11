@@ -22,6 +22,7 @@ interface ContentMetadataProps {
   resourceKey: string
   serverPrice: number | null
   serverPurchased: boolean
+  serverIsOwner?: boolean
   interactionData: CommentThreadsQueryResult
   authorName: string
   authorPubkey: string
@@ -39,6 +40,7 @@ function ContentMetadata({
   resourceKey,
   serverPrice,
   serverPurchased,
+  serverIsOwner = false,
   interactionData,
   authorName,
   authorPubkey,
@@ -93,8 +95,8 @@ function ContentMetadata({
   const isPremium = Boolean(derivedPremiumFlag)
 
   const lockable = isPremium && resourceIdIsUuid && priceSats > 0
-  const hasAccess = !lockable || serverPurchased
-  const canPurchase = lockable
+  const hasAccess = !lockable || serverPurchased || serverIsOwner
+  const canPurchase = lockable && !serverIsOwner
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const viewsElement = useMemo(() => {
     if (!showSocialMetrics) {
@@ -229,8 +231,8 @@ export interface ResourceMetadataHeroProps {
   resourceId: string
   serverPrice: number | null
   serverPurchased: boolean
+  serverIsOwner?: boolean
   unlockedViaCourse?: boolean
-  unlockingCourseId?: string | null
   interactionData: CommentThreadsQueryResult
   authorName: string
   authorPubkey: string
@@ -253,8 +255,8 @@ export function ResourceMetadataHero({
   resourceId,
   serverPrice,
   serverPurchased,
+  serverIsOwner = false,
   unlockedViaCourse = false,
-  unlockingCourseId = null,
   interactionData,
   authorName,
   authorPubkey,
@@ -347,6 +349,7 @@ export function ResourceMetadataHero({
           resourceKey={resourceId}
           serverPrice={serverPrice}
           serverPurchased={serverPurchased}
+          serverIsOwner={serverIsOwner}
           interactionData={interactionData}
           authorName={authorName}
           authorPubkey={authorPubkey}

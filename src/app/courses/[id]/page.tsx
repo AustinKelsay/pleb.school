@@ -1,3 +1,6 @@
+import { notFound } from 'next/navigation'
+import { CourseAdapter } from '@/lib/db-adapter'
+
 import CoursePageClient from './course-page-client'
 
 interface CoursePageProps {
@@ -8,6 +11,14 @@ interface CoursePageProps {
 
 export default async function CoursePage({ params }: CoursePageProps) {
   const { id } = await params
+  const isUuidId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+
+  if (isUuidId) {
+    const course = await CourseAdapter.findById(id)
+    if (!course) {
+      notFound()
+    }
+  }
 
   return <CoursePageClient courseId={id} />
 }

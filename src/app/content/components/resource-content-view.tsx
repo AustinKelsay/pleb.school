@@ -59,6 +59,7 @@ const EMPTY_RESOURCE_META: ResourceContentInitialMeta = {
   resourceUser: null,
   serverPrice: null,
   serverPurchased: false,
+  serverIsOwner: false,
   unlockedViaCourse: false,
   unlockingCourseId: null,
 }
@@ -93,13 +94,13 @@ export function ResourceContentView({
   viewCount
 }: ResourceContentViewProps) {
   const { fetchSingleEvent } = useNostr()
-  const { status: sessionStatus } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const socialReady = useIdleMount()
   const [event, setEvent] = useState<NostrEvent | null>(initialEvent ?? null)
   const [loading, setLoading] = useState(!initialEvent)
   const [error, setError] = useState<string | null>(null)
-  const [resourceMeta, setResourceMeta] = useState<ResourceContentInitialMeta>(
-    initialMeta ?? EMPTY_RESOURCE_META
+  const [resourceMeta, setResourceMeta] = useState<ResourceContentInitialMeta | undefined>(
+    initialMeta === undefined ? undefined : (initialMeta ?? EMPTY_RESOURCE_META)
   )
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const resolvedIdentifier = useMemo(() => resolveUniversalId(resourceId), [resourceId])
@@ -110,12 +111,12 @@ export function ResourceContentView({
   const parsedEventData = useMemo(() => (event ? parseEvent(event) : null), [event])
   const resolvedAuthorPubkey =
     parsedEventData?.authorPubkey ||
-    resourceMeta.resourceUser?.pubkey ||
+    resourceMeta?.resourceUser?.pubkey ||
     event?.pubkey ||
     null
   const seededAuthorProfile = useMemo(
-    () => initialProfileSummary ?? profileSummaryFromUser(resourceMeta.resourceUser),
-    [initialProfileSummary, resourceMeta.resourceUser]
+    () => initialProfileSummary ?? profileSummaryFromUser(resourceMeta?.resourceUser),
+    [initialProfileSummary, resourceMeta?.resourceUser]
   )
   const { profile: authorProfile } = useProfileSummary(resolvedAuthorPubkey, seededAuthorProfile, {
     enabled: socialReady && Boolean(resolvedAuthorPubkey),
@@ -239,14 +240,24 @@ export function ResourceContentView({
   useEffect(() => {
     let cancelled = false
 
-    if (initialMeta !== undefined || sessionStatus === 'loading') {
+    if (initialMeta !== undefined) {
+      return () => {
+        cancelled = true
+      }
+    }
+
+    if (sessionStatus === 'loading') {
+      setResourceMeta(undefined)
       return () => {
         cancelled = true
       }
     }
 
     const fetchResourceMeta = async () => {
-      const nextMeta = await fetchResourceContentInitialMeta(resourceId)
+      const nextMeta = await fetchResourceContentInitialMeta(
+        resourceId,
+        session?.user?.id ?? null
+      )
       if (cancelled) {
         return
       }
@@ -259,11 +270,11 @@ export function ResourceContentView({
     return () => {
       cancelled = true
     }
-  }, [initialMeta, resourceId, sessionStatus])
+  }, [initialMeta, resourceId, session?.user?.id, sessionStatus])
 
   const handleUnlock = () => {
     setResourceMeta((current) => ({
-      ...current,
+      ...(current ?? EMPTY_RESOURCE_META),
       serverPurchased: true,
     }))
   }
@@ -321,7 +332,7 @@ export function ResourceContentView({
   const authorName = resolvePreferredDisplayName({
     profile: authorProfile,
     preferredNames: [parsedEvent.author],
-    user: resourceMeta.resourceUser,
+    user: resourceMeta?.resourceUser,
     pubkey: resolvedAuthorPubkey,
   })
   const isPremiumFromParsed = parsedEvent.isPremium === true
@@ -337,17 +348,19 @@ export function ResourceContentView({
   const parsedPriceRaw = parsedEvent.price
   const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
   const priceSats =
-    resourceMeta.serverPrice !== null && resourceMeta.serverPrice !== undefined
+    resourceMeta?.serverPrice !== null && resourceMeta?.serverPrice !== undefined
       ? resourceMeta.serverPrice
       : parsedPrice ?? 0
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const resourceIdIsUuid = uuidRegex.test(resourceId)
   const lockable = isPremium && resourceIdIsUuid && priceSats > 0
-  const canPurchase = lockable
+  const hasServerAccess = Boolean(resourceMeta?.serverPurchased || resourceMeta?.serverIsOwner)
+  const isAccessMetaLoading = lockable && resourceMeta === undefined
+  const canPurchase = lockable && !Boolean(resourceMeta?.serverIsOwner)
   const videoUrl = resolveVideoPlaybackUrl(parsedEvent.videoUrl, event.content, type)
   const videoBodyMarkdown = type === 'video' ? extractVideoBodyMarkdown(event.content) : ''
-  const locked = lockable && !resourceMeta.serverPurchased
-  const courseCta = resourceMeta.unlockedViaCourse && resourceMeta.unlockingCourseId ? (
+  const locked = lockable && resourceMeta !== undefined && !hasServerAccess
+  const courseCta = resourceMeta?.unlockedViaCourse && resourceMeta?.unlockingCourseId ? (
     <div className="flex flex-wrap gap-2 justify-end">
       <Button variant="outline" size="sm" asChild>
         <Link href={`/courses/${resourceMeta.unlockingCourseId}`}>
@@ -364,10 +377,10 @@ export function ResourceContentView({
           event={event}
           parsedEvent={parsedEvent}
           resourceId={resourceId}
-          serverPrice={resourceMeta.serverPrice}
-          serverPurchased={resourceMeta.serverPurchased}
-          unlockedViaCourse={resourceMeta.unlockedViaCourse}
-          unlockingCourseId={resourceMeta.unlockingCourseId}
+          serverPrice={resourceMeta?.serverPrice ?? null}
+          serverPurchased={resourceMeta?.serverPurchased ?? false}
+          serverIsOwner={resourceMeta?.serverIsOwner ?? false}
+          unlockedViaCourse={resourceMeta?.unlockedViaCourse ?? false}
           interactionData={interactionData}
           authorName={authorName}
           authorPubkey={resolvedAuthorPubkey || event.pubkey}
@@ -377,6 +390,7 @@ export function ResourceContentView({
           showBackLink={showBackLink}
           backHref={backHref}
           isPremium={isPremium}
+          hidePrimaryCta={isAccessMetaLoading}
           rightCtas={courseCta || undefined}
           showSocialMetrics={socialReady}
           viewCount={viewCount}
@@ -384,7 +398,15 @@ export function ResourceContentView({
       ) : null}
 
       <div className="space-y-6">
-        {locked ? (
+        {isAccessMetaLoading ? (
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <p className="text-muted-foreground">
+                Checking access...
+              </p>
+            </CardContent>
+          </Card>
+        ) : locked ? (
           <>
             <Card>
               <CardContent className="pt-6 space-y-3">
@@ -420,7 +442,7 @@ export function ResourceContentView({
               }}
               viewerZapTotalSats={viewerZapTotalSats}
               viewerZapReceipts={viewerZapReceipts}
-              alreadyPurchased={resourceMeta.serverPurchased}
+              alreadyPurchased={hasServerAccess}
               zapInsights={zapInsights}
               recentZaps={recentZaps}
               onPurchaseComplete={(purchase) => {

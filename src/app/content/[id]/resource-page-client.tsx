@@ -119,7 +119,7 @@ function ResourceOverview({ resourceId, contentHref }: { resourceId: string; con
  */
 function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const { fetchSingleEvent } = useNostr()
-  const { status: sessionStatus } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const socialReady = useIdleMount()
   const { count: viewCount } = useViews({
     ns: 'content',
@@ -315,7 +315,10 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
 
     const fetchResourceMeta = async () => {
       setIsPurchaseStatusLoading(true)
-      const nextMeta = await fetchResourceContentInitialMeta(resourceId)
+      const nextMeta = await fetchResourceContentInitialMeta(
+        resourceId,
+        session?.user?.id ?? null
+      )
       if (isCancelled) {
         return
       }
@@ -329,7 +332,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     return () => {
       isCancelled = true
     }
-  }, [resourceId, sessionStatus])
+  }, [resourceId, session?.user?.id, sessionStatus])
 
   useEffect(() => {
     setPurchaseStatusOverride(null)
@@ -371,9 +374,11 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   const image = parsedEvent.image || '/placeholder.svg'
   const resourceUser = resourceMeta?.resourceUser ?? null
   const serverPrice = resourceMeta?.serverPrice ?? null
+  const serverIsOwner = resourceMeta?.serverIsOwner ?? false
   const unlockedViaCourse = resourceMeta?.unlockedViaCourse ?? false
   const unlockingCourseId = resourceMeta?.unlockingCourseId ?? null
   const serverPurchased = purchaseStatusOverride ?? (resourceMeta?.serverPurchased ?? false)
+  const hasServerAccess = serverPurchased || serverIsOwner
   const author = resolvePreferredDisplayName({
     profile: authorProfile,
     preferredNames: [parsedEvent.author],
@@ -411,7 +416,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
       : parsedPrice ?? 0
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const resourceIdIsUuid = uuidRegex.test(resourceId)
-  const canPurchase = resourceIdIsUuid && isPaidResource && priceSats > 0
+  const canPurchase = resourceIdIsUuid && isPaidResource && priceSats > 0 && !serverIsOwner
   const courseAccessCta = unlockedViaCourse && unlockingCourseId ? (
     <div className="flex flex-wrap gap-2 items-center">
       <Badge variant="outline" className="border-success/60 text-success bg-success/10">
@@ -544,7 +549,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Checking access...
                     </Button>
-                  ) : canPurchase && !serverPurchased ? (
+                  ) : canPurchase && !hasServerAccess ? (
                     <Button
                       size="lg"
                       className="w-full sm:w-auto"
@@ -575,7 +580,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                         >
                           {getResourceTypeIcon(type)}
                           <span className="ml-2">
-                            {type === 'video' ? 'Watch Now' : serverPurchased ? 'View Content' : 'Read Now'}
+                            {type === 'video' ? 'Watch Now' : hasServerAccess ? 'View Content' : 'Read Now'}
                           </span>
                         </Link>
                       </Button>
@@ -584,7 +589,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                           Purchased for {priceSats.toLocaleString()} sats
                         </Badge>
                       )}
-                      {!canPurchase && isPaidResource && !serverPurchased && (
+                      {!canPurchase && isPaidResource && !hasServerAccess && (
                         <Badge variant="outline" className="px-3 py-1 text-amber-600 border-amber-400 bg-amber-50">
                           Purchase unavailable for this identifier
                         </Badge>
@@ -594,7 +599,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                 </div>
               )}
 
-              {requiresPreviewGate && serverPurchased && courseAccessCta}
+              {requiresPreviewGate && hasServerAccess && courseAccessCta}
 
               {canPurchase && (
                 <DeferredPurchaseDialog
@@ -712,6 +717,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                             resourceUser: null,
                             serverPrice: null,
                             serverPurchased: false,
+                            serverIsOwner: false,
                             unlockedViaCourse: false,
                             unlockingCourseId: null,
                           }),

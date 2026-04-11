@@ -512,6 +512,15 @@ export class CourseAdapter {
     return transformCourse(course)
   }
 
+  static async exists(id: string): Promise<boolean> {
+    const course = await prisma.course.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    return Boolean(course)
+  }
+
   static async findByIdWithNote(id: string): Promise<CourseWithNote | null> {
     const course = await prisma.course.findUnique({
       where: { id },
@@ -685,6 +694,15 @@ export class ResourceAdapter {
       },
     })
     return resource ? transformResource(resource) : null
+  }
+
+  static async exists(id: string): Promise<boolean> {
+    const resource = await prisma.resource.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    return Boolean(resource)
   }
 
   static async findByIdWithNote(id: string, userId?: string): Promise<ResourceWithNote | null> {

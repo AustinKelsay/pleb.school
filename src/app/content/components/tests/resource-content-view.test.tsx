@@ -1,17 +1,17 @@
 /* @vitest-environment jsdom */
 
-import { act, createElement } from 'react'
+import { act, createElement, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const fetchSingleEventMock = vi.fn()
 
 vi.mock('next-auth/react', () => ({
-  useSession: () => ({ status: 'authenticated' }),
+  useSession: () => ({ data: null, status: 'authenticated' }),
 }))
 
 vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: unknown }) =>
+  default: ({ href, children }: { href: string; children?: ReactNode }) =>
     createElement('a', { href }, children),
 }))
 
@@ -136,6 +136,7 @@ describe('ResourceContentView', () => {
             },
             serverPrice: 0,
             serverPurchased: false,
+            serverIsOwner: false,
             unlockedViaCourse: false,
             unlockingCourseId: null,
           },

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { memo, useMemo, useState } from 'react'
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -52,6 +52,7 @@ const CodeBlock = memo(function CodeBlock({
   ...props
 }: React.HTMLAttributes<HTMLPreElement>) {
   const [copied, setCopied] = useState(false)
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const codeContent = useMemo(() => flattenText(children).replace(/\n$/, ''), [children])
   const lines = useMemo(() => codeContent.split('\n'), [codeContent])
   const hasMultipleLines = lines.length > 1
@@ -60,11 +61,25 @@ const CodeBlock = memo(function CodeBlock({
     | React.ReactElement<React.HTMLAttributes<HTMLElement>>
     | undefined
 
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current !== null) {
+        clearTimeout(copyTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(codeContent)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (copyTimeoutRef.current !== null) {
+        clearTimeout(copyTimeoutRef.current)
+      }
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopied(false)
+        copyTimeoutRef.current = null
+      }, 2000)
     } catch (err) {
       console.warn('Copy failed:', err)
     }
@@ -346,7 +361,8 @@ const MarkdownComponents = {
   a: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
     const isDangerous = href && /^(javascript|data|vbscript):/i.test(href.trim())
     const safeHref = isDangerous ? '#' : href
-    const isExternal = safeHref?.startsWith('http')
+    const isExternal =
+      typeof safeHref === 'string' && /^(https?:)?\/\//i.test(safeHref.trim())
 
     return (
       <a

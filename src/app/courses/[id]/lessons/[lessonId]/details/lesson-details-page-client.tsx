@@ -465,13 +465,15 @@ function LessonContent({
                 {lessonDisplays.map((l, index) => {
                   const isActiveLesson = l.id === lesson.id || l.resource?.id === resolvedLessonId
                   return (
-                  <div
+                  <Link
                     key={l.id}
-                    className={`flex items-center space-x-3 p-2 rounded-lg transition-colors cursor-pointer ${
+                    href={`/courses/${resolvedCourseId}/lessons/${l.id}/details`}
+                    className={`group flex items-center space-x-3 p-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                       isActiveLesson 
                         ? 'bg-primary/10 border border-primary/20' 
                         : 'hover:bg-muted/50'
                     }`}
+                    aria-current={isActiveLesson ? 'page' : undefined}
                   >
                     <div className="flex-shrink-0">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
@@ -483,18 +485,17 @@ function LessonContent({
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <Link 
-                        href={`/courses/${resolvedCourseId}/lessons/${l.id}/details`}
+                      <span
                         className={`block text-sm truncate ${
                           isActiveLesson 
                             ? 'font-semibold' 
-                            : 'hover:underline'
+                            : 'group-hover:underline'
                         }`}
                       >
                         {l.title || `Lesson ${l.index + 1}`}
-                      </Link>
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                 )})}
               </div>
             </CardContent>

@@ -300,7 +300,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
   let category = 'general'
   let topics: string[] = []
   let additionalLinks: AdditionalLink[] = []
-  let image = '/placeholder.svg'
+  let image: string | null = null
   let isPremium = false
   let currency = 'sats'
 
@@ -315,7 +315,10 @@ function CoursePageContent({ courseId }: { courseId: string }) {
     category = parsedCourseNote.category || category
     topics = parsedCourseNote.topics || topics
     additionalLinks = normalizeAdditionalLinks(parsedCourseNote.additionalLinks || additionalLinks)
-    image = parsedCourseNote.image || image
+    image =
+      parsedCourseNote.image && parsedCourseNote.image !== '/placeholder.svg'
+        ? parsedCourseNote.image
+        : image
     isPremium = parsedCourseNote.isPremium || isPremium
     currency = parsedCourseNote.currency || currency
     if (parsedCourseNote.price) {
@@ -540,7 +543,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                 </div>
                 
                 {/* Overlay image if available */}
-                {image && (
+                {image ? (
                   <div className="absolute inset-0">
                     <OptimizedImage 
                       src={image} 
@@ -551,7 +554,7 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                       priority
                     />
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -593,13 +596,13 @@ function CoursePageContent({ courseId }: { courseId: string }) {
                   <div>
                     <h4 className="font-semibold mb-2">Created</h4>
                     <p className="text-sm text-muted-foreground">
-                      {formatDate(courseData.createdAt || new Date().toISOString())}
+                      {courseData.createdAt ? formatDate(courseData.createdAt) : 'Unknown'}
                     </p>
                   </div>
                   <div>
                     <h4 className="font-semibold mb-2">Last Updated</h4>
                     <p className="text-sm text-muted-foreground">
-                      {formatDate(courseData.updatedAt || new Date().toISOString())}
+                      {courseData.updatedAt ? formatDate(courseData.updatedAt) : 'Unknown'}
                     </p>
                   </div>
                   {courseData.submissionRequired && (

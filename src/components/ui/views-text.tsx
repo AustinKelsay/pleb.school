@@ -13,6 +13,7 @@ export interface ViewsTextProps extends React.HTMLAttributes<HTMLSpanElement> {
   label?: boolean
   track?: boolean
   dedupe?: "session" | "day" | false
+  enabled?: boolean
   count?: number | null
 }
 
@@ -50,12 +51,13 @@ function TrackedViewsText({
   keyOverride,
   notation = "standard",
   label = true,
+  enabled = true,
   track = true,
   dedupe = "session",
   className,
   ...rest
 }: Omit<ViewsTextProps, "count">) {
-  const { count } = useViews({ ns, id, key: keyOverride, track, dedupe })
+  const { count } = useViews({ ns, id, key: keyOverride, track, dedupe, enabled })
 
   const formatted = React.useMemo(() => formatCount(count, notation), [count, notation])
 

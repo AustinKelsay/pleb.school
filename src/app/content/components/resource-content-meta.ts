@@ -4,6 +4,7 @@ export interface ResourceContentInitialMeta {
   resourceUser: CourseUser | null
   serverPrice: number | null
   serverPurchased: boolean
+  serverIsOwner: boolean
   unlockedViaCourse: boolean
   unlockingCourseId: string | null
 }
@@ -12,7 +13,10 @@ const RESOURCE_ID_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}
 
 const resourceMetaRequests = new Map<string, Promise<ResourceContentInitialMeta | null>>()
 
-function parseResourceContentInitialMeta(data: any): ResourceContentInitialMeta {
+function parseResourceContentInitialMeta(
+  data: any,
+  viewerUserId?: string | null
+): ResourceContentInitialMeta {
   const unlockedByPurchase =
     Array.isArray(data?.purchases) && typeof data?.price === "number"
       ? data.purchases.some((purchase: any) => {
@@ -23,6 +27,15 @@ function parseResourceContentInitialMeta(data: any): ResourceContentInitialMeta 
         })
       : false
   const unlockedByCourse = data?.unlockedViaCourse === true
+  const isOwner =
+    data?.isOwner === true ||
+    data?.owner === true ||
+    (typeof viewerUserId === "string" &&
+      viewerUserId.length > 0 &&
+      (data?.userId === viewerUserId ||
+        data?.ownerId === viewerUserId ||
+        data?.authorId === viewerUserId ||
+        data?.user?.id === viewerUserId))
   const fromCourseId =
     data?.unlockingCourseId ||
     (Array.isArray(data?.lessons)
@@ -35,6 +48,7 @@ function parseResourceContentInitialMeta(data: any): ResourceContentInitialMeta 
     resourceUser: data?.user ?? null,
     serverPrice: typeof data?.price === "number" ? data.price : null,
     serverPurchased: unlockedByPurchase || unlockedByCourse,
+    serverIsOwner: isOwner,
     unlockedViaCourse: unlockedByCourse,
     unlockingCourseId: fromCourseId || null,
   }
@@ -45,13 +59,15 @@ export function isUuidResourceId(resourceId: string): boolean {
 }
 
 export async function fetchResourceContentInitialMeta(
-  resourceId: string
+  resourceId: string,
+  viewerUserId?: string | null
 ): Promise<ResourceContentInitialMeta | null> {
   if (!isUuidResourceId(resourceId)) {
     return null
   }
 
-  const cachedRequest = resourceMetaRequests.get(resourceId)
+  const requestKey = `${viewerUserId ?? "anon"}:${resourceId}`
+  const cachedRequest = resourceMetaRequests.get(requestKey)
   if (cachedRequest) {
     return cachedRequest
   }
@@ -66,16 +82,16 @@ export async function fetchResourceContentInitialMeta(
     }
 
     const body = await response.json()
-    return parseResourceContentInitialMeta(body?.data)
+    return parseResourceContentInitialMeta(body?.data, viewerUserId)
   })()
     .catch((error) => {
       console.error("Failed to fetch resource meta", error)
       return null
     })
     .finally(() => {
-      resourceMetaRequests.delete(resourceId)
+      resourceMetaRequests.delete(requestKey)
     })
 
-  resourceMetaRequests.set(resourceId, request)
+  resourceMetaRequests.set(requestKey, request)
   return request
 }

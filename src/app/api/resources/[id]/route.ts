@@ -117,6 +117,7 @@ export async function GET(
           noteId: resource.noteId,
           createdAt: resource.createdAt,
           user: resource.user,
+          isOwner,
           isPaid: true,
           requiresPurchase: true,
           unlockedViaCourse: false,
@@ -129,6 +130,7 @@ export async function GET(
       success: true,
       data: {
         ...resource,
+        isOwner,
         lessons: lessonsWithCourse,
         unlockedViaCourse,
         unlockingCourseId

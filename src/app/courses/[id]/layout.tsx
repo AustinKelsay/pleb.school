@@ -21,8 +21,8 @@ export async function generateMetadata(
   }
 
   try {
-    const course = await CourseAdapter.findById(id)
-    if (!course) {
+    const courseExists = await CourseAdapter.exists(id)
+    if (!courseExists) {
       return {
         title: 'Course Not Found | pleb.school',
         description: 'The requested course could not be found.',
