@@ -3,17 +3,14 @@ import {
   getContentConfig,
   type ContentSection,
 } from "@/lib/content-config"
+import {
+  applyResolvedNoteToContentItem,
+  resolveCatalogEventsByIdentity,
+} from "@/lib/content-note-resolution"
 import { copyConfig } from "@/lib/copy"
 import { CourseAdapter, LessonAdapter, PurchaseAdapter, ResourceAdapter } from "@/lib/db-adapter"
-import { NostrFetchService } from "@/lib/nostr-fetch-service"
-import { getEventATag } from "@/lib/nostr-a-tag"
-import { getNoteImage } from "@/lib/note-image"
 import { resolvePreferredDisplayName } from "@/lib/profile-display"
 import {
-  createCourseDisplay,
-  createResourceDisplay,
-  parseCourseEvent,
-  parseEvent,
   type ContentItem,
   type Course,
   type NostrEvent,
@@ -106,45 +103,24 @@ async function getLinkedResourceIds(): Promise<Set<string>> {
 
 function normalizeCourseItem(
   course: Course,
-  note: NostrEvent | undefined,
+  resolved: { note?: NostrEvent; noteResolved: boolean },
   overlayPurchases: Map<string, PurchaseSummary[]>
 ): ContentItem {
-  const parsedCourse = note ? parseCourseEvent(note) : null
-  const display = parsedCourse
-    ? createCourseDisplay(course, parsedCourse)
-    : {
-        title: `Course ${course.id}`,
-        description: "",
-        category: "general",
-        instructor: "",
-        instructorPubkey: course.user?.pubkey || "",
-        rating: 0,
-        enrollmentCount: 0,
-        isPremium: course.price > 0,
-        currency: "sats",
-        image: "",
-        tags: [] as string[][],
-        published: true,
-        topics: [] as string[],
-        lessonReferences: [] as string[],
-        additionalLinks: [],
-        ...course,
-      }
-  const instructorPubkey = display.instructorPubkey || note?.pubkey || course.user?.pubkey || ""
+  const instructorPubkey = course.user?.pubkey || ""
   const instructor = resolvePreferredDisplayName({
-    preferredNames: [display.instructor],
+    preferredNames: [],
     user: course.user,
     pubkey: instructorPubkey,
   })
 
-  return {
+  const baseItem: ContentItem = {
     id: course.id,
     type: "course",
-    title: display.title,
-    description: display.description,
-    category: display.category || display.topics[0] || "general",
-    image: display.image || getNoteImage(note),
-    tags: display.tags,
+    title: `Course ${course.id}`,
+    description: "",
+    category: "general",
+    image: undefined,
+    tags: [],
     instructor,
     instructorPubkey,
     createdAt: course.createdAt,
@@ -153,62 +129,43 @@ function normalizeCourseItem(
     isPremium: course.price > 0,
     rating: 4.5,
     published: true,
-    topics: display.topics,
-    additionalLinks: display.additionalLinks ?? [],
-    noteId: note?.id || course.noteId,
-    noteATag: getEventATag(note),
+    topics: [],
+    additionalLinks: [],
+    noteId: course.noteId,
     purchases: overlayPurchases.get(course.id) ?? course.purchases,
-    currency: display.currency,
-    enrollmentCount: display.enrollmentCount,
+    currency: "sats",
+    enrollmentCount: 0,
+    noteResolved: resolved.noteResolved,
   }
+
+  return resolved.note ? applyResolvedNoteToContentItem(baseItem, resolved.note) : baseItem
 }
 
 function normalizeResourceItem(
   resource: Resource,
-  note: NostrEvent | undefined,
+  resolved: { note?: NostrEvent; noteResolved: boolean },
   overlayPurchases: Map<string, PurchaseSummary[]>
 ): ContentItem {
-  const parsedResource = note ? parseEvent(note) : null
   const fallbackType = getFallbackResourceType(resource)
-  const display = parsedResource
-    ? createResourceDisplay(resource, parsedResource)
-    : {
-        title: fallbackType === "video" ? `Video ${resource.id}` : `Document ${resource.id}`,
-        description: "",
-        category: "general",
-        type: fallbackType,
-        instructor: "",
-        instructorPubkey: resource.user?.pubkey || "",
-        rating: 0,
-        viewCount: 0,
-        isPremium: resource.price > 0,
-        currency: "sats",
-        image: "",
-        tags: [] as string[],
-        published: true,
-        topics: [] as string[],
-        additionalLinks: [],
-        ...resource,
-      }
-  const instructorPubkey = display.instructorPubkey || note?.pubkey || resource.user?.pubkey || ""
+  const instructorPubkey = resource.user?.pubkey || ""
   const instructor = resolvePreferredDisplayName({
-    preferredNames: [display.instructor],
+    preferredNames: [],
     user: resource.user,
     pubkey: instructorPubkey,
   })
   const fallbackImage =
-    display.type === "video" && resource.videoId
+    fallbackType === "video" && resource.videoId
       ? `https://img.youtube.com/vi/${resource.videoId}/hqdefault.jpg`
       : undefined
 
-  return {
+  const baseItem: ContentItem = {
     id: resource.id,
-    type: display.type,
-    title: display.title,
-    description: display.description,
-    category: display.category || display.topics[0] || "general",
-    image: display.image || getNoteImage(note, fallbackImage),
-    tags: note?.tags || [],
+    type: fallbackType,
+    title: fallbackType === "video" ? `Video ${resource.id}` : `Document ${resource.id}`,
+    description: "",
+    category: "general",
+    image: fallbackImage,
+    tags: [],
     instructor,
     instructorPubkey,
     createdAt: resource.createdAt,
@@ -217,14 +174,16 @@ function normalizeResourceItem(
     isPremium: resource.price > 0,
     rating: 4.5,
     published: true,
-    topics: display.topics,
-    additionalLinks: display.additionalLinks ?? [],
-    noteId: note?.id || resource.noteId,
-    noteATag: getEventATag(note),
+    topics: [],
+    additionalLinks: [],
+    noteId: resource.noteId,
     purchases: overlayPurchases.get(resource.id) ?? resource.purchases,
-    currency: display.currency,
-    viewCount: display.viewCount,
+    currency: "sats",
+    viewCount: 0,
+    noteResolved: resolved.noteResolved,
   }
+
+  return resolved.note ? applyResolvedNoteToContentItem(baseItem, resolved.note) : baseItem
 }
 
 export async function getContentCatalogData({
@@ -242,13 +201,33 @@ export async function getContentCatalogData({
     }),
   ])
 
-  const [courseNoteMap, resourceNoteMap, overlayPurchases, linkedResourceIds] = await Promise.all([
+  const [courseResolution, resourceResolution, overlayPurchases, linkedResourceIds] = await Promise.all([
     courses.length > 0
-      ? NostrFetchService.fetchEventsByDTags(courses.map((course) => course.id), COURSE_NOTE_KINDS)
-      : Promise.resolve(new Map<string, NostrEvent>()),
+      ? resolveCatalogEventsByIdentity(
+          courses.map((course) => ({
+            id: course.id,
+            noteId: course.noteId,
+            type: "course",
+          })),
+          COURSE_NOTE_KINDS
+        )
+      : Promise.resolve({
+          eventsByEntityId: new Map(),
+          unresolvedEntityIds: new Set<string>(),
+        }),
     resources.length > 0
-      ? NostrFetchService.fetchEventsByDTags(resources.map((resource) => resource.id), RESOURCE_NOTE_KINDS)
-      : Promise.resolve(new Map<string, NostrEvent>()),
+      ? resolveCatalogEventsByIdentity(
+          resources.map((resource) => ({
+            id: resource.id,
+            noteId: resource.noteId,
+            type: getFallbackResourceType(resource),
+          })),
+          RESOURCE_NOTE_KINDS
+        )
+      : Promise.resolve({
+          eventsByEntityId: new Map(),
+          unresolvedEntityIds: new Set<string>(),
+        }),
     viewerUserId
       ? PurchaseAdapter.findByUserWithResourcesOrCourses(
           viewerUserId,
@@ -264,11 +243,27 @@ export async function getContentCatalogData({
   const normalizedOverlay = normalizeOverlayPurchases(overlayPurchases)
 
   const courseItems = courses.map((course) =>
-    normalizeCourseItem(course, courseNoteMap.get(course.id), normalizedOverlay.courses)
+    normalizeCourseItem(
+      course,
+      {
+        note: courseResolution.eventsByEntityId.get(course.id),
+        noteResolved: !courseResolution.unresolvedEntityIds.has(course.id),
+      },
+      normalizedOverlay.courses
+    )
   )
 
   const resourceItems = resources
-    .map((resource) => normalizeResourceItem(resource, resourceNoteMap.get(resource.id), normalizedOverlay.resources))
+    .map((resource) =>
+      normalizeResourceItem(
+        resource,
+        {
+          note: resourceResolution.eventsByEntityId.get(resource.id),
+          noteResolved: !resourceResolution.unresolvedEntityIds.has(resource.id),
+        },
+        normalizedOverlay.resources
+      )
+    )
     .filter((item) => {
       if (!linkedResourceIds.has(item.id)) {
         return true

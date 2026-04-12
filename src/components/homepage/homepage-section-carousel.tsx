@@ -10,6 +10,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import type { ContentItem } from "@/data/types"
+import { useCatalogNoteRepair } from "@/hooks/useCatalogNoteRepair"
 import type { ContentSection } from "@/lib/content-config"
 
 export interface HomepageSectionCarouselProps {
@@ -44,6 +45,8 @@ export const HomepageSectionCarousel = ({
   sectionType,
   carouselConfig,
 }: HomepageSectionCarouselProps) => {
+  const repairedItems = useCatalogNoteRepair(items)
+
   return (
     <Section spacing="lg" className={getSectionClassName(sectionType)}>
       <div className="space-y-8">
@@ -52,7 +55,7 @@ export const HomepageSectionCarousel = ({
           <p className="text-muted-foreground">{description}</p>
         </div>
 
-        {items.length === 0 ? (
+        {repairedItems.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">{getEmptyStateCopy(sectionType)}</p>
           </div>
@@ -65,7 +68,7 @@ export const HomepageSectionCarousel = ({
             className="w-full"
           >
             <CarouselContent className="-ml-2 md:-ml-4">
-              {items.map((item) => (
+              {repairedItems.map((item) => (
                 <CarouselItem
                   key={item.id}
                   className={`pl-2 md:pl-4 basis-full ${

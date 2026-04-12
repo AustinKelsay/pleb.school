@@ -13,7 +13,7 @@ import {
   Video
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { type AddressData, type EventData, type NostrEvent } from 'snstr'
+import { type AddressData, type NostrEvent } from 'snstr'
 
 import { MainLayout } from '@/components/layout/main-layout'
 import { Section } from '@/components/layout/section'
@@ -44,6 +44,7 @@ import { useViews } from '@/hooks/useViews'
 import { trackEventSafe } from '@/lib/analytics'
 import { extractNoteId } from '@/lib/nostr-events'
 import { formatNoteIdentifier } from '@/lib/note-identifiers'
+import { fetchResourceEventOnClient } from '@/lib/resource-event-resolution'
 import { getRelays } from '@/lib/nostr-relays'
 import { profileSummaryFromUser, resolvePreferredDisplayName } from '@/lib/profile-display'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
@@ -51,7 +52,7 @@ import { resolveUniversalId, type UniversalIdResult } from '@/lib/universal-rout
 
 interface ResourcePageClientProps {
   resourceId: string
-  initialEvent: NostrEvent
+  initialEvent: NostrEvent | null
   initialMeta: ResourceContentInitialMeta | null
 }
 
@@ -108,7 +109,7 @@ function ResourcePageContent({
   initialMeta,
 }: {
   resourceId: string
-  initialEvent: NostrEvent
+  initialEvent: NostrEvent | null
   initialMeta: ResourceContentInitialMeta | null
 }) {
   const { fetchSingleEvent } = useNostr()
@@ -162,6 +163,7 @@ function ResourcePageContent({
     () => extractRelayHintsFromDecodedData(idResult?.decodedData),
     [idResult?.decodedData]
   )
+  const fallbackNoteId = resourceMeta?.resourceNoteId ?? initialMeta?.resourceNoteId ?? null
   const initialAuthorProfile = useMemo(
     () => profileSummaryFromUser(resourceMeta?.resourceUser),
     [resourceMeta?.resourceUser]
@@ -193,14 +195,14 @@ function ResourcePageContent({
 
   useEffect(() => {
     setEvent(initialEvent)
-    setLoading(false)
+    setLoading(!initialEvent)
     setError(null)
-  }, [initialEvent])
+  }, [initialEvent, resourceId])
 
   useEffect(() => {
     setResourceMeta(initialMeta)
     setIsPurchaseStatusLoading(initialMeta === undefined)
-  }, [initialMeta])
+  }, [initialMeta, resourceId])
 
   useEffect(() => {
     let isCancelled = false
@@ -212,93 +214,18 @@ function ResourcePageContent({
           setError(null)
         }
         
-        // Resolve the universal ID to determine how to fetch the content
-        const resolved = resolveUniversalId(resourceId)
-        if (!resolved) {
-          if (!isCancelled) {
-            setIdResult(null)
-            setError('Unsupported identifier')
-            setLoading(false)
-          }
-          return
-        }
+        const lookup = await fetchResourceEventOnClient(resourceId, fetchSingleEvent, fallbackNoteId)
         if (!isCancelled) {
-          setIdResult(resolved)
+          setIdResult(lookup.resolved)
         }
-        
-        let nostrEvent: NostrEvent | null = null
-        
-        // Fetch based on ID type
-        if (resolved.idType === 'nevent' && resolved.decodedData) {
-          if (
-            typeof resolved.decodedData === 'object' &&
-            'id' in resolved.decodedData &&
-            typeof resolved.decodedData.id === 'string'
-          ) {
-            const data = resolved.decodedData as EventData
-            // Check if relays field exists and is a valid array of strings
-            const relayHints = data.relays && Array.isArray(data.relays) && data.relays.length > 0
-              ? data.relays.filter((relay): relay is string => typeof relay === 'string')
-              : undefined
-            
-            nostrEvent = await fetchSingleEvent({
-              ids: [data.id]
-            }, relayHints ? { relays: relayHints } : {})
-          } else {
-            console.error('Invalid nevent decoded data', resolved.decodedData)
-            if (!isCancelled) {
-              setError('Invalid identifier metadata')
-              setLoading(false)
-            }
-            return
-          }
-        } else if (resolved.idType === 'naddr' && resolved.decodedData) {
-          if (
-            typeof resolved.decodedData === 'object' &&
-            'identifier' in resolved.decodedData &&
-            'kind' in resolved.decodedData &&
-            typeof resolved.decodedData.identifier === 'string' &&
-            typeof resolved.decodedData.kind === 'number'
-          ) {
-            const data = resolved.decodedData as AddressData
-            // Check if relays field exists and is a valid array of strings
-            const relayHints = data.relays && Array.isArray(data.relays) && data.relays.length > 0
-              ? data.relays.filter((relay): relay is string => typeof relay === 'string')
-              : undefined
-            
-            nostrEvent = await fetchSingleEvent({
-              kinds: [data.kind],
-              '#d': [data.identifier],
-              authors: data.pubkey ? [data.pubkey] : undefined
-            }, relayHints ? { relays: relayHints } : {})
-          } else {
-            console.error('Invalid naddr decoded data', resolved.decodedData)
-            if (!isCancelled) {
-              setError('Invalid identifier metadata')
-              setLoading(false)
-            }
-            return
-          }
-        } else if (resolved.idType === 'note' || resolved.idType === 'hex') {
-          // Direct event ID
-          nostrEvent = await fetchSingleEvent({
-            ids: [resolved.resolvedId]
-          })
-        } else {
-          // Database ID or other format - try as identifier
-          nostrEvent = await fetchSingleEvent({
-            kinds: [30023, 30402, 30403], // Long-form content, paid content, and drafts
-            '#d': [resolved.resolvedId]
-          })
-        }
-        
-        if (nostrEvent) {
+
+        if (lookup.event) {
           if (!isCancelled) {
-            setEvent(nostrEvent)
+            setEvent(lookup.event)
           }
         } else {
           if (!isCancelled) {
-            setError('Resource not found')
+            setError(lookup.error ?? 'Resource not found')
           }
         }
       } catch (err) {
@@ -313,14 +240,14 @@ function ResourcePageContent({
       }
     }
 
-    if (resourceId && !initialEvent) {
+    if (resourceId && !event) {
       void fetchEvent()
     }
 
     return () => {
       isCancelled = true
     }
-  }, [resourceId, fetchSingleEvent, initialEvent])
+  }, [resourceId, fetchSingleEvent, fallbackNoteId, event])
 
   useEffect(() => {
     let isCancelled = false
@@ -767,6 +694,7 @@ function ResourcePageContent({
                             serverIsOwner: false,
                             unlockedViaCourse: false,
                             unlockingCourseId: null,
+                            resourceNoteId: null,
                           }),
                           serverPurchased,
                         }

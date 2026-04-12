@@ -26,29 +26,54 @@ export class NostrFetchService {
     relayPool?: RelayPool,
     relays: string[] = DEFAULT_RELAYS
   ): Promise<NostrEvent | null> {
+    const normalizedRelays = relays && relays.length ? relays : getRelays('default')
+
     try {
-      // If no relay pool provided, create a temporary one
-      if (!relayPool) {
-        // Use dynamic import to avoid server-side issues
-        const { RelayPool: RP } = await import('snstr')
-        const tempPool = new RP(relays)
-        
-        try {
-          const event = await this.fetchWithPool(tempPool, eventId, relays)
-          tempPool.close()
-          return event
-        } catch (error) {
-          tempPool.close()
-          throw error
-        }
+      const event = relayPool
+        ? await this.fetchWithPool(relayPool, eventId, normalizedRelays)
+        : await this.withTemporaryPool(
+            normalizedRelays,
+            (pool, activeRelays) => this.fetchWithPool(pool, eventId, activeRelays)
+          )
+
+      if (event || normalizedRelays.length <= 1) {
+        return event
       }
-      
-      // Use provided relay pool
-      return await this.fetchWithPool(relayPool, eventId, relays)
     } catch (error) {
       console.error('Error fetching Nostr event:', error)
+    }
+
+    if (normalizedRelays.length <= 1) {
       return null
     }
+
+    return this.fetchEventByIdAcrossRelays(eventId, relayPool, normalizedRelays)
+  }
+
+  /**
+   * Fetch a single event by ID across each relay independently.
+   * This recovers legacy note lookups when a combined multi-relay subscription stalls.
+   */
+  private static async fetchEventByIdAcrossRelays(
+    eventId: string,
+    relayPool: RelayPool | undefined,
+    relays: string[]
+  ): Promise<NostrEvent | null> {
+    for (const relay of Array.from(new Set(relays))) {
+      try {
+        const event = relayPool
+          ? await this.fetchWithPool(relayPool, eventId, [relay])
+          : await this.withTemporaryPool([relay], (pool, activeRelays) => this.fetchWithPool(pool, eventId, activeRelays))
+
+        if (event) {
+          return event
+        }
+      } catch (error) {
+        console.error(`Error fetching Nostr event from relay ${relay}:`, error)
+      }
+    }
+
+    return null
   }
 
   /**
@@ -60,29 +85,70 @@ export class NostrFetchService {
     relays: string[] = DEFAULT_RELAYS
   ): Promise<Map<string, NostrEvent>> {
     const events = new Map<string, NostrEvent>()
-    
-    try {
-      // If no relay pool provided, create a temporary one
-      if (!relayPool) {
-        const { RelayPool: RP } = await import('snstr')
-        const tempPool = new RP(relays)
-        
-        try {
-          const fetchedEvents = await this.fetchMultipleWithPool(tempPool, eventIds, relays)
-          tempPool.close()
-          return fetchedEvents
-        } catch (error) {
-          tempPool.close()
-          throw error
-        }
-      }
-      
-      // Use provided relay pool
-      return await this.fetchMultipleWithPool(relayPool, eventIds, relays)
-    } catch (error) {
-      console.error('Error fetching Nostr events:', error)
+    const normalizedRelays = relays && relays.length ? relays : getRelays('default')
+    const uniqueEventIds = Array.from(new Set(eventIds.map((eventId) => eventId.trim()).filter(Boolean)))
+
+    if (uniqueEventIds.length === 0) {
       return events
     }
+
+    try {
+      const fetchedEvents = relayPool
+        ? await this.fetchMultipleWithPool(relayPool, uniqueEventIds, normalizedRelays)
+        : await this.withTemporaryPool(
+            normalizedRelays,
+            (pool, activeRelays) => this.fetchMultipleWithPool(pool, uniqueEventIds, activeRelays)
+          )
+
+      if (fetchedEvents.size === uniqueEventIds.length || normalizedRelays.length <= 1) {
+        return fetchedEvents
+      }
+
+      const recoveredEvents = await this.fetchEventsByIdsAcrossRelays(
+        uniqueEventIds.filter((eventId) => !fetchedEvents.has(eventId)),
+        relayPool,
+        normalizedRelays
+      )
+      recoveredEvents.forEach((event, eventId) => fetchedEvents.set(eventId, event))
+      return fetchedEvents
+    } catch (error) {
+      console.error('Error fetching Nostr events:', error)
+      if (normalizedRelays.length > 1) {
+        return this.fetchEventsByIdsAcrossRelays(uniqueEventIds, relayPool, normalizedRelays)
+      }
+      return events
+    }
+  }
+
+  private static async fetchEventsByIdsAcrossRelays(
+    eventIds: string[],
+    relayPool: RelayPool | undefined,
+    relays: string[]
+  ): Promise<Map<string, NostrEvent>> {
+    const events = new Map<string, NostrEvent>()
+    let remainingEventIds = Array.from(new Set(eventIds))
+
+    for (const relay of Array.from(new Set(relays))) {
+      if (remainingEventIds.length === 0) {
+        break
+      }
+
+      try {
+        const relayEvents = relayPool
+          ? await this.fetchMultipleWithPool(relayPool, remainingEventIds, [relay])
+          : await this.withTemporaryPool(
+              [relay],
+              (pool, activeRelays) => this.fetchMultipleWithPool(pool, remainingEventIds, activeRelays)
+            )
+
+        relayEvents.forEach((event, eventId) => events.set(eventId, event))
+        remainingEventIds = remainingEventIds.filter((eventId) => !events.has(eventId))
+      } catch (error) {
+        console.error(`Error fetching Nostr events from relay ${relay}:`, error)
+      }
+    }
+
+    return events
   }
 
   /**
@@ -340,5 +406,19 @@ export class NostrFetchService {
         finalize()
       })
     })
+  }
+
+  private static async withTemporaryPool<T>(
+    relays: string[],
+    callback: (pool: RelayPool, activeRelays: string[]) => Promise<T>
+  ): Promise<T> {
+    const { RelayPool: RP } = await import('snstr')
+    const tempPool = new RP(relays)
+
+    try {
+      return await callback(tempPool, relays)
+    } finally {
+      tempPool.close()
+    }
   }
 }

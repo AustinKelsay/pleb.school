@@ -139,6 +139,7 @@ describe('ResourceContentView', () => {
             serverIsOwner: false,
             unlockedViaCourse: false,
             unlockingCourseId: null,
+            resourceNoteId: 'event-id',
           },
         })
       )

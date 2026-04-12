@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { ContentCard } from "@/components/ui/content-card"
 import { contentTypeFilters } from "@/data/config"
 import type { ContentItem } from "@/data/types"
+import { useCatalogNoteRepair } from "@/hooks/useCatalogNoteRepair"
 import { trackEventSafe } from "@/lib/analytics"
 import { getCopy } from "@/lib/copy"
 
@@ -37,6 +38,7 @@ export default function ContentPageClient({
   pricing,
 }: ContentPageClientProps) {
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set(["all"]))
+  const repairedItems = useCatalogNoteRepair(initialItems)
 
   const availableTagsSet = useMemo(
     () => new Set(initialAvailableTags.map((tag) => tag.toLowerCase())),
@@ -59,10 +61,10 @@ export default function ContentPageClient({
 
   const filteredContent = useMemo(() => {
     if (selectedFilters.has("all") || selectedFilters.size === 0) {
-      return initialItems
+      return repairedItems
     }
 
-    return initialItems.filter((item) => {
+    return repairedItems.filter((item) => {
       const itemAttributes = [
         item.type,
         item.category,
@@ -74,7 +76,7 @@ export default function ContentPageClient({
         itemAttributes.includes(filter.toLowerCase())
       )
     })
-  }, [initialItems, selectedFilters])
+  }, [repairedItems, selectedFilters])
 
   const toggleFilter = (filter: string) => {
     const normalizedFilter = normalizeFilterKey(filter)
@@ -125,7 +127,7 @@ export default function ContentPageClient({
             <p className="text-sm text-muted-foreground">
               {getCopy("contentLibrary.resultsCounter", {
                 count: filteredContent.length,
-                total: initialItems.length,
+                total: repairedItems.length,
               })}
             </p>
             {selectedFilters.size > 1 || !selectedFilters.has("all") ? (
