@@ -361,22 +361,36 @@ import { getRelays } from '@/lib/nostr-relays'
 const relays = getRelays('content')  // or 'profile', 'default', 'zapThreads'
 ```
 
+Current runtime behavior:
+- `getRelays(...)` still provides the base relay sets from `config/nostr.json`.
+- `src/lib/note-reference-resolution.ts` can merge embedded relay hints from encoded note references with the default relay set instead of replacing it.
+- `NostrFetchService.fetchEventsByDTags()` retries unresolved `#d` lookups relay-by-relay after the initial combined query.
+- Legacy fallback is not limited to raw 64-character event ids; note references such as `note`, `nevent`, and `naddr` are supported when resolving content notes.
+
 ## Content Hydration Flow
 
-1. **Server**: Fetch content metadata from database
-2. **Client**: Fetch Nostr event via `useNostr` hook
-3. **Parse**: Extract fields with `parseCourseEvent` or `parseEvent`
-4. **Merge**: Create display object with `createCourseDisplay` or `createResourceDisplay`
-5. **Render**: Use display object in UI components
+1. **Server**: Database adapters load canonical course/resource rows.
+2. **Server**: `src/lib/content-catalog.server.ts` resolves notes through `resolveCatalogEventsByIdentity(...)`, trying `#d` first and `noteId` fallback second.
+3. **Server**: `applyResolvedNoteToContentItem(...)` merges parsed note fields into the `ContentItem`.
+4. **Render**: If note lookup misses, the item still renders from DB fallback data with `noteResolved: false`.
+5. **Client repair**: `useCatalogNoteRepair(...)` retries only unresolved catalog items in the browser, first by `#d`, then by note reference.
+6. **Resource readers**: `src/lib/resource-page-data.server.ts` returns either an initial event or `ResourceContentInitialMeta.resourceNoteId`, keeping UUID-backed resources recoverable even when the first server fetch misses.
 
 ```typescript
-// Conceptual flow (pseudocode spanning server/client boundary):
-// 1. Server: dbCourse = await CourseAdapter.findById(id)
-// 2. Client: const { fetchEvent } = useNostr()  // hook at component top level
-//            note = await fetchEvent(dbCourse.noteId)
-// 3. Parse:  parsed = parseCourseEvent(note)
-// 4. Merge:  display = createCourseDisplay(dbCourse, parsed)
+// Server catalog path:
+const { eventsByEntityId } = await resolveCatalogEventsByIdentity(entities, [30004, 30023, 30402, 30403])
+const hydratedItems = items.map((item) => {
+  const note = eventsByEntityId.get(item.id)
+  return note ? applyResolvedNoteToContentItem(item, note) : { ...item, noteResolved: false }
+})
+
+// Client repair path:
+const repairedItems = useCatalogNoteRepair(hydratedItems)
+// Internally, unresolved items retry #d first, then fetchEventsByReferences([item.noteId]).
 ```
+
+Legacy free-video note:
+- `kind 30023` notes may still represent videos. Video classification is preserved from DB/resource context and parsed note fields, so older notes are not downgraded to documents only because they lack one specific tag form.
 
 ## Related Documentation
 

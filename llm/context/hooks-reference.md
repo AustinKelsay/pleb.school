@@ -1,8 +1,10 @@
 # Hooks Reference
 
-Complete reference for React hooks in pleb.school. Located in `src/hooks/`.
+Complete reference for React hooks in the platform. Located in `src/hooks/`.
 
 ## Data Fetching Hooks
+
+Primary public content surfaces are now server-rendered first. `/` and `/content` call `getContentCatalogData(...)` on the server, merge purchase state there, and only use `useCatalogNoteRepair(...)` in the browser for unresolved note metadata. The hooks below still matter for client-driven views, detail pages, editors, and pickers, but they are no longer the first-render path for the homepage or the main content library.
 
 ### useCoursesQuery
 
@@ -21,6 +23,7 @@ function CoursesPage() {
 Notes:
 - Uses `/api/courses/list` as a public cacheable base query.
 - Merges viewer-specific purchase state through `/api/purchases/overlay` only when the user is authenticated.
+- Still valid for course-focused client surfaces, but not for the first render of `/` or `/content`, which now use `src/lib/content-catalog.server.ts`.
 
 ### useResourcesQuery / usePublishedContentQuery
 
@@ -36,6 +39,10 @@ function ContentPage() {
 }
 ```
 
+Notes:
+- Useful for client-driven published-content views and tools.
+- The homepage and `/content` library no longer assemble their first render through this hook family.
+
 ### useVideosQuery
 
 Fetches video resources only.
@@ -49,6 +56,7 @@ const { data: videos, isLoading } = useVideosQuery()
 Notes:
 - Shares the underlying resources list query with `useDocumentsQuery` to avoid duplicate `/api/resources/list` requests when both hooks are mounted.
 - Inherits viewer purchase overlays from `useResourcesListQuery`, so purchase badges can hydrate without making the base resources list user-specific.
+- Still valid for resource pickers and specialized client views, but homepage and `/content` now receive initial video items from `getContentCatalogData(...)`.
 
 ### useDocumentsQuery
 
@@ -63,6 +71,7 @@ const { data: documents, isLoading } = useDocumentsQuery()
 Notes:
 - Shares the underlying resources list query with `useVideosQuery` so content/homepage surfaces do not double-fetch the same list.
 - Inherits viewer purchase overlays from `useResourcesListQuery` for authenticated purchase badges.
+- Still valid for resource pickers and specialized client views, but homepage and `/content` now receive initial document items from `getContentCatalogData(...)`.
 
 ### useResourcesListQuery
 
@@ -81,6 +90,7 @@ const resourcesQuery = useResourcesListQuery({
 Notes:
 - Uses `/api/resources/list` as a public cacheable list API.
 - Uses `useViewerPurchasesOverlay` to merge per-user purchases without making the primary list endpoint dynamic.
+- Remains the shared low-level client list hook for editor/picker flows, but not the first-render source for `/` or `/content`.
 
 ### useViewerPurchasesOverlay
 
@@ -94,6 +104,26 @@ const overlay = useViewerPurchasesOverlay({
   courseIds: ["course-id-1"],
 })
 ```
+
+Notes:
+- Homepage and `/content` merge purchase badges server-side in the content catalog, so this overlay is no longer part of their first paint.
+
+### useCatalogNoteRepair
+
+Repairs unresolved server-rendered catalog items in place.
+
+```typescript
+import { useCatalogNoteRepair } from "@/hooks/useCatalogNoteRepair"
+
+const repairedItems = useCatalogNoteRepair(initialItems)
+```
+
+Notes:
+- Input is `ContentItem[]`.
+- Only retries items where `noteResolved !== true` and `noteId` exists.
+- Tries a `#d` lookup first, then falls back to `fetchEventsByReferences(...)` for legacy references such as `hex`, `note`, `nevent`, and `naddr`.
+- Uses `applyResolvedNoteToContentItem(...)` to merge recovered note fields back into the visible item.
+- Designed to avoid reintroducing full-page or section-level loading skeletons.
 
 ### useLessonsQuery
 
@@ -498,6 +528,9 @@ usePrefetchContent({
 })
 ```
 
+Notes:
+- `usePrefetchContent` is no longer part of the homepage or `/content` initial render path now that those routes are server-rendered first.
+
 ### useDebounce
 
 Debounces a value.
@@ -587,16 +620,25 @@ function usePurchasesQuery() {
 Hooks that work with Nostr events:
 
 ```typescript
-// Events are fetched from relays via useNostr
+// Targeted client repair still uses useNostr-style relay fetches for #d lookups
 const { fetchSingleEvent } = useNostr()
 const event = await fetchSingleEvent({
   kinds: [30023],
   '#d': [identifier]
 })
 
+// Legacy note references fall back through the shared resolver helpers
+const eventsByReference = await fetchEventsByReferences([noteId], {
+  allowedKinds: [30023, 30402, 30403],
+})
+
 // Parse with utility functions
 const parsed = parseEvent(event)
 ```
+
+Notes:
+- Server-first routes prefer `src/lib/content-note-resolution.ts` and `src/lib/resource-page-data.server.ts` for the initial fetch.
+- Browser Nostr hooks now provide narrow incremental repair rather than the primary hydration path for `/` and `/content`.
 
 ## Related Documentation
 

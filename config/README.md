@@ -79,6 +79,10 @@ Relay sets and event type mapping. `relays.default` is the canonical shared four
 - Runtime + seed publishing: `src/lib/nostr-relays.ts` provides `getRelays(set)`, `DEFAULT_RELAYS`, and `RELAY_ALLOWLIST`, and `prisma/seed/config.ts` derives its publish relays from that shared module.
 - CSP: `middleware.ts` builds `connect-src` from `RELAY_ALLOWLIST` plus optional `ALLOWED_RELAYS`.
 - ZapThreads and other default relay consumers use the canonical four unless an explicit relay-specific set is configured.
+- Content note recovery starts from `relays.default` unless a caller passes explicit relays or a different relay set.
+- Encoded note references such as `note`, `nevent`, and `naddr` may contribute embedded relay hints; those hints are additive to the default relay set, not exclusive.
+- `NostrFetchService.fetchEventsByDTags()` and note-reference fetches can retry unresolved lookups relay-by-relay after the initial combined query.
+- Broadening `relays.default` increases recovery breadth for legacy content that was historically published across multiple relays.
 
 ### `admin.json` — Admin & Moderator
 
