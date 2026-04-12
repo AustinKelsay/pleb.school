@@ -1,11 +1,14 @@
-import type { AddressData, EventData, Filter, NostrEvent } from "snstr"
+import type { Filter, NostrEvent } from "snstr"
 
 import {
   selectPreferredEventFromList,
   type EventPriorityConfig,
 } from "@/lib/nostr-event-priority"
+import {
+  fetchEventFromReference,
+  fetchEventFromReferenceWithClientFetcher,
+} from "@/lib/note-reference-resolution"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
-import { getRelays } from "@/lib/nostr-relays"
 import { resolveUniversalId, type UniversalIdResult } from "@/lib/universal-router"
 
 export interface ResourceEventLookupResult {
@@ -62,72 +65,25 @@ export async function fetchResourceEventOnServer(
     }
   }
 
-  if (resolved.idType === "nevent" && resolved.decodedData && typeof resolved.decodedData === "object" && "id" in resolved.decodedData) {
-    const eventData = resolved.decodedData as EventData
-    const relays =
-      Array.isArray(eventData.relays) && eventData.relays.length > 0
-        ? eventData.relays
-        : getRelays("default")
-
+  if (resolved.idType === "nevent" || resolved.idType === "naddr" || resolved.idType === "note" || resolved.idType === "hex") {
     return {
       resolved,
-      event: await NostrFetchService.fetchEventById(eventData.id, undefined, relays),
-      error: null,
-    }
-  }
-
-  if (
-    resolved.idType === "naddr" &&
-    resolved.decodedData &&
-    typeof resolved.decodedData === "object" &&
-    "identifier" in resolved.decodedData &&
-    "kind" in resolved.decodedData
-  ) {
-    const addressData = resolved.decodedData as AddressData
-    if (!RESOURCE_ONLY_KINDS.has(addressData.kind)) {
-      return {
-        resolved,
-        event: null,
-        error: "Unsupported identifier",
-      }
-    }
-
-    const relays =
-      Array.isArray(addressData.relays) && addressData.relays.length > 0
-        ? addressData.relays
-        : getRelays("default")
-
-    const events = await NostrFetchService.fetchEventsByFilters(
-      [
-        {
-          kinds: [addressData.kind],
-          "#d": [addressData.identifier],
-          authors: addressData.pubkey ? [addressData.pubkey] : undefined,
-          limit: 10,
-        },
-      ],
-      undefined,
-      relays
-    )
-
-    return {
-      resolved,
-      event: selectPreferredEventFromList(events, RESOURCE_EVENT_PRIORITY),
-      error: null,
-    }
-  }
-
-  if (resolved.idType === "note" || resolved.idType === "hex") {
-    return {
-      resolved,
-      event: await NostrFetchService.fetchEventById(resolved.resolvedId),
+      event: await fetchEventFromReference(resourceId, {
+        allowedKinds: RESOURCE_EVENT_KINDS,
+        priorityConfig: RESOURCE_EVENT_PRIORITY,
+      }),
       error: null,
     }
   }
 
   const event =
     (await fetchPreferredResourceEventByDTag(resolved.resolvedId)) ||
-    (fallbackNoteId ? await NostrFetchService.fetchEventById(fallbackNoteId) : null)
+    (fallbackNoteId
+      ? await fetchEventFromReference(fallbackNoteId, {
+          allowedKinds: RESOURCE_EVENT_KINDS,
+          priorityConfig: RESOURCE_EVENT_PRIORITY,
+        })
+      : null)
 
   return {
     resolved,
@@ -150,56 +106,17 @@ export async function fetchResourceEventOnClient(
     }
   }
 
-  if (resolved.idType === "nevent" && resolved.decodedData && typeof resolved.decodedData === "object" && "id" in resolved.decodedData) {
-    const eventData = resolved.decodedData as EventData
+  if (resolved.idType === "nevent" || resolved.idType === "naddr" || resolved.idType === "note" || resolved.idType === "hex") {
     return {
       resolved,
-      event: await fetchSingleEvent(
-        { ids: [eventData.id] },
-        { relays: eventData.relays }
-      ),
-      error: null,
-    }
-  }
-
-  if (
-    resolved.idType === "naddr" &&
-    resolved.decodedData &&
-    typeof resolved.decodedData === "object" &&
-    "identifier" in resolved.decodedData &&
-    "kind" in resolved.decodedData
-  ) {
-    const addressData = resolved.decodedData as AddressData
-    if (!RESOURCE_ONLY_KINDS.has(addressData.kind)) {
-      return {
-        resolved,
-        event: null,
-        error: "Unsupported identifier",
-      }
-    }
-
-    return {
-      resolved,
-      event: await fetchSingleEvent(
+      event: await fetchEventFromReferenceWithClientFetcher(
+        resourceId,
+        fetchSingleEvent,
         {
-          kinds: [addressData.kind],
-          "#d": [addressData.identifier],
-          authors: addressData.pubkey ? [addressData.pubkey] : undefined,
-        },
-        {
-          relays: addressData.relays,
+          allowedKinds: RESOURCE_EVENT_KINDS,
+          priorityConfig: RESOURCE_EVENT_PRIORITY,
         }
       ),
-      error: null,
-    }
-  }
-
-  if (resolved.idType === "note" || resolved.idType === "hex") {
-    return {
-      resolved,
-      event: await fetchSingleEvent({
-        ids: [resolved.resolvedId],
-      }),
       error: null,
     }
   }
@@ -207,9 +124,14 @@ export async function fetchResourceEventOnClient(
   const event =
     (await fetchPreferredClientResourceEventByDTag(resolved.resolvedId, fetchSingleEvent)) ||
     (fallbackNoteId
-      ? await fetchSingleEvent({
-          ids: [fallbackNoteId],
-        })
+      ? await fetchEventFromReferenceWithClientFetcher(
+          fallbackNoteId,
+          fetchSingleEvent,
+          {
+            allowedKinds: RESOURCE_EVENT_KINDS,
+            priorityConfig: RESOURCE_EVENT_PRIORITY,
+          }
+        )
       : null)
 
   return {

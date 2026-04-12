@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { Course, Resource, Lesson } from '@/data/types'
 import { NostrEvent } from 'snstr'
 import { parseCourseEvent, parseEvent } from '@/data/types'
-import { NostrFetchService } from '@/lib/nostr-fetch-service'
+import { fetchEventFromReference } from '@/lib/note-reference-resolution'
 import type { Prisma } from '@/generated/prisma'
 
 const courseUserSelect = {
@@ -467,7 +467,7 @@ async function fetchNostrEvent(noteId: string | null): Promise<NostrEvent | unde
   if (!trimmedNoteId) return undefined
   
   try {
-    const event = await NostrFetchService.fetchEventById(trimmedNoteId)
+    const event = await fetchEventFromReference(trimmedNoteId)
     return event || undefined
   } catch (error) {
     console.error('Error fetching Nostr event:', error)

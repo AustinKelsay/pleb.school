@@ -10,6 +10,7 @@ import {
 } from '@/lib/nostr-event-priority'
 import { DEFAULT_RELAYS, getRelays } from './nostr-relays'
 
+const HEX_64_REGEX = /^[0-9a-f]{64}$/i
 const DTAG_EVENT_PRIORITY: EventPriorityConfig = {
   30004: 4,
   30023: 3,
@@ -26,14 +27,19 @@ export class NostrFetchService {
     relayPool?: RelayPool,
     relays: string[] = DEFAULT_RELAYS
   ): Promise<NostrEvent | null> {
+    const normalizedEventId = eventId.trim().toLowerCase()
+    if (!HEX_64_REGEX.test(normalizedEventId)) {
+      return null
+    }
+
     const normalizedRelays = relays && relays.length ? relays : getRelays('default')
 
     try {
       const event = relayPool
-        ? await this.fetchWithPool(relayPool, eventId, normalizedRelays)
+        ? await this.fetchWithPool(relayPool, normalizedEventId, normalizedRelays)
         : await this.withTemporaryPool(
             normalizedRelays,
-            (pool, activeRelays) => this.fetchWithPool(pool, eventId, activeRelays)
+            (pool, activeRelays) => this.fetchWithPool(pool, normalizedEventId, activeRelays)
           )
 
       if (event || normalizedRelays.length <= 1) {
@@ -47,7 +53,7 @@ export class NostrFetchService {
       return null
     }
 
-    return this.fetchEventByIdAcrossRelays(eventId, relayPool, normalizedRelays)
+    return this.fetchEventByIdAcrossRelays(normalizedEventId, relayPool, normalizedRelays)
   }
 
   /**
@@ -86,7 +92,13 @@ export class NostrFetchService {
   ): Promise<Map<string, NostrEvent>> {
     const events = new Map<string, NostrEvent>()
     const normalizedRelays = relays && relays.length ? relays : getRelays('default')
-    const uniqueEventIds = Array.from(new Set(eventIds.map((eventId) => eventId.trim()).filter(Boolean)))
+    const uniqueEventIds = Array.from(
+      new Set(
+        eventIds
+          .map((eventId) => eventId.trim().toLowerCase())
+          .filter((eventId) => HEX_64_REGEX.test(eventId))
+      )
+    )
 
     if (uniqueEventIds.length === 0) {
       return events

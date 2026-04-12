@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { encodeAddress } from "snstr"
 
 import { resolveCatalogEventsByIdentity, applyResolvedNoteToContentItem } from "@/lib/content-note-resolution"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
@@ -37,6 +38,22 @@ const RESOURCE_EVENT: NostrEvent = {
   sig: "f".repeat(128),
 }
 
+const VIDEO_TAG_ONLY_RESOURCE_EVENT: NostrEvent = {
+  id: "1".repeat(64),
+  pubkey: "2".repeat(64),
+  created_at: 1_700_000_002,
+  kind: 30023,
+  tags: [
+    ["d", "resource-video-only"],
+    ["title", "Resolved Video Resource"],
+    ["summary", "Video summary"],
+    ["video", "https://www.youtube.com/watch?v=bBC-nXj3Ng4"],
+    ["t", "lightning"],
+  ],
+  content: "",
+  sig: "3".repeat(128),
+}
+
 describe("resolveCatalogEventsByIdentity", () => {
   afterEach(() => {
     vi.restoreAllMocks()
@@ -69,6 +86,27 @@ describe("resolveCatalogEventsByIdentity", () => {
       [30023, 30402, 30403]
     )
 
+    expect(result.eventsByEntityId.get("resource-1")).toEqual(RESOURCE_EVENT)
+    expect(result.unresolvedEntityIds.size).toBe(0)
+  })
+
+  it("falls back to naddr note references when d-tag lookup misses", async () => {
+    const naddr = encodeAddress({
+      identifier: "resource-1",
+      kind: 30023,
+      pubkey: RESOURCE_EVENT.pubkey,
+    })
+
+    vi.spyOn(NostrFetchService, "fetchEventsByDTags").mockResolvedValue(new Map())
+    const fetchByIdsSpy = vi.spyOn(NostrFetchService, "fetchEventsByIds").mockResolvedValue(new Map())
+    vi.spyOn(NostrFetchService, "fetchEventsByFilters").mockResolvedValue([RESOURCE_EVENT])
+
+    const result = await resolveCatalogEventsByIdentity(
+      [{ id: "resource-1", noteId: naddr, type: "video" }],
+      [30023, 30402, 30403]
+    )
+
+    expect(fetchByIdsSpy).not.toHaveBeenCalled()
     expect(result.eventsByEntityId.get("resource-1")).toEqual(RESOURCE_EVENT)
     expect(result.unresolvedEntityIds.size).toBe(0)
   })
@@ -119,5 +157,36 @@ describe("applyResolvedNoteToContentItem", () => {
     expect(repaired.topics).toEqual(["video", "lightning"])
     expect(repaired.noteResolved).toBe(true)
     expect(repaired.noteId).toBe(RESOURCE_EVENT.id)
+  })
+
+  it("preserves fallback video items when the resolved note only exposes a video tag", () => {
+    const fallbackItem: ContentItem = {
+      id: "resource-video-only",
+      type: "video",
+      title: "Video resource-video-only",
+      description: "",
+      category: "general",
+      instructor: "Fallback Author",
+      instructorPubkey: "",
+      rating: 4.5,
+      isPremium: false,
+      price: 0,
+      currency: "sats",
+      image: undefined,
+      published: true,
+      tags: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      topics: [],
+      additionalLinks: [],
+      noteId: VIDEO_TAG_ONLY_RESOURCE_EVENT.id,
+      noteResolved: false,
+    }
+
+    const repaired = applyResolvedNoteToContentItem(fallbackItem, VIDEO_TAG_ONLY_RESOURCE_EVENT)
+
+    expect(repaired.type).toBe("video")
+    expect(repaired.title).toBe("Resolved Video Resource")
+    expect(repaired.noteResolved).toBe(true)
   })
 })

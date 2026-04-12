@@ -3,10 +3,17 @@ import type { NostrEvent } from "snstr"
 
 import type { ContentItem } from "@/data/types"
 import { applyResolvedNoteToContentItem } from "@/lib/content-note-resolution"
+import { fetchEventsByReferences } from "@/lib/note-reference-resolution"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { getRelays } from "@/lib/nostr-relays"
 
 const CATALOG_NOTE_KINDS = [30004, 30023, 30402, 30403]
+const CATALOG_EVENT_PRIORITY = {
+  30004: 4,
+  30023: 3,
+  30402: 2,
+  30403: 1,
+} as const
 
 export function useCatalogNoteRepair(items: ContentItem[]): ContentItem[] {
   const [repairedItemsById, setRepairedItemsById] = useState<Map<string, ContentItem>>(new Map())
@@ -47,10 +54,13 @@ export function useCatalogNoteRepair(items: ContentItem[]): ContentItem[] {
 
       const fallbackItems = unresolvedItems.filter((item) => !eventsByDTag.has(item.id) && item.noteId)
       const eventsByNoteId = fallbackItems.length > 0
-        ? await NostrFetchService.fetchEventsByIds(
+        ? await fetchEventsByReferences(
             Array.from(new Set(fallbackItems.flatMap((item) => (item.noteId ? [item.noteId] : [])))),
-            undefined,
-            getRelays("default")
+            {
+              allowedKinds: CATALOG_NOTE_KINDS,
+              priorityConfig: CATALOG_EVENT_PRIORITY,
+              relays: getRelays("default"),
+            }
           )
         : new Map<string, NostrEvent>()
 
