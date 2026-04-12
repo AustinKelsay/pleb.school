@@ -19,9 +19,13 @@ describe("shouldEnableSnstrForPathname", () => {
     expect(shouldEnableSnstrForPathname("/authentic")).toBe(true)
   })
 
-  it("keeps Snstr enabled for content-facing routes", () => {
-    expect(shouldEnableSnstrForPathname("/")).toBe(true)
-    expect(shouldEnableSnstrForPathname("/content")).toBe(true)
+  it("disables Snstr for server-rendered homepage and library routes", () => {
+    expect(shouldEnableSnstrForPathname("/")).toBe(false)
+    expect(shouldEnableSnstrForPathname("/content")).toBe(false)
+    expect(shouldEnableSnstrForPathname("/content/")).toBe(false)
+  })
+
+  it("keeps Snstr enabled for remaining content-facing routes", () => {
     expect(shouldEnableSnstrForPathname("/courses/123")).toBe(true)
     expect(shouldEnableSnstrForPathname("/profile")).toBe(true)
   })

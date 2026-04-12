@@ -1,7 +1,9 @@
 const SNSTR_DISABLED_PREFIXES = ["/auth/"]
 const SNSTR_DISABLED_EXACT_PATHS = new Set([
+  "/",
   "/auth",
   "/about",
+  "/content",
   "/feeds",
   "/subscribe",
   "/verify-email",

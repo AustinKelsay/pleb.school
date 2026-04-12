@@ -4,7 +4,18 @@
  */
 
 import { NostrEvent, type RelayPool, type Filter } from 'snstr'
+import {
+  selectPreferredEventByPriority,
+  type EventPriorityConfig,
+} from '@/lib/nostr-event-priority'
 import { DEFAULT_RELAYS, getRelays } from './nostr-relays'
+
+const DTAG_EVENT_PRIORITY: EventPriorityConfig = {
+  30004: 4,
+  30023: 3,
+  30402: 2,
+  30403: 1,
+}
 
 export class NostrFetchService {
   /**
@@ -114,7 +125,10 @@ export class NostrFetchService {
               (event: NostrEvent) => {
                 const dTag = event.tags.find(tag => tag[0] === 'd')?.[1]
                 if (dTag) {
-                  events.set(dTag, event)
+                  events.set(
+                    dTag,
+                    selectPreferredEventByPriority(events.get(dTag), event, DTAG_EVENT_PRIORITY)
+                  )
                 }
               },
               () => {
@@ -153,15 +167,18 @@ export class NostrFetchService {
         }, 5000)
         
         relayPool.subscribe(
-          relays,
-          [filter],
-          (event: NostrEvent) => {
-            const dTag = event.tags.find(tag => tag[0] === 'd')?.[1]
-            if (dTag) {
-              events.set(dTag, event)
-            }
-          },
-          () => {
+        relays,
+        [filter],
+        (event: NostrEvent) => {
+          const dTag = event.tags.find(tag => tag[0] === 'd')?.[1]
+          if (dTag) {
+            events.set(
+              dTag,
+              selectPreferredEventByPriority(events.get(dTag), event, DTAG_EVENT_PRIORITY)
+            )
+          }
+        },
+        () => {
             clearTimeout(timeout)
             if (sub) sub.close()
             resolve()

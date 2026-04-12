@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { ArrowLeft, FileText } from 'lucide-react'
+import type { NostrEvent } from 'snstr'
 
 import { ResourceContentView } from '@/app/content/components/resource-content-view'
 import { MainLayout } from '@/components/layout/main-layout'
@@ -11,24 +10,25 @@ import { Section } from '@/components/layout/section'
 import { Button } from '@/components/ui/button'
 import { useIdleMount } from '@/hooks/useIdleMount'
 import { useViews } from '@/hooks/useViews'
+import type { ResourceContentInitialMeta } from '@/app/content/components/resource-content-meta'
 
 interface ResourceDetailsContentProps {
   resourceId: string
+  initialEvent: NostrEvent
+  initialMeta: ResourceContentInitialMeta | null
 }
 
 export default function ResourceDetailsContent({
-  resourceId
+  resourceId,
+  initialEvent,
+  initialMeta,
 }: ResourceDetailsContentProps) {
-  const router = useRouter()
   const socialReady = useIdleMount()
   const { count: viewCount } = useViews({
     ns: 'content',
     id: resourceId,
     enabled: socialReady
   })
-  const handleMissingResource = useCallback(() => {
-    router.replace('/404')
-  }, [router])
 
   return (
     <MainLayout>
@@ -50,7 +50,8 @@ export default function ResourceDetailsContent({
 
           <ResourceContentView
             resourceId={resourceId}
-            onMissingResource={handleMissingResource}
+            initialEvent={initialEvent}
+            initialMeta={initialMeta}
             viewCount={viewCount}
           />
         </div>

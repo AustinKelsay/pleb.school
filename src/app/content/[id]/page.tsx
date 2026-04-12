@@ -1,6 +1,8 @@
+import { getServerSession } from "next-auth"
 import { notFound } from 'next/navigation'
-import { ResourceAdapter } from '@/lib/db-adapter'
 
+import { authOptions } from "@/lib/auth"
+import { getResourcePageData } from "@/lib/resource-page-data.server"
 import ResourcePageClient from './resource-page-client'
 
 interface ResourcePageProps {
@@ -11,14 +13,15 @@ interface ResourcePageProps {
 
 export default async function ResourcePage({ params }: ResourcePageProps) {
   const { id } = await params
-  const isUuidId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  const session = await getServerSession(authOptions)
+  const { event, initialMeta, shouldNotFound } = await getResourcePageData({
+    resourceId: id,
+    viewerUserId: session?.user?.id ?? null,
+  })
 
-  if (isUuidId) {
-    const resourceExists = await ResourceAdapter.exists(id)
-    if (!resourceExists) {
-      notFound()
-    }
+  if (shouldNotFound || !event) {
+    notFound()
   }
 
-  return <ResourcePageClient resourceId={id} />
+  return <ResourcePageClient resourceId={id} initialEvent={event} initialMeta={initialMeta} />
 }

@@ -79,6 +79,42 @@ function transformLesson(lesson: any): Lesson {
   }
 }
 
+export interface ResourceSnapshotUser {
+  id: string
+  username: string | null
+  pubkey: string | null
+  avatar: string | null
+  nip05: string | null
+  lud16: string | null
+  displayName: string | null
+}
+
+export interface ResourceSnapshotCourse {
+  id: string
+  noteId: string | null
+  price: number | null
+}
+
+export interface ResourceSnapshotLesson {
+  courseId: string | null
+  course: ResourceSnapshotCourse | null
+}
+
+export interface ResourceSnapshotPurchase {
+  id: string
+  amountPaid: number
+  priceAtPurchase: number | null
+}
+
+export interface ResourceSnapshot {
+  id: string
+  userId: string
+  price: number
+  user: ResourceSnapshotUser | null
+  lessons: ResourceSnapshotLesson[]
+  purchases: ResourceSnapshotPurchase[]
+}
+
 // ============================================================================
 // PURCHASE ADAPTER
 // ============================================================================
@@ -696,6 +732,74 @@ export class ResourceAdapter {
     return resource ? transformResource(resource) : null
   }
 
+  static async getResourceSnapshot(
+    id: string,
+    viewerUserId?: string | null
+  ): Promise<ResourceSnapshot | null> {
+    const resource = await prisma.resource.findUnique({
+      where: { id },
+      include: {
+        user: { select: courseUserSelect },
+        lessons: {
+          include: {
+            course: {
+              select: {
+                id: true,
+                noteId: true,
+                price: true,
+              },
+            },
+          },
+          orderBy: { index: 'asc' },
+        },
+        purchases: {
+          where: viewerUserId ? { userId: viewerUserId } : { id: { in: [] } },
+          select: {
+            id: true,
+            amountPaid: true,
+            priceAtPurchase: true,
+          },
+        },
+      },
+    })
+
+    if (!resource) {
+      return null
+    }
+
+    return {
+      id: resource.id,
+      userId: resource.userId,
+      price: resource.price,
+      user: resource.user
+        ? {
+            id: resource.user.id,
+            username: resource.user.username,
+            pubkey: resource.user.pubkey,
+            avatar: resource.user.avatar,
+            nip05: resource.user.nip05,
+            lud16: resource.user.lud16,
+            displayName: resource.user.displayName,
+          }
+        : null,
+      lessons: resource.lessons.map((lesson) => ({
+        courseId: lesson.courseId,
+        course: lesson.course
+          ? {
+              id: lesson.course.id,
+              noteId: lesson.course.noteId,
+              price: lesson.course.price,
+            }
+          : null,
+      })),
+      purchases: resource.purchases.map((purchase) => ({
+        id: purchase.id,
+        amountPaid: purchase.amountPaid,
+        priceAtPurchase: purchase.priceAtPurchase,
+      })),
+    }
+  }
+
   static async exists(id: string): Promise<boolean> {
     const resource = await prisma.resource.findUnique({
       where: { id },
@@ -867,6 +971,23 @@ export class LessonAdapter {
       orderBy: { index: 'asc' }
     })
     return lessons.map(transformLesson)
+  }
+
+  static async getDistinctResourceIds(): Promise<string[]> {
+    const lessons = await prisma.lesson.findMany({
+      where: {
+        courseId: { not: null },
+        resourceId: { not: null },
+      },
+      select: {
+        resourceId: true,
+      },
+      distinct: ['resourceId'],
+    })
+
+    return lessons
+      .map((lesson) => lesson.resourceId)
+      .filter((resourceId): resourceId is string => typeof resourceId === 'string' && resourceId.length > 0)
   }
 
   /**

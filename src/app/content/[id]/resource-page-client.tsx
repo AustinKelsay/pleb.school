@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import {
@@ -19,6 +18,7 @@ import { type AddressData, type EventData, type NostrEvent } from 'snstr'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Section } from '@/components/layout/section'
 import { DeferredPurchaseDialog } from '@/components/purchase/deferred-purchase-dialog'
+import { ResourceContentView } from '@/app/content/components/resource-content-view'
 import { AdditionalLinksCard } from '@/components/ui/additional-links-card'
 import { Badge } from '@/components/ui/badge'
 import { SidebarToggle } from '@/components/ui/sidebar-toggle'
@@ -29,7 +29,7 @@ import { InteractionMetrics } from '@/components/ui/interaction-metrics'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { ViewsText } from '@/components/ui/views-text'
 import { DeferredZapThreads } from '@/components/ui/deferred-zap-threads'
-import { ResourcePageSkeleton, ResourceOverviewCardSkeleton } from '@/app/content/components/resource-skeletons'
+import { ResourcePageSkeleton } from '@/app/content/components/resource-skeletons'
 import { parseEvent } from '@/data/types'
 import {
   fetchResourceContentInitialMeta,
@@ -49,25 +49,10 @@ import { profileSummaryFromUser, resolvePreferredDisplayName } from '@/lib/profi
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
 import { resolveUniversalId, type UniversalIdResult } from '@/lib/universal-router'
 
-/**
- * Loading component for resource content (reuses the proper skeleton)
- */
-function ResourceContentSkeleton() {
-  return <ResourceOverviewCardSkeleton />
-}
-
-const ResourceContentView = dynamic(
-  () =>
-    import('@/app/content/components/resource-content-view').then((module) => ({
-      default: module.ResourceContentView,
-    })),
-  {
-    loading: () => <ResourceContentSkeleton />,
-  }
-)
-
 interface ResourcePageClientProps {
   resourceId: string
+  initialEvent: NostrEvent
+  initialMeta: ResourceContentInitialMeta | null
 }
 
 /**
@@ -117,24 +102,32 @@ function ResourceOverview({ resourceId, contentHref }: { resourceId: string; con
 /**
  * Main resource page component
  */
-function ResourcePageContent({ resourceId }: { resourceId: string }) {
+function ResourcePageContent({
+  resourceId,
+  initialEvent,
+  initialMeta,
+}: {
+  resourceId: string
+  initialEvent: NostrEvent
+  initialMeta: ResourceContentInitialMeta | null
+}) {
   const { fetchSingleEvent } = useNostr()
   const { data: session, status: sessionStatus } = useSession()
-  const socialReady = useIdleMount()
+  const socialReady = useIdleMount({ timeoutMs: 1200 })
   const { count: viewCount } = useViews({
     ns: 'content',
     id: resourceId,
     enabled: socialReady
   })
-  const [event, setEvent] = useState<NostrEvent | null>(null)
+  const [event, setEvent] = useState<NostrEvent | null>(initialEvent)
   const [resourceMeta, setResourceMeta] = useState<ResourceContentInitialMeta | null | undefined>(
-    undefined
+    initialMeta
   )
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!initialEvent)
   const [error, setError] = useState<string | null>(null)
-  const [idResult, setIdResult] = useState<UniversalIdResult | null>(null)
+  const [idResult, setIdResult] = useState<UniversalIdResult | null>(() => resolveUniversalId(resourceId))
   const [purchaseStatusOverride, setPurchaseStatusOverride] = useState<boolean | null>(null)
-  const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(true)
+  const [isPurchaseStatusLoading, setIsPurchaseStatusLoading] = useState(initialMeta === undefined)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [isFullWidth, setIsFullWidth] = useState(false)
   const trackedResourceDetailViewRef = useRef<Set<string>>(new Set())
@@ -178,10 +171,10 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   })
   
   // Get real interaction data from Nostr - call hook unconditionally at top level
-  const {
-    interactions,
-    isLoadingZaps,
-    isLoadingLikes,
+    const {
+      interactions,
+      isLoadingZaps,
+      isLoadingLikes,
     isLoadingComments,
     hasReacted,
     zapInsights,
@@ -197,6 +190,17 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     staleTime: 5 * 60 * 1000,
     enabled: socialReady && Boolean(event?.id)
   })
+
+  useEffect(() => {
+    setEvent(initialEvent)
+    setLoading(false)
+    setError(null)
+  }, [initialEvent])
+
+  useEffect(() => {
+    setResourceMeta(initialMeta)
+    setIsPurchaseStatusLoading(initialMeta === undefined)
+  }, [initialMeta])
 
   useEffect(() => {
     let isCancelled = false
@@ -309,17 +313,25 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
       }
     }
 
-    if (resourceId) {
+    if (resourceId && !initialEvent) {
       void fetchEvent()
     }
 
     return () => {
       isCancelled = true
     }
-  }, [resourceId, fetchSingleEvent])
+  }, [resourceId, fetchSingleEvent, initialEvent])
 
   useEffect(() => {
     let isCancelled = false
+
+    if (initialMeta !== undefined) {
+      setResourceMeta(initialMeta)
+      setIsPurchaseStatusLoading(false)
+      return () => {
+        isCancelled = true
+      }
+    }
 
     if (!isUuidResourceId(resourceId)) {
       setResourceMeta(null)
@@ -366,7 +378,7 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
     return () => {
       isCancelled = true
     }
-  }, [resourceId, session?.user?.id, sessionStatus])
+  }, [resourceId, session?.user?.id, sessionStatus, initialMeta])
 
   useEffect(() => {
     setPurchaseStatusOverride(null)
@@ -764,6 +776,10 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
                   showHero={false}
                   showAdditionalLinks={false}
                   viewCount={viewCount}
+                  zapInsights={zapInsights}
+                  recentZaps={recentZaps}
+                  viewerZapTotalSats={viewerZapTotalSats}
+                  viewerZapReceipts={viewerZapReceipts}
                 />
               )}
             </div>
@@ -854,6 +870,16 @@ function ResourcePageContent({ resourceId }: { resourceId: string }) {
   )
 }
 
-export default function ResourcePageClient({ resourceId }: ResourcePageClientProps) {
-  return <ResourcePageContent resourceId={resourceId} />
+export default function ResourcePageClient({
+  resourceId,
+  initialEvent,
+  initialMeta,
+}: ResourcePageClientProps) {
+  return (
+    <ResourcePageContent
+      resourceId={resourceId}
+      initialEvent={initialEvent}
+      initialMeta={initialMeta}
+    />
+  )
 }

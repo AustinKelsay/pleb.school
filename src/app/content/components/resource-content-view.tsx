@@ -17,6 +17,7 @@ import { DeferredPurchaseDialog } from '@/components/purchase/deferred-purchase-
 import { parseEvent } from '@/data/types'
 import { useCommentThreads } from '@/hooks/useCommentThreads'
 import { useIdleMount } from '@/hooks/useIdleMount'
+import type { ZapInsights, ZapReceiptSummary } from '@/hooks/useInteractions'
 import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
 import { useProfileSummary } from '@/hooks/useProfileSummary'
 import { extractVideoBodyMarkdown } from '@/lib/content-utils'
@@ -75,6 +76,10 @@ export interface ResourceContentViewProps {
   showAdditionalLinks?: boolean
   onMissingResource?: () => void
   viewCount?: number | null
+  zapInsights?: ZapInsights
+  recentZaps?: ZapReceiptSummary[]
+  viewerZapTotalSats?: number
+  viewerZapReceipts?: ZapReceiptSummary[]
 }
 
 /**
@@ -91,7 +96,11 @@ export function ResourceContentView({
   showHero = true,
   showAdditionalLinks = true,
   onMissingResource,
-  viewCount
+  viewCount,
+  zapInsights: providedZapInsights,
+  recentZaps: providedRecentZaps,
+  viewerZapTotalSats: providedViewerZapTotalSats,
+  viewerZapReceipts: providedViewerZapReceipts,
 }: ResourceContentViewProps) {
   const { fetchSingleEvent } = useNostr()
   const { data: session, status: sessionStatus } = useSession()
@@ -109,6 +118,28 @@ export function ResourceContentView({
     [resolvedIdentifier?.decodedData]
   )
   const parsedEventData = useMemo(() => (event ? parseEvent(event) : null), [event])
+  const isPremiumFromParsed = parsedEventData?.isPremium === true
+  const isPremiumFromTags = event?.tags?.some(
+    (tag) => Array.isArray(tag) && tag.length >= 2 && tag[0] === 'isPremium' && tag[1] === 'true'
+  )
+  const derivedPremiumFlag =
+    isPremiumFromParsed ||
+    isPremiumFromTags ||
+    event?.kind === 30402 ||
+    Boolean(parsedEventData?.price && parseFloat(parsedEventData.price) > 0)
+  const parsedPriceRaw = parsedEventData?.price
+  const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
+  const priceSats =
+    resourceMeta?.serverPrice !== null && resourceMeta?.serverPrice !== undefined
+      ? resourceMeta.serverPrice
+      : parsedPrice ?? 0
+  const resourceIdIsUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resourceId)
+  const lockable = Boolean(derivedPremiumFlag) && resourceIdIsUuid && priceSats > 0
+  const hasCourseAccess = Boolean(resourceMeta?.unlockedViaCourse || resourceMeta?.unlockingCourseId)
+  const hasServerAccess = Boolean(
+    resourceMeta?.serverPurchased || resourceMeta?.serverIsOwner || hasCourseAccess
+  )
+  const locked = lockable && resourceMeta !== undefined && !hasServerAccess
   const resolvedAuthorPubkey =
     parsedEventData?.authorPubkey ||
     resourceMeta?.resourceUser?.pubkey ||
@@ -118,15 +149,24 @@ export function ResourceContentView({
     () => initialProfileSummary ?? profileSummaryFromUser(resourceMeta?.resourceUser),
     [initialProfileSummary, resourceMeta?.resourceUser]
   )
+  const shouldLoadAuthorProfile =
+    socialReady &&
+    Boolean(resolvedAuthorPubkey) &&
+    (showHero || locked || showPurchaseDialog)
   const { profile: authorProfile } = useProfileSummary(resolvedAuthorPubkey, seededAuthorProfile, {
-    enabled: socialReady && Boolean(resolvedAuthorPubkey),
+    enabled: shouldLoadAuthorProfile,
   })
   const interactionData = useCommentThreads(event?.id, {
-    enabled: socialReady && Boolean(event?.id),
+    enabled: showHero && socialReady && Boolean(event?.id),
     realtime: true,
     relayHints: routeRelayHints
   })
-  const { zapInsights, recentZaps, viewerZapTotalSats, viewerZapReceipts } = interactionData
+  const resolvedZapInsights = providedZapInsights ?? interactionData.zapInsights
+  const resolvedRecentZaps = providedRecentZaps ?? interactionData.recentZaps
+  const resolvedViewerZapTotalSats =
+    providedViewerZapTotalSats ?? interactionData.viewerZapTotalSats
+  const resolvedViewerZapReceipts =
+    providedViewerZapReceipts ?? interactionData.viewerZapReceipts
 
   useEffect(() => {
     if (!initialEvent) {
@@ -342,34 +382,11 @@ export function ResourceContentView({
     user: resourceMeta?.resourceUser,
     pubkey: resolvedAuthorPubkey,
   })
-  const isPremiumFromParsed = parsedEvent.isPremium === true
-  const isPremiumFromTags = event.tags?.some(
-    (tag) => Array.isArray(tag) && tag.length >= 2 && tag[0] === 'isPremium' && tag[1] === 'true'
-  )
-  const derivedPremiumFlag =
-    isPremiumFromParsed ||
-    isPremiumFromTags ||
-    event.kind === 30402 ||
-    Boolean(parsedEvent.price && parseFloat(parsedEvent.price) > 0)
   const isPremium = Boolean(derivedPremiumFlag)
-  const parsedPriceRaw = parsedEvent.price
-  const parsedPrice = Number.isFinite(Number(parsedPriceRaw)) ? Number(parsedPriceRaw) : null
-  const priceSats =
-    resourceMeta?.serverPrice !== null && resourceMeta?.serverPrice !== undefined
-      ? resourceMeta.serverPrice
-      : parsedPrice ?? 0
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  const resourceIdIsUuid = uuidRegex.test(resourceId)
-  const lockable = isPremium && resourceIdIsUuid && priceSats > 0
-  const hasCourseAccess = Boolean(resourceMeta?.unlockedViaCourse || resourceMeta?.unlockingCourseId)
-  const hasServerAccess = Boolean(
-    resourceMeta?.serverPurchased || resourceMeta?.serverIsOwner || hasCourseAccess
-  )
   const isAccessMetaLoading = lockable && resourceMeta === undefined
   const canPurchase = lockable && !hasServerAccess
   const videoUrl = resolveVideoPlaybackUrl(parsedEvent.videoUrl, event.content, type)
   const videoBodyMarkdown = type === 'video' ? extractVideoBodyMarkdown(event.content) : ''
-  const locked = lockable && resourceMeta !== undefined && !hasServerAccess
   const courseCta = hasCourseAccess && resourceMeta?.unlockingCourseId ? (
     <div className="flex flex-wrap gap-2 justify-end">
       <Button variant="outline" size="sm" asChild>
@@ -450,11 +467,11 @@ export function ResourceContentView({
                 name: authorName || parsedEvent.author || undefined,
                 relayHints: routeRelayHints
               }}
-              viewerZapTotalSats={viewerZapTotalSats}
-              viewerZapReceipts={viewerZapReceipts}
+              viewerZapTotalSats={resolvedViewerZapTotalSats}
+              viewerZapReceipts={resolvedViewerZapReceipts}
               alreadyPurchased={hasServerAccess}
-              zapInsights={zapInsights}
-              recentZaps={recentZaps}
+              zapInsights={resolvedZapInsights}
+              recentZaps={resolvedRecentZaps}
               onPurchaseComplete={(purchase) => {
                 const snapshot = purchase?.priceAtPurchase
                 const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0
