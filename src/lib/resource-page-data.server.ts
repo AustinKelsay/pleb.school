@@ -3,6 +3,10 @@ import type { AddressData, EventData, NostrEvent } from "snstr"
 import type { ResourceContentInitialMeta } from "@/app/content/components/resource-content-meta"
 import { checkCourseUnlockViaLessons } from "@/lib/course-access"
 import { ResourceAdapter } from "@/lib/db-adapter"
+import {
+  selectPreferredEventFromList,
+  type EventPriorityConfig,
+} from "@/lib/nostr-event-priority"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { getRelays } from "@/lib/nostr-relays"
 import { resolveUniversalId } from "@/lib/universal-router"
@@ -20,36 +24,14 @@ interface ResourcePageData {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const RESOURCE_EVENT_KINDS = [30023, 30402, 30403]
+const RESOURCE_EVENT_PRIORITY: EventPriorityConfig = {
+  30023: 3,
+  30402: 2,
+  30403: 1,
+}
 
 function isUuidResourceId(resourceId: string): boolean {
   return UUID_REGEX.test(resourceId)
-}
-
-function getEventPriority(kind: number): number {
-  if (kind === 30023) return 3
-  if (kind === 30402) return 2
-  if (kind === 30403) return 1
-  return 0
-}
-
-function selectPreferredEvent(events: NostrEvent[]): NostrEvent | null {
-  if (events.length === 0) {
-    return null
-  }
-
-  return events.slice(1).reduce((selected, candidate) => {
-    if (candidate.created_at > selected.created_at) {
-      return candidate
-    }
-
-    if (candidate.created_at < selected.created_at) {
-      return selected
-    }
-
-    return getEventPriority(candidate.kind) > getEventPriority(selected.kind)
-      ? candidate
-      : selected
-  }, events[0])
 }
 
 async function fetchResourceEvent(resourceId: string): Promise<NostrEvent | null> {
@@ -96,7 +78,7 @@ async function fetchResourceEvent(resourceId: string): Promise<NostrEvent | null
       relays
     )
 
-    return selectPreferredEvent(events)
+    return selectPreferredEventFromList(events, RESOURCE_EVENT_PRIORITY)
   }
 
   if (resolved.idType === "note" || resolved.idType === "hex") {
@@ -111,7 +93,7 @@ async function fetchResourceEvent(resourceId: string): Promise<NostrEvent | null
     },
   ])
 
-  return selectPreferredEvent(events)
+  return selectPreferredEventFromList(events, RESOURCE_EVENT_PRIORITY)
 }
 
 async function fetchResourceInitialMeta(

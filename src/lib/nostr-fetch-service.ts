@@ -4,39 +4,20 @@
  */
 
 import { NostrEvent, type RelayPool, type Filter } from 'snstr'
+import {
+  selectPreferredEventByPriority,
+  type EventPriorityConfig,
+} from './nostr-event-priority'
 import { DEFAULT_RELAYS, getRelays } from './nostr-relays'
 
+const DTAG_EVENT_PRIORITY: EventPriorityConfig = {
+  30004: 4,
+  30023: 3,
+  30402: 2,
+  30403: 1,
+}
+
 export class NostrFetchService {
-  private static getDTagEventKindPriority(kind: number): number {
-    if (kind === 30004) return 4
-    if (kind === 30023) return 3
-    if (kind === 30402) return 2
-    if (kind === 30403) return 1
-    return 0
-  }
-
-  private static selectPreferredDTagEvent(
-    existing: NostrEvent | undefined,
-    candidate: NostrEvent
-  ): NostrEvent {
-    if (!existing) {
-      return candidate
-    }
-
-    if (candidate.created_at > existing.created_at) {
-      return candidate
-    }
-
-    if (candidate.created_at < existing.created_at) {
-      return existing
-    }
-
-    return this.getDTagEventKindPriority(candidate.kind) >
-      this.getDTagEventKindPriority(existing.kind)
-      ? candidate
-      : existing
-  }
-
   /**
    * Fetch a single event by ID from relays
    */
@@ -144,7 +125,10 @@ export class NostrFetchService {
               (event: NostrEvent) => {
                 const dTag = event.tags.find(tag => tag[0] === 'd')?.[1]
                 if (dTag) {
-                  events.set(dTag, this.selectPreferredDTagEvent(events.get(dTag), event))
+                  events.set(
+                    dTag,
+                    selectPreferredEventByPriority(events.get(dTag), event, DTAG_EVENT_PRIORITY)
+                  )
                 }
               },
               () => {
@@ -188,7 +172,10 @@ export class NostrFetchService {
         (event: NostrEvent) => {
           const dTag = event.tags.find(tag => tag[0] === 'd')?.[1]
           if (dTag) {
-            events.set(dTag, this.selectPreferredDTagEvent(events.get(dTag), event))
+            events.set(
+              dTag,
+              selectPreferredEventByPriority(events.get(dTag), event, DTAG_EVENT_PRIORITY)
+            )
           }
         },
         () => {
