@@ -37,13 +37,13 @@ function getEmptyStateCopy(sectionType: HomepageSectionCarouselProps["sectionTyp
   }
 }
 
-export function HomepageSectionCarousel({
+export const HomepageSectionCarousel = ({
   title,
   description,
   items,
   sectionType,
   carouselConfig,
-}: HomepageSectionCarouselProps) {
+}: HomepageSectionCarouselProps) => {
   return (
     <Section spacing="lg" className={getSectionClassName(sectionType)}>
       <div className="space-y-8">

@@ -40,14 +40,10 @@ describe('route metadata generation', () => {
     expect(findResourceByIdWithNoteMock).not.toHaveBeenCalled()
   })
 
-  it('uses the lightweight course existence lookup for UUID routes', async () => {
-    courseExistsMock.mockResolvedValue(true)
+  it('uses generic course metadata without querying the database', () => {
+    const metadata = generateCourseMetadata()
 
-    const metadata = await generateCourseMetadata({
-      params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
-    })
-
-    expect(courseExistsMock).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000')
+    expect(courseExistsMock).not.toHaveBeenCalled()
     expect(findCourseByIdWithNoteMock).not.toHaveBeenCalled()
     expect(metadata.title).toBe('Course | pleb.school')
   })

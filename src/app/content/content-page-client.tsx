@@ -55,6 +55,7 @@ export default function ContentPageClient({
   }
 
   const normalizeFilterKey = (filter: string): string => filter.toLowerCase().trim()
+  const isFilterSelected = (filter: string): boolean => selectedFilters.has(normalizeFilterKey(filter))
 
   const filteredContent = useMemo(() => {
     if (selectedFilters.has("all") || selectedFilters.size === 0) {
@@ -146,7 +147,7 @@ export default function ContentPageClient({
 
           <div className="flex flex-wrap gap-2">
             <Badge
-              variant={selectedFilters.has("all") ? "default" : "outline"}
+              variant={isFilterSelected("all") ? "default" : "outline"}
               className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => toggleFilter("all")}
             >
@@ -157,7 +158,7 @@ export default function ContentPageClient({
               {contentTypeFilters.map(({ type, icon: Icon, label }) => (
                 <Badge
                   key={type}
-                  variant={selectedFilters.has(type) ? "default" : "outline"}
+                  variant={isFilterSelected(type) ? "default" : "outline"}
                   className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => toggleFilter(type)}
                 >
@@ -169,7 +170,7 @@ export default function ContentPageClient({
 
             <div className="flex flex-wrap gap-2">
               <Badge
-                variant={selectedFilters.has("free") ? "default" : "outline"}
+                variant={isFilterSelected("free") ? "default" : "outline"}
                 className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => toggleFilter("free")}
               >
@@ -177,7 +178,7 @@ export default function ContentPageClient({
                 {pricing.free}
               </Badge>
               <Badge
-                variant={selectedFilters.has("premium") ? "default" : "outline"}
+                variant={isFilterSelected("premium") ? "default" : "outline"}
                 className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => toggleFilter("premium")}
               >
@@ -191,7 +192,7 @@ export default function ContentPageClient({
                 {initialAvailableTags.slice(0, 12).map((tag) => (
                   <Badge
                     key={tag}
-                    variant={selectedFilters.has(tag) ? "default" : "outline"}
+                    variant={isFilterSelected(tag) ? "default" : "outline"}
                     className="px-4 py-2 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => toggleFilter(tag)}
                   >

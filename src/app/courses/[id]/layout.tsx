@@ -2,14 +2,9 @@ import type { Metadata } from 'next'
 
 interface LayoutProps {
   children: React.ReactNode
-  params: Promise<{ id: string }>
 }
 
-export async function generateMetadata(
-  { params }: { params: Promise<{ id: string }> }
-): Promise<Metadata> {
-  await params
-
+export function generateMetadata(): Metadata {
   return {
     title: 'Course | pleb.school',
     description: 'View course on pleb.school',

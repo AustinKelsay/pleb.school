@@ -1,11 +1,10 @@
-import { prisma } from "@/lib/prisma"
 import {
   applyContentFilters,
   getContentConfig,
   type ContentSection,
 } from "@/lib/content-config"
 import { copyConfig } from "@/lib/copy"
-import { CourseAdapter, PurchaseAdapter, ResourceAdapter } from "@/lib/db-adapter"
+import { CourseAdapter, LessonAdapter, PurchaseAdapter, ResourceAdapter } from "@/lib/db-adapter"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { getEventATag } from "@/lib/nostr-a-tag"
 import { getNoteImage } from "@/lib/note-image"
@@ -43,47 +42,6 @@ type PurchaseSummary = NonNullable<ContentItem["purchases"]>[number]
 const COURSE_NOTE_KINDS = [30004, 30023, 30402]
 const RESOURCE_NOTE_KINDS = [30023, 30402, 30403]
 const CONTENT_TYPE_NAMES = new Set(["course", "video", "document", "courses", "videos", "documents"])
-
-function getKindPriority(kind: number): number {
-  if (kind === 30004) return 4
-  if (kind === 30023) return 3
-  if (kind === 30402) return 2
-  if (kind === 30403) return 1
-  return 0
-}
-
-function selectPreferredEvent(
-  existing: NostrEvent | undefined,
-  candidate: NostrEvent
-): NostrEvent {
-  if (!existing) {
-    return candidate
-  }
-
-  if (candidate.created_at > existing.created_at) {
-    return candidate
-  }
-
-  if (candidate.created_at < existing.created_at) {
-    return existing
-  }
-
-  return getKindPriority(candidate.kind) > getKindPriority(existing.kind)
-    ? candidate
-    : existing
-}
-
-function mapEventsByDTag(events: Map<string, NostrEvent>): Map<string, NostrEvent> {
-  const mapped = new Map<string, NostrEvent>()
-
-  events.forEach((event, key) => {
-    const dTag = event.tags.find((tag) => Array.isArray(tag) && tag[0] === "d")?.[1] ?? key
-    const existing = mapped.get(dTag)
-    mapped.set(dTag, selectPreferredEvent(existing, event))
-  })
-
-  return mapped
-}
 
 function normalizeOverlayPurchases(
   purchases: Awaited<ReturnType<typeof PurchaseAdapter.findByUserWithResourcesOrCourses>>
@@ -143,22 +101,7 @@ function buildAvailableTags(items: ContentItem[]): string[] {
 }
 
 async function getLinkedResourceIds(): Promise<Set<string>> {
-  const lessons = await prisma.lesson.findMany({
-    where: {
-      courseId: { not: null },
-      resourceId: { not: null },
-    },
-    select: {
-      resourceId: true,
-    },
-    distinct: ["resourceId"],
-  })
-
-  return new Set(
-    lessons
-      .map((lesson) => lesson.resourceId)
-      .filter((resourceId): resourceId is string => typeof resourceId === "string" && resourceId.length > 0)
-  )
+  return new Set(await LessonAdapter.getDistinctResourceIds())
 }
 
 function normalizeCourseItem(
@@ -299,7 +242,7 @@ export async function getContentCatalogData({
     }),
   ])
 
-  const [courseNoteMapRaw, resourceNoteMapRaw, overlayPurchases, linkedResourceIds] = await Promise.all([
+  const [courseNoteMap, resourceNoteMap, overlayPurchases, linkedResourceIds] = await Promise.all([
     courses.length > 0
       ? NostrFetchService.fetchEventsByDTags(courses.map((course) => course.id), COURSE_NOTE_KINDS)
       : Promise.resolve(new Map<string, NostrEvent>()),
@@ -309,7 +252,7 @@ export async function getContentCatalogData({
     viewerUserId
       ? PurchaseAdapter.findByUserWithResourcesOrCourses(
           viewerUserId,
-          resources.map((resource) => resource.id),
+          [],
           courses.map((course) => course.id)
         )
       : Promise.resolve([]),
@@ -318,8 +261,6 @@ export async function getContentCatalogData({
       : Promise.resolve(new Set<string>()),
   ])
 
-  const courseNoteMap = mapEventsByDTag(courseNoteMapRaw)
-  const resourceNoteMap = mapEventsByDTag(resourceNoteMapRaw)
   const normalizedOverlay = normalizeOverlayPurchases(overlayPurchases)
 
   const courseItems = courses.map((course) =>

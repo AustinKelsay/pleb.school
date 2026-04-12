@@ -17,6 +17,7 @@ import { DeferredPurchaseDialog } from '@/components/purchase/deferred-purchase-
 import { parseEvent } from '@/data/types'
 import { useCommentThreads } from '@/hooks/useCommentThreads'
 import { useIdleMount } from '@/hooks/useIdleMount'
+import type { ZapInsights, ZapReceiptSummary } from '@/hooks/useInteractions'
 import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
 import { useProfileSummary } from '@/hooks/useProfileSummary'
 import { extractVideoBodyMarkdown } from '@/lib/content-utils'
@@ -75,6 +76,10 @@ export interface ResourceContentViewProps {
   showAdditionalLinks?: boolean
   onMissingResource?: () => void
   viewCount?: number | null
+  zapInsights?: ZapInsights
+  recentZaps?: ZapReceiptSummary[]
+  viewerZapTotalSats?: number
+  viewerZapReceipts?: ZapReceiptSummary[]
 }
 
 /**
@@ -91,7 +96,11 @@ export function ResourceContentView({
   showHero = true,
   showAdditionalLinks = true,
   onMissingResource,
-  viewCount
+  viewCount,
+  zapInsights: providedZapInsights,
+  recentZaps: providedRecentZaps,
+  viewerZapTotalSats: providedViewerZapTotalSats,
+  viewerZapReceipts: providedViewerZapReceipts,
 }: ResourceContentViewProps) {
   const { fetchSingleEvent } = useNostr()
   const { data: session, status: sessionStatus } = useSession()
@@ -152,7 +161,12 @@ export function ResourceContentView({
     realtime: true,
     relayHints: routeRelayHints
   })
-  const { zapInsights, recentZaps, viewerZapTotalSats, viewerZapReceipts } = interactionData
+  const resolvedZapInsights = providedZapInsights ?? interactionData.zapInsights
+  const resolvedRecentZaps = providedRecentZaps ?? interactionData.recentZaps
+  const resolvedViewerZapTotalSats =
+    providedViewerZapTotalSats ?? interactionData.viewerZapTotalSats
+  const resolvedViewerZapReceipts =
+    providedViewerZapReceipts ?? interactionData.viewerZapReceipts
 
   useEffect(() => {
     if (!initialEvent) {
@@ -453,11 +467,11 @@ export function ResourceContentView({
                 name: authorName || parsedEvent.author || undefined,
                 relayHints: routeRelayHints
               }}
-              viewerZapTotalSats={viewerZapTotalSats}
-              viewerZapReceipts={viewerZapReceipts}
+              viewerZapTotalSats={resolvedViewerZapTotalSats}
+              viewerZapReceipts={resolvedViewerZapReceipts}
               alreadyPurchased={hasServerAccess}
-              zapInsights={zapInsights}
-              recentZaps={recentZaps}
+              zapInsights={resolvedZapInsights}
+              recentZaps={resolvedRecentZaps}
               onPurchaseComplete={(purchase) => {
                 const snapshot = purchase?.priceAtPurchase
                 const snapshotValid = snapshot !== null && snapshot !== undefined && snapshot > 0

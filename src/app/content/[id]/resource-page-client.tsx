@@ -171,10 +171,10 @@ function ResourcePageContent({
   })
   
   // Get real interaction data from Nostr - call hook unconditionally at top level
-  const {
-    interactions,
-    isLoadingZaps,
-    isLoadingLikes,
+    const {
+      interactions,
+      isLoadingZaps,
+      isLoadingLikes,
     isLoadingComments,
     hasReacted,
     zapInsights,
@@ -313,13 +313,13 @@ function ResourcePageContent({
       }
     }
 
-        if (resourceId && !initialEvent) {
-          void fetchEvent()
-        }
+    if (resourceId && !initialEvent) {
+      void fetchEvent()
+    }
 
-        return () => {
-          isCancelled = true
-        }
+    return () => {
+      isCancelled = true
+    }
   }, [resourceId, fetchSingleEvent, initialEvent])
 
   useEffect(() => {
@@ -776,6 +776,10 @@ function ResourcePageContent({
                   showHero={false}
                   showAdditionalLinks={false}
                   viewCount={viewCount}
+                  zapInsights={zapInsights}
+                  recentZaps={recentZaps}
+                  viewerZapTotalSats={viewerZapTotalSats}
+                  viewerZapReceipts={viewerZapReceipts}
                 />
               )}
             </div>

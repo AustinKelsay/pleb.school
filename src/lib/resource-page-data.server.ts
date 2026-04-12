@@ -2,9 +2,9 @@ import type { AddressData, EventData, NostrEvent } from "snstr"
 
 import type { ResourceContentInitialMeta } from "@/app/content/components/resource-content-meta"
 import { checkCourseUnlockViaLessons } from "@/lib/course-access"
+import { ResourceAdapter } from "@/lib/db-adapter"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { getRelays } from "@/lib/nostr-relays"
-import { prisma } from "@/lib/prisma"
 import { resolveUniversalId } from "@/lib/universal-router"
 
 interface GetResourcePageDataOptions {
@@ -125,44 +125,7 @@ async function fetchResourceInitialMeta(
     }
   }
 
-  const resource = await prisma.resource.findUnique({
-    where: { id: resourceId },
-    include: {
-      user: {
-        select: {
-          id: true,
-          username: true,
-          pubkey: true,
-          avatar: true,
-          nip05: true,
-          lud16: true,
-          displayName: true,
-        },
-      },
-      lessons: {
-        include: {
-          course: {
-            select: {
-              id: true,
-              noteId: true,
-              price: true,
-            },
-          },
-        },
-        orderBy: { index: "asc" },
-      },
-      purchases: viewerUserId
-        ? {
-            where: { userId: viewerUserId },
-            select: {
-              id: true,
-              amountPaid: true,
-              priceAtPurchase: true,
-            },
-          }
-        : false,
-    },
-  })
+  const resource = await ResourceAdapter.getResourceSnapshot(resourceId, viewerUserId)
 
   if (!resource) {
     return {
