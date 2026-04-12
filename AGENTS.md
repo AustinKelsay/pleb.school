@@ -34,3 +34,9 @@ Use `npm run lint && npm run typecheck` for fast verification and `npm run build
 ## Security
 - `config/` is client-visible; secrets belong in `.env.local`.
 - Required env vars include `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, and `PRIVKEY_ENCRYPTION_KEY`.
+
+## Engineering Principles
+**1. Think Before Coding**: State assumptions, surface uncertainty, and present tradeoffs.
+**2. Simplicity First**: Minimum code required. No speculative features or unnecessary abstractions.
+**3. Surgical Changes**: Touch only what is necessary. Match existing style.
+**4. Goal-Driven Execution**: Define success via verifiable tests/checks.
