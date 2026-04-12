@@ -6,6 +6,7 @@ import {
 } from "@/data/types"
 import { getEventATag } from "@/lib/nostr-a-tag"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
+import { fetchEventsByReferences } from "@/lib/note-reference-resolution"
 import { getNoteImage } from "@/lib/note-image"
 
 export interface CatalogNoteEntity {
@@ -20,6 +21,14 @@ interface CatalogEventResolution {
 }
 
 const RESOURCE_TYPES = new Set<ContentItem["type"]>(["document", "video"])
+const COURSE_EVENT_PRIORITY = {
+  30004: 1,
+} as const
+const RESOURCE_EVENT_PRIORITY = {
+  30023: 3,
+  30402: 2,
+  30403: 1,
+} as const
 
 export async function resolveCatalogEventsByIdentity(
   entities: CatalogNoteEntity[],
@@ -48,8 +57,12 @@ export async function resolveCatalogEventsByIdentity(
   )
 
   if (fallbackEntities.length > 0) {
-    const eventsByNoteId = await NostrFetchService.fetchEventsByIds(
-      Array.from(new Set(fallbackEntities.flatMap((entity) => (entity.noteId ? [entity.noteId] : []))))
+    const eventsByNoteId = await fetchEventsByReferences(
+      Array.from(new Set(fallbackEntities.flatMap((entity) => (entity.noteId ? [entity.noteId] : [])))),
+      {
+        allowedKinds: kinds,
+        priorityConfig: kinds.includes(30004) ? COURSE_EVENT_PRIORITY : RESOURCE_EVENT_PRIORITY,
+      }
     )
 
     fallbackEntities.forEach((entity) => {
@@ -104,7 +117,7 @@ export function applyResolvedNoteToContentItem(
 
     return {
       ...item,
-      type: parsedResource.type === "video" ? "video" : "document",
+      type: parsedResource.type === "video" || item.type === "video" ? "video" : "document",
       title: parsedResource.title || item.title,
       description: parsedResource.summary || item.description,
       category: parsedResource.category || parsedResource.topics[0] || item.category,

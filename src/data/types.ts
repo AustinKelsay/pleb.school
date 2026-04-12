@@ -347,6 +347,9 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
           break
         case "video":
           eventData.videoUrl = tag[1] || ""
+          if (eventData.videoUrl) {
+            eventData.type = "video"
+          }
           break
         case "p":
           eventData.authorPubkey = tag[1] || ""
@@ -369,8 +372,10 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
     eventData.category = eventData.topics.find(topic => topic !== "video") || eventData.topics[0]
   }
 
-  if (eventData.type === "video" && !eventData.videoUrl) {
-    eventData.videoUrl = extractVideoUrlFromContent(event.content) || undefined
+  const inferredVideoUrl = eventData.videoUrl || extractVideoUrlFromContent(event.content)
+  if (inferredVideoUrl) {
+    eventData.videoUrl = inferredVideoUrl
+    eventData.type = "video"
   }
 
   eventData.additionalLinks = tagsToAdditionalLinks(event.tags, 'r')
@@ -379,9 +384,19 @@ export function parseEvent(event: NostrFreeContentEvent | NostrPaidContentEvent 
 }
 
 function extractVideoUrlFromContent(content: string): string | undefined {
+  const youtubeWatchMatch = content.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/i)
+  if (youtubeWatchMatch) {
+    return `https://www.youtube.com/watch?v=${youtubeWatchMatch[1]}`
+  }
+
   const youtubeMatch = content.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/i)
   if (youtubeMatch) {
     return `https://www.youtube.com/watch?v=${youtubeMatch[1]}`
+  }
+
+  const vimeoWatchMatch = content.match(/vimeo\.com\/(\d+)/i)
+  if (vimeoWatchMatch) {
+    return `https://vimeo.com/${vimeoWatchMatch[1]}`
   }
 
   const vimeoMatch = content.match(/player\.vimeo\.com\/video\/(\d+)/i)
@@ -390,18 +405,13 @@ function extractVideoUrlFromContent(content: string): string | undefined {
   }
 
   const iframeMatch = content.match(/<iframe[^>]+src="([^"]+)"/i)
-  if (iframeMatch) {
+  if (iframeMatch && /youtube|youtu\.be|vimeo|mp4|webm|mov/i.test(iframeMatch[1] || "")) {
     return iframeMatch[1]
   }
 
   const videoMatch = content.match(/src="([^"]+\.(mp4|webm|mov))"/i)
   if (videoMatch) {
     return videoMatch[1]
-  }
-
-  const genericUrlMatch = content.match(/https?:\/\/[^\s<>()\[\]"']+/i)
-  if (genericUrlMatch) {
-    return genericUrlMatch[0].replace(/[.,;)]+$/, "")
   }
 
   return undefined

@@ -3,6 +3,7 @@
 import { act, createElement, useEffect } from "react"
 import { createRoot } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { encodeAddress } from "snstr"
 
 import type { ContentItem, NostrEvent } from "@/data/types"
 import { useCatalogNoteRepair } from "@/hooks/useCatalogNoteRepair"
@@ -143,6 +144,52 @@ describe("useCatalogNoteRepair", () => {
     await flushEffects()
 
     expect(fetchByIdsSpy).toHaveBeenCalledTimes(1)
+    mounted.unmount()
+  })
+
+  it("repairs unresolved items whose stored noteId is an naddr reference", async () => {
+    const naddr = encodeAddress({
+      identifier: "resource-1",
+      kind: 30023,
+      pubkey: RESOURCE_EVENT.pubkey,
+    })
+
+    const fetchByDTagsSpy = vi.spyOn(NostrFetchService, "fetchEventsByDTags").mockResolvedValue(new Map())
+    const fetchByIdsSpy = vi.spyOn(NostrFetchService, "fetchEventsByIds").mockResolvedValue(new Map())
+    vi.spyOn(NostrFetchService, "fetchEventsByFilters").mockResolvedValue([RESOURCE_EVENT])
+
+    const items: ContentItem[] = [
+      {
+        id: "resource-1",
+        type: "document",
+        title: "Document resource-1",
+        description: "",
+        category: "general",
+        instructor: "Author",
+        instructorPubkey: "",
+        rating: 4.5,
+        isPremium: false,
+        price: 0,
+        currency: "sats",
+        image: undefined,
+        published: true,
+        tags: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        topics: [],
+        additionalLinks: [],
+        noteId: naddr,
+        noteResolved: false,
+      },
+    ]
+
+    const mounted = mountHook(items)
+    await flushEffects()
+
+    expect(fetchByDTagsSpy).toHaveBeenCalledTimes(1)
+    expect(fetchByIdsSpy).not.toHaveBeenCalled()
+    expect(mounted.getItems()[0].title).toBe("Resolved Resource")
+
     mounted.unmount()
   })
 })
