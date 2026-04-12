@@ -487,6 +487,8 @@ export interface ContentItem {
   noteId?: string
   // Nostr addressable event reference (`kind:pubkey:d`) for interaction lookups
   noteATag?: string
+  // Whether the UI has successfully resolved a Nostr note for this item.
+  noteResolved?: boolean
   // Search-related fields
   matchedFields?: ('title' | 'description' | 'content' | 'tags')[]
   purchases?: Array<{

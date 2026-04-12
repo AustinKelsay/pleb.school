@@ -110,6 +110,7 @@ export interface ResourceSnapshot {
   id: string
   userId: string
   price: number
+  noteId: string | null
   user: ResourceSnapshotUser | null
   lessons: ResourceSnapshotLesson[]
   purchases: ResourceSnapshotPurchase[]
@@ -771,6 +772,7 @@ export class ResourceAdapter {
       id: resource.id,
       userId: resource.userId,
       price: resource.price,
+      noteId: resource.noteId,
       user: resource.user
         ? {
             id: resource.user.id,

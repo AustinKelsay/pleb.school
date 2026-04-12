@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import { type AddressData, type EventData, type NostrEvent } from 'snstr'
+import { type NostrEvent } from 'snstr'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,7 @@ import type { ZapInsights, ZapReceiptSummary } from '@/hooks/useInteractions'
 import { useNostr, type NormalizedProfile } from '@/hooks/useNostr'
 import { useProfileSummary } from '@/hooks/useProfileSummary'
 import { extractVideoBodyMarkdown } from '@/lib/content-utils'
+import { fetchResourceEventOnClient } from '@/lib/resource-event-resolution'
 import { getRelays } from '@/lib/nostr-relays'
 import { profileSummaryFromUser, resolvePreferredDisplayName } from '@/lib/profile-display'
 import { extractRelayHintsFromDecodedData } from '@/lib/relay-hints'
@@ -63,6 +64,7 @@ const EMPTY_RESOURCE_META: ResourceContentInitialMeta = {
   serverIsOwner: false,
   unlockedViaCourse: false,
   unlockingCourseId: null,
+  resourceNoteId: null,
 }
 
 export interface ResourceContentViewProps {
@@ -149,6 +151,7 @@ export function ResourceContentView({
     () => initialProfileSummary ?? profileSummaryFromUser(resourceMeta?.resourceUser),
     [initialProfileSummary, resourceMeta?.resourceUser]
   )
+  const fallbackNoteId = resourceMeta?.resourceNoteId ?? initialMeta?.resourceNoteId ?? null
   const shouldLoadAuthorProfile =
     socialReady &&
     Boolean(resolvedAuthorPubkey) &&
@@ -194,53 +197,8 @@ export function ResourceContentView({
         setLoading(true)
         setError(null)
 
-        let nostrEvent: NostrEvent | null = null
-        const resolved = resolvedIdentifier
-
-        if (!resolved) {
-          if (!cancelled) {
-            setError('Unsupported identifier')
-            setLoading(false)
-          }
-          return
-        }
-
-        if (resolved.idType === 'nevent' && resolved.decodedData && typeof resolved.decodedData === 'object') {
-          if ('id' in resolved.decodedData) {
-            const eventData = resolved.decodedData as EventData
-            nostrEvent = await fetchSingleEvent(
-              {
-                ids: [eventData.id]
-              },
-              {
-                relays: eventData.relays
-              }
-            )
-          }
-        } else if (resolved.idType === 'naddr' && resolved.decodedData && typeof resolved.decodedData === 'object') {
-          if ('identifier' in resolved.decodedData && 'kind' in resolved.decodedData) {
-            const addressData = resolved.decodedData as AddressData
-            nostrEvent = await fetchSingleEvent(
-              {
-                kinds: [addressData.kind],
-                '#d': [addressData.identifier],
-                authors: addressData.pubkey ? [addressData.pubkey] : undefined
-              },
-              {
-                relays: addressData.relays
-              }
-            )
-          }
-        } else if (resolved.idType === 'note' || resolved.idType === 'hex') {
-          nostrEvent = await fetchSingleEvent({
-            ids: [resolved.resolvedId]
-          })
-        } else {
-          nostrEvent = await fetchSingleEvent({
-            kinds: [30023, 30402, 30403],
-            '#d': [resolved.resolvedId]
-          })
-        }
+        const lookup = await fetchResourceEventOnClient(resourceId, fetchSingleEvent, fallbackNoteId)
+        const nostrEvent = lookup.event
 
         if (cancelled) return
 
@@ -249,7 +207,7 @@ export function ResourceContentView({
           return
         }
 
-        setError('Resource not found')
+        setError(lookup.error ?? 'Resource not found')
       } catch (err) {
         console.error('Error fetching Nostr event:', err)
         if (!cancelled) {
@@ -267,7 +225,7 @@ export function ResourceContentView({
     return () => {
       cancelled = true
     }
-  }, [fetchSingleEvent, initialEvent, resolvedIdentifier])
+  }, [fallbackNoteId, fetchSingleEvent, initialEvent, resourceId, resolvedIdentifier])
 
   useEffect(() => {
     if (initialMeta === undefined) {

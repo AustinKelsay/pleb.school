@@ -7,6 +7,7 @@ export interface ResourceContentInitialMeta {
   serverIsOwner: boolean
   unlockedViaCourse: boolean
   unlockingCourseId: string | null
+  resourceNoteId: string | null
 }
 
 const RESOURCE_ID_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -51,6 +52,7 @@ function parseResourceContentInitialMeta(
     serverIsOwner: isOwner,
     unlockedViaCourse: unlockedByCourse,
     unlockingCourseId: fromCourseId || null,
+    resourceNoteId: typeof data?.noteId === "string" ? data.noteId : null,
   }
 }
 

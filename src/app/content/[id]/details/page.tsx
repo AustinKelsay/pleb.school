@@ -19,7 +19,7 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
     viewerUserId: session?.user?.id ?? null,
   })
 
-  if (shouldNotFound || !event) {
+  if (shouldNotFound) {
     notFound()
   }
 

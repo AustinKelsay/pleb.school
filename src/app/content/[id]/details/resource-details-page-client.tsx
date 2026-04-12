@@ -14,7 +14,7 @@ import type { ResourceContentInitialMeta } from '@/app/content/components/resour
 
 interface ResourceDetailsContentProps {
   resourceId: string
-  initialEvent: NostrEvent
+  initialEvent: NostrEvent | null
   initialMeta: ResourceContentInitialMeta | null
 }
 
