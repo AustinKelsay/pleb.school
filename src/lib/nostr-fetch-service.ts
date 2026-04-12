@@ -173,103 +173,46 @@ export class NostrFetchService {
     relayPool?: RelayPool,
     relays: string[] = DEFAULT_RELAYS
   ): Promise<Map<string, NostrEvent>> {
-    const events = new Map<string, NostrEvent>()
-    
+    const normalizedRelays = relays && relays.length ? relays : getRelays('default')
+    const uniqueDTags = Array.from(
+      new Set(
+        dTags
+          .map((dTag) => dTag.trim())
+          .filter(Boolean)
+      )
+    )
+
+    if (uniqueDTags.length === 0) {
+      return new Map<string, NostrEvent>()
+    }
+
     try {
-      if (!relayPool) {
-        const { RelayPool: RP } = await import('snstr')
-        const tempPool = new RP(relays)
-        
-        try {
-          const filter: any = {
-            kinds,
-            '#d': dTags
-          }
-          if (pubkey) {
-            filter.authors = [pubkey]
-          }
-          
-          await new Promise<void>((resolve) => {
-            let sub: { close: () => void }
-            
-            const timeout = setTimeout(async () => {
-              if (sub) sub.close()
-              resolve()
-            }, 5000) // 5 second timeout
-            
-            tempPool.subscribe(
-              relays,
-              [filter],
-              (event: NostrEvent) => {
-                const dTag = event.tags.find(tag => tag[0] === 'd')?.[1]
-                if (dTag) {
-                  events.set(
-                    dTag,
-                    selectPreferredEventByPriority(events.get(dTag), event, DTAG_EVENT_PRIORITY)
-                  )
-                }
-              },
-              () => {
-                clearTimeout(timeout)
-                if (sub) sub.close()
-                resolve()
-              }
-            ).then(subscription => {
-              sub = subscription
-            })
-          })
-          
-          tempPool.close()
-          return events
-        } catch (error) {
-          tempPool.close()
-          throw error
-        }
+      const fetchedEvents = relayPool
+        ? await this.fetchEventsByDTagsWithPool(relayPool, uniqueDTags, kinds, pubkey, normalizedRelays)
+        : await this.withTemporaryPool(
+            normalizedRelays,
+            (pool, activeRelays) => this.fetchEventsByDTagsWithPool(pool, uniqueDTags, kinds, pubkey, activeRelays)
+          )
+
+      if (fetchedEvents.size === uniqueDTags.length || normalizedRelays.length <= 1) {
+        return fetchedEvents
       }
-      
-      // Use provided relay pool
-      const filter: any = {
+
+      const recoveredEvents = await this.fetchEventsByDTagsAcrossRelays(
+        uniqueDTags.filter((dTag) => !fetchedEvents.has(dTag)),
         kinds,
-        '#d': dTags
-      }
-      if (pubkey) {
-        filter.authors = [pubkey]
-      }
-      
-      await new Promise<void>((resolve) => {
-        let sub: { close: () => void }
-        
-        const timeout = setTimeout(async () => {
-          if (sub) sub.close()
-          resolve()
-        }, 5000)
-        
-        relayPool.subscribe(
-        relays,
-        [filter],
-        (event: NostrEvent) => {
-          const dTag = event.tags.find(tag => tag[0] === 'd')?.[1]
-          if (dTag) {
-            events.set(
-              dTag,
-              selectPreferredEventByPriority(events.get(dTag), event, DTAG_EVENT_PRIORITY)
-            )
-          }
-        },
-        () => {
-            clearTimeout(timeout)
-            if (sub) sub.close()
-            resolve()
-          }
-        ).then(subscription => {
-          sub = subscription
-        })
-      })
-      
-      return events
+        pubkey,
+        relayPool,
+        normalizedRelays
+      )
+      recoveredEvents.forEach((event, dTag) => fetchedEvents.set(dTag, event))
+      return fetchedEvents
     } catch (error) {
       console.error('Error fetching events by d-tags:', error)
-      return events
+      if (normalizedRelays.length > 1) {
+        return this.fetchEventsByDTagsAcrossRelays(uniqueDTags, kinds, pubkey, relayPool, normalizedRelays)
+      }
+      return new Map<string, NostrEvent>()
     }
   }
 
@@ -418,6 +361,94 @@ export class NostrFetchService {
         finalize()
       })
     })
+  }
+
+  private static async fetchEventsByDTagsWithPool(
+    pool: RelayPool,
+    dTags: string[],
+    kinds: number[],
+    pubkey: string | undefined,
+    relays: string[]
+  ): Promise<Map<string, NostrEvent>> {
+    const events = new Map<string, NostrEvent>()
+    const filter: Filter = {
+      kinds,
+      '#d': dTags,
+      authors: pubkey ? [pubkey] : undefined,
+    }
+
+    return new Promise((resolve) => {
+      let sub: { close: () => void } | null = null
+      let settled = false
+
+      const finalize = () => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeout)
+        if (sub) sub.close()
+        resolve(events)
+      }
+
+      const timeout = setTimeout(finalize, 5000)
+
+      pool.subscribe(
+        relays && relays.length ? relays : getRelays('default'),
+        [filter],
+        (event: NostrEvent) => {
+          const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1]
+          if (!dTag) {
+            return
+          }
+
+          events.set(
+            dTag,
+            selectPreferredEventByPriority(events.get(dTag), event, DTAG_EVENT_PRIORITY)
+          )
+        },
+        finalize
+      ).then((subscription) => {
+        if (settled) {
+          subscription.close()
+          return
+        }
+        sub = subscription
+      }).catch(() => {
+        finalize()
+      })
+    })
+  }
+
+  private static async fetchEventsByDTagsAcrossRelays(
+    dTags: string[],
+    kinds: number[],
+    pubkey: string | undefined,
+    relayPool: RelayPool | undefined,
+    relays: string[]
+  ): Promise<Map<string, NostrEvent>> {
+    const events = new Map<string, NostrEvent>()
+    let remainingDTags = Array.from(new Set(dTags))
+
+    for (const relay of Array.from(new Set(relays))) {
+      if (remainingDTags.length === 0) {
+        break
+      }
+
+      try {
+        const relayEvents = relayPool
+          ? await this.fetchEventsByDTagsWithPool(relayPool, remainingDTags, kinds, pubkey, [relay])
+          : await this.withTemporaryPool(
+              [relay],
+              (pool, activeRelays) => this.fetchEventsByDTagsWithPool(pool, remainingDTags, kinds, pubkey, activeRelays)
+            )
+
+        relayEvents.forEach((event, dTag) => events.set(dTag, event))
+        remainingDTags = remainingDTags.filter((dTag) => !events.has(dTag))
+      } catch (error) {
+        console.error(`Error fetching Nostr events by d-tag from relay ${relay}:`, error)
+      }
+    }
+
+    return events
   }
 
   private static async withTemporaryPool<T>(
