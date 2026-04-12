@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 import { LessonAdapter } from '@/lib/db-adapter'
+import { authOptions } from '@/lib/auth'
 
 /**
  * GET /api/courses/[id]/lessons
@@ -13,7 +15,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const lessons = await LessonAdapter.findByCourseIdWithResources(id)
+    const session = await getServerSession(authOptions)
+    const lessons = await LessonAdapter.findByCourseIdWithResources(id, session?.user?.id ?? null)
 
     return NextResponse.json({ lessons })
   } catch (error) {

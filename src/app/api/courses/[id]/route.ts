@@ -87,7 +87,7 @@ export async function GET(
     }
 
     const lessonsWithResources = includeLessons
-      ? await LessonAdapter.findByCourseIdWithResources(courseId)
+      ? await LessonAdapter.findByCourseIdWithResources(courseId, session?.user?.id ?? null)
       : []
 
     return NextResponse.json({

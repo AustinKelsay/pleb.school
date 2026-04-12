@@ -512,6 +512,15 @@ export class CourseAdapter {
     return transformCourse(course)
   }
 
+  static async exists(id: string): Promise<boolean> {
+    const course = await prisma.course.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    return Boolean(course)
+  }
+
   static async findByIdWithNote(id: string): Promise<CourseWithNote | null> {
     const course = await prisma.course.findUnique({
       where: { id },
@@ -687,6 +696,15 @@ export class ResourceAdapter {
     return resource ? transformResource(resource) : null
   }
 
+  static async exists(id: string): Promise<boolean> {
+    const resource = await prisma.resource.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    return Boolean(resource)
+  }
+
   static async findByIdWithNote(id: string, userId?: string): Promise<ResourceWithNote | null> {
     const resource = await prisma.resource.findUnique({
       where: { id },
@@ -855,21 +873,117 @@ export class LessonAdapter {
    * Find lessons by course ID with their associated resources included
    * Avoids N+1 queries by fetching resources in a single query
    */
-  static async findByCourseIdWithResources(courseId: string): Promise<(Lesson & { resource?: Resource })[]> {
+  static async findByCourseIdWithResources(
+    courseId: string,
+    userId?: string | null
+  ): Promise<(Lesson & { resource?: (Resource & { requiresPurchase?: boolean; unlockedViaCourse?: boolean }) })[]> {
     const lessons = await prisma.lesson.findMany({
       where: { courseId },
       include: {
+        course: {
+          select: {
+            userId: true,
+            price: true,
+          },
+        },
         resource: {
           include: {
             user: { select: courseUserSelect },
+            ...(userId
+              ? {
+                  purchases: {
+                    where: { userId },
+                    select: {
+                      id: true,
+                      amountPaid: true,
+                      priceAtPurchase: true,
+                      createdAt: true,
+                      updatedAt: true,
+                    },
+                  },
+                }
+              : {}),
           },
         },
       },
       orderBy: { index: 'asc' }
     })
+
+    let hasCourseAccess = false
+    if (userId && lessons[0]?.course) {
+      const courseOwnerId = lessons[0].course.userId
+      const coursePrice = lessons[0].course.price ?? 0
+      const isCourseOwner = courseOwnerId === userId
+
+      if (isCourseOwner || coursePrice <= 0) {
+        hasCourseAccess = true
+      } else {
+        const [coursePurchases, userCourse] = await Promise.all([
+          prisma.purchase.findMany({
+            where: { userId, courseId },
+            select: { amountPaid: true, priceAtPurchase: true },
+          }),
+          prisma.userCourse.findUnique({
+            where: {
+              userId_courseId: {
+                userId,
+                courseId,
+              },
+            },
+            select: { courseId: true },
+          }),
+        ])
+
+        hasCourseAccess =
+          Boolean(userCourse) ||
+          coursePurchases.some((purchase) => {
+            const snapshot =
+              purchase.priceAtPurchase !== null &&
+              purchase.priceAtPurchase !== undefined &&
+              purchase.priceAtPurchase > 0
+                ? purchase.priceAtPurchase
+                : null
+            const requiredPrice =
+              snapshot !== null ? Math.min(snapshot, coursePrice) : coursePrice
+
+            return purchase.amountPaid >= requiredPrice
+          })
+      }
+    }
+
     return lessons.map(lesson => ({
       ...transformLesson(lesson),
-      resource: lesson.resource ? transformResource(lesson.resource) : undefined
+      resource: lesson.resource
+        ? (() => {
+            const lessonResource = lesson.resource
+            const resource = transformResource(lessonResource)
+            const isOwner = Boolean(userId && lessonResource.userId === userId)
+            const isPaid = (lessonResource.price ?? 0) > 0
+            const hasPurchasedResource = Array.isArray(lessonResource.purchases)
+              ? lessonResource.purchases.some((purchase) => {
+                  const snapshot =
+                    purchase.priceAtPurchase !== null &&
+                    purchase.priceAtPurchase !== undefined &&
+                    purchase.priceAtPurchase > 0
+                      ? purchase.priceAtPurchase
+                      : null
+                  const currentPrice = lessonResource.price ?? 0
+                  const requiredPrice =
+                    snapshot !== null ? Math.min(snapshot, currentPrice) : currentPrice
+
+                  return purchase.amountPaid >= requiredPrice
+                })
+              : false
+            const unlockedViaCourse = Boolean(userId && hasCourseAccess && isPaid && !isOwner && !hasPurchasedResource)
+            const requiresPurchase = Boolean(isPaid && !isOwner && !hasPurchasedResource && !unlockedViaCourse)
+
+            return {
+              ...resource,
+              requiresPurchase,
+              unlockedViaCourse,
+            }
+          })()
+        : undefined
     }))
   }
 

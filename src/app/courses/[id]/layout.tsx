@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { CourseAdapter } from '@/lib/db-adapter'
-import { parseCourseEvent } from '@/data/types'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -22,45 +21,27 @@ export async function generateMetadata(
   }
 
   try {
-    const course = await CourseAdapter.findByIdWithNote(id)
-    if (!course) {
+    const courseExists = await CourseAdapter.exists(id)
+    if (!courseExists) {
       return {
         title: 'Course Not Found | pleb.school',
         description: 'The requested course could not be found.',
       }
     }
 
-    // Parse Nostr note if available for richer metadata
-    let title = 'Course'
-    let description = 'View course on pleb.school'
-    let image: string | undefined
-
-    if (course.note) {
-      try {
-        const parsed = parseCourseEvent(course.note)
-        title = parsed.title || title
-        description = parsed.description || description
-        image = parsed.image
-      } catch {
-        // Use defaults if parsing fails
-      }
-    }
-
     const metadata: Metadata = {
-      title: `${title} | pleb.school`,
-      description: description.slice(0, 160),
+      title: 'Course | pleb.school',
+      description: 'View course on pleb.school',
       openGraph: {
-        title,
-        description: description.slice(0, 160),
+        title: 'Course',
+        description: 'View course on pleb.school',
         type: 'website',
         siteName: 'pleb.school',
-        ...(image && { images: [{ url: image }] }),
       },
       twitter: {
-        card: image ? 'summary_large_image' : 'summary',
-        title,
-        description: description.slice(0, 160),
-        ...(image && { images: [image] }),
+        card: 'summary',
+        title: 'Course',
+        description: 'View course on pleb.school',
       },
     }
 

@@ -13,28 +13,29 @@ export interface ViewsTextProps extends React.HTMLAttributes<HTMLSpanElement> {
   label?: boolean
   track?: boolean
   dedupe?: "session" | "day" | false
+  enabled?: boolean
+  count?: number | null
 }
 
-export function ViewsText({
-  ns,
-  id,
-  keyOverride,
+function formatCount(count: number | null | undefined, notation: Notation) {
+  const value = typeof count === "number" ? count : 0
+  return new Intl.NumberFormat(undefined, {
+    notation: notation === "compact" ? "compact" : undefined,
+    maximumFractionDigits: 1,
+  }).format(value)
+}
+
+function StaticViewsText({
   notation = "standard",
   label = true,
-  track = true,
-  dedupe = "session",
+  count,
   className,
   ...rest
 }: ViewsTextProps) {
-  const { count } = useViews({ ns, id, key: keyOverride, track, dedupe })
-
-  const formatted = React.useMemo(() => {
-    const value = typeof count === "number" ? count : 0
-    return new Intl.NumberFormat(undefined, {
-      notation: notation === "compact" ? "compact" : undefined,
-      maximumFractionDigits: 1,
-    }).format(value)
-  }, [count, notation])
+  const formatted = React.useMemo(
+    () => formatCount(count, notation),
+    [count, notation]
+  )
 
   return (
     <span className={className} {...rest}>
@@ -44,3 +45,34 @@ export function ViewsText({
   )
 }
 
+function TrackedViewsText({
+  ns,
+  id,
+  keyOverride,
+  notation = "standard",
+  label = true,
+  enabled = true,
+  track = true,
+  dedupe = "session",
+  className,
+  ...rest
+}: Omit<ViewsTextProps, "count">) {
+  const { count } = useViews({ ns, id, key: keyOverride, track, dedupe, enabled })
+
+  const formatted = React.useMemo(() => formatCount(count, notation), [count, notation])
+
+  return (
+    <span className={className} {...rest}>
+      {formatted}
+      {label ? " views" : null}
+    </span>
+  )
+}
+
+export function ViewsText(props: ViewsTextProps) {
+  if (Object.prototype.hasOwnProperty.call(props, "count")) {
+    return <StaticViewsText {...props} />
+  }
+
+  return <TrackedViewsText {...props} />
+}
