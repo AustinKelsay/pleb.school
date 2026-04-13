@@ -50,3 +50,53 @@ describe("NostrFetchService.fetchEventsByDTags", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 })
+
+describe("NostrFetchService.fetchEventsByIds", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("chunks note-id batches so large resource catalogs do not miss events", async () => {
+    const service = NostrFetchService as any
+    const targetEvent: NostrEvent = {
+      ...D_TAG_EVENT,
+      id: "target-event",
+      tags: [],
+    }
+
+    vi.spyOn(service, "withTemporaryPool").mockImplementation(
+      async (...args: any[]) => args[1]({}, args[0])
+    )
+
+    const fetchSpy = vi.spyOn(service, "fetchMultipleWithPool").mockImplementation(
+      async (_pool: unknown, eventIds: string[]) => {
+        if (eventIds.length > 10) {
+          return new Map()
+        }
+
+        const events = new Map<string, NostrEvent>()
+        eventIds.forEach((eventId) => {
+          events.set(eventId, {
+            ...targetEvent,
+            id: eventId,
+          })
+        })
+        return events
+      }
+    )
+
+    const eventIds = Array.from({ length: 11 }, (_, index) =>
+      `${(index + 1).toString(16).padStart(64, "0")}`
+    )
+
+    const result = await NostrFetchService.fetchEventsByIds(
+      eventIds,
+      undefined,
+      ["wss://nos.lol", "wss://relay.damus.io"]
+    )
+
+    expect(result.size).toBe(eventIds.length)
+    expect(result.get(eventIds[10])?.id).toBe(eventIds[10])
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+})
