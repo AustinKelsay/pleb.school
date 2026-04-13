@@ -6,7 +6,7 @@ import {
 } from "@/data/types"
 import { getEventATag } from "@/lib/nostr-a-tag"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
-import { fetchEventsByReferences } from "@/lib/note-reference-resolution"
+import { fetchEventFromReference, fetchEventsByReferences } from "@/lib/note-reference-resolution"
 import { getNoteImage } from "@/lib/note-image"
 
 export interface CatalogNoteEntity {
@@ -75,6 +75,31 @@ export async function resolveCatalogEventsByIdentity(
         eventsByEntityId.set(entity.id, event)
       }
     })
+  }
+
+  const remainingFallbackEntities = normalizedEntities.filter(
+    (entity) => !eventsByEntityId.has(entity.id) && Boolean(entity.noteId)
+  )
+
+  if (remainingFallbackEntities.length > 0) {
+    const priorityConfig = kinds.includes(30004) ? COURSE_EVENT_PRIORITY : RESOURCE_EVENT_PRIORITY
+
+    await Promise.all(
+      remainingFallbackEntities.map(async (entity) => {
+        if (!entity.noteId || eventsByEntityId.has(entity.id)) {
+          return
+        }
+
+        const event = await fetchEventFromReference(entity.noteId, {
+          allowedKinds: kinds,
+          priorityConfig,
+        })
+
+        if (event) {
+          eventsByEntityId.set(entity.id, event)
+        }
+      })
+    )
   }
 
   return {

@@ -3,6 +3,7 @@ import { encodeAddress } from "snstr"
 
 import { resolveCatalogEventsByIdentity, applyResolvedNoteToContentItem } from "@/lib/content-note-resolution"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
+import * as noteReferenceResolution from "@/lib/note-reference-resolution"
 import type { ContentItem, NostrEvent } from "@/data/types"
 
 const COURSE_EVENT: NostrEvent = {
@@ -83,6 +84,20 @@ describe("resolveCatalogEventsByIdentity", () => {
 
     const result = await resolveCatalogEventsByIdentity(
       [{ id: "resource-1", noteId: RESOURCE_EVENT.id, type: "video" }],
+      [30023, 30402, 30403]
+    )
+
+    expect(result.eventsByEntityId.get("resource-1")).toEqual(RESOURCE_EVENT)
+    expect(result.unresolvedEntityIds.size).toBe(0)
+  })
+
+  it("uses single-reference fallback when batched note lookups still miss", async () => {
+    vi.spyOn(NostrFetchService, "fetchEventsByDTags").mockResolvedValue(new Map())
+    vi.spyOn(NostrFetchService, "fetchEventsByIds").mockResolvedValue(new Map())
+    vi.spyOn(noteReferenceResolution, "fetchEventFromReference").mockResolvedValue(RESOURCE_EVENT)
+
+    const result = await resolveCatalogEventsByIdentity(
+      [{ id: "resource-1", noteId: RESOURCE_EVENT.id, type: "document" }],
       [30023, 30402, 30403]
     )
 
