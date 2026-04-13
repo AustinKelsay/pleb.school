@@ -11,6 +11,7 @@ import {
 import { DEFAULT_RELAYS, getRelays } from './nostr-relays'
 
 const HEX_64_REGEX = /^[0-9a-f]{64}$/i
+const EVENT_ID_BATCH_SIZE = 10
 const DTAG_EVENT_PRIORITY: EventPriorityConfig = {
   30004: 4,
   30023: 3,
@@ -106,10 +107,10 @@ export class NostrFetchService {
 
     try {
       const fetchedEvents = relayPool
-        ? await this.fetchMultipleWithPool(relayPool, uniqueEventIds, normalizedRelays)
+        ? await this.fetchEventsByIdsWithPoolBatched(relayPool, uniqueEventIds, normalizedRelays)
         : await this.withTemporaryPool(
             normalizedRelays,
-            (pool, activeRelays) => this.fetchMultipleWithPool(pool, uniqueEventIds, activeRelays)
+            (pool, activeRelays) => this.fetchEventsByIdsWithPoolBatched(pool, uniqueEventIds, activeRelays)
           )
 
       if (fetchedEvents.size === uniqueEventIds.length || normalizedRelays.length <= 1) {
@@ -147,10 +148,10 @@ export class NostrFetchService {
 
       try {
         const relayEvents = relayPool
-          ? await this.fetchMultipleWithPool(relayPool, remainingEventIds, [relay])
+          ? await this.fetchEventsByIdsWithPoolBatched(relayPool, remainingEventIds, [relay])
           : await this.withTemporaryPool(
               [relay],
-              (pool, activeRelays) => this.fetchMultipleWithPool(pool, remainingEventIds, activeRelays)
+              (pool, activeRelays) => this.fetchEventsByIdsWithPoolBatched(pool, remainingEventIds, activeRelays)
             )
 
         relayEvents.forEach((event, eventId) => events.set(eventId, event))
@@ -318,6 +319,26 @@ export class NostrFetchService {
         sub = subscription
       })
     })
+  }
+
+  /**
+   * Some relays drop or truncate large `ids` filters. Chunking keeps legacy note-id
+   * recovery reliable for homepage/content catalog hydration and client repair.
+   */
+  private static async fetchEventsByIdsWithPoolBatched(
+    pool: RelayPool,
+    eventIds: string[],
+    relays: string[] = getRelays('default')
+  ): Promise<Map<string, NostrEvent>> {
+    const events = new Map<string, NostrEvent>()
+
+    for (let index = 0; index < eventIds.length; index += EVENT_ID_BATCH_SIZE) {
+      const batch = eventIds.slice(index, index + EVENT_ID_BATCH_SIZE)
+      const batchEvents = await this.fetchMultipleWithPool(pool, batch, relays)
+      batchEvents.forEach((event, eventId) => events.set(eventId, event))
+    }
+
+    return events
   }
 
   private static async fetchByFiltersWithPool(
