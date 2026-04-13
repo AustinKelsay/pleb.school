@@ -12,6 +12,7 @@ import { getNoteImage } from "@/lib/note-image"
 export interface CatalogNoteEntity {
   id: string
   noteId?: string | null
+  authorPubkey?: string | null
   type: ContentItem["type"]
 }
 
@@ -30,6 +31,48 @@ const RESOURCE_EVENT_PRIORITY = {
   30403: 1,
 } as const
 
+function getCatalogPriorityConfig(kinds: number[]) {
+  return kinds.includes(30004) ? COURSE_EVENT_PRIORITY : RESOURCE_EVENT_PRIORITY
+}
+
+async function fetchCatalogEventsByScopedDTag(
+  entities: Array<CatalogNoteEntity & { noteId?: string; authorPubkey?: string }>,
+  kinds: number[]
+): Promise<Map<string, NostrEvent>> {
+  const eventsByEntityId = new Map<string, NostrEvent>()
+  const entitiesByPubkey = new Map<string, Array<CatalogNoteEntity & { noteId?: string; authorPubkey?: string }>>()
+
+  entities.forEach((entity) => {
+    const pubkeyKey = entity.authorPubkey ?? ""
+    const group = entitiesByPubkey.get(pubkeyKey) ?? []
+    group.push(entity)
+    entitiesByPubkey.set(pubkeyKey, group)
+  })
+
+  await Promise.all(
+    Array.from(entitiesByPubkey.entries()).map(async ([pubkeyKey, group]) => {
+      const dTagIds = group.map((entity) => entity.id)
+      if (dTagIds.length === 0) {
+        return
+      }
+
+      const scopedEvents = await NostrFetchService.fetchEventsByDTags(
+        dTagIds,
+        kinds,
+        pubkeyKey || undefined
+      )
+
+      scopedEvents.forEach((event, dTag) => {
+        if (group.some((entity) => entity.id === dTag)) {
+          eventsByEntityId.set(dTag, event)
+        }
+      })
+    })
+  )
+
+  return eventsByEntityId
+}
+
 export async function resolveCatalogEventsByIdentity(
   entities: CatalogNoteEntity[],
   kinds: number[]
@@ -41,15 +84,15 @@ export async function resolveCatalogEventsByIdentity(
           ...entity,
           id: entity.id.trim(),
           noteId: entity.noteId?.trim() || undefined,
+          authorPubkey: entity.authorPubkey?.trim().toLowerCase() || undefined,
         }))
         .filter((entity) => entity.id.length > 0)
         .map((entity) => [entity.id, entity])
     ).values()
   )
 
-  const dTagIds = normalizedEntities.map((entity) => entity.id)
-  const eventsByEntityId = dTagIds.length > 0
-    ? await NostrFetchService.fetchEventsByDTags(dTagIds, kinds)
+  const eventsByEntityId = normalizedEntities.length > 0
+    ? await fetchCatalogEventsByScopedDTag(normalizedEntities, kinds)
     : new Map<string, NostrEvent>()
 
   const fallbackEntities = normalizedEntities.filter(
@@ -61,7 +104,7 @@ export async function resolveCatalogEventsByIdentity(
       Array.from(new Set(fallbackEntities.flatMap((entity) => (entity.noteId ? [entity.noteId] : [])))),
       {
         allowedKinds: kinds,
-        priorityConfig: kinds.includes(30004) ? COURSE_EVENT_PRIORITY : RESOURCE_EVENT_PRIORITY,
+        priorityConfig: getCatalogPriorityConfig(kinds),
       }
     )
 
@@ -82,7 +125,7 @@ export async function resolveCatalogEventsByIdentity(
   )
 
   if (remainingFallbackEntities.length > 0) {
-    const priorityConfig = kinds.includes(30004) ? COURSE_EVENT_PRIORITY : RESOURCE_EVENT_PRIORITY
+    const priorityConfig = getCatalogPriorityConfig(kinds)
 
     await Promise.all(
       remainingFallbackEntities.map(async (entity) => {

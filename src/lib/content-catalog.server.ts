@@ -207,6 +207,7 @@ export async function getContentCatalogData({
           courses.map((course) => ({
             id: course.id,
             noteId: course.noteId,
+            authorPubkey: course.user?.pubkey,
             type: "course",
           })),
           COURSE_NOTE_KINDS
@@ -220,6 +221,7 @@ export async function getContentCatalogData({
           resources.map((resource) => ({
             id: resource.id,
             noteId: resource.noteId,
+            authorPubkey: resource.user?.pubkey,
             type: getFallbackResourceType(resource),
           })),
           RESOURCE_NOTE_KINDS
