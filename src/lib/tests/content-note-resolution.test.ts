@@ -39,6 +39,16 @@ const RESOURCE_EVENT: NostrEvent = {
   sig: "f".repeat(128),
 }
 
+const FOREIGN_RESOURCE_EVENT: NostrEvent = {
+  id: "9".repeat(64),
+  pubkey: "8".repeat(64),
+  created_at: 1_700_000_010,
+  kind: 30023,
+  tags: [["d", "resource-1"]],
+  content: "",
+  sig: "7".repeat(128),
+}
+
 const VIDEO_TAG_ONLY_RESOURCE_EVENT: NostrEvent = {
   id: "1".repeat(64),
   pubkey: "2".repeat(64),
@@ -74,6 +84,39 @@ describe("resolveCatalogEventsByIdentity", () => {
     expect(result.eventsByEntityId.get("course-1")).toEqual(COURSE_EVENT)
     expect(result.unresolvedEntityIds.size).toBe(0)
     expect(fetchByIdsSpy).not.toHaveBeenCalled()
+  })
+
+  it("scopes d-tag lookups by author pubkey to avoid foreign event collisions", async () => {
+    const fetchByDTagsSpy = vi.spyOn(NostrFetchService, "fetchEventsByDTags").mockImplementation(
+      async (_dTags, _kinds, pubkey) => {
+        if (pubkey === RESOURCE_EVENT.pubkey) {
+          return new Map([["resource-1", RESOURCE_EVENT]])
+        }
+
+        return new Map([["resource-1", FOREIGN_RESOURCE_EVENT]])
+      }
+    )
+    const fetchByIdsSpy = vi.spyOn(NostrFetchService, "fetchEventsByIds").mockResolvedValue(new Map())
+
+    const result = await resolveCatalogEventsByIdentity(
+      [{
+        id: "resource-1",
+        noteId: RESOURCE_EVENT.id,
+        authorPubkey: RESOURCE_EVENT.pubkey,
+        type: "document",
+      }],
+      [30023, 30402, 30403]
+    )
+
+    expect(fetchByDTagsSpy).toHaveBeenCalledTimes(1)
+    expect(fetchByDTagsSpy).toHaveBeenCalledWith(
+      ["resource-1"],
+      [30023, 30402, 30403],
+      RESOURCE_EVENT.pubkey
+    )
+    expect(fetchByIdsSpy).not.toHaveBeenCalled()
+    expect(result.eventsByEntityId.get("resource-1")).toEqual(RESOURCE_EVENT)
+    expect(result.unresolvedEntityIds.size).toBe(0)
   })
 
   it("falls back to noteId when d-tag lookup misses", async () => {
