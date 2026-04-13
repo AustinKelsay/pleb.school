@@ -69,7 +69,8 @@ describe("NostrFetchService.fetchEventsByIds", () => {
     )
 
     const fetchSpy = vi.spyOn(service, "fetchMultipleWithPool").mockImplementation(
-      async (_pool: unknown, eventIds: string[]) => {
+      async (...args: any[]) => {
+        const eventIds = args[1] as string[]
         if (eventIds.length > 10) {
           return new Map()
         }
