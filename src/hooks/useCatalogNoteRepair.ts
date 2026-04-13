@@ -3,7 +3,7 @@ import type { NostrEvent } from "snstr"
 
 import type { ContentItem } from "@/data/types"
 import { applyResolvedNoteToContentItem } from "@/lib/content-note-resolution"
-import { fetchEventsByReferences } from "@/lib/note-reference-resolution"
+import { fetchEventFromReference, fetchEventsByReferences } from "@/lib/note-reference-resolution"
 import { NostrFetchService } from "@/lib/nostr-fetch-service"
 import { getRelays } from "@/lib/nostr-relays"
 
@@ -44,12 +44,13 @@ export function useCatalogNoteRepair(items: ContentItem[]): ContentItem[] {
     let cancelled = false
 
     const repairItems = async () => {
+      const relays = getRelays("default")
       const eventsByDTag = await NostrFetchService.fetchEventsByDTags(
         unresolvedItems.map((item) => item.id),
         CATALOG_NOTE_KINDS,
         undefined,
         undefined,
-        getRelays("default")
+        relays
       )
 
       const fallbackItems = unresolvedItems.filter((item) => !eventsByDTag.has(item.id) && item.noteId)
@@ -59,10 +60,35 @@ export function useCatalogNoteRepair(items: ContentItem[]): ContentItem[] {
             {
               allowedKinds: CATALOG_NOTE_KINDS,
               priorityConfig: CATALOG_EVENT_PRIORITY,
-              relays: getRelays("default"),
+              relays,
             }
           )
         : new Map<string, NostrEvent>()
+
+      const remainingFallbackItems = fallbackItems.filter(
+        (item) => item.noteId && !eventsByNoteId.has(item.noteId)
+      )
+      const eventsBySingleReference = new Map<string, NostrEvent>()
+
+      if (remainingFallbackItems.length > 0) {
+        await Promise.all(
+          remainingFallbackItems.map(async (item) => {
+            if (!item.noteId) {
+              return
+            }
+
+            const event = await fetchEventFromReference(item.noteId, {
+              allowedKinds: CATALOG_NOTE_KINDS,
+              priorityConfig: CATALOG_EVENT_PRIORITY,
+              relays,
+            })
+
+            if (event) {
+              eventsBySingleReference.set(item.noteId, event)
+            }
+          })
+        )
+      }
 
       if (cancelled) {
         return
@@ -74,7 +100,7 @@ export function useCatalogNoteRepair(items: ContentItem[]): ContentItem[] {
         unresolvedItems.forEach((item) => {
           const note =
             eventsByDTag.get(item.id) ??
-            (item.noteId ? eventsByNoteId.get(item.noteId) : undefined)
+            (item.noteId ? eventsByNoteId.get(item.noteId) ?? eventsBySingleReference.get(item.noteId) : undefined)
 
           if (note) {
             next.set(item.id, applyResolvedNoteToContentItem(item, note))
